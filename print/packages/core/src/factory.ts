@@ -77,26 +77,14 @@ export function createDocument(options: CreateDocumentOptions = {}): PrintDocume
   return document
 }
 
-/** 收集文档中已使用的页面与元素标识。 */
+/**
+ * 收集文档中已使用的页面与元素标识。新标识交给 @xihan-ui/designer-kit 分配：
+ * 单个用 `nextFreeId('text-', collectDocumentIds(document))`，批量粘贴用 `createIdAllocator`。
+ */
 export function collectDocumentIds(document: PrintDocument): Set<string> {
   const ids = new Set<string>()
   for (const page of document.pages)
     ids.add(page.id)
   forEachElement(document, location => ids.add(location.element.id))
   return ids
-}
-
-/** 生成文档内未被页面和元素使用的标识，形如 `${prefix}-${n}`，n 取已用最大序号加一。 */
-export function createUniqueId(document: PrintDocument, prefix: string): string {
-  const ids = collectDocumentIds(document)
-  const head = `${prefix}-`
-  let max = 0
-  for (const id of ids) {
-    if (!id.startsWith(head))
-      continue
-    const rest = id.slice(head.length)
-    if (/^[1-9]\d*$/.test(rest))
-      max = Math.max(max, Number(rest))
-  }
-  return `${prefix}-${max + 1}`
 }

@@ -522,7 +522,7 @@ describe('随机操作序列', () => {
     const pick = <T>(items: readonly T[]): T => items[Math.floor(next() * items.length)] as T
     const original = sample()
     let doc = original
-    const inverses: PrintOperation[][] = []
+    const inverses: (readonly PrintOperation[])[] = []
     let created = 0
 
     for (let step = 0; step < 200; step++) {
