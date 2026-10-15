@@ -6,7 +6,6 @@
 // 导出 @xihan-print/core 的公共接口。
 
 export * from './factory'
-export * from './field-path'
 export * from './geometry'
 export { MIN_SHRINK_FONT_SIZE, SHRINK_FONT_STEP } from './layout/boxes'
 export { DEFAULT_MAX_SHEETS, paginate } from './layout/paginate'
@@ -25,7 +24,6 @@ export * from './schema/document'
 export * from './schema/elements'
 export * from './schema/options'
 export * from './schema/table'
-export * from './text-template'
 export * from './traverse'
 export { isValidColor } from './validation/checks'
 export type {

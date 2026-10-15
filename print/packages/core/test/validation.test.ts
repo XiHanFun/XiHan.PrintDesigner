@@ -301,6 +301,16 @@ describe('元素通用规则', () => {
 })
 
 describe('内容来源与格式', () => {
+  it('字段路径与模板占位的写法同 core/json：下标写成 [0]，中文键与 $ 开头的名字可直接写', () => {
+    const fields = ['items[0].qty', '客户.名称', '$page', 'row["unit price"]', 'items.0.qty']
+    const elements = fields.map((field, index) => element('text', `f${index}`, { content: { kind: 'field', field } }))
+    elements.push(element('text', 't', { content: { kind: 'template', template: '{{items[0].qty}} {{items.0.qty}}' } }))
+    expect(issuesOf(withBody(...elements))).toEqual([
+      'field.invalidPath@pages.0.elements.4.content.field',
+      'template.invalidPath@pages.0.elements.5.content.template',
+    ])
+  })
+
   it('文本内容的三种来源', () => {
     const missingKind = element('text', 'a', { content: { text: 'x' } })
     const badKind = element('text', 'b', { content: { kind: 'html', html: '<b>' } })
