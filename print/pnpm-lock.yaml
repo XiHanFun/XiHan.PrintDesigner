@@ -29,6 +29,7 @@ catalogs:
       version: 4.1.11
 
 overrides:
+  '@xihan-ui/designer-kit': link:../../XiHan.UI/ui/packages/features/designer-kit
   '@xihan-ui/expression': link:../../XiHan.UI/ui/packages/features/expression
   '@xihan-ui/headless': link:../../XiHan.UI/ui/packages/engine/headless
 
@@ -60,6 +61,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@xihan-ui/designer-kit':
+        specifier: link:../../../../XiHan.UI/ui/packages/features/designer-kit
+        version: link:../../../../XiHan.UI/ui/packages/features/designer-kit
       '@xihan-ui/expression':
         specifier: link:../../../../XiHan.UI/ui/packages/features/expression
         version: link:../../../../XiHan.UI/ui/packages/features/expression
