@@ -4,6 +4,7 @@
  */
 
 import type { Rect } from '@xihan-ui/designer-kit'
+import type { PropertyCondition } from '@xihan-ui/designer-kit/properties'
 import type { Stroke, TextStyle } from '../schema/common'
 import type {
   BarCodeElement,
@@ -34,7 +35,7 @@ import {
   validateShapeRules,
   validateTableRules,
 } from '../validation/element-rules'
-import { behaviorProperties, boxProperties, layoutProperties, property, textStyleProperties } from './properties'
+import { behaviorProperties, boxProperties, choices, layoutProperties, property, textStyleProperties } from './properties'
 
 function defaultTextStyle(overrides: Partial<TextStyle> = {}): TextStyle {
   return {
@@ -122,7 +123,7 @@ function textPrototype(): ElementPrototype<TextElement> {
       property(['content'], 'content', { kind: 'textContent' }),
       ...textStyleProperties(),
       property(['wrap'], 'text', { kind: 'boolean' }),
-      property(['overflow'], 'text', { kind: 'select', options: TEXT_OVERFLOWS }),
+      property(['overflow'], 'text', { kind: 'select', options: choices(TEXT_OVERFLOWS) }),
       ...boxProperties(),
       ...behaviorProperties(),
     ],
@@ -170,7 +171,7 @@ function pageNumberPrototype(): ElementPrototype<PageNumberElement> {
     properties: [
       ...layoutProperties({ rotation: false }),
       property(['format'], 'content', { kind: 'pageNumberFormat' }),
-      property(['numeral'], 'content', { kind: 'select', options: NUMERAL_STYLES }, { required: false }),
+      property(['numeral'], 'content', { kind: 'select', options: choices(NUMERAL_STYLES) }, { optional: true }),
       ...textStyleProperties(),
       ...boxProperties(),
       ...behaviorProperties(),
@@ -196,7 +197,7 @@ function imagePrototype(): ElementPrototype<ImageElement> {
     properties: [
       ...layoutProperties({ rotation: true }),
       property(['source'], 'content', { kind: 'imageSource' }),
-      property(['fit'], 'appearance', { kind: 'select', options: IMAGE_FITS }),
+      property(['fit'], 'appearance', { kind: 'select', options: choices(IMAGE_FITS) }),
       ...boxProperties(),
       ...behaviorProperties(),
     ],
@@ -204,7 +205,7 @@ function imagePrototype(): ElementPrototype<ImageElement> {
 }
 
 function tablePrototype(): ElementPrototype<TableElement> {
-  const visible = { path: ['header', 'visible'], equals: [true] }
+  const visible: PropertyCondition = { path: ['header', 'visible'], equals: true }
   return {
     type: 'table',
     category: 'data',
@@ -237,14 +238,14 @@ function tablePrototype(): ElementPrototype<TableElement> {
       property(['dataField'], 'data', { kind: 'field', target: 'list' }),
       property(['columns'], 'table', { kind: 'tableColumns' }),
       property(['header', 'visible'], 'table', { kind: 'boolean' }),
-      property(['header', 'repeat'], 'table', { kind: 'boolean' }, { when: visible }),
-      property(['header', 'height'], 'table', { kind: 'number', unit: 'mm', exclusiveMin: 0, step: 0.1 }, { when: visible }),
-      property(['header', 'style'], 'table', { kind: 'cellStyle' }, { when: visible }),
+      property(['header', 'repeat'], 'table', { kind: 'boolean' }, { visibleWhen: visible }),
+      property(['header', 'height'], 'table', { kind: 'number', unit: 'mm', exclusiveMin: 0, step: 0.1 }, { visibleWhen: visible }),
+      property(['header', 'style'], 'table', { kind: 'cellStyle' }, { visibleWhen: visible }),
       property(['body', 'rowHeight'], 'table', { kind: 'number', unit: 'mm', exclusiveMin: 0, step: 0.1 }),
-      property(['body', 'rowHeightMode'], 'table', { kind: 'select', options: TABLE_ROW_HEIGHT_MODES }),
+      property(['body', 'rowHeightMode'], 'table', { kind: 'select', options: choices(TABLE_ROW_HEIGHT_MODES) }),
       property(['body', 'style'], 'table', { kind: 'cellStyle' }),
       property(['footerRows'], 'table', { kind: 'tableFooterRows' }),
-      property(['maxRowsPerPage'], 'table', { kind: 'number', unit: 'count', min: 1, step: 1, integer: true }, { required: false }),
+      property(['maxRowsPerPage'], 'table', { kind: 'number', unit: 'count', min: 1, step: 1, integer: true }, { optional: true }),
       property(['fillEmptyRows'], 'table', { kind: 'boolean' }),
       property(['border', 'stroke'], 'appearance', { kind: 'stroke' }),
       property(['border', 'outer'], 'appearance', { kind: 'boolean' }),
@@ -273,7 +274,7 @@ function linePrototype(): ElementPrototype<LineElement> {
     },
     properties: [
       ...layoutProperties({ rotation: false }),
-      property(['direction'], 'appearance', { kind: 'select', options: LINE_DIRECTIONS }),
+      property(['direction'], 'appearance', { kind: 'select', options: choices(LINE_DIRECTIONS) }),
       property(['stroke'], 'appearance', { kind: 'stroke' }),
       ...behaviorProperties(),
     ],
@@ -298,8 +299,8 @@ function rectPrototype(): ElementPrototype<RectElement> {
     },
     properties: [
       ...layoutProperties({ rotation: true }),
-      property(['stroke'], 'appearance', { kind: 'stroke' }, { required: false }),
-      property(['fill'], 'appearance', { kind: 'color' }, { required: false }),
+      property(['stroke'], 'appearance', { kind: 'stroke' }, { optional: true }),
+      property(['fill'], 'appearance', { kind: 'color' }, { optional: true }),
       property(['radius'], 'appearance', { kind: 'number', unit: 'mm', min: 0, step: 0.1 }),
       ...behaviorProperties(),
     ],
@@ -323,8 +324,8 @@ function ellipsePrototype(): ElementPrototype<EllipseElement> {
     },
     properties: [
       ...layoutProperties({ rotation: true }),
-      property(['stroke'], 'appearance', { kind: 'stroke' }, { required: false }),
-      property(['fill'], 'appearance', { kind: 'color' }, { required: false }),
+      property(['stroke'], 'appearance', { kind: 'stroke' }, { optional: true }),
+      property(['fill'], 'appearance', { kind: 'color' }, { optional: true }),
       ...behaviorProperties(),
     ],
     validate: validateShapeRules,
@@ -332,7 +333,7 @@ function ellipsePrototype(): ElementPrototype<EllipseElement> {
 }
 
 function barCodePrototype(): ElementPrototype<BarCodeElement> {
-  const showText = { path: ['showText'], equals: [true] }
+  const showText: PropertyCondition = { path: ['showText'], equals: true }
   return {
     type: 'barCode',
     category: 'code',
@@ -352,11 +353,11 @@ function barCodePrototype(): ElementPrototype<BarCodeElement> {
     },
     properties: [
       ...layoutProperties({ rotation: true }),
-      property(['format'], 'code', { kind: 'select', options: BAR_CODE_FORMATS }),
+      property(['format'], 'code', { kind: 'select', options: choices(BAR_CODE_FORMATS) }),
       property(['content'], 'content', { kind: 'textContent' }),
       property(['showText'], 'code', { kind: 'boolean' }),
-      property(['textStyle', 'fontFamily'], 'code', { kind: 'text' }, { required: false, when: showText }),
-      property(['textStyle', 'fontSize'], 'code', { kind: 'number', unit: 'pt', exclusiveMin: 0, max: 100, step: 0.5 }, { when: showText }),
+      property(['textStyle', 'fontFamily'], 'code', { kind: 'text' }, { optional: true, visibleWhen: showText }),
+      property(['textStyle', 'fontSize'], 'code', { kind: 'number', unit: 'pt', exclusiveMin: 0, max: 100, step: 0.5 }, { visibleWhen: showText }),
       property(['color'], 'appearance', { kind: 'color' }),
       ...behaviorProperties(),
     ],
@@ -385,11 +386,11 @@ function matrixCodePrototype(): ElementPrototype<MatrixCodeElement> {
     properties: [
       ...layoutProperties({ rotation: true }),
       property(['content'], 'content', { kind: 'textContent' }),
-      property(['format'], 'code', { kind: 'select', options: MATRIX_CODE_FORMATS }),
-      property(['level'], 'code', { kind: 'matrixCodeLevel' }, { required: false }),
+      property(['format'], 'code', { kind: 'select', options: choices(MATRIX_CODE_FORMATS) }),
+      property(['level'], 'code', { kind: 'matrixCodeLevel' }, { optional: true }),
       property(['quietZone'], 'code', { kind: 'number', unit: 'count', min: 0, max: 20, step: 1, integer: true }),
       property(['color'], 'appearance', { kind: 'color' }),
-      property(['background'], 'appearance', { kind: 'color' }, { required: false }),
+      property(['background'], 'appearance', { kind: 'color' }, { optional: true }),
       ...behaviorProperties(),
     ],
     validate: validateMatrixCodeRules,

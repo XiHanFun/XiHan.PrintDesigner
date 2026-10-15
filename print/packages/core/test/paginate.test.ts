@@ -753,7 +753,7 @@ describe('错误与上限', () => {
     catch (error) {
       expect(error).toBeInstanceOf(PrintLayoutError)
       expect((error as PrintLayoutError).code).toBe('document.invalid')
-      expect((error as PrintLayoutError).issues.map(issue => issue.code)).toEqual(['value.invalidColor'])
+      expect((error as PrintLayoutError).issues.map(issue => issue.code)).toEqual(['invalid-color'])
     }
   })
 

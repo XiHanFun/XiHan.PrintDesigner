@@ -3,138 +3,45 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { JsonPathSegment } from '@xihan-ui/core/json'
+// 打印专属的读取器：颜色、字段路径、文本模板与表达式，以及按字段规则读对象；通用读取器来自 @xihan-ui/designer-kit/schema。
+
+import type { JsonPath } from '@xihan-ui/core/json'
 import type { TemplateIssueCode } from '@xihan-ui/core/template'
 import type { IssueSink, ValidationIssueCode } from './issues'
-import { isJsonPathText, isPlainObject } from '@xihan-ui/core/json'
+import { isJsonPathText } from '@xihan-ui/core/json'
 import { parseTextTemplate } from '@xihan-ui/core/template'
-import { colorHexToRgba } from '@xihan-ui/headless'
+import { checkPropertyValue } from '@xihan-ui/designer-kit/properties'
+import { readObject, readString } from '@xihan-ui/designer-kit/schema'
 
-type Path = readonly JsonPathSegment[]
-
-/** 数值约束。 */
-export interface NumberConstraints {
-  min?: number
-  exclusiveMin?: number
-  max?: number
-  integer?: boolean
-}
-
-/**
- * 判断颜色是否为 `transparent` 或以 `#` 开头、不带首尾空白的十六进制色（3、4、6、8 位），
- * 十六进制部分以 @xihan-ui/headless 的 colorHexToRgba 能否解析为准。
- */
+/** 判断颜色是否为 `transparent` 或以 `#` 开头的 3、4、6、8 位十六进制色，判据即 designer-kit 的 color 编辑方式。 */
 export function isValidColor(value: string): boolean {
-  if (value === 'transparent')
-    return true
-  return value.startsWith('#') && value.trim() === value && colorHexToRgba(value) !== null
+  return checkPropertyValue({ kind: 'color' }, value) === undefined
 }
 
-/** 要求值为普通对象。 */
-export function expectObject(value: unknown, path: Path, sink: IssueSink): value is Record<string, unknown> {
-  if (isPlainObject(value))
-    return true
-  sink.report('schema.invalidType', path, { expected: 'object' })
-  return false
+/** 读取颜色：不是字符串报 invalid-type，不是合法颜色报 invalid-color。 */
+export function readColor(sink: IssueSink, value: unknown, path: JsonPath): string | undefined {
+  const text = readString(sink, value, path)
+  if (text === undefined)
+    return undefined
+  if (isValidColor(text))
+    return text
+  sink.report('invalid-color', path)
+  return undefined
 }
 
-/** 要求值为数组。 */
-export function expectArray(value: unknown, path: Path, sink: IssueSink): value is unknown[] {
-  if (Array.isArray(value))
-    return true
-  sink.report('schema.invalidType', path, { expected: 'array' })
-  return false
-}
-
-/** 要求值为字符串，`nonEmpty` 时还要求非空。 */
-export function expectString(value: unknown, path: Path, sink: IssueSink, options: { nonEmpty?: boolean } = {}): value is string {
-  if (typeof value !== 'string') {
-    sink.report('schema.invalidType', path, { expected: 'string' })
-    return false
-  }
-  if (options.nonEmpty === true && value.length === 0) {
-    sink.report('value.empty', path)
-    return false
-  }
-  return true
-}
-
-/** 要求值为布尔。 */
-export function expectBoolean(value: unknown, path: Path, sink: IssueSink): value is boolean {
-  if (typeof value === 'boolean')
-    return true
-  sink.report('schema.invalidType', path, { expected: 'boolean' })
-  return false
-}
-
-/** 要求值为满足约束的有限数字；非有限数字已由 JSON 检查报告，这里只返回 false。 */
-export function expectNumber(value: unknown, path: Path, sink: IssueSink, constraints: NumberConstraints = {}): value is number {
-  if (typeof value !== 'number') {
-    sink.report('schema.invalidType', path, { expected: 'number' })
-    return false
-  }
-  if (!Number.isFinite(value))
-    return false
-  if (constraints.integer === true && !Number.isInteger(value)) {
-    sink.report('value.notInteger', path, { value })
-    return false
-  }
-  const belowMin = constraints.min !== undefined && value < constraints.min
-  const belowExclusive = constraints.exclusiveMin !== undefined && value <= constraints.exclusiveMin
-  const aboveMax = constraints.max !== undefined && value > constraints.max
-  if (belowMin || belowExclusive || aboveMax) {
-    const params: Record<string, number> = { value }
-    if (constraints.min !== undefined)
-      params.min = constraints.min
-    if (constraints.exclusiveMin !== undefined)
-      params.exclusiveMin = constraints.exclusiveMin
-    if (constraints.max !== undefined)
-      params.max = constraints.max
-    sink.report('value.outOfRange', path, params)
-    return false
-  }
-  return true
-}
-
-/** 要求值为给定选项之一。 */
-export function expectOption<TOption extends string>(
-  value: unknown,
-  options: readonly TOption[],
-  path: Path,
-  sink: IssueSink,
-): value is TOption {
-  if (typeof value !== 'string') {
-    sink.report('schema.invalidType', path, { expected: 'string' })
-    return false
-  }
-  if ((options as readonly string[]).includes(value))
-    return true
-  sink.report('value.invalidOption', path, { value, options })
-  return false
-}
-
-/** 要求值为合法颜色。 */
-export function expectColor(value: unknown, path: Path, sink: IssueSink): value is string {
-  if (!expectString(value, path, sink))
-    return false
-  if (isValidColor(value))
-    return true
-  sink.report('value.invalidColor', path, { value })
-  return false
-}
-
-/** 要求值为字段路径；空串报告未绑定，非法路径报告错误。 */
-export function expectFieldPath(value: unknown, path: Path, sink: IssueSink): value is string {
-  if (!expectString(value, path, sink))
-    return false
-  if (value.length === 0) {
+/** 读取字段路径：空串报 field.empty，写法不合 @xihan-ui/core/json 的路径文法报 field.invalidPath。 */
+export function readFieldPath(sink: IssueSink, value: unknown, path: JsonPath): string | undefined {
+  const text = readString(sink, value, path)
+  if (text === undefined)
+    return undefined
+  if (text.length === 0) {
     sink.report('field.empty', path)
-    return false
+    return undefined
   }
-  if (isJsonPathText(value))
-    return true
-  sink.report('field.invalidPath', path, { field: value })
-  return false
+  if (isJsonPathText(text))
+    return text
+  sink.report('field.invalidPath', path, { params: { field: text } })
+  return undefined
 }
 
 /** @xihan-ui/core/template 的问题码对应的打印问题码。 */
@@ -144,64 +51,63 @@ const TEMPLATE_ISSUE_CODES = {
   'invalid-path': 'template.invalidPath',
 } as const satisfies Record<TemplateIssueCode, ValidationIssueCode>
 
-/** 要求值为合法的 `{{path}}` 文本模板，写法同 @xihan-ui/core/template。 */
-export function expectTextTemplate(value: unknown, path: Path, sink: IssueSink): value is string {
-  if (!expectString(value, path, sink))
-    return false
-  const { issues } = parseTextTemplate(value)
+/** 读取 `{{path}}` 文本模板，写法同 @xihan-ui/core/template；有问题时逐条报出并返回 undefined。 */
+export function readTextTemplate(sink: IssueSink, value: unknown, path: JsonPath): string | undefined {
+  const text = readString(sink, value, path)
+  if (text === undefined)
+    return undefined
+  const { issues } = parseTextTemplate(text)
   for (const issue of issues)
-    sink.report(TEMPLATE_ISSUE_CODES[issue.code], path, { start: issue.start, end: issue.end })
-  return issues.length === 0
+    sink.report(TEMPLATE_ISSUE_CODES[issue.code], path, { params: { start: issue.start, end: issue.end } })
+  return issues.length === 0 ? text : undefined
 }
 
-/** 要求值为非空的表达式源码；接收器带有表达式接入点时编译源码并报告编译问题。 */
-export function expectExpression(value: unknown, path: Path, sink: IssueSink): value is string {
-  if (!expectString(value, path, sink, { nonEmpty: true }))
-    return false
-  const compiled = sink.expressionEngine?.compile(value)
+/** 读取非空的表达式源码；接收器带有表达式引擎时编译源码并报告编译问题。 */
+export function readExpression(sink: IssueSink, value: unknown, path: JsonPath): string | undefined {
+  const source = readString(sink, value, path, { nonEmpty: true })
+  if (source === undefined)
+    return undefined
+  const compiled = sink.expressionEngine?.compile(source)
   if (compiled === undefined || compiled.ok)
-    return true
+    return source
   for (const issue of compiled.issues)
-    sink.report('expression.invalid', path, { ...issue.data, code: issue.code, start: issue.start, end: issue.end })
-  return false
+    sink.report('expression.invalid', path, { params: { ...issue.data, code: issue.code, start: issue.start, end: issue.end } })
+  return undefined
 }
 
-/** 对象中一个字段的校验规则。 */
+/** 对象中一个字段的读取规则。 */
 export interface FieldRule {
   key: string
   required: boolean
-  check: (value: unknown, path: Path) => void
-}
-
-/** 按字段规则校验对象：缺少必填字段报告缺失，规则之外的字段报告未知属性。 */
-export function checkFields(
-  object: Record<string, unknown>,
-  rules: readonly FieldRule[],
-  path: Path,
-  sink: IssueSink,
-  extraKeys: readonly string[] = [],
-): void {
-  for (const rule of rules) {
-    const value = object[rule.key]
-    if (value === undefined) {
-      if (rule.required)
-        sink.report('schema.missingProperty', [...path, rule.key], { property: rule.key })
-      continue
-    }
-    rule.check(value, [...path, rule.key])
-  }
-  reportUnknownKeys(object, [...rules.map(rule => rule.key), ...extraKeys], path, sink)
-}
-
-/** 报告对象中不在 `known` 之列且值不为 undefined 的字段。 */
-export function reportUnknownKeys(object: Record<string, unknown>, known: readonly string[], path: Path, sink: IssueSink): void {
-  for (const key of Object.keys(object)) {
-    if (object[key] !== undefined && !known.includes(key))
-      sink.report('schema.unknownProperty', [...path, key], { property: key })
-  }
+  check: (value: unknown, path: JsonPath) => void
 }
 
 /** 生成字段规则。 */
-export function field(key: string, required: boolean, check: (value: unknown, path: Path) => void): FieldRule {
+export function field(key: string, required: boolean, check: (value: unknown, path: JsonPath) => void): FieldRule {
   return { key, required, check }
+}
+
+/**
+ * 按字段规则读取对象：经 readObject 报出不是对象、缺少的必填字段与规则之外的字段，再逐个读取有值的字段；
+ * extraKeys 是规则之外也允许出现的字段。返回对象本身，不是对象时为 undefined。
+ */
+export function readFields(
+  sink: IssueSink,
+  value: unknown,
+  path: JsonPath,
+  rules: readonly FieldRule[],
+  extraKeys: readonly string[] = [],
+): Readonly<Record<string, unknown>> | undefined {
+  const object = readObject(sink, value, path, {
+    required: rules.filter(rule => rule.required).map(rule => rule.key),
+    allowed: [...rules.map(rule => rule.key), ...extraKeys],
+  })
+  if (object === undefined)
+    return undefined
+  for (const rule of rules) {
+    const item = object[rule.key]
+    if (item !== undefined)
+      rule.check(item, [...path, rule.key])
+  }
+  return object
 }

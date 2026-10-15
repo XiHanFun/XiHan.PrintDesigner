@@ -92,7 +92,7 @@ export function validateBarCodeRules(element: BarCodeElement, context: ElementVa
   const { text } = element.content
   const issue = checkBarCodeValue(element.format, text)
   if (text.length === 0)
-    context.report('value.empty', ['content', 'text'])
+    context.report('empty', ['content', 'text'])
   else if (issue !== undefined)
     context.report('barCode.invalidValue', ['content', 'text'], barCodeIssueParams(element.format, issue))
 }
@@ -108,7 +108,7 @@ export function validateMatrixCodeRules(element: MatrixCodeElement, context: Ele
     const { text } = element.content
     const issue = fit === 'invalid' ? undefined : checkMatrixCodeContent(element.format, text, element.level)
     if (text.length === 0)
-      context.report('value.empty', ['content', 'text'])
+      context.report('empty', ['content', 'text'])
     else if (issue !== undefined)
       context.report('matrixCode.invalidValue', ['content', 'text'], matrixCodeIssueParams(element.format, issue))
   }
