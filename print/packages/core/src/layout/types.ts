@@ -19,9 +19,9 @@ import type {
   TextStyle,
 } from '../schema/common'
 import type { Watermark } from '../schema/document'
-import type { BarcodeTextStyle, PrintElementType } from '../schema/elements'
+import type { BarCodeTextStyle, PrintElementType } from '../schema/elements'
 import type {
-  BarcodeSymbology,
+  BarCodeFormat,
   HorizontalAlign,
   ImageFit,
   LineDirection,
@@ -158,20 +158,20 @@ export interface EllipseLayoutBox extends LayoutBoxBase {
 }
 
 /** 一维条码布局盒。 */
-export interface BarcodeLayoutBox extends LayoutBoxBase {
-  kind: 'barcode'
-  symbology: BarcodeSymbology
+export interface BarCodeLayoutBox extends LayoutBoxBase {
+  kind: 'barCode'
+  format: BarCodeFormat
   /** 条码内容。 */
   value: string
   showText: boolean
-  textStyle: BarcodeTextStyle
+  textStyle: BarCodeTextStyle
   color: Color
   rotation: number
 }
 
 /** 二维码布局盒。 */
-export interface QrCodeLayoutBox extends LayoutBoxBase {
-  kind: 'qrcode'
+export interface MatrixCodeLayoutBox extends LayoutBoxBase {
+  kind: 'matrixCode'
   format: MatrixCodeFormat
   value: string
   /** 纠错级别，缺省取码制的默认值。 */
@@ -195,7 +195,7 @@ export interface TableCellLayout {
   /** 文本单元格换行后的各行文字，其余类型为空数组。 */
   lines: string[]
   /** 条码单元格的码制。 */
-  symbology?: BarcodeSymbology
+  barCodeFormat?: BarCodeFormat
 }
 
 /** 表格行布局：表头、数据行、补空行或表尾行。 */
@@ -226,8 +226,8 @@ export type LayoutBox
     | LineLayoutBox
     | RectLayoutBox
     | EllipseLayoutBox
-    | BarcodeLayoutBox
-    | QrCodeLayoutBox
+    | BarCodeLayoutBox
+    | MatrixCodeLayoutBox
     | TableLayoutBox
 
 /** 输出页选中的页眉或页脚带区。 */
@@ -268,8 +268,8 @@ export type PaginationDiagnosticCode
     | 'expression.unavailable'
     | 'expression.failed'
     | 'image.unsafeSource'
-    | 'barcode.invalidValue'
-    | 'qrcode.invalidValue'
+    | 'barCode.invalidValue'
+    | 'matrixCode.invalidValue'
     | 'text.overflow'
     | 'table.rowOverflow'
     | 'element.overflow'

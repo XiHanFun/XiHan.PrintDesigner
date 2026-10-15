@@ -247,7 +247,7 @@ describe('元素通用规则', () => {
   })
 
   it('尺寸下限与超出纸张', () => {
-    const tiny = element('qrcode', 'q', { width: 2, height: 2 })
+    const tiny = element('matrixCode', 'q', { width: 2, height: 2 })
     const outside = element('rect', 'r', { x: 200, width: 20 })
     const report = validateDocument(withBody(tiny, outside))
     expect(summarize(report)).toEqual([
@@ -390,10 +390,10 @@ describe('表格', () => {
     expect(issuesOf(tableDoc((table) => {
       const columns = columnsOf(table)
       columns[1]!.id = 'no'
-      columns[2]!.cellType = 'barcode'
+      columns[2]!.cellType = 'barCode'
       columns[3]!.content = { kind: 'aggregate', fn: 'sum' }
     }))).toEqual([
-      'schema.missingProperty@pages.0.elements.0.columns.2.symbology',
+      'schema.missingProperty@pages.0.elements.0.columns.2.barCodeFormat',
       'value.invalidOption@pages.0.elements.0.columns.3.content.kind',
       'table.duplicateColumnId@pages.0.elements.0.columns.1.id',
     ])
@@ -472,50 +472,50 @@ describe('图形、条码与二维码', () => {
       ['code128', '中文'],
       ['upca', ''],
     ]
-    const elements = cases.map(([symbology, text], index) =>
-      element('barcode', `b${index}`, { symbology, content: { kind: 'static', text } }),
+    const elements = cases.map(([format, text], index) =>
+      element('barCode', `b${index}`, { format, content: { kind: 'static', text } }),
     )
-    elements.push(element('barcode', 'bound', { symbology: 'ean13', content: { kind: 'field', field: 'sku' } }))
+    elements.push(element('barCode', 'bound', { format: 'ean13', content: { kind: 'field', field: 'sku' } }))
     const report = validateDocument(withBody(...elements))
     expect(summarize(report)).toEqual([
-      'barcode.invalidValue@pages.0.elements.0.content.text',
-      'barcode.invalidValue@pages.0.elements.1.content.text',
-      'barcode.invalidValue@pages.0.elements.2.content.text',
-      'barcode.invalidValue@pages.0.elements.3.content.text',
+      'barCode.invalidValue@pages.0.elements.0.content.text',
+      'barCode.invalidValue@pages.0.elements.1.content.text',
+      'barCode.invalidValue@pages.0.elements.2.content.text',
+      'barCode.invalidValue@pages.0.elements.3.content.text',
       'value.empty@pages.0.elements.4.content.text',
     ])
-    expect(report.issues[0]!.params).toEqual({ symbology: 'ean13' })
+    expect(report.issues[0]!.params).toEqual({ format: 'ean13' })
   })
 
   it('二维码固定内容不能为空或无法编码，元素框应为正方形', () => {
-    const empty = element('qrcode', 'a', { content: { kind: 'static', text: '' } })
-    const tooLong = element('qrcode', 'b', { level: 'H', content: { kind: 'static', text: '中'.repeat(425) } })
-    const oblong = element('qrcode', 'c', { width: 30 })
+    const empty = element('matrixCode', 'a', { content: { kind: 'static', text: '' } })
+    const tooLong = element('matrixCode', 'b', { level: 'H', content: { kind: 'static', text: '中'.repeat(425) } })
+    const oblong = element('matrixCode', 'c', { width: 30 })
     const report = validateDocument(withBody(empty, tooLong, oblong))
     expect(summarize(report)).toEqual([
       'value.empty@pages.0.elements.0.content.text',
-      'qrcode.invalidValue@pages.0.elements.1.content.text',
-      'qrcode.notSquare@pages.0.elements.2',
+      'matrixCode.invalidValue@pages.0.elements.1.content.text',
+      'matrixCode.notSquare@pages.0.elements.2',
     ])
     expect(report.issues[1]!.params).toEqual({ format: 'qr' })
   })
 
   it('四种码制都可用，纠错级别按码制校验，PDF417 不要求正方形', () => {
     const elements = [
-      element('qrcode', 'dm', { format: 'data-matrix', level: undefined }),
-      element('qrcode', 'pdf', { format: 'pdf417', level: 5, width: 60, height: 15 }),
-      element('qrcode', 'aztec', { format: 'aztec', level: 23 }),
-      element('qrcode', 'badQr', { format: 'qr', level: 4 }),
-      element('qrcode', 'badPdf', { format: 'pdf417', level: 'H', width: 60, height: 15 }),
-      element('qrcode', 'dmLevel', { format: 'data-matrix', level: 'M' }),
-      element('qrcode', 'badFormat', { format: 'maxicode' }),
-      element('qrcode', 'badType', { level: true }),
+      element('matrixCode', 'dm', { format: 'data-matrix', level: undefined }),
+      element('matrixCode', 'pdf', { format: 'pdf417', level: 5, width: 60, height: 15 }),
+      element('matrixCode', 'aztec', { format: 'aztec', level: 23 }),
+      element('matrixCode', 'badQr', { format: 'qr', level: 4 }),
+      element('matrixCode', 'badPdf', { format: 'pdf417', level: 'H', width: 60, height: 15 }),
+      element('matrixCode', 'dmLevel', { format: 'data-matrix', level: 'M' }),
+      element('matrixCode', 'badFormat', { format: 'maxicode' }),
+      element('matrixCode', 'badType', { level: true }),
     ]
     const report = validateDocument(withBody(...elements))
     expect(summarize(report)).toEqual([
-      'qrcode.invalidLevel@pages.0.elements.3.level',
-      'qrcode.invalidLevel@pages.0.elements.4.level',
-      'qrcode.levelIgnored@pages.0.elements.5.level',
+      'matrixCode.invalidLevel@pages.0.elements.3.level',
+      'matrixCode.invalidLevel@pages.0.elements.4.level',
+      'matrixCode.levelIgnored@pages.0.elements.5.level',
       'value.invalidOption@pages.0.elements.6.format',
       'schema.invalidType@pages.0.elements.7.level',
     ])

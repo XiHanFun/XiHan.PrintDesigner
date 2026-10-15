@@ -6,7 +6,7 @@
 import type { JsonObject } from '../json'
 import type { BoxStyle, Color, ImageSource, Stroke, TextContent, TextStyle } from './common'
 import type {
-  BarcodeSymbology,
+  BarCodeFormat,
   ImageFit,
   LineDirection,
   MatrixCodeFormat,
@@ -101,25 +101,26 @@ export interface EllipseElement extends ElementBase<'ellipse'> {
 }
 
 /** 条码下方文字的样式。 */
-export interface BarcodeTextStyle {
+export interface BarCodeTextStyle {
   fontFamily?: string
   /** 字号，单位 pt。 */
   fontSize: number
 }
 
 /** 一维条码。 */
-export interface BarcodeElement extends ElementBase<'barcode'> {
-  symbology: BarcodeSymbology
+export interface BarCodeElement extends ElementBase<'barCode'> {
+  /** 码制，取值见 @xihan-ui/headless 的 BAR_CODE_FORMATS。 */
+  format: BarCodeFormat
   content: TextContent
   /** 是否在条码下方显示编码文字。 */
   showText: boolean
-  textStyle: BarcodeTextStyle
+  textStyle: BarCodeTextStyle
   color: Color
   rotation: number
 }
 
 /** 二维码：QR、Data Matrix、PDF417、Aztec。 */
-export interface QrCodeElement extends ElementBase<'qrcode'> {
+export interface MatrixCodeElement extends ElementBase<'matrixCode'> {
   format: MatrixCodeFormat
   content: TextContent
   /** 纠错级别：qr 为 L / M / Q / H，pdf417 为 0–8，aztec 为纠错码字至少占的百分比 5–95，data-matrix 没有级别；缺省取码制的默认值。 */
@@ -148,8 +149,8 @@ export type PrintElement
     | LineElement
     | RectElement
     | EllipseElement
-    | BarcodeElement
-    | QrCodeElement
+    | BarCodeElement
+    | MatrixCodeElement
     | PageNumberElement
 
 /** 内置元素类型。 */
@@ -167,7 +168,7 @@ export const PRINT_ELEMENT_TYPES: readonly PrintElementType[] = [
   'line',
   'rect',
   'ellipse',
-  'barcode',
-  'qrcode',
+  'barCode',
+  'matrixCode',
   'pageNumber',
 ]

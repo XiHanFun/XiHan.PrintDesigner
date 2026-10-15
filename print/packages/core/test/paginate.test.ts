@@ -88,8 +88,8 @@ describe('基本排版', () => {
       registry.createElement('line', { id: 'line', x: 0, y: 5 }),
       registry.createElement('rect', { id: 'rect', x: 0, y: 10, overrides: { fill: '#eeeeee' } }),
       registry.createElement('ellipse', { id: 'ellipse', x: 50, y: 10 }),
-      registry.createElement('barcode', { id: 'barcode', x: 0, y: 40, overrides: { content: { kind: 'field', field: 'sku' } } }),
-      registry.createElement('qrcode', { id: 'qr', x: 60, y: 40, overrides: { background: '#ffffff' } }),
+      registry.createElement('barCode', { id: 'barCode', x: 0, y: 40, overrides: { content: { kind: 'field', field: 'sku' } } }),
+      registry.createElement('matrixCode', { id: 'qr', x: 60, y: 40, overrides: { background: '#ffffff' } }),
       registry.createElement('image', { id: 'photo', x: 0, y: 60, overrides: { source: { kind: 'field', field: 'photo' }, previewOnly: true } }),
     ]
     const result = run(documentOf(squarePage('p', elements)), { sku: 'A-001', photo: 'https://example.com/a.png' })
@@ -97,8 +97,8 @@ describe('基本排版', () => {
     expect(boxOf(sheet!, 'line', 'line')).toMatchObject({ direction: 'horizontal', stroke: { width: 0.3 } })
     expect(boxOf(sheet!, 'rect', 'rect')).toMatchObject({ fill: '#eeeeee', radius: 0 })
     expect(boxOf(sheet!, 'ellipse', 'ellipse').stroke).toBeDefined()
-    expect(boxOf(sheet!, 'barcode', 'barcode')).toMatchObject({ symbology: 'code128', value: 'A-001', showText: true })
-    expect(boxOf(sheet!, 'qr', 'qrcode')).toMatchObject({ format: 'qr', value: '1234567890', level: 'M', background: '#ffffff' })
+    expect(boxOf(sheet!, 'barCode', 'barCode')).toMatchObject({ format: 'code128', value: 'A-001', showText: true })
+    expect(boxOf(sheet!, 'qr', 'matrixCode')).toMatchObject({ format: 'qr', value: '1234567890', level: 'M', background: '#ffffff' })
     expect(boxOf(sheet!, 'photo', 'image')).toMatchObject({ src: 'https://example.com/a.png', fit: 'contain', previewOnly: true })
     expect(result.diagnostics).toEqual([])
   })
@@ -318,8 +318,8 @@ describe('表格分页', () => {
     const table = simpleTable('t', 10, {
       columns: [
         { id: 'photo', title: '图', width: 30, align: 'center', content: { kind: 'field', field: 'photo' }, cellType: 'image' },
-        { id: 'sku', title: '码', width: 40, align: 'center', content: { kind: 'field', field: 'sku' }, cellType: 'barcode', symbology: 'ean8' },
-        { id: 'url', title: '码', width: 30, align: 'center', content: { kind: 'field', field: 'url' }, cellType: 'qrcode' },
+        { id: 'sku', title: '码', width: 40, align: 'center', content: { kind: 'field', field: 'sku' }, cellType: 'barCode', barCodeFormat: 'ean8' },
+        { id: 'url', title: '码', width: 30, align: 'center', content: { kind: 'field', field: 'url' }, cellType: 'matrixCode' },
       ],
     })
     const items = [
@@ -330,12 +330,12 @@ describe('表格分页', () => {
     const rows = tableSlices(result, 't')[0]!.rows.filter(row => row.role === 'body')
     expect(rows[0]!.cells.map(cell => [cell.cellType, cell.text, cell.lines])).toEqual([
       ['image', 'https://example.com/1.png', []],
-      ['barcode', '96385074', []],
-      ['qrcode', 'https://example.com/1', []],
+      ['barCode', '96385074', []],
+      ['matrixCode', 'https://example.com/1', []],
     ])
-    expect(rows[0]!.cells[1]!.symbology).toBe('ean8')
+    expect(rows[0]!.cells[1]!.barCodeFormat).toBe('ean8')
     expect(rows[1]!.cells[0]!.text).toBe('')
-    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual(['image.unsafeSource', 'barcode.invalidValue'])
+    expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual(['image.unsafeSource', 'barCode.invalidValue'])
   })
 })
 

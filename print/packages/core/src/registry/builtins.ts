@@ -6,13 +6,13 @@
 import type { Rect } from '../geometry'
 import type { Stroke, TextStyle } from '../schema/common'
 import type {
-  BarcodeElement,
+  BarCodeElement,
   EllipseElement,
   ImageElement,
   LineElement,
   LongTextElement,
+  MatrixCodeElement,
   PageNumberElement,
-  QrCodeElement,
   RectElement,
   TableElement,
   TextElement,
@@ -27,9 +27,9 @@ import {
   TEXT_OVERFLOWS,
 } from '../schema/options'
 import {
-  validateBarcodeRules,
+  validateBarCodeRules,
   validateLineRules,
-  validateQrCodeRules,
+  validateMatrixCodeRules,
   validateShapeRules,
   validateTableRules,
 } from '../validation/element-rules'
@@ -329,19 +329,19 @@ function ellipsePrototype(): ElementPrototype<EllipseElement> {
   }
 }
 
-function barcodePrototype(): ElementPrototype<BarcodeElement> {
+function barCodePrototype(): ElementPrototype<BarCodeElement> {
   const showText = { path: ['showText'], equals: [true] }
   return {
-    type: 'barcode',
+    type: 'barCode',
     category: 'code',
     order: 1,
     flow: false,
     minSize: { width: 5, height: 3 },
     defaults: {
-      type: 'barcode',
+      type: 'barCode',
       width: 50,
       height: 15,
-      symbology: 'code128',
+      format: 'code128',
       content: { kind: 'static', text: '1234567890' },
       showText: true,
       textStyle: { fontSize: 9 },
@@ -350,7 +350,7 @@ function barcodePrototype(): ElementPrototype<BarcodeElement> {
     },
     properties: [
       ...layoutProperties({ rotation: true }),
-      property(['symbology'], 'code', { kind: 'select', options: BAR_CODE_FORMATS }),
+      property(['format'], 'code', { kind: 'select', options: BAR_CODE_FORMATS }),
       property(['content'], 'content', { kind: 'textContent' }),
       property(['showText'], 'code', { kind: 'boolean' }),
       property(['textStyle', 'fontFamily'], 'code', { kind: 'text' }, { required: false, when: showText }),
@@ -358,19 +358,19 @@ function barcodePrototype(): ElementPrototype<BarcodeElement> {
       property(['color'], 'appearance', { kind: 'color' }),
       ...behaviorProperties(),
     ],
-    validate: validateBarcodeRules,
+    validate: validateBarCodeRules,
   }
 }
 
-function qrCodePrototype(): ElementPrototype<QrCodeElement> {
+function matrixCodePrototype(): ElementPrototype<MatrixCodeElement> {
   return {
-    type: 'qrcode',
+    type: 'matrixCode',
     category: 'code',
     order: 2,
     flow: false,
     minSize: { width: 5, height: 5 },
     defaults: {
-      type: 'qrcode',
+      type: 'matrixCode',
       width: 25,
       height: 25,
       format: 'qr',
@@ -390,7 +390,7 @@ function qrCodePrototype(): ElementPrototype<QrCodeElement> {
       property(['background'], 'appearance', { kind: 'color' }, { required: false }),
       ...behaviorProperties(),
     ],
-    validate: validateQrCodeRules,
+    validate: validateMatrixCodeRules,
   }
 }
 
@@ -405,7 +405,7 @@ export function createBuiltinElementPrototypes(): AnyElementPrototype[] {
     linePrototype(),
     rectPrototype(),
     ellipsePrototype(),
-    barcodePrototype(),
-    qrCodePrototype(),
+    barCodePrototype(),
+    matrixCodePrototype(),
   ]
 }

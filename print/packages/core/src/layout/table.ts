@@ -14,7 +14,7 @@ import type {
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { BodyGeometry, Placement, SheetCursor } from './placement'
 import type { TableCellLayout, TableLayoutBox, TableRowLayout } from './types'
-import { canEncodeBarcode, canEncodeMatrixCode } from '../codes'
+import { canEncodeBarCode, canEncodeMatrixCode } from '../codes'
 import { getFieldValue } from '../data'
 import { ptToMm } from '../units'
 import { isSafeImageUrl } from '../validation/controls'
@@ -88,8 +88,8 @@ function cellLayout(prepared: PreparedColumn, colSpan: number, width: number, al
     text,
     lines: [],
   }
-  if (prepared.column.symbology !== undefined)
-    cell.symbology = prepared.column.symbology
+  if (prepared.column.barCodeFormat !== undefined)
+    cell.barCodeFormat = prepared.column.barCodeFormat
   return cell
 }
 
@@ -115,13 +115,13 @@ function bodyRow(table: TableElement, columns: PreparedColumn[], row: unknown, i
           cell.text = ''
         }
         break
-      case 'barcode':
-        if (text.length > 0 && column.symbology !== undefined && !canEncodeBarcode(column.symbology, text))
-          context.report('barcode.invalidValue', scope, { columnId: column.id, symbology: column.symbology })
+      case 'barCode':
+        if (text.length > 0 && column.barCodeFormat !== undefined && !canEncodeBarCode(column.barCodeFormat, text))
+          context.report('barCode.invalidValue', scope, { columnId: column.id, format: column.barCodeFormat })
         break
-      case 'qrcode':
+      case 'matrixCode':
         if (text.length > 0 && !canEncodeMatrixCode('qr', text))
-          context.report('qrcode.invalidValue', scope, { columnId: column.id, format: 'qr' })
+          context.report('matrixCode.invalidValue', scope, { columnId: column.id, format: 'qr' })
         break
     }
     return cell
@@ -158,7 +158,7 @@ export function prepareTable(table: TableElement, context: LayoutContext, scope:
       cells: columns.map((column) => {
         const cell = cellLayout(column, 1, column.width, style.align ?? column.column.align, column.column.title)
         cell.cellType = 'text'
-        delete cell.symbology
+        delete cell.barCodeFormat
         cell.lines = cellLines(context, column.column.title, style, column.width).lines
         return cell
       }),
@@ -221,7 +221,7 @@ function footerRow(
     }
     const layout = cellLayout(first, spanned.length, width, cell.align ?? row.style.align ?? first.column.align, text)
     layout.cellType = 'text'
-    delete layout.symbology
+    delete layout.barCodeFormat
     layout.lines = cellLines(context, text, row.style, width).lines
     return layout
   })

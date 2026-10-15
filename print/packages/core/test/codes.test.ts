@@ -6,7 +6,7 @@
 import { MATRIX_CODE_FORMATS } from '@xihan-ui/headless'
 import { describe, expect, it } from 'vitest'
 import { isSafeImageUrl, isValidColor, QR_ERROR_CORRECTION_LEVELS } from '../src'
-import { canEncodeBarcode, canEncodeMatrixCode, fitMatrixCodeLevel } from '../src/codes'
+import { canEncodeBarCode, canEncodeMatrixCode, fitMatrixCodeLevel } from '../src/codes'
 
 describe('纠错等级取值', () => {
   it('与 @xihan-ui/headless 的 QrLevel 逐一对应', () => {
@@ -25,8 +25,8 @@ describe('一维条码', () => {
     ['code39', 'abc', false],
     ['code128', 'Ab-12', true],
     ['code128', '中文', false],
-  ] as const)('%s「%s」能否编码：%s', (symbology, value, expected) => {
-    expect(canEncodeBarcode(symbology, value)).toBe(expected)
+  ] as const)('%s「%s」能否编码：%s', (format, value, expected) => {
+    expect(canEncodeBarCode(format, value)).toBe(expected)
   })
 })
 

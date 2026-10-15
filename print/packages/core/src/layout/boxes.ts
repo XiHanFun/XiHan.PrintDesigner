@@ -5,17 +5,17 @@
 
 import type { Edges, TextStyle } from '../schema/common'
 import type {
-  BarcodeElement,
+  BarCodeElement,
   ImageElement,
+  MatrixCodeElement,
   PageNumberElement,
   PrintElement,
-  QrCodeElement,
   TextElement,
 } from '../schema/elements'
 import type { ElementRegion } from '../traverse'
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { LayoutBox, LayoutBoxBase, TextLayoutBox, TextMeasurement } from './types'
-import { canEncodeBarcode, canEncodeMatrixCode, fitMatrixCodeLevel } from '../codes'
+import { canEncodeBarCode, canEncodeMatrixCode, fitMatrixCodeLevel } from '../codes'
 import { getFieldValue } from '../data'
 import { formatPageNumber } from '../page-number-format'
 import { isSafeImageUrl } from '../validation/controls'
@@ -119,14 +119,14 @@ function layoutImage(element: ImageElement, region: ElementRegion, context: Layo
   return box
 }
 
-function layoutBarcode(element: BarcodeElement, region: ElementRegion, context: LayoutContext, scope: DiagnosticScope): LayoutBox {
+function layoutBarCode(element: BarCodeElement, region: ElementRegion, context: LayoutContext, scope: DiagnosticScope): LayoutBox {
   const value = contentText(element.content, context.data, context, scope)
-  if (value.length > 0 && !canEncodeBarcode(element.symbology, value))
-    context.report('barcode.invalidValue', scope, { symbology: element.symbology })
+  if (value.length > 0 && !canEncodeBarCode(element.format, value))
+    context.report('barCode.invalidValue', scope, { format: element.format })
   return {
     ...boxBase(element, region),
-    kind: 'barcode',
-    symbology: element.symbology,
+    kind: 'barCode',
+    format: element.format,
     value,
     showText: element.showText,
     textStyle: element.textStyle,
@@ -135,14 +135,14 @@ function layoutBarcode(element: BarcodeElement, region: ElementRegion, context: 
   }
 }
 
-function layoutQrCode(element: QrCodeElement, region: ElementRegion, context: LayoutContext, scope: DiagnosticScope): LayoutBox {
+function layoutMatrixCode(element: MatrixCodeElement, region: ElementRegion, context: LayoutContext, scope: DiagnosticScope): LayoutBox {
   const value = contentText(element.content, context.data, context, scope)
   const level = fitMatrixCodeLevel(element.format, element.level) === 'valid' ? element.level : undefined
   if (value.length > 0 && !canEncodeMatrixCode(element.format, value, level))
-    context.report('qrcode.invalidValue', scope, { format: element.format })
+    context.report('matrixCode.invalidValue', scope, { format: element.format })
   const box: LayoutBox = {
     ...boxBase(element, region),
-    kind: 'qrcode',
+    kind: 'matrixCode',
     format: element.format,
     value,
     color: element.color,
@@ -195,10 +195,10 @@ export function layoutFixedElement(
       return layoutText(element, region, context, scope)
     case 'image':
       return layoutImage(element, region, context, scope)
-    case 'barcode':
-      return layoutBarcode(element, region, context, scope)
-    case 'qrcode':
-      return layoutQrCode(element, region, context, scope)
+    case 'barCode':
+      return layoutBarCode(element, region, context, scope)
+    case 'matrixCode':
+      return layoutMatrixCode(element, region, context, scope)
     case 'line':
       return { ...boxBase(element, region), kind: 'line', direction: element.direction, stroke: element.stroke }
     case 'rect': {
