@@ -8,7 +8,8 @@ import type { MapFormat, TextContent, ValueFormat } from '../schema/common'
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { PaginationDiagnosticCode } from './types'
 import { isPlainObject } from '@xihan-ui/core/json'
-import { fillTextTemplate, getFieldValue, toDisplayText } from '../data'
+import { fillTextTemplate } from '@xihan-ui/core/template'
+import { getFieldValue, toDisplayText } from '../data'
 
 /** 取值或格式化未完成的原因：未提供格式化器、格式化器报错、未提供表达式接入点、表达式编译或求值失败、结果不是标量。 */
 export type ValueProblem
@@ -132,8 +133,8 @@ export function valueText(
 
 /** 按 `{{path}}` 占位从数据对象取值生成文本。 */
 export function templateText(template: string, data: unknown, context: LayoutContext, scope: DiagnosticScope): string {
-  const { text, nonScalarFields } = fillTextTemplate(template, data)
-  for (const field of nonScalarFields)
+  const { text, nonScalar } = fillTextTemplate(template, data)
+  for (const field of nonScalar)
     context.report('data.notScalar', scope, { field })
   return text
 }

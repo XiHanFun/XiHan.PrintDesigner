@@ -97,7 +97,7 @@ export interface StaticTextContent {
 /** 绑定单个数据字段。 */
 export interface FieldTextContent {
   kind: 'field'
-  /** 字段路径，以 `.` 分隔，如 `customer.name`。 */
+  /** 字段路径，写法同 @xihan-ui/core/json 的 formatJsonPath，如 `customer.name`、`items[0].qty`。 */
   field: string
   format?: ValueFormat
   /** 字段值为空时显示的文本。 */

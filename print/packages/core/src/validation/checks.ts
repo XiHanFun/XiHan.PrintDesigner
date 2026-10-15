@@ -4,11 +4,11 @@
  */
 
 import type { JsonPathSegment } from '@xihan-ui/core/json'
-import type { IssueSink } from './issues'
-import { isPlainObject } from '@xihan-ui/core/json'
+import type { TemplateIssueCode } from '@xihan-ui/core/template'
+import type { IssueSink, ValidationIssueCode } from './issues'
+import { isJsonPathText, isPlainObject } from '@xihan-ui/core/json'
+import { parseTextTemplate } from '@xihan-ui/core/template'
 import { colorHexToRgba } from '@xihan-ui/headless'
-import { isValidFieldPath } from '../field-path'
-import { parseTextTemplate } from '../text-template'
 
 type Path = readonly JsonPathSegment[]
 
@@ -131,24 +131,27 @@ export function expectFieldPath(value: unknown, path: Path, sink: IssueSink): va
     sink.report('field.empty', path)
     return false
   }
-  if (isValidFieldPath(value))
+  if (isJsonPathText(value))
     return true
   sink.report('field.invalidPath', path, { field: value })
   return false
 }
 
-/** 要求值为合法的 `{{path}}` 文本模板。 */
+/** @xihan-ui/core/template 的问题码对应的打印问题码。 */
+const TEMPLATE_ISSUE_CODES = {
+  'unclosed-placeholder': 'template.unclosedPlaceholder',
+  'empty-placeholder': 'template.emptyPlaceholder',
+  'invalid-path': 'template.invalidPath',
+} as const satisfies Record<TemplateIssueCode, ValidationIssueCode>
+
+/** 要求值为合法的 `{{path}}` 文本模板，写法同 @xihan-ui/core/template。 */
 export function expectTextTemplate(value: unknown, path: Path, sink: IssueSink): value is string {
   if (!expectString(value, path, sink))
     return false
-  const { errors } = parseTextTemplate(value)
-  for (const error of errors) {
-    const params: Record<string, string | number> = { offset: error.offset }
-    if (error.field !== undefined)
-      params.field = error.field
-    sink.report(`template.${error.code}`, path, params)
-  }
-  return errors.length === 0
+  const { issues } = parseTextTemplate(value)
+  for (const issue of issues)
+    sink.report(TEMPLATE_ISSUE_CODES[issue.code], path, { start: issue.start, end: issue.end })
+  return issues.length === 0
 }
 
 /** 要求值为非空的表达式源码；接收器带有表达式接入点时编译源码并报告编译问题。 */

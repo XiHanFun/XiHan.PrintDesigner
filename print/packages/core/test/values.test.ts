@@ -7,7 +7,7 @@ import type { EngineCompileResult, ExpressionEngine, FormatSpec } from '@xihan-u
 import type { MapFormat } from '../src'
 import { evaluateSource } from '@xihan-ui/expression'
 import { describe, expect, it } from 'vitest'
-import { fillTextTemplate, getFieldValue, toDisplayText } from '../src/data'
+import { getFieldValue, toDisplayText } from '../src/data'
 import { evaluateExpression, formatValue, isEmptyValue, mapValue } from '../src/layout/content'
 
 describe('值格式', () => {
@@ -95,9 +95,10 @@ describe('取值', () => {
 
   it('按路径读自有属性与数组下标', () => {
     expect(getFieldValue(data, 'customer.name')).toBe('张三')
-    expect(getFieldValue(data, 'customer.tags.1')).toBe('b')
-    expect(getFieldValue(data, 'items.0.qty')).toBe(2)
+    expect(getFieldValue(data, 'customer.tags[1]')).toBe('b')
+    expect(getFieldValue(data, 'items[0].qty')).toBe(2)
     expect(getFieldValue(data, 'items.x')).toBeUndefined()
+    expect(getFieldValue(data, 'items.0.qty')).toBeUndefined()
     expect(getFieldValue(data, 'customer.missing.deep')).toBeUndefined()
     expect(getFieldValue(data, 'customer.toString')).toBeUndefined()
     expect(getFieldValue(data, 'a..b')).toBeUndefined()
@@ -113,12 +114,5 @@ describe('取值', () => {
     expect(toDisplayText(new Date(Date.UTC(2026, 9, 16)))).toEqual({ text: '2026-10-16T00:00:00.000Z', scalar: true })
     expect(toDisplayText({ a: 1 })).toEqual({ text: '', scalar: false })
     expect(toDisplayText([1])).toEqual({ text: '', scalar: false })
-  })
-
-  it('填充文本模板并报告非标量字段', () => {
-    expect(fillTextTemplate('客户：{{customer.name}}，标签 {{customer.tags}} {{x}}', data)).toEqual({
-      text: '客户：张三，标签  ',
-      nonScalarFields: ['customer.tags'],
-    })
   })
 })
