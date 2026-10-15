@@ -504,3 +504,59 @@ describe('图形、条码与二维码', () => {
     expect(report.issues[1]!.params).toEqual({ mode: 'byte', length: 1275, max: 1273 })
   })
 })
+
+describe('复合属性', () => {
+  it('外框的背景、边框与内边距', () => {
+    const text = element('text', 't', {
+      box: {
+        background: 'blue',
+        border: { top: { width: 0.2, style: 'wavy', color: '#000' }, middle: {} },
+        padding: { top: 1, right: 1, bottom: -1 },
+      },
+    })
+    expect(issuesOf(withBody(text))).toEqual([
+      'value.invalidColor@pages.0.elements.0.box.background',
+      'value.invalidOption@pages.0.elements.0.box.border.top.style',
+      'schema.unknownProperty@pages.0.elements.0.box.border.middle',
+      'value.outOfRange@pages.0.elements.0.box.padding.bottom',
+      'schema.missingProperty@pages.0.elements.0.box.padding.left',
+    ])
+  })
+
+  it('单元格样式与表格网格线', () => {
+    const table = cloneJson(createSampleTable()) as unknown as Record<string, unknown>
+    table.header = { visible: true, repeat: true, height: 8, style: { fontSize: 10, bold: 'yes', italic: false, color: '#000', verticalAlign: 'center', padding: 1 } }
+    table.border = { stroke: { width: 0.2, style: 'solid', color: '#000' }, outer: true, horizontal: true }
+    expect(issuesOf(withBody(table))).toEqual([
+      'schema.invalidType@pages.0.elements.0.header.style.bold',
+      'value.invalidOption@pages.0.elements.0.header.style.verticalAlign',
+      'schema.missingProperty@pages.0.elements.0.border.vertical',
+    ])
+  })
+
+  it('表尾单元格跨列数必须为正整数', () => {
+    const table = cloneJson(createSampleTable())
+    const cell = table.footerRows[0]!.cells[0] as unknown as Record<string, unknown>
+    cell.colSpan = 1.5
+    expect(issuesOf(withBody(table))).toEqual(['value.notInteger@pages.0.elements.0.footerRows.0.cells.0.colSpan'])
+  })
+
+  it('图片字段来源未绑定、宿主附加数据必须是对象', () => {
+    const image = element('image', 'i', { source: { kind: 'field', field: '' }, meta: 'x' })
+    const report = validateDocument(withBody(image))
+    expect(summarize(report)).toEqual([
+      'field.empty@pages.0.elements.0.source.field',
+      'schema.invalidType@pages.0.elements.0.meta',
+    ])
+  })
+
+  it('页面上的未知属性与宿主附加数据', () => {
+    const page = createPage({ id: 'p' }) as unknown as Record<string, unknown>
+    page.background = '#fff'
+    page.meta = []
+    expect(issuesOf({ schemaVersion: 1, pages: [page] })).toEqual([
+      'schema.invalidType@pages.0.meta',
+      'schema.unknownProperty@pages.0.background',
+    ])
+  })
+})
