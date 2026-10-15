@@ -42,12 +42,10 @@ export interface ApplyOperationOptions {
   registry?: ElementRegistry
 }
 
-const NOOP: PrintOperation = { type: 'batch', operations: [] }
-
 const PAGE_SETTING_KEYS: readonly string[] = ['name', 'paper', 'orientation', 'margins', 'numbering', 'watermark', 'meta']
 
 function unchanged(document: PrintDocument): OperationResult {
-  return { document, inverse: NOOP }
+  return { document, inverse: [] }
 }
 
 function requireElement(document: PrintDocument, id: string): ElementLocation {
@@ -159,7 +157,7 @@ function addElement(document: PrintDocument, operation: AddElementOperation): Op
   next.splice(index, 0, cloneJson(operation.element))
   return {
     document: replacePage(document, pageIndex, withContainerElements(page, operation.container, next)),
-    inverse: { type: 'removeElement', id: operation.element.id },
+    inverse: [{ type: 'removeElement', id: operation.element.id }],
   }
 }
 
@@ -169,7 +167,7 @@ function removeElement(document: PrintDocument, operation: RemoveElementOperatio
   elements.splice(location.index, 1)
   return {
     document: replacePage(document, location.pageIndex, withContainerElements(location.page, location.container, elements)),
-    inverse: { type: 'addElement', container: location.container, element: location.element, index: location.index },
+    inverse: [{ type: 'addElement', container: location.container, element: location.element, index: location.index }],
   }
 }
 
@@ -184,7 +182,7 @@ function updateElement(document: PrintDocument, operation: UpdateElementOperatio
     return unchanged(document)
   return {
     document: replaceElementAt(document, location, root),
-    inverse: { type: 'updateElement', id: operation.id, changes: undo },
+    inverse: [{ type: 'updateElement', id: operation.id, changes: undo }],
   }
 }
 
@@ -203,7 +201,7 @@ function moveElements(document: PrintDocument, operation: MoveElementsOperation)
     next = replaceElementAt(next, location, moved)
     inverse.push({ type: 'updateElement', id: element.id, changes: diffChanges(element, moved) })
   }
-  return { document: next, inverse: { type: 'batch', operations: inverse } }
+  return { document: next, inverse }
 }
 
 function resizeElement(document: PrintDocument, operation: ResizeElementOperation, options: ApplyOperationOptions): OperationResult {
@@ -222,7 +220,7 @@ function resizeElement(document: PrintDocument, operation: ResizeElementOperatio
     return unchanged(document)
   return {
     document: replaceElementAt(document, location, resized),
-    inverse: { type: 'updateElement', id: element.id, changes },
+    inverse: [{ type: 'updateElement', id: element.id, changes }],
   }
 }
 
@@ -251,7 +249,7 @@ function reorderElement(document: PrintDocument, operation: ReorderElementOperat
   next.splice(target, 0, location.element)
   return {
     document: replacePage(document, location.pageIndex, withContainerElements(location.page, location.container, next)),
-    inverse: { type: 'reorderElement', id: operation.id, to: location.index },
+    inverse: [{ type: 'reorderElement', id: operation.id, to: location.index }],
   }
 }
 
@@ -279,7 +277,7 @@ function addPage(document: PrintDocument, operation: AddPageOperation): Operatio
   pages.splice(index, 0, cloneJson(operation.page))
   return {
     document: { ...document, pages },
-    inverse: { type: 'removePage', pageId: operation.page.id },
+    inverse: [{ type: 'removePage', pageId: operation.page.id }],
   }
 }
 
@@ -289,7 +287,7 @@ function removePage(document: PrintDocument, operation: RemovePageOperation): Op
   pages.splice(index, 1)
   return {
     document: { ...document, pages },
-    inverse: { type: 'addPage', page, index },
+    inverse: [{ type: 'addPage', page, index }],
   }
 }
 
@@ -305,7 +303,7 @@ function movePage(document: PrintDocument, operation: MovePageOperation): Operat
   pages.splice(target, 0, page)
   return {
     document: { ...document, pages },
-    inverse: { type: 'movePage', pageId: operation.pageId, index },
+    inverse: [{ type: 'movePage', pageId: operation.pageId, index }],
   }
 }
 
@@ -337,7 +335,7 @@ function updatePage(document: PrintDocument, operation: UpdatePageOperation): Op
     return unchanged(document)
   return {
     document: replacePage(document, index, root),
-    inverse: { type: 'updatePage', pageId: operation.pageId, changes: undo },
+    inverse: [{ type: 'updatePage', pageId: operation.pageId, changes: undo }],
   }
 }
 
@@ -359,7 +357,7 @@ function addBand(document: PrintDocument, operation: AddBandOperation): Operatio
   const nextPage = { ...page, [operation.region]: replaceBand(set, operation.variant, cloneJson(operation.band)) }
   return {
     document: replacePage(document, index, nextPage),
-    inverse: { type: 'removeBand', pageId: page.id, region: operation.region, variant: operation.variant },
+    inverse: [{ type: 'removeBand', pageId: page.id, region: operation.region, variant: operation.variant }],
   }
 }
 
@@ -373,7 +371,7 @@ function removeBand(document: PrintDocument, operation: RemoveBandOperation): Op
   const nextPage = { ...page, [operation.region]: replaceBand(set, operation.variant, undefined) }
   return {
     document: replacePage(document, index, nextPage),
-    inverse: { type: 'addBand', pageId: page.id, region: operation.region, variant: operation.variant, band },
+    inverse: [{ type: 'addBand', pageId: page.id, region: operation.region, variant: operation.variant, band }],
   }
 }
 
@@ -385,25 +383,12 @@ function updateDocument(document: PrintDocument, operation: UpdateDocumentOperat
   const { root, undo } = writeChanges(document, operation.changes)
   if (undo.length === 0)
     return unchanged(document)
-  return { document: root, inverse: { type: 'updateDocument', changes: undo } }
-}
-
-function batch(document: PrintDocument, operations: readonly PrintOperation[], options: ApplyOperationOptions): OperationResult {
-  let current = document
-  const inverse: PrintOperation[] = []
-  for (const operation of operations) {
-    const result = applyOperation(current, operation, options)
-    if (result.document === current)
-      continue
-    current = result.document
-    inverse.unshift(result.inverse)
-  }
-  return current === document ? unchanged(document) : { document: current, inverse: { type: 'batch', operations: inverse } }
+  return { document: root, inverse: [{ type: 'updateDocument', changes: undo }] }
 }
 
 /**
- * 以纯函数方式执行编辑操作：不修改传入的文档，返回新文档与逆操作。
- * 操作没有带来变化时返回传入的文档本身；操作无法执行时抛出 PrintOperationError，传入的文档保持不变。
+ * 以纯函数方式执行编辑操作：不修改传入的文档，返回新文档与逆操作数组。
+ * 操作没有带来变化时返回传入的文档本身与空数组；操作无法执行时抛出 PrintOperationError，传入的文档保持不变。
  */
 export function applyOperation(
   document: PrintDocument,
@@ -437,9 +422,26 @@ export function applyOperation(
       return removeBand(document, operation)
     case 'updateDocument':
       return updateDocument(document, operation)
-    case 'batch':
-      return batch(document, operation.operations, options)
     default:
       throw new PrintOperationError('operation.unknown', { type: String((operation as { type: unknown }).type) })
   }
+}
+
+/**
+ * 按顺序执行一组编辑操作，整体成功或整体失败。逆操作为各操作逆操作按相反顺序的拼接；
+ * 全部操作都没有带来变化时返回传入的文档本身与空数组。
+ */
+export function applyOperations(
+  document: PrintDocument,
+  operations: readonly PrintOperation[],
+  options: ApplyOperationOptions = {},
+): OperationResult {
+  let current = document
+  let inverse: PrintOperation[] = []
+  for (const operation of operations) {
+    const result = applyOperation(current, operation, options)
+    current = result.document
+    inverse = [...result.inverse, ...inverse]
+  }
+  return { document: current, inverse }
 }

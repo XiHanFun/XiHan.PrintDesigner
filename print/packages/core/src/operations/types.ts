@@ -117,12 +117,6 @@ export interface UpdateDocumentOperation {
   changes: PropertyChange[]
 }
 
-/** 按顺序执行的一组操作，整体成功或整体失败。 */
-export interface BatchOperation {
-  type: 'batch'
-  operations: PrintOperation[]
-}
-
 /** 编辑操作。 */
 export type PrintOperation
   = | AddElementOperation
@@ -138,14 +132,13 @@ export type PrintOperation
     | AddBandOperation
     | RemoveBandOperation
     | UpdateDocumentOperation
-    | BatchOperation
 
 /** 编辑操作的种类。 */
 export type PrintOperationType = PrintOperation['type']
 
-/** 操作结果：新文档与逆操作。操作没有带来变化时 `document` 就是传入的文档。 */
+/** 操作结果：新文档与逆操作。操作没有带来变化时 `document` 就是传入的文档，`inverse` 为空数组。 */
 export interface OperationResult {
   document: PrintDocument
-  /** 作用于新文档即可还原出传入文档的操作。 */
-  inverse: PrintOperation
+  /** 按顺序作用于新文档即可还原出传入文档的操作。 */
+  inverse: PrintOperation[]
 }

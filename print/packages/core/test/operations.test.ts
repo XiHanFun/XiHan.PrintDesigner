@@ -15,6 +15,7 @@ import type {
 import { describe, expect, it } from 'vitest'
 import {
   applyOperation,
+  applyOperations,
   createBuiltinElementPrototypes,
   createElementRegistry,
   createPage,
@@ -42,16 +43,17 @@ function sample(): PrintDocument {
   return deepFreeze(createSampleDocument())
 }
 
-/** 执行操作并核对：逆操作还原原文档，逆操作的逆操作重做出同一结果，逆操作经 JSON 往返后仍然有效。 */
-function apply(document: PrintDocument, operation: PrintOperation): OperationResult {
-  const result = applyOperation(document, operation)
+/** 执行一个或一组操作并核对：逆操作还原原文档，逆操作的逆操作重做出同一结果，逆操作经 JSON 往返后仍然有效。 */
+function apply(document: PrintDocument, operation: PrintOperation | PrintOperation[]): OperationResult {
+  const result = Array.isArray(operation) ? applyOperations(document, operation) : applyOperation(document, operation)
   deepFreeze(result.document)
-  const undone = applyOperation(result.document, result.inverse)
+  expect(result.inverse.length).toBeGreaterThan(0)
+  const undone = applyOperations(result.document, result.inverse)
   expect(jsonEqual(undone.document, document)).toBe(true)
-  const redone = applyOperation(undone.document, undone.inverse)
+  const redone = applyOperations(undone.document, undone.inverse)
   expect(jsonEqual(redone.document, result.document)).toBe(true)
-  const serialized = JSON.parse(JSON.stringify(result.inverse)) as PrintOperation
-  expect(jsonEqual(applyOperation(result.document, serialized).document, document)).toBe(true)
+  const serialized = JSON.parse(JSON.stringify(result.inverse)) as PrintOperation[]
+  expect(jsonEqual(applyOperations(result.document, serialized).document, document)).toBe(true)
   return result
 }
 
@@ -152,7 +154,7 @@ describe('增删元素', () => {
     const element = registry.createElement('rect', { id: 'new-rect', x: 20, y: 150 })
     const result = apply(doc, { type: 'addElement', container: { pageId: 'page-1', region: 'body' }, element })
     expect(bodyIds(result.document).at(-1)).toBe('new-rect')
-    expect(result.inverse).toEqual({ type: 'removeElement', id: 'new-rect' })
+    expect(result.inverse).toEqual([{ type: 'removeElement', id: 'new-rect' }])
     expect(result.document.pages[1]).toBe(doc.pages[1])
   })
 
@@ -191,11 +193,11 @@ describe('增删元素', () => {
     const doc = sample()
     const result = apply(doc, { type: 'removeElement', id: 'signature' })
     expect(findElement(result.document, 'signature')).toBeUndefined()
-    expect(result.inverse).toMatchObject({
+    expect(result.inverse).toMatchObject([{
       type: 'addElement',
       container: { pageId: 'page-1', region: 'footer', band: 'last' },
       index: 0,
-    })
+    }])
     expectError(() => applyOperation(doc, { type: 'removeElement', id: 'missing' }), 'element.notFound')
   })
 })
@@ -223,7 +225,7 @@ describe('修改元素属性', () => {
     const doc = sample()
     const result = apply(doc, { type: 'updateElement', id: 'customer', changes: [{ path: ['box', 'background'], value: '#eeeeee' }] })
     expect(elementOf<TextElement>(result.document, 'customer').box).toEqual({ background: '#eeeeee' })
-    const undone = applyOperation(result.document, result.inverse).document
+    const undone = applyOperations(result.document, result.inverse).document
     expect(Object.keys(elementOf<TextElement>(undone, 'customer'))).not.toContain('box')
   })
 
@@ -244,7 +246,7 @@ describe('修改元素属性', () => {
     const doc = sample()
     const result = applyOperation(doc, { type: 'updateElement', id: 'customer', changes: [{ path: ['x'], value: 12 }] })
     expect(result.document).toBe(doc)
-    expect(result.inverse).toEqual({ type: 'batch', operations: [] })
+    expect(result.inverse).toEqual([])
   })
 
   it('不能修改标识与类型', () => {
@@ -262,7 +264,7 @@ describe('移动与缩放', () => {
     expect(elementOf<TextElement>(result.document, 'customer')).toMatchObject({ x: 12.1, y: 42.2 })
     expect(elementOf<TextElement>(result.document, 'title').x).toBeCloseTo(10.1, 10)
     expect(elementOf<TextElement>(result.document, 'label-name').y).toBeCloseTo(5.2, 10)
-    const undone = applyOperation(result.document, result.inverse).document
+    const undone = applyOperations(result.document, result.inverse).document
     expect(elementOf<TextElement>(undone, 'title').x).toBe(10)
   })
 
@@ -279,11 +281,11 @@ describe('移动与缩放', () => {
     const doc = sample()
     const result = apply(doc, { type: 'resizeElement', id: 'frame', bounds: { x: 5, y: 30, width: 200, height: 40 } })
     expect(elementOf<RectElement>(result.document, 'frame')).toMatchObject({ x: 5, y: 30, width: 200, height: 40 })
-    expect(result.inverse).toEqual({
+    expect(result.inverse).toEqual([{
       type: 'updateElement',
       id: 'frame',
       changes: [{ path: ['x'], value: 10 }, { path: ['width'], value: 190 }, { path: ['height'], value: 35 }],
-    })
+    }])
   })
 
   it('缩放表格时等比缩放列宽，撤销恢复原列宽', () => {
@@ -325,7 +327,7 @@ describe('层级', () => {
     const doc = sample()
     const result = apply(doc, { type: 'reorderElement', id: 'customer', to })
     expect(bodyIds(result.document).indexOf('customer')).toBe(expected)
-    expect(result.inverse).toEqual({ type: 'reorderElement', id: 'customer', to: 1 })
+    expect(result.inverse).toEqual([{ type: 'reorderElement', id: 'customer', to: 1 }])
   })
 
   it('已在边界时没有变化，目标下标越界报错', () => {
@@ -348,7 +350,7 @@ describe('页面', () => {
 
     const removed = apply(doc, { type: 'removePage', pageId: 'page-1' })
     expect(removed.document.pages.map(item => item.id)).toEqual(['label'])
-    expect(removed.inverse).toMatchObject({ type: 'addPage', index: 0 })
+    expect(removed.inverse).toMatchObject([{ type: 'addPage', index: 0 }])
 
     const moved = apply(doc, { type: 'movePage', pageId: 'label', index: 0 })
     expect(moved.document.pages.map(item => item.id)).toEqual(['label', 'page-1'])
@@ -455,47 +457,56 @@ describe('文档属性与批量操作', () => {
     expectError(() => applyOperation(doc, { type: 'updateDocument', changes: [{ path: ['pages'], value: [] }] }), 'path.protected')
   })
 
-  it('批量操作按顺序执行，逆操作倒序还原', () => {
+  it('批量操作按顺序执行，逆操作为各逆操作的倒序拼接', () => {
     const doc = sample()
     const element = registry.createElement('rect', { id: 'box-1', x: 20, y: 150 })
-    const result = apply(doc, {
-      type: 'batch',
-      operations: [
-        { type: 'addElement', container: { pageId: 'page-1', region: 'body' }, element },
-        { type: 'moveElements', ids: ['box-1'], dx: 5, dy: 5 },
-        { type: 'updateElement', id: 'box-1', changes: [{ path: ['fill'], value: '#000000' }] },
-        { type: 'reorderElement', id: 'box-1', to: 'back' },
-        { type: 'batch', operations: [{ type: 'removeElement', id: 'stamp' }] },
-      ],
-    })
+    const result = apply(doc, [
+      { type: 'addElement', container: { pageId: 'page-1', region: 'body' }, element },
+      { type: 'moveElements', ids: ['box-1', 'frame'], dx: 5, dy: 5 },
+      { type: 'updateElement', id: 'box-1', changes: [{ path: ['fill'], value: '#000000' }] },
+      { type: 'reorderElement', id: 'box-1', to: 'back' },
+      { type: 'removeElement', id: 'stamp' },
+    ])
     expect(bodyIds(result.document)[0]).toBe('box-1')
     expect(elementOf<RectElement>(result.document, 'box-1')).toMatchObject({ x: 25, y: 155, fill: '#000000' })
     expect(findElement(result.document, 'stamp')).toBeUndefined()
+    expect(result.inverse.map(operation => operation.type)).toEqual([
+      'addElement',
+      'reorderElement',
+      'updateElement',
+      'updateElement',
+      'updateElement',
+      'removeElement',
+    ])
   })
 
   it('批量操作中途失败时整体抛错，原文档不变', () => {
     const doc = sample()
     const snapshot = JSON.stringify(doc)
-    expectError(() => applyOperation(doc, {
-      type: 'batch',
-      operations: [
-        { type: 'removeElement', id: 'stamp' },
-        { type: 'removeElement', id: 'stamp' },
-      ],
-    }), 'element.notFound')
+    expectError(() => applyOperations(doc, [
+      { type: 'removeElement', id: 'stamp' },
+      { type: 'removeElement', id: 'stamp' },
+    ]), 'element.notFound')
     expect(JSON.stringify(doc)).toBe(snapshot)
   })
 
-  it('全部没有变化的批量操作返回原文档', () => {
+  it('全部没有变化或为空的批量操作返回原文档与空逆操作', () => {
     const doc = sample()
-    const result = applyOperation(doc, {
-      type: 'batch',
-      operations: [
-        { type: 'moveElements', ids: ['customer'], dx: 0, dy: 0 },
-        { type: 'reorderElement', id: 'frame', to: 'back' },
-      ],
-    })
+    const result = applyOperations(doc, [
+      { type: 'moveElements', ids: ['customer'], dx: 0, dy: 0 },
+      { type: 'reorderElement', id: 'frame', to: 'back' },
+    ])
     expect(result.document).toBe(doc)
+    expect(result.inverse).toEqual([])
+    expect(applyOperations(doc, [])).toEqual({ document: doc, inverse: [] })
+  })
+
+  it('平移多个元素的逆操作是每个元素各一条属性修改', () => {
+    const result = applyOperation(sample(), { type: 'moveElements', ids: ['customer', 'frame'], dx: 1, dy: 0 })
+    expect(result.inverse).toEqual([
+      { type: 'updateElement', id: 'customer', changes: [{ path: ['x'], value: 12 }] },
+      { type: 'updateElement', id: 'frame', changes: [{ path: ['x'], value: 10 }] },
+    ])
   })
 
   it('未知操作报错', () => {
@@ -524,7 +535,7 @@ describe('随机操作序列', () => {
     const pick = <T>(items: readonly T[]): T => items[Math.floor(next() * items.length)] as T
     const original = sample()
     let doc = original
-    const inverses: PrintOperation[] = []
+    const inverses: PrintOperation[][] = []
     let created = 0
 
     for (let step = 0; step < 200; step++) {
@@ -574,7 +585,7 @@ describe('随机操作序列', () => {
     }
 
     for (const inverse of inverses.reverse())
-      doc = applyOperation(doc, inverse).document
+      doc = applyOperations(doc, inverse).document
     expect(jsonEqual(doc, original)).toBe(true)
   })
 })
