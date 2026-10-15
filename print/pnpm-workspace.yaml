@@ -16,10 +16,12 @@ catalog:
   '@xihan-ui/expression': ^5.0.0
   '@xihan-ui/headless': ^5.0.0
   '@xihan-ui/viz': ^5.0.0
+  '@xihan-ui/web-components': ^5.0.0
   # 开发依赖
   '@antfu/eslint-config': ^9.5.1
   '@types/node': ^24.10.0
   eslint: ^10.12.0
+  jsdom: ^27.0.0
   oxlint: ^1.88.0
   tsdown: ~0.22.0
   typescript: ^6.0.3
@@ -33,3 +35,4 @@ overrides:
   '@xihan-ui/expression': 'link:../../XiHan.UI/ui/packages/features/expression'
   '@xihan-ui/headless': 'link:../../XiHan.UI/ui/packages/engine/headless'
   '@xihan-ui/viz': 'link:../../XiHan.UI/ui/packages/engine/viz'
+  '@xihan-ui/web-components': 'link:../../XiHan.UI/ui/packages/adapters/web-components'

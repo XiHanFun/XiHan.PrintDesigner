@@ -1,0 +1,247 @@
+/*
+ * Copyright (c) 2021-Present XiHanFun and contributors.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+// <xh-print-preview>：按数据排出打印模板并逐页显示，可直接打印。属性变化后自动重新分页。
+
+import type { ElementRegistry, IssueParams, PaginationDiagnostic, PaginationResult, PrintDocument, PrintLayoutErrorCode, ValidationIssue, ValueFormatter } from '@xihan-print/core'
+import type { ExpressionEngine } from '@xihan-ui/expression'
+import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
+import type { PropertyValues } from '@xihan-ui/web-components/authoring'
+import type { PrintRuntimeErrorCode } from './options'
+import type { PrintOutcome, PrintSheetsOptions } from './print'
+import { paginate, PrintLayoutError } from '@xihan-print/core'
+import { createExpressionEngine } from '@xihan-ui/expression'
+import { createCanvasMeasurer } from '@xihan-ui/viz'
+import { createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
+import { PrintRuntimeError, resolvePaginateOptions } from './options'
+import { printSheets } from './print'
+import { renderSheets } from './render/sheets'
+
+/** 预览元素的标签名。 */
+export const PRINT_PREVIEW_TAG = 'xh-print-preview'
+
+/** 预览元素的文案。 */
+export interface PrintPreviewTranslations {
+  /** 预览区域的可访问名。 */
+  readonly label: string
+  /** 一张输出页的可访问名；position 从 1 开始，count 为输出页总数。 */
+  readonly sheetLabel: (position: number, count: number) => string
+}
+
+/** 分页失败的原因：core 的 PrintLayoutError 或运行时的 PrintRuntimeError。 */
+export interface PaginationErrorDetail {
+  readonly code: PrintLayoutErrorCode | PrintRuntimeErrorCode
+  readonly params: IssueParams
+  /** 文档不合法时的校验问题。 */
+  readonly issues: readonly ValidationIssue[]
+}
+
+/** 预览元素派发的事件。 */
+export interface PrintPreviewEventMap {
+  /** 分页并渲染完成。 */
+  'paginated': CustomEvent<{ readonly sheets: number, readonly diagnostics: readonly PaginationDiagnostic[] }>
+  /** 分页失败，已清空预览。 */
+  'pagination-error': CustomEvent<PaginationErrorDetail>
+}
+
+const DEFAULT_TRANSLATIONS: PrintPreviewTranslations = {
+  label: 'Print preview',
+  sheetLabel: (position, count) => `Page ${position} of ${count}`,
+}
+
+/** 影响分页结果的属性，任一变化都重新分页。 */
+const PAGINATION_PROPS = ['schema', 'data', 'expressionEngine', 'formatter', 'locale', 'timeZone', 'measurer', 'registry'] as const
+
+function errorDetail(error: unknown): PaginationErrorDetail | undefined {
+  if (error instanceof PrintLayoutError)
+    return { code: error.code, params: error.params, issues: error.issues }
+  if (error instanceof PrintRuntimeError)
+    return { code: error.code, params: error.params, issues: [] }
+  return undefined
+}
+
+export class XhPrintPreview extends XhReactiveElement {
+  static override properties = {
+    schema: { attribute: false },
+    data: { attribute: false },
+    expressionEngine: { attribute: false },
+    formatter: { attribute: false },
+    measurer: { attribute: false },
+    registry: { attribute: false },
+    translations: { attribute: false },
+    locale: { type: String },
+    timeZone: { type: String, attribute: 'time-zone' },
+    zoom: { type: Number },
+  }
+
+  /** 打印模板。 */
+  declare schema: PrintDocument | undefined
+  /** 绑定的数据。 */
+  declare data: unknown
+  /** 受限表达式引擎；缺省为 @xihan-ui/expression 的 createExpressionEngine()。 */
+  declare expressionEngine: ExpressionEngine | undefined
+  /** 值格式化器；缺省为 @xihan-ui/expression 的 formatValue。 */
+  declare formatter: ValueFormatter | undefined
+  /** 文字度量器；缺省用所在文档的 Canvas 度量器，字体加载完成后自动重排。 */
+  declare measurer: TextMeasurer | undefined
+  /** 元素类型登记表，缺省为内置元素的登记表。 */
+  declare registry: ElementRegistry | undefined
+  /** 元素自己的文案，压在全局配置之上。 */
+  declare translations: Partial<PrintPreviewTranslations> | undefined
+  /** 交给格式化器的区域。 */
+  declare locale: string | undefined
+  /** 交给格式化器的时区。 */
+  declare timeZone: string | undefined
+  /** 显示缩放倍数，缺省 1；写在宿主的 --xh-print-zoom 上，由 style.css 作用到输出页，只影响预览、不影响打印。 */
+  declare zoom: number | undefined
+
+  readonly #config = new XhConfigController(this)
+  #root: HTMLDivElement | undefined
+  #sheets: HTMLDivElement | undefined
+  #result: PaginationResult | undefined
+  /** 还没按当前属性分过页。 */
+  #stale = true
+  #canvasMeasurer: CanvasMeasurer | null | undefined
+  #engine: ExpressionEngine | undefined
+  #fonts: FontFaceSet | undefined
+  readonly #onFontsLoaded = (): void => {
+    if (this.measurer !== undefined || !this.#canvasMeasurer)
+      return
+    this.#canvasMeasurer.refresh()
+    this.#repaginate()
+  }
+
+  override connectedCallback(): void {
+    super.connectedCallback()
+    this.#fonts = (this.ownerDocument as Document & { fonts?: FontFaceSet }).fonts
+    this.#fonts?.addEventListener('loadingdone', this.#onFontsLoaded)
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback()
+    this.#fonts?.removeEventListener('loadingdone', this.#onFontsLoaded)
+    this.#fonts = undefined
+  }
+
+  /** 最近一次分页的结果；还没分页或分页失败时为 undefined。 */
+  get result(): PaginationResult | undefined {
+    return this.#result
+  }
+
+  protected override update(changed: PropertyValues): void {
+    super.update(changed)
+    this.#ensureLayers()
+    const zoom = this.zoom
+    this.style.setProperty('--xh-print-zoom', typeof zoom === 'number' && Number.isFinite(zoom) && zoom > 0 ? String(zoom) : '1')
+    if (this.#stale || PAGINATION_PROPS.some(name => changed.has(name)))
+      this.#repaginate()
+    else
+      this.#label()
+  }
+
+  /** 立即按当前属性重新分页并渲染，返回分页结果；没有模板或分页失败时返回 undefined，失败另派发 pagination-error。 */
+  paginate(): PaginationResult | undefined {
+    this.#repaginate()
+    return this.#result
+  }
+
+  /** 打印当前模板：按当前属性重新分页后送去打印，只在预览中显示的元素不打印。没有模板或分页失败时抛错。 */
+  async print(options: Pick<PrintSheetsOptions, 'title'> = {}): Promise<PrintOutcome> {
+    const result = this.#compute()
+    const sheetsOptions: PrintSheetsOptions = options.title === undefined
+      ? { document: this.ownerDocument }
+      : { document: this.ownerDocument, title: options.title }
+    await printSheets(result, sheetsOptions)
+    return { sheets: result.sheets.length, diagnostics: result.diagnostics }
+  }
+
+  #compute(): PaginationResult {
+    if (this.schema === undefined)
+      throw new PrintRuntimeError('schema.missing')
+    return paginate(this.schema, this.data, resolvePaginateOptions(this, {
+      measurer: () => {
+        if (this.#canvasMeasurer === undefined)
+          this.#canvasMeasurer = createCanvasMeasurer(this.ownerDocument)
+        return this.#canvasMeasurer
+      },
+      expressionEngine: () => {
+        this.#engine ??= createExpressionEngine()
+        return this.#engine
+      },
+    }))
+  }
+
+  #repaginate(): void {
+    this.#stale = false
+    const sheets = this.#ensureLayers()
+    if (this.schema === undefined) {
+      this.#result = undefined
+      sheets.replaceChildren()
+      return
+    }
+    try {
+      const result = this.#compute()
+      this.#result = result
+      renderSheets(result, sheets)
+      this.#label()
+      emitEvent(this, 'paginated', { sheets: result.sheets.length, diagnostics: result.diagnostics })
+    }
+    catch (error) {
+      const detail = errorDetail(error)
+      if (detail === undefined)
+        throw error
+      this.#result = undefined
+      sheets.replaceChildren()
+      emitEvent(this, 'pagination-error', detail)
+    }
+  }
+
+  #label(): void {
+    const root = this.#root
+    const sheets = this.#sheets
+    if (root === undefined || sheets === undefined)
+      return
+    const t = this.#config.translations<PrintPreviewTranslations>(PRINT_PREVIEW_TAG, DEFAULT_TRANSLATIONS, this.translations)
+    root.setAttribute('aria-label', t.label)
+    const items = Array.from(sheets.children)
+    items.forEach((sheet, index) => {
+      sheet.setAttribute('role', 'group')
+      sheet.setAttribute('aria-label', t.sheetLabel(index + 1, items.length))
+    })
+  }
+
+  #ensureLayers(): HTMLDivElement {
+    if (this.#root?.parentElement === this && this.#sheets !== undefined)
+      return this.#sheets
+    const doc = this.ownerDocument
+    const root = createGeneratedElement(doc, 'div')
+    root.dataset.part = 'viewport'
+    root.setAttribute('role', 'region')
+    const sheets = doc.createElement('div')
+    sheets.dataset.part = 'sheets'
+    root.append(sheets)
+    this.append(root)
+    this.#root = root
+    this.#sheets = sheets
+    return sheets
+  }
+}
+
+/** 注册 <xh-print-preview>；同一构造器重复注册不报错，没有 customElements 的环境跳过。 */
+export function definePrintPreview(): void {
+  registerElement(PRINT_PREVIEW_TAG, XhPrintPreview)
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'xh-print-preview': XhPrintPreview
+  }
+}
+
+declare module '@xihan-ui/web-components' {
+  interface XhTranslationOverrides {
+    'xh-print-preview'?: Partial<PrintPreviewTranslations>
+  }
+}
