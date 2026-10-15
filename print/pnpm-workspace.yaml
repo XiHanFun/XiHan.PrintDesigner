@@ -1,0 +1,19 @@
+minimumReleaseAgeExcludePrune: true
+shellEmulator: true
+trustPolicy: no-downgrade
+
+packages:
+  - 'packages/*'
+
+allowBuilds:
+  esbuild: true
+
+# 依赖目录（单一版本事实源）。包内一律用 catalog: 引用，升级只改这里一处
+catalog:
+  '@antfu/eslint-config': ^9.5.1
+  '@types/node': ^24.10.0
+  eslint: ^10.12.0
+  oxlint: ^1.88.0
+  tsdown: ~0.22.0
+  typescript: ^6.0.3
+  vitest: ^4.1.11

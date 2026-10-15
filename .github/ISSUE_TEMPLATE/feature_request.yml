@@ -1,0 +1,79 @@
+name: ✨ 功能建议
+description: 提出一个新特性或对现有功能的改进建议
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢你的建议！请尽量说明「为什么需要」以及「期望它如何工作」。
+        > 提交前请先搜索 [现有 Issue](https://github.com/XiHanFun/XiHan.PrintDesigner/issues) 与 [讨论区](https://github.com/XiHanFun/XiHan.PrintDesigner/discussions)，避免重复。
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 前置确认
+      description: 提交前请逐项确认
+      options:
+        - label: 我已搜索过现有 Issue 和讨论，确认这不是重复建议
+          required: true
+        - label: 我确认这是对 XiHan.PrintDesigner 的功能建议，而非使用问题咨询
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 需求背景 / 痛点
+      description: 你遇到了什么问题，或当前有哪些不便？这个建议想解决什么？
+      placeholder: 例如：希望表格支持每页固定行数，不足时补空行…
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望的功能
+      description: 你希望它如何工作？尽量具体地描述预期的属性、事件、方法与交互。
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 影响范围
+      description: 该建议主要涉及的包 / 领域
+      options:
+        - 模型层（core）
+        - 运行时（runtime）
+        - 设计器（designer）
+        - 打印客户端（client）
+        - 构建 / 工程（tsdown / vitest / pnpm）
+        - 文档
+        - 其他 / 不确定
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 替代方案
+      description: 你是否考虑过其他实现方式或临时规避方法？
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充说明
+      description: 参考截图、设计稿或任何其他上下文
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: 参与贡献
+      description: 可选
+      options:
+        - label: 我愿意提交 PR 来实现这个功能
+          required: false

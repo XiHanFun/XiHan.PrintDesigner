@@ -1,0 +1,30 @@
+# 一律以 LF 存库并以 LF 检出，不随各人的 core.autocrlf 变化
+* text=auto eol=lf
+
+# 源码与配置一律按文本处理，不走二进制自动探测
+*.ts text eol=lf
+*.tsx text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.svg text eol=lf
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+
+# 锁文件按文本展示依赖差异；生成文件标记只折叠展示，不隐藏 diff
+pnpm-lock.yaml diff linguist-generated=true

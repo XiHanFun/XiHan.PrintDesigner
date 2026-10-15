@@ -1,0 +1,127 @@
+name: 🐛 反馈 Bug
+description: 报告一个缺陷或异常行为，帮助我们修复问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量提供**最小可复现示例**（模板 JSON / 代码片段 / 在线复现），这能帮助我们更快地定位并修复问题。
+        > 🔒 安全漏洞请勿公开提交 Issue，请使用本仓库的「私密漏洞报告」功能私下反馈。
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: 前置确认
+      description: 提交前请逐项确认
+      options:
+        - label: 我已搜索过 [现有 Issue](https://gitee.com/XiHanFun/XiHan.PrintDesigner/issues)，确认这不是重复问题
+          required: true
+        - label: 我已升级到最新版本，问题依旧存在
+          required: true
+        - label: 我确认这是一个 Bug，而非使用方式问题
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 清晰、简洁地描述这个 Bug 是什么
+      placeholder: 例如：表格跨页时没有重复表头…
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤 / 最小可复现示例
+      description: 请提供可稳定复现的步骤，并尽量附上模板 JSON、在线复现链接或最小代码片段
+      placeholder: |
+        1. 导入以下模板 JSON
+        2. …
+        3. …
+
+        在线复现（可选）：
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+      description: 你期望正确的结果应该是什么
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 实际发生了什么（如有报错，请附控制台完整信息）
+    validations:
+      required: false
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 影响范围
+      description: 该问题主要涉及的包 / 领域
+      options:
+        - 模型层（core）
+        - 运行时（runtime）
+        - 设计器（designer）
+        - 打印客户端（client）
+        - 构建 / 工程（tsdown / vitest / pnpm）
+        - 文档
+        - 其他 / 不确定
+    validations:
+      required: true
+
+  - type: input
+    id: package
+    attributes:
+      label: 相关包
+      description: 具体的包名或元素名，便于精确定位
+      placeholder: "@xihanfun/print-designer"
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 出现问题的 npm 包版本或 commit
+      placeholder: 例如 1.2.3 或 a1b2c3d
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 运行环境
+      description: 请填写相关的环境信息（未涉及的可留空）
+      value: |
+        - 操作系统：
+        - Node.js / pnpm：
+        - 浏览器及版本：
+        - 宿主框架（Vue / React / 无框架等）及版本：
+        - 构建工具（Vite / 其他）：
+        - 打印机型号 / 打印客户端版本：
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志 / 截图
+      description: 粘贴相关的浏览器控制台报错或截图。日志请用代码块包裹。
+    validations:
+      required: false
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充说明
+      description: 任何有助于我们理解问题的额外信息（临时规避方法、影响面等）
+    validations:
+      required: false
