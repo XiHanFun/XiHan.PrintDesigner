@@ -14,11 +14,11 @@ import type {
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { BodyGeometry, Placement, SheetCursor } from './placement'
 import type { TableCellLayout, TableLayoutBox, TableRowLayout } from './types'
+import { toSafeImageSource } from '@xihan-ui/core/url'
 import { convertLength } from '@xihan-ui/designer-kit'
 import { checkBarCodeValue, checkMatrixCodeValue } from '@xihan-ui/headless'
 import { barCodeIssueParams, matrixCodeIssueParams } from '../codes'
 import { getFieldValue } from '../data'
-import { isSafeImageUrl } from '../validation/controls'
 import { boxBase } from './boxes'
 import { contentText, evaluatedText, expressionText, isEmptyValue, templateText, valueText } from './content'
 import { LAYOUT_EPSILON } from './context'
@@ -109,13 +109,14 @@ function bodyRow(table: TableElement, columns: PreparedColumn[], row: unknown, i
           height = Math.max(height, measured.height)
         break
       }
-      case 'image':
-        if (text.trim().length > 0 && !isSafeImageUrl(text)) {
+      case 'image': {
+        const src = toSafeImageSource(text) ?? ''
+        if (src === '' && text.trim().length > 0)
           context.report('image.unsafeSource', scope, { columnId: column.id })
-          text = ''
-          cell.text = ''
-        }
+        text = src
+        cell.text = src
         break
+      }
       case 'barCode': {
         const format = column.barCodeFormat
         const issue = format === undefined ? undefined : checkBarCodeValue(format, text)

@@ -15,11 +15,11 @@ import type {
 import type { ElementRegion } from '../traverse'
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { LayoutBox, LayoutBoxBase, TextLayoutBox, TextMeasurement } from './types'
+import { toSafeImageSource } from '@xihan-ui/core/url'
 import { checkBarCodeValue, matrixCodeLevelFit } from '@xihan-ui/headless'
 import { barCodeIssueParams, checkMatrixCodeContent, matrixCodeIssueParams } from '../codes'
 import { getFieldValue } from '../data'
 import { formatPageNumber } from '../page-number-format'
-import { isSafeImageUrl } from '../validation/controls'
 import { contentText, valueText } from './content'
 import { LAYOUT_EPSILON } from './context'
 
@@ -107,13 +107,12 @@ function layoutText(element: TextElement, region: ElementRegion, context: Layout
 }
 
 function layoutImage(element: ImageElement, region: ElementRegion, context: LayoutContext, scope: DiagnosticScope): LayoutBox {
-  let src = element.source.kind === 'static'
+  const raw = element.source.kind === 'static'
     ? element.source.url
     : valueText(getFieldValue(context.data, element.source.field), undefined, undefined, context, scope)
-  if (src.trim().length > 0 && !isSafeImageUrl(src)) {
+  const src = toSafeImageSource(raw) ?? ''
+  if (src === '' && raw.trim().length > 0)
     context.report('image.unsafeSource', scope)
-    src = ''
-  }
   const box: LayoutBox = { ...boxBase(element, region), kind: 'image', src, fit: element.fit, rotation: element.rotation }
   if (element.box !== undefined)
     box.box = element.box

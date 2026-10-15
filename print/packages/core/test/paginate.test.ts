@@ -325,6 +325,8 @@ describe('表格分页', () => {
     const items = [
       { photo: 'https://example.com/1.png', sku: '96385074', url: 'https://example.com/1' },
       { photo: 'javascript:alert(1)', sku: '123', url: 'x' },
+      { photo: ' https://example.com/3.png\n', sku: '96385074', url: 'x' },
+      { photo: 'java\nscript:alert(1)', sku: '96385074', url: 'x' },
     ]
     const result = run(documentOf(squarePage('p', [table])), { items })
     const rows = tableSlices(result, 't')[0]!.rows.filter(row => row.role === 'body')
@@ -334,7 +336,7 @@ describe('表格分页', () => {
       ['matrixCode', 'https://example.com/1', []],
     ])
     expect(rows[0]!.cells[1]!.barCodeFormat).toBe('ean8')
-    expect(rows[1]!.cells[0]!.text).toBe('')
+    expect(rows.map(row => row.cells[0]!.text)).toEqual(['https://example.com/1.png', '', 'https://example.com/3.png', ''])
     expect(result.diagnostics.map(diagnostic => diagnostic.code)).toEqual(['image.unsafeSource', 'barCode.invalidValue'])
   })
 })

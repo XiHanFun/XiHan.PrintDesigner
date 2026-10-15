@@ -7,6 +7,7 @@ import type { PathSegment } from '../json-path'
 import type { PropertyControl } from '../registry/types'
 import type { FieldRule } from './checks'
 import type { IssueSink } from './issues'
+import { toSafeImageSource } from '@xihan-ui/core/url'
 import { BAR_CODE_FORMATS } from '@xihan-ui/headless'
 import { parsePageNumberFormat } from '../page-number-format'
 import {
@@ -36,21 +37,6 @@ import {
 } from './checks'
 
 type Path = readonly PathSegment[]
-
-const SAFE_URL_SCHEMES: readonly string[] = ['http', 'https', 'blob']
-const URL_SCHEME_PATTERN = /^([a-z][a-z0-9+.-]*):/
-const URL_IGNORED_PATTERN = /[\p{Cc}\s]/gu
-
-/** 判断图片地址是否只会被当作图片加载：http(s)、blob、data:image 或不带协议的相对地址。 */
-export function isSafeImageUrl(url: string): boolean {
-  const normalized = url.replace(URL_IGNORED_PATTERN, '').toLowerCase()
-  const scheme = URL_SCHEME_PATTERN.exec(normalized)?.[1]
-  if (scheme === undefined)
-    return true
-  if (scheme === 'data')
-    return normalized.startsWith('data:image/')
-  return SAFE_URL_SCHEMES.includes(scheme)
-}
 
 function kindOf(value: Record<string, unknown>, kinds: readonly string[], path: Path, sink: IssueSink): string | undefined {
   if (value.kind === undefined) {
@@ -161,7 +147,7 @@ export function validateImageSource(value: unknown, path: Path, sink: IssueSink)
         return
       if (item.trim().length === 0)
         sink.report('image.emptySource', itemPath)
-      else if (!isSafeImageUrl(item))
+      else if (toSafeImageSource(item) === undefined)
         sink.report('image.unsafeSource', itemPath)
     })],
     field: [field('field', true, (item, itemPath) => expectFieldPath(item, itemPath, sink))],

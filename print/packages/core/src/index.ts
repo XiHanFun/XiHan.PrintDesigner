@@ -30,7 +30,6 @@ export * from './schema/table'
 export * from './text-template'
 export * from './traverse'
 export { isValidColor } from './validation/checks'
-export { isSafeImageUrl } from './validation/controls'
 export type {
   IssueParams,
   IssueSeverity,
