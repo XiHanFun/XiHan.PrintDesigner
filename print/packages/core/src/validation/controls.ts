@@ -4,17 +4,17 @@
  */
 
 import type { JsonPathSegment } from '@xihan-ui/core/json'
+import type { FormatSpecIssueCode } from '@xihan-ui/expression'
 import type { PropertyControl } from '../registry/types'
 import type { FieldRule } from './checks'
-import type { IssueSink } from './issues'
+import type { IssueSink, ValidationIssueCode } from './issues'
 import { toSafeImageSource } from '@xihan-ui/core/url'
+import { checkFormatSpec, FORMAT_KINDS } from '@xihan-ui/expression'
 import { BAR_CODE_FORMATS } from '@xihan-ui/headless'
 import { parsePageNumberFormat } from '../page-number-format'
 import {
   AGGREGATE_FUNCTIONS,
   AGGREGATE_SCOPES,
-  FORMAT_MAX_DECIMALS,
-  FORMAT_ROUNDINGS,
   HORIZONTAL_ALIGNS,
   STROKE_STYLES,
   TABLE_CELL_TYPES,
@@ -61,41 +61,33 @@ function checkVariant(
   return kind
 }
 
-/** 数字与百分比格式的小数位：`decimals` 不能与 `minDecimals` / `maxDecimals` 同时给，`minDecimals` 不大于 `maxDecimals`。 */
-function checkDecimals(value: Record<string, unknown>, path: Path, sink: IssueSink): void {
-  if (value.decimals !== undefined && (value.minDecimals !== undefined || value.maxDecimals !== undefined))
-    sink.report('format.decimalsConflict', [...path, 'decimals'])
-  const { minDecimals, maxDecimals } = value
-  if (typeof minDecimals === 'number' && typeof maxDecimals === 'number' && minDecimals > maxDecimals)
-    sink.report('format.decimalsOrder', [...path, 'minDecimals'], { minDecimals, maxDecimals })
-}
+/** @xihan-ui/expression 格式说明问题码对应的打印问题码。 */
+const FORMAT_ISSUE_CODES = {
+  XH_EXPR_FORMAT_INVALID_SPEC: 'schema.invalidType',
+  XH_EXPR_FORMAT_INVALID_KIND: 'value.invalidOption',
+  XH_EXPR_FORMAT_INVALID_OPTION: 'format.invalidOption',
+  XH_EXPR_FORMAT_CONFLICT: 'format.conflict',
+  XH_EXPR_FORMAT_UNKNOWN_KEY: 'schema.unknownProperty',
+} as const satisfies Record<FormatSpecIssueCode, ValidationIssueCode>
 
-/** 校验值格式。 */
+/** 校验值格式：值映射与表达式格式按本包规则，其余种类交给 @xihan-ui/expression 的 checkFormatSpec。 */
 export function validateValueFormat(value: unknown, path: Path, sink: IssueSink): void {
-  const decimals = (item: unknown, itemPath: Path): boolean =>
-    expectNumber(item, itemPath, sink, { min: 0, max: FORMAT_MAX_DECIMALS, integer: true })
-  const text = (item: unknown, itemPath: Path): boolean => expectString(item, itemPath, sink)
-  const rounding = (item: unknown, itemPath: Path): boolean => expectOption(item, FORMAT_ROUNDINGS, itemPath, sink)
-  const numberRules = [
-    field('decimals', false, decimals),
-    field('minDecimals', false, decimals),
-    field('maxDecimals', false, decimals),
-    field('grouping', false, (item, itemPath) => expectBoolean(item, itemPath, sink)),
-    field('rounding', false, rounding),
-  ]
-  const kind = checkVariant(value, {
-    'number': numberRules,
-    'percent': numberRules,
-    'date': [field('pattern', true, (item, itemPath) => expectString(item, itemPath, sink, { nonEmpty: true }))],
-    'rmb-upper': [field('rounding', false, rounding)],
-    'map': [
+  if (!expectObject(value, path, sink))
+    return
+  const kind = kindOf(value, [...FORMAT_KINDS, 'map', 'expression'], path, sink)
+  if (kind === 'map') {
+    checkFields(value, [
       field('entries', true, (item, itemPath) => validateMapEntries(item, itemPath, sink)),
-      field('fallback', false, text),
-    ],
-    'expression': [field('expression', true, (item, itemPath) => expectExpression(item, itemPath, sink))],
-  }, path, sink)
-  if ((kind === 'number' || kind === 'percent') && typeof value === 'object' && value !== null)
-    checkDecimals(value as Record<string, unknown>, path, sink)
+      field('fallback', false, (item, itemPath) => expectString(item, itemPath, sink)),
+    ], path, sink, ['kind'])
+  }
+  else if (kind === 'expression') {
+    checkFields(value, [field('expression', true, (item, itemPath) => expectExpression(item, itemPath, sink))], path, sink, ['kind'])
+  }
+  else if (kind !== undefined) {
+    for (const issue of checkFormatSpec(value))
+      sink.report(FORMAT_ISSUE_CODES[issue.code], [...path, ...issue.path])
+  }
 }
 
 function validateMapEntries(value: unknown, path: Path, sink: IssueSink): void {
