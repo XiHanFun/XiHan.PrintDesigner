@@ -327,20 +327,23 @@ describe('内容来源与格式', () => {
       { kind: 'percent', minDecimals: 3, maxDecimals: 1 },
       { kind: 'rmb-upper', rounding: 'banker' },
       { kind: 'number', thousands: true },
+      { kind: 'numeral', style: 'roman-upper' },
+      { kind: 'numeral', style: 'greek' },
     ]
     const elements = formats.map((format, index) =>
       element('text', `t${index}`, { content: { kind: 'field', field: 'v', format } }),
     )
     expect(issuesOf(withBody(...elements))).toEqual([
-      'value.notInteger@pages.0.elements.0.content.format.decimals',
-      'value.outOfRange@pages.0.elements.1.content.format.decimals',
-      'value.empty@pages.0.elements.2.content.format.pattern',
+      'format.invalidOption@pages.0.elements.0.content.format.decimals',
+      'format.invalidOption@pages.0.elements.1.content.format.decimals',
+      'format.invalidOption@pages.0.elements.2.content.format.pattern',
       'format.duplicateMapValue@pages.0.elements.3.content.format.entries.1.value',
       'value.invalidOption@pages.0.elements.4.content.format.kind',
-      'format.decimalsConflict@pages.0.elements.5.content.format.decimals',
-      'format.decimalsOrder@pages.0.elements.6.content.format.minDecimals',
-      'value.invalidOption@pages.0.elements.7.content.format.rounding',
+      'format.conflict@pages.0.elements.5.content.format.decimals',
+      'format.conflict@pages.0.elements.6.content.format.minDecimals',
+      'format.invalidOption@pages.0.elements.7.content.format.rounding',
       'schema.unknownProperty@pages.0.elements.8.content.format.thousands',
+      'format.invalidOption@pages.0.elements.10.content.format.style',
     ])
   })
 
@@ -654,7 +657,7 @@ describe('受限表达式', () => {
     const report = validateDocument(withBody(formatted, nested, table), { expressionEngine: engine })
     expect(summarize(report)).toEqual([
       'expression.invalid@pages.0.elements.0.content.format.expression',
-      'value.outOfRange@pages.0.elements.1.content.format.decimals',
+      'format.invalidOption@pages.0.elements.1.content.format.decimals',
       'expression.invalid@pages.0.elements.2.columns.3.content.expression',
     ])
   })

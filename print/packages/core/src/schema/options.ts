@@ -3,8 +3,6 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { FormatRounding } from '@xihan-ui/expression'
-
 /** 页面方向取值。 */
 export const PAGE_ORIENTATIONS = ['portrait', 'landscape'] as const
 
@@ -66,12 +64,6 @@ export const LINE_DIRECTIONS = ['horizontal', 'vertical', 'diagonalDown', 'diago
 export type LineDirection = (typeof LINE_DIRECTIONS)[number]
 
 export type { BarCodeFormat, MatrixCodeFormat, MatrixCodeLevel } from '@xihan-ui/headless'
-
-/** 数字格式的舍入方式取值，与 @xihan-ui/expression 的 FormatRounding 一致。 */
-export const FORMAT_ROUNDINGS = ['half-up', 'half-even', 'floor', 'ceil', 'down'] as const satisfies readonly FormatRounding[]
-
-/** 数字格式的最大小数位数，与 @xihan-ui/expression 的格式化上限一致。 */
-export const FORMAT_MAX_DECIMALS = 34
 
 /** 表格汇总函数取值。 */
 export const AGGREGATE_FUNCTIONS = ['sum', 'avg', 'count', 'min', 'max'] as const
