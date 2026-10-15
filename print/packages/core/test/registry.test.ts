@@ -3,8 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { JsonValue } from '@xihan-ui/core/json'
 import type { AnyElementPrototype, PropertyDescriptor, TableElement } from '../src'
-import { findJsonViolation } from '@xihan-ui/core/json'
+import { findJsonViolation, getJsonAt } from '@xihan-ui/core/json'
+import { checkProperties } from '@xihan-ui/designer-kit/properties'
 import { BAR_CODE_FORMATS, MATRIX_CODE_FORMATS } from '@xihan-ui/headless'
 import { describe, expect, it } from 'vitest'
 import {
@@ -15,16 +17,6 @@ import {
   PROPERTY_GROUPS,
   scaleTableColumns,
 } from '../src'
-
-function valueAt(source: unknown, path: readonly string[]): unknown {
-  let current = source
-  for (const segment of path) {
-    if (typeof current !== 'object' || current === null)
-      return undefined
-    current = (current as Record<string, unknown>)[segment]
-  }
-  return current
-}
 
 function samplePrototypes(): AnyElementPrototype[] {
   return createBuiltinElementPrototypes()
@@ -57,14 +49,16 @@ describe('内置元素原型', () => {
 
     for (const descriptor of descriptors) {
       expect(PROPERTY_GROUPS).toContain(descriptor.group)
-      const value = valueAt({ ...prototype.defaults, x: 0, y: 0 }, descriptor.path)
-      if (descriptor.required)
+      const value = getJsonAt({ ...prototype.defaults, x: 0, y: 0 } as unknown as JsonValue, descriptor.path)
+      if (descriptor.present)
         expect(value, descriptor.path.join('.')).not.toBeUndefined()
       if (descriptor.control.kind === 'select' && value !== undefined)
-        expect(descriptor.control.options).toContain(value)
-      if (descriptor.when !== undefined)
-        expect(keys).toContain(descriptor.when.path.join('.'))
+        expect(descriptor.control.options.map(option => option.value)).toContain(value)
+      const condition = descriptor.visibleWhen
+      if (condition !== undefined && 'path' in condition)
+        expect(keys).toContain(condition.path.join('.'))
     }
+    expect(checkProperties(descriptors, { ...prototype.defaults, x: 0, y: 0 } as unknown as JsonValue)).toEqual([])
 
     for (const key of Object.keys(prototype.defaults)) {
       if (key === 'type')
@@ -81,10 +75,10 @@ describe('内置元素原型', () => {
   it('码制选项直接取 @xihan-ui/headless 的码制常量', () => {
     const barcode = samplePrototypes().find(prototype => prototype.type === 'barCode')!
     const barCodeFormat = barcode.properties.find(descriptor => descriptor.path[0] === 'format')!
-    expect(barCodeFormat.control).toEqual({ kind: 'select', options: BAR_CODE_FORMATS })
+    expect(barCodeFormat.control).toEqual({ kind: 'select', options: BAR_CODE_FORMATS.map(value => ({ value })) })
     const qrcode = samplePrototypes().find(prototype => prototype.type === 'matrixCode')!
     const format = qrcode.properties.find(descriptor => descriptor.path[0] === 'format')!
-    expect(format.control).toEqual({ kind: 'select', options: MATRIX_CODE_FORMATS })
+    expect(format.control).toEqual({ kind: 'select', options: MATRIX_CODE_FORMATS.map(value => ({ value })) })
   })
 })
 

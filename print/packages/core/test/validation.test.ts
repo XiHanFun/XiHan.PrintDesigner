@@ -93,11 +93,10 @@ describe('模板须为纯 JSON', () => {
     const report = validateDocument(doc)
     expect(report.valid).toBe(false)
     expect(report.issues[0]).toEqual({
-      code: 'json.invalidValue',
+      code: 'invalid-value',
       severity: 'error',
       path: ['pages', 0, 'elements', 0, 'width'],
-      pageId: 'p',
-      elementId: 'r',
+      target: { kind: 'element', id: 'r' },
       params: { kind: 'nonFiniteNumber' },
     })
     expect(report.issues).toHaveLength(1)
@@ -106,7 +105,7 @@ describe('模板须为纯 JSON', () => {
   it('只报告第一处非 JSON 值，并给出种类', () => {
     const withMeta = (meta: unknown): Record<string, unknown> => ({ ...withBody(element('rect', 'r')), meta })
     const first = validateDocument(withMeta({ fn: () => 1, at: new Date(0) }))
-    expect(summarize(first)).toEqual(['json.invalidValue@meta.fn'])
+    expect(summarize(first)).toEqual(['invalid-value@meta.fn'])
     expect(first.issues[0]!.params).toEqual({ kind: 'function' })
     expect(validateDocument(withMeta({ at: new Date(0) })).issues[0]!.params).toEqual({ kind: 'nonPlainObject' })
     expect(validateDocument(withMeta({ list: [1, undefined] })).issues.map(issue => [issue.path, issue.params])).toEqual([
@@ -119,19 +118,19 @@ describe('模板须为纯 JSON', () => {
 
   it('值为 undefined 的属性也不是 JSON', () => {
     const text = { ...element('text', 't'), name: undefined }
-    expect(issuesOf(withBody(text))).toEqual(['json.invalidValue@pages.0.elements.0.name'])
+    expect(issuesOf(withBody(text))).toEqual(['invalid-value@pages.0.elements.0.name'])
   })
 })
 
 describe('文档结构', () => {
   it('根不是对象', () => {
-    expect(issuesOf(null)).toEqual(['schema.invalidType@'])
+    expect(issuesOf(null)).toEqual(['invalid-type@'])
     expect(first([]).params).toEqual({ expected: 'object' })
   })
 
   it('缺少或不支持的版本号只报告版本问题', () => {
-    expect(issuesOf({ pages: 'x' })).toEqual(['schema.missingProperty@schemaVersion'])
-    expect(issuesOf({ schemaVersion: '1', pages: [] })).toEqual(['schema.invalidType@schemaVersion'])
+    expect(issuesOf({ pages: 'x' })).toEqual(['required@schemaVersion'])
+    expect(issuesOf({ schemaVersion: '1', pages: [] })).toEqual(['invalid-type@schemaVersion'])
     const unsupported = first({ schemaVersion: 2, pages: 'x' })
     expect(unsupported.code).toBe('schema.unsupportedVersion')
     expect(unsupported.params).toEqual({ version: 2, supported: 1 })
@@ -139,11 +138,11 @@ describe('文档结构', () => {
 
   it('没有页面、未知属性与错误类型', () => {
     expect(issuesOf({ schemaVersion: 1, pages: [], extra: true, name: 1 })).toEqual([
-      'schema.invalidType@name',
+      'unknown-key@extra',
+      'invalid-type@name',
       'document.noPages@pages',
-      'schema.unknownProperty@extra',
     ])
-    expect(issuesOf({ schemaVersion: 1 })).toEqual(['schema.missingProperty@pages'])
+    expect(issuesOf({ schemaVersion: 1 })).toEqual(['required@pages'])
   })
 
   it('页面与元素标识在整份文档内唯一', () => {
@@ -151,8 +150,8 @@ describe('文档结构', () => {
     doc.pages[1]!.id = 'page-1'
     doc.pages[1]!.elements[0]!.id = 'title'
     expect(issuesOf(doc)).toEqual([
-      'id.duplicate@pages.1.id',
-      'id.duplicate@pages.1.elements.0.id',
+      'duplicate-id@pages.1.id',
+      'duplicate-id@pages.1.elements.0.id',
     ])
   })
 })
@@ -166,8 +165,8 @@ describe('页面', () => {
     const issues = issuesOf({ schemaVersion: 1, pages: [page] })
     expect(issues).toEqual([
       'page.presetMismatch@pages.0.paper',
-      'value.invalidOption@pages.0.orientation',
-      'value.outOfRange@pages.0.margins.top',
+      'invalid-option@pages.0.orientation',
+      'out-of-range@pages.0.margins.top',
     ])
   })
 
@@ -181,7 +180,7 @@ describe('页面', () => {
     const report = validateDocument(createDocument({ pages: [crowded] }))
     expect(summarize(report)).toEqual(['page.bandsOverflow@pages.0'])
     expect(report.issues[0]!.params).toEqual({ header: 'first', footer: 'last' })
-    expect(report.issues[0]!.pageId).toBe('p')
+    expect(report.issues[0]!.target).toEqual({ kind: 'page', id: 'p' })
   })
 
   it('页眉页脚结构、页码规则与水印', () => {
@@ -190,16 +189,16 @@ describe('页面', () => {
     page.numbering = { continuous: 'yes', start: 1.5 }
     page.watermark = { text: ' {{a b}}', fontSize: 0, color: 'red', opacity: 2, rotation: 0, gapX: 10, gapY: -1 }
     expect(issuesOf({ schemaVersion: 1, pages: [page] })).toEqual([
-      'schema.missingProperty@pages.0.header.default',
-      'schema.missingProperty@pages.0.header.odd.elements',
-      'value.invalidOption@pages.0.header.singleSheet',
-      'schema.invalidType@pages.0.numbering.continuous',
-      'value.notInteger@pages.0.numbering.start',
+      'required@pages.0.header.default',
+      'required@pages.0.header.odd.elements',
+      'invalid-option@pages.0.header.singleSheet',
+      'invalid-type@pages.0.numbering.continuous',
+      'not-integer@pages.0.numbering.start',
       'template.invalidPath@pages.0.watermark.text',
-      'value.outOfRange@pages.0.watermark.fontSize',
-      'value.invalidColor@pages.0.watermark.color',
-      'value.outOfRange@pages.0.watermark.opacity',
-      'value.outOfRange@pages.0.watermark.gapY',
+      'out-of-range@pages.0.watermark.fontSize',
+      'invalid-color@pages.0.watermark.color',
+      'out-of-range@pages.0.watermark.opacity',
+      'out-of-range@pages.0.watermark.gapY',
     ])
   })
 
@@ -215,12 +214,12 @@ describe('页面', () => {
 describe('元素通用规则', () => {
   it('缺少标识与类型、未知类型', () => {
     expect(issuesOf(withBody({ x: 1 }))).toEqual([
-      'schema.missingProperty@pages.0.elements.0.id',
-      'schema.missingProperty@pages.0.elements.0.type',
+      'required@pages.0.elements.0.id',
+      'required@pages.0.elements.0.type',
     ])
     const unknown = first(withBody({ id: 'u', type: 'chart' }))
-    expect(unknown).toMatchObject({ code: 'element.unknownType', elementId: 'u', params: { type: 'chart' } })
-    expect(issuesOf(withBody({ id: '', type: 'rect' }))[0]).toBe('value.empty@pages.0.elements.0.id')
+    expect(unknown).toMatchObject({ code: 'element.unknownType', target: { kind: 'element', id: 'u' }, params: { type: 'chart' } })
+    expect(issuesOf(withBody({ id: '', type: 'rect' }))[0]).toBe('empty@pages.0.elements.0.id')
   })
 
   it('按属性描述报告缺失、类型错误、取值越界与未知属性', () => {
@@ -234,13 +233,13 @@ describe('元素通用规则', () => {
     text.rotation = 720
     text.colour = '#000'
     expect(issuesOf(withBody(text))).toEqual([
-      'value.outOfRange@pages.0.elements.0.rotation',
-      'schema.missingProperty@pages.0.elements.0.style.fontSize',
-      'value.invalidColor@pages.0.elements.0.style.color',
-      'value.invalidOption@pages.0.elements.0.style.align',
-      'schema.unknownProperty@pages.0.elements.0.style.fontSizee',
-      'schema.invalidType@pages.0.elements.0.wrap',
-      'schema.unknownProperty@pages.0.elements.0.colour',
+      'unknown-key@pages.0.elements.0.colour',
+      'out-of-range@pages.0.elements.0.rotation',
+      'unknown-key@pages.0.elements.0.style.fontSizee',
+      'required@pages.0.elements.0.style.fontSize',
+      'invalid-color@pages.0.elements.0.style.color',
+      'invalid-option@pages.0.elements.0.style.align',
+      'invalid-type@pages.0.elements.0.wrap',
     ])
   })
 
@@ -248,13 +247,13 @@ describe('元素通用规则', () => {
     const table = element('table', 't')
     delete table.header
     table.box = 'x'
-    expect(issuesOf(withBody(table))).toContain('schema.missingProperty@pages.0.elements.0.header')
+    expect(issuesOf(withBody(table))).toContain('required@pages.0.elements.0.header')
     expect(issuesOf(withBody(table)).filter(code => code.includes('header'))).toHaveLength(1)
   })
 
   it('结构有 error 时不再校验几何与专属规则', () => {
     const line = element('line', 'l', { width: 0, stroke: { width: 0, style: 'solid', color: '#000' } })
-    expect(issuesOf(withBody(line))).toEqual(['value.outOfRange@pages.0.elements.0.stroke.width'])
+    expect(issuesOf(withBody(line))).toEqual(['out-of-range@pages.0.elements.0.stroke.width'])
   })
 
   it('尺寸下限与超出纸张', () => {
@@ -283,7 +282,7 @@ describe('元素通用规则', () => {
       'element.outsideBand@pages.0.header.default.elements.1',
       'element.flowInBand@pages.0.header.default.elements.2',
     ])
-    expect(report.issues[0]).toMatchObject({ elementId: 'below', params: { region: 'header' } })
+    expect(report.issues[0]).toMatchObject({ target: { kind: 'element', id: 'below' }, params: { region: 'header' } })
   })
 
   it('跨页元素越出正文区', () => {
@@ -318,11 +317,11 @@ describe('内容来源与格式', () => {
     const badTemplate = element('text', 'd', { content: { kind: 'template', template: '{{a}' } })
     const extra = element('text', 'e', { content: { kind: 'static', text: 'x', field: 'y' } })
     expect(issuesOf(withBody(missingKind, badKind, badField, badTemplate, extra))).toEqual([
-      'schema.missingProperty@pages.0.elements.0.content.kind',
-      'value.invalidOption@pages.0.elements.1.content.kind',
+      'required@pages.0.elements.0.content.kind',
+      'invalid-option@pages.0.elements.1.content.kind',
       'field.invalidPath@pages.0.elements.2.content.field',
       'template.unclosedPlaceholder@pages.0.elements.3.content.template',
-      'schema.unknownProperty@pages.0.elements.4.content.field',
+      'unknown-key@pages.0.elements.4.content.field',
     ])
   })
 
@@ -348,11 +347,11 @@ describe('内容来源与格式', () => {
       'format.invalidOption@pages.0.elements.1.content.format.decimals',
       'format.invalidOption@pages.0.elements.2.content.format.pattern',
       'format.duplicateMapValue@pages.0.elements.3.content.format.entries.1.value',
-      'value.invalidOption@pages.0.elements.4.content.format.kind',
+      'invalid-option@pages.0.elements.4.content.format.kind',
       'format.conflict@pages.0.elements.5.content.format.decimals',
       'format.conflict@pages.0.elements.6.content.format.minDecimals',
       'format.invalidOption@pages.0.elements.7.content.format.rounding',
-      'schema.unknownProperty@pages.0.elements.8.content.format.thousands',
+      'unknown-key@pages.0.elements.8.content.format.thousands',
       'format.invalidOption@pages.0.elements.10.content.format.style',
     ])
   })
@@ -389,7 +388,7 @@ describe('内容来源与格式', () => {
       'pageNumber.noToken@pages.0.elements.0.format',
       'pageNumber.unknownToken@pages.0.elements.1.format',
       'template.unclosedPlaceholder@pages.0.elements.2.format',
-      'value.invalidOption@pages.0.elements.4.numeral',
+      'invalid-option@pages.0.elements.4.numeral',
     ])
     expect(report.issues[1]!.params).toEqual({ token: 'total' })
   })
@@ -430,8 +429,8 @@ describe('表格', () => {
       columns[2]!.cellType = 'barCode'
       columns[3]!.content = { kind: 'aggregate', fn: 'sum' }
     }))).toEqual([
-      'schema.missingProperty@pages.0.elements.0.columns.2.barCodeFormat',
-      'value.invalidOption@pages.0.elements.0.columns.3.content.kind',
+      'required@pages.0.elements.0.columns.2.barCodeFormat',
+      'invalid-option@pages.0.elements.0.columns.3.content.kind',
       'table.duplicateColumnId@pages.0.elements.0.columns.1.id',
     ])
   })
@@ -461,10 +460,10 @@ describe('表格', () => {
   it('每页最大行数必须为正整数', () => {
     expect(issuesOf(tableDoc((table) => {
       table.maxRowsPerPage = 0
-    }))).toEqual(['value.outOfRange@pages.0.elements.0.maxRowsPerPage'])
+    }))).toEqual(['out-of-range@pages.0.elements.0.maxRowsPerPage'])
     expect(issuesOf(tableDoc((table) => {
       table.maxRowsPerPage = 2.5
-    }))).toEqual(['value.notInteger@pages.0.elements.0.maxRowsPerPage'])
+    }))).toEqual(['not-integer@pages.0.elements.0.maxRowsPerPage'])
   })
 
   it('正文区放不下表头加一行与每页表尾', () => {
@@ -519,7 +518,7 @@ describe('图形、条码与二维码', () => {
       'barCode.invalidValue@pages.0.elements.1.content.text',
       'barCode.invalidValue@pages.0.elements.2.content.text',
       'barCode.invalidValue@pages.0.elements.3.content.text',
-      'value.empty@pages.0.elements.4.content.text',
+      'empty@pages.0.elements.4.content.text',
     ])
     expect(report.issues.slice(0, 4).map(issue => issue.params)).toEqual([
       { format: 'ean13', reason: 'invalid-check-digit', expected: 1, actual: 2 },
@@ -535,7 +534,7 @@ describe('图形、条码与二维码', () => {
     const oblong = element('matrixCode', 'c', { width: 30 })
     const report = validateDocument(withBody(empty, tooLong, oblong))
     expect(summarize(report)).toEqual([
-      'value.empty@pages.0.elements.0.content.text',
+      'empty@pages.0.elements.0.content.text',
       'matrixCode.invalidValue@pages.0.elements.1.content.text',
       'matrixCode.notSquare@pages.0.elements.2',
     ])
@@ -558,8 +557,8 @@ describe('图形、条码与二维码', () => {
       'matrixCode.invalidLevel@pages.0.elements.3.level',
       'matrixCode.invalidLevel@pages.0.elements.4.level',
       'matrixCode.levelIgnored@pages.0.elements.5.level',
-      'value.invalidOption@pages.0.elements.6.format',
-      'schema.invalidType@pages.0.elements.7.level',
+      'invalid-option@pages.0.elements.6.format',
+      'invalid-type@pages.0.elements.7.level',
     ])
     expect(report.issues[0]!.params).toEqual({ format: 'qr', level: '4' })
     expect(report.issues[2]!.severity).toBe('warning')
@@ -576,11 +575,11 @@ describe('复合属性', () => {
       },
     })
     expect(issuesOf(withBody(text))).toEqual([
-      'value.invalidColor@pages.0.elements.0.box.background',
-      'value.invalidOption@pages.0.elements.0.box.border.top.style',
-      'schema.unknownProperty@pages.0.elements.0.box.border.middle',
-      'value.outOfRange@pages.0.elements.0.box.padding.bottom',
-      'schema.missingProperty@pages.0.elements.0.box.padding.left',
+      'invalid-color@pages.0.elements.0.box.background',
+      'unknown-key@pages.0.elements.0.box.border.middle',
+      'invalid-option@pages.0.elements.0.box.border.top.style',
+      'required@pages.0.elements.0.box.padding.left',
+      'out-of-range@pages.0.elements.0.box.padding.bottom',
     ])
   })
 
@@ -589,10 +588,10 @@ describe('复合属性', () => {
     table.header = { visible: true, repeat: true, height: 8, style: { fontSize: 10, bold: 'yes', italic: false, color: '#000', verticalAlign: 'center', padding: 1, lineHeight: 0 } }
     table.border = { stroke: { width: 0.2, style: 'solid', color: '#000' }, outer: true, horizontal: true }
     expect(issuesOf(withBody(table))).toEqual([
-      'schema.invalidType@pages.0.elements.0.header.style.bold',
-      'value.invalidOption@pages.0.elements.0.header.style.verticalAlign',
-      'value.outOfRange@pages.0.elements.0.header.style.lineHeight',
-      'schema.missingProperty@pages.0.elements.0.border.vertical',
+      'invalid-type@pages.0.elements.0.header.style.bold',
+      'invalid-option@pages.0.elements.0.header.style.verticalAlign',
+      'out-of-range@pages.0.elements.0.header.style.lineHeight',
+      'required@pages.0.elements.0.border.vertical',
     ])
   })
 
@@ -600,7 +599,7 @@ describe('复合属性', () => {
     const table = copyOf(createSampleTable())
     const cell = table.footerRows[0]!.cells[0] as unknown as Record<string, unknown>
     cell.colSpan = 1.5
-    expect(issuesOf(withBody(table))).toEqual(['value.notInteger@pages.0.elements.0.footerRows.0.cells.0.colSpan'])
+    expect(issuesOf(withBody(table))).toEqual(['not-integer@pages.0.elements.0.footerRows.0.cells.0.colSpan'])
   })
 
   it('图片字段来源未绑定、宿主附加数据必须是对象', () => {
@@ -608,7 +607,7 @@ describe('复合属性', () => {
     const report = validateDocument(withBody(image))
     expect(summarize(report)).toEqual([
       'field.empty@pages.0.elements.0.source.field',
-      'schema.invalidType@pages.0.elements.0.meta',
+      'invalid-type@pages.0.elements.0.meta',
     ])
   })
 
@@ -617,8 +616,8 @@ describe('复合属性', () => {
     page.background = '#fff'
     page.meta = []
     expect(issuesOf({ schemaVersion: 1, pages: [page] })).toEqual([
-      'schema.invalidType@pages.0.meta',
-      'schema.unknownProperty@pages.0.background',
+      'unknown-key@pages.0.background',
+      'invalid-type@pages.0.meta',
     ])
   })
 })
@@ -638,8 +637,8 @@ describe('受限表达式', () => {
 
   it('未注入检查器时只要求表达式非空', () => {
     expect(issuesOf(withBody(expressionText('a', 'round(price'), expressionText('b', ''), expressionText('c', 1)))).toEqual([
-      'value.empty@pages.0.elements.1.content.expression',
-      'schema.invalidType@pages.0.elements.2.content.expression',
+      'empty@pages.0.elements.1.content.expression',
+      'invalid-type@pages.0.elements.2.content.expression',
     ])
   })
 
@@ -648,7 +647,7 @@ describe('受限表达式', () => {
     expect(summarize(report)).toEqual(['expression.invalid@pages.0.elements.0.content.expression'])
     expect(report.issues[0]).toMatchObject({
       severity: 'error',
-      elementId: 'a',
+      target: { kind: 'element', id: 'a' },
       params: { code: 'XH_EXPR_UNEXPECTED_END', start: 5, end: 11, expected: ')' },
     })
   })

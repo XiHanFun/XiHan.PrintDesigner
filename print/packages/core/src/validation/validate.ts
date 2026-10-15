@@ -3,8 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { JsonPathSegment } from '@xihan-ui/core/json'
+import type { JsonPath, JsonPathSegment } from '@xihan-ui/core/json'
 import type { Rect, Size } from '@xihan-ui/designer-kit'
+import type { SchemaIssueTarget } from '@xihan-ui/designer-kit/schema'
 import type { ExpressionEngine } from '@xihan-ui/expression'
 import type { ElementRegistry } from '../registry/registry'
 import type { AnyElementPrototype, ElementValidationContext, PropertyDescriptor } from '../registry/types'
@@ -12,32 +13,21 @@ import type { Edges } from '../schema/common'
 import type { PrintElement } from '../schema/elements'
 import type { PageBandKey, PageOrientation } from '../schema/options'
 import type { ElementRegion } from '../traverse'
-import type { IssueScope, IssueSink, ValidationIssue, ValidationReport } from './issues'
+import type { IssueSink, ValidationIssue, ValidationReport } from './issues'
 import { findJsonViolation, isPlainObject } from '@xihan-ui/core/json'
 import { expandRect, isPaperPresetName, PAPER_PRESET_NAMES, PAPER_PRESETS, rectContains } from '@xihan-ui/designer-kit'
+import { readArray, readBoolean, readNumber, readObject, readOneOf, readString } from '@xihan-ui/designer-kit/schema'
 import { getBandRect, getBodyRect, getContentRect, getElementRect, getPaperSize } from '../geometry'
 import { createElementRegistry } from '../registry/registry'
 import { PRINT_SCHEMA_VERSION } from '../schema/document'
 import { PAGE_ORIENTATIONS, SINGLE_SHEET_PREFERENCES } from '../schema/options'
 import { PAGE_BAND_KEYS } from '../traverse'
-import {
-  checkFields,
-  expectArray,
-  expectBoolean,
-  expectColor,
-  expectNumber,
-  expectObject,
-  expectOption,
-  expectString,
-  expectTextTemplate,
-  field,
-  reportUnknownKeys,
-} from './checks'
+import { field, readColor, readFields, readTextTemplate } from './checks'
 import { validateControlValue, validateEdges } from './controls'
 import { LENGTH_TOLERANCE } from './element-rules'
 import { createIssueSink } from './issues'
 
-type Path = readonly JsonPathSegment[]
+type Path = JsonPath
 
 /** 校验选项。 */
 export interface ValidateDocumentOptions {
@@ -79,12 +69,13 @@ function buildDescriptorTree(descriptors: readonly PropertyDescriptor[]): Descri
   for (const descriptor of descriptors) {
     let node = root
     for (const segment of descriptor.path) {
-      let child = node.children.get(segment)
+      const key = String(segment)
+      let child = node.children.get(key)
       if (child === undefined) {
         child = { children: new Map(), required: false }
-        node.children.set(segment, child)
+        node.children.set(key, child)
       }
-      if (descriptor.required)
+      if (descriptor.present)
         child.required = true
       node = child
     }
@@ -93,45 +84,45 @@ function buildDescriptorTree(descriptors: readonly PropertyDescriptor[]): Descri
   return root
 }
 
+/** 按属性描述树读取对象：缺少的必填属性、描述之外的属性与不合编辑方式的取值都报出。 */
 function validateDescriptorNode(
-  object: Record<string, unknown>,
+  value: unknown,
   node: DescriptorNode,
   path: Path,
   sink: IssueSink,
   extraKeys: readonly string[],
 ): void {
-  for (const [key, child] of node.children) {
-    const value = object[key]
-    const childPath = [...path, key]
-    if (value === undefined) {
-      if (child.required)
-        sink.report('schema.missingProperty', childPath, { property: key })
+  const children = [...node.children]
+  const object = readObject(sink, value, path, {
+    required: children.filter(([, child]) => child.required).map(([key]) => key),
+    allowed: [...node.children.keys(), ...extraKeys],
+  })
+  if (object === undefined)
+    return
+  for (const [key, child] of children) {
+    const item = object[key]
+    if (item === undefined)
       continue
-    }
     if (child.descriptor !== undefined)
-      validateControlValue(child.descriptor.control, value, childPath, sink)
-    else if (expectObject(value, childPath, sink))
-      validateDescriptorNode(value, child, childPath, sink, [])
+      validateControlValue(child.descriptor.control, item, [...path, key], sink)
+    else
+      validateDescriptorNode(item, child, [...path, key], sink, [])
   }
-  reportUnknownKeys(object, [...node.children.keys(), ...extraKeys], path, sink)
 }
 
-function scopeOfPath(input: unknown, path: Path): IssueScope {
-  const scope: IssueScope = {}
+/** 路径经过的最内层页面或元素，作问题落在的对象。 */
+function targetOfPath(input: unknown, path: Path): SchemaIssueTarget | undefined {
+  let target: SchemaIssueTarget | undefined
   let current = input
   for (let index = 0; index < path.length; index++) {
     if (typeof current !== 'object' || current === null)
       break
     current = (current as Record<JsonPathSegment, unknown>)[path[index] as JsonPathSegment]
     const parent = path[index - 1]
-    if ((parent === 'pages' || parent === 'elements') && isPlainObject(current) && typeof current.id === 'string') {
-      if (parent === 'pages')
-        scope.pageId = current.id
-      else
-        scope.elementId = current.id
-    }
+    if ((parent === 'pages' || parent === 'elements') && isPlainObject(current) && typeof current.id === 'string')
+      target = { kind: parent === 'pages' ? 'page' : 'element', id: current.id }
   }
-  return scope
+  return target
 }
 
 /** 把 JSON Pointer 换成路径数组，数组中的片段换成下标。 */
@@ -164,18 +155,19 @@ function jsonViolationKind(value: unknown): string {
 }
 
 function checkId(value: unknown, path: Path, sink: IssueSink, ids: Set<string>): void {
-  if (!expectString(value, path, sink, { nonEmpty: true }))
+  const id = readString(sink, value, path, { nonEmpty: true })
+  if (id === undefined)
     return
-  if (ids.has(value))
-    sink.report('id.duplicate', path, { id: value })
-  ids.add(value)
+  if (ids.has(id))
+    sink.report('duplicate-id', path, { params: { id } })
+  ids.add(id)
 }
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
 
-function readPageGeometry(page: Record<string, unknown>): PageGeometry | undefined {
+function readPageGeometry(page: Readonly<Record<string, unknown>>): PageGeometry | undefined {
   const { paper, margins, orientation } = page
   if (!isPlainObject(paper) || !isPlainObject(margins))
     return undefined
@@ -221,72 +213,64 @@ function findBandsOverflow(
 }
 
 function validatePaper(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectObject(value, path, sink))
-    return
-  const size = (item: unknown, itemPath: Path): boolean => expectNumber(item, itemPath, sink, { exclusiveMin: 0 })
-  checkFields(value, [
-    field('preset', false, (item, itemPath) => expectOption(item, PAPER_PRESET_NAMES, itemPath, sink)),
+  const size = (item: unknown, itemPath: Path): void => {
+    readNumber(sink, item, itemPath, { exclusiveMin: 0 })
+  }
+  const paper = readFields(sink, value, path, [
+    field('preset', false, (item, itemPath) => readOneOf(sink, item, itemPath, PAPER_PRESET_NAMES)),
     field('width', true, size),
     field('height', true, size),
-  ], path, sink)
-  const preset = value.preset
-  if (!isPaperPresetName(preset))
+  ])
+  if (paper === undefined || !isPaperPresetName(paper.preset))
     return
-  const expected = PAPER_PRESETS[preset]
-  const matches = isFiniteNumber(value.width) && isFiniteNumber(value.height)
-    && Math.abs(value.width - expected.width) <= LENGTH_TOLERANCE
-    && Math.abs(value.height - expected.height) <= LENGTH_TOLERANCE
+  const expected = PAPER_PRESETS[paper.preset]
+  const matches = isFiniteNumber(paper.width) && isFiniteNumber(paper.height)
+    && Math.abs(paper.width - expected.width) <= LENGTH_TOLERANCE
+    && Math.abs(paper.height - expected.height) <= LENGTH_TOLERANCE
   if (!matches)
-    sink.report('page.presetMismatch', path, { preset })
+    sink.report('page.presetMismatch', path, { params: { preset: paper.preset } })
 }
 
 function validateBand(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectObject(value, path, sink))
-    return
-  checkFields(value, [
-    field('height', true, (item, itemPath) => expectNumber(item, itemPath, sink, { min: 0 })),
-    field('elements', true, (item, itemPath) => expectArray(item, itemPath, sink)),
-  ], path, sink)
+  readFields(sink, value, path, [
+    field('height', true, (item, itemPath) => readNumber(sink, item, itemPath, { min: 0 })),
+    field('elements', true, (item, itemPath) => readArray(sink, item, itemPath)),
+  ])
 }
 
 function validateBandSet(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectObject(value, path, sink))
-    return
   const band = (item: unknown, itemPath: Path): void => validateBand(item, itemPath, sink)
-  checkFields(value, [
+  readFields(sink, value, path, [
     ...PAGE_BAND_KEYS.map(key => field(key, key === 'default', band)),
-    field('singleSheet', true, (item, itemPath) => expectOption(item, SINGLE_SHEET_PREFERENCES, itemPath, sink)),
-  ], path, sink)
+    field('singleSheet', true, (item, itemPath) => readOneOf(sink, item, itemPath, SINGLE_SHEET_PREFERENCES)),
+  ])
 }
 
 function validateNumbering(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectObject(value, path, sink))
-    return
-  checkFields(value, [
-    field('continuous', true, (item, itemPath) => expectBoolean(item, itemPath, sink)),
-    field('start', true, (item, itemPath) => expectNumber(item, itemPath, sink, { min: 0, integer: true })),
-  ], path, sink)
+  readFields(sink, value, path, [
+    field('continuous', true, (item, itemPath) => readBoolean(sink, item, itemPath)),
+    field('start', true, (item, itemPath) => readNumber(sink, item, itemPath, { min: 0, integer: true })),
+  ])
 }
 
 function validateWatermark(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectObject(value, path, sink))
-    return
-  const gap = (item: unknown, itemPath: Path): boolean => expectNumber(item, itemPath, sink, { min: 0 })
-  checkFields(value, [
+  const gap = (item: unknown, itemPath: Path): void => {
+    readNumber(sink, item, itemPath, { min: 0 })
+  }
+  readFields(sink, value, path, [
     field('text', true, (item, itemPath) => {
-      if (!expectTextTemplate(item, itemPath, sink))
-        return
-      if (item.trim().length === 0)
+      const text = readTextTemplate(sink, item, itemPath)
+      if (text !== undefined && text.trim().length === 0)
         sink.report('watermark.emptyText', itemPath)
     }),
-    field('fontFamily', false, (item, itemPath) => expectString(item, itemPath, sink)),
-    field('fontSize', true, (item, itemPath) => expectNumber(item, itemPath, sink, { exclusiveMin: 0, max: 500 })),
-    field('color', true, (item, itemPath) => expectColor(item, itemPath, sink)),
-    field('opacity', true, (item, itemPath) => expectNumber(item, itemPath, sink, { min: 0, max: 1 })),
-    field('rotation', true, (item, itemPath) => expectNumber(item, itemPath, sink, { min: -360, max: 360 })),
+    field('fontFamily', false, (item, itemPath) => readString(sink, item, itemPath)),
+    field('fontSize', true, (item, itemPath) => readNumber(sink, item, itemPath, { exclusiveMin: 0, max: 500 })),
+    field('color', true, (item, itemPath) => readColor(sink, item, itemPath)),
+    field('opacity', true, (item, itemPath) => readNumber(sink, item, itemPath, { min: 0, max: 1 })),
+    field('rotation', true, (item, itemPath) => readNumber(sink, item, itemPath, { min: -360, max: 360 })),
     field('gapX', true, gap),
     field('gapY', true, gap),
-  ], path, sink)
+  ])
 }
 
 function descriptorTree(context: DocumentContext, prototype: AnyElementPrototype): DescriptorNode {
@@ -306,43 +290,42 @@ function validateElement(
   context: DocumentContext,
 ): void {
   const elementId = isPlainObject(value) && typeof value.id === 'string' ? value.id : undefined
-  const scope: IssueScope = {}
-  if (pageId !== undefined)
-    scope.pageId = pageId
-  if (elementId !== undefined)
-    scope.elementId = elementId
-  const sink = createIssueSink(context.issues, scope, context.expressionEngine)
-  if (!expectObject(value, path, sink))
+  const target: SchemaIssueTarget | undefined = elementId !== undefined
+    ? { kind: 'element', id: elementId }
+    : pageId === undefined ? undefined : { kind: 'page', id: pageId }
+  const sink = createIssueSink(context.issues, target, context.expressionEngine)
+  const object = readObject(sink, value, path)
+  if (object === undefined)
     return
 
   const firstIssue = context.issues.length
-  if (value.id === undefined)
-    sink.report('schema.missingProperty', [...path, 'id'], { property: 'id' })
+  if (object.id === undefined)
+    sink.report('required', [...path, 'id'])
   else
-    checkId(value.id, [...path, 'id'], sink, context.ids)
+    checkId(object.id, [...path, 'id'], sink, context.ids)
 
-  if (value.type === undefined) {
-    sink.report('schema.missingProperty', [...path, 'type'], { property: 'type' })
+  if (object.type === undefined) {
+    sink.report('required', [...path, 'type'])
     return
   }
-  if (!expectString(value.type, [...path, 'type'], sink))
+  const type = readString(sink, object.type, [...path, 'type'])
+  if (type === undefined)
     return
-  const prototype = context.registry.get(value.type)
+  const prototype = context.registry.get(type)
   if (prototype === undefined) {
-    sink.report('element.unknownType', [...path, 'type'], { type: value.type })
+    sink.report('element.unknownType', [...path, 'type'], { params: { type } })
     return
   }
 
-  validateDescriptorNode(value, descriptorTree(context, prototype), path, sink, ['id', 'type', 'meta'])
-  if (value.meta !== undefined)
-    expectObject(value.meta, [...path, 'meta'], sink)
-  if (context.issues.slice(firstIssue).some(issue => issue.severity === 'error') || findJsonViolation(value) !== undefined)
+  validateDescriptorNode(object, descriptorTree(context, prototype), path, sink, ['id', 'type', 'meta'])
+  readObject(sink, object.meta, [...path, 'meta'])
+  if (context.issues.slice(firstIssue).some(issue => issue.severity === 'error') || findJsonViolation(object) !== undefined)
     return
 
-  const element = value as unknown as PrintElement
+  const element = object as unknown as PrintElement
   const rect = getElementRect(element)
   if (element.width < prototype.minSize.width || element.height < prototype.minSize.height)
-    sink.report('element.tooSmall', path, { minWidth: prototype.minSize.width, minHeight: prototype.minSize.height })
+    sink.report('element.tooSmall', path, { params: { minWidth: prototype.minSize.width, minHeight: prototype.minSize.height } })
   if (placement.paper !== undefined) {
     const paperRect = { x: 0, y: 0, ...placement.paper }
     if (!rectContains(expandRect(paperRect, LENGTH_TOLERANCE), rect))
@@ -350,9 +333,9 @@ function validateElement(
   }
   if (placement.region !== 'body') {
     if (prototype.flow)
-      sink.report('element.flowInBand', path, { type: prototype.type })
+      sink.report('element.flowInBand', path, { params: { type: prototype.type } })
     else if (placement.bandRect !== undefined && !rectContains(expandRect(placement.bandRect, LENGTH_TOLERANCE), rect))
-      sink.report('element.outsideBand', path, { region: placement.region })
+      sink.report('element.outsideBand', path, { params: { region: placement.region } })
   }
   else if (prototype.flow && placement.bodyRect !== undefined && !rectContains(expandRect(placement.bodyRect, LENGTH_TOLERANCE), rect)) {
     sink.report('element.flowOutsideBody', path)
@@ -360,7 +343,7 @@ function validateElement(
 
   const elementContext: ElementValidationContext = {
     region: placement.region,
-    report: (code, relativePath = [], params) => sink.report(code, [...path, ...relativePath], params),
+    report: (code, relativePath = [], params) => sink.report(code, [...path, ...relativePath], params === undefined ? undefined : { params }),
   }
   if (placement.bodyRect !== undefined)
     elementContext.bodyRect = placement.bodyRect
@@ -370,25 +353,24 @@ function validateElement(
 
 function validatePage(value: unknown, path: Path, context: DocumentContext): void {
   const pageId = isPlainObject(value) && typeof value.id === 'string' ? value.id : undefined
-  const sink = createIssueSink(context.issues, pageId === undefined ? {} : { pageId }, context.expressionEngine)
-  if (!expectObject(value, path, sink))
-    return
-
-  checkFields(value, [
+  const sink = createIssueSink(context.issues, pageId === undefined ? undefined : { kind: 'page', id: pageId }, context.expressionEngine)
+  const page = readFields(sink, value, path, [
     field('id', true, (item, itemPath) => checkId(item, itemPath, sink, context.ids)),
-    field('name', false, (item, itemPath) => expectString(item, itemPath, sink)),
+    field('name', false, (item, itemPath) => readString(sink, item, itemPath)),
     field('paper', true, (item, itemPath) => validatePaper(item, itemPath, sink)),
-    field('orientation', true, (item, itemPath) => expectOption(item, PAGE_ORIENTATIONS, itemPath, sink)),
+    field('orientation', true, (item, itemPath) => readOneOf(sink, item, itemPath, PAGE_ORIENTATIONS)),
     field('margins', true, (item, itemPath) => validateEdges(item, itemPath, sink)),
     field('header', true, (item, itemPath) => validateBandSet(item, itemPath, sink)),
     field('footer', true, (item, itemPath) => validateBandSet(item, itemPath, sink)),
-    field('elements', true, (item, itemPath) => expectArray(item, itemPath, sink)),
+    field('elements', true, (item, itemPath) => readArray(sink, item, itemPath)),
     field('numbering', true, (item, itemPath) => validateNumbering(item, itemPath, sink)),
     field('watermark', false, (item, itemPath) => validateWatermark(item, itemPath, sink)),
-    field('meta', false, (item, itemPath) => expectObject(item, itemPath, sink)),
-  ], path, sink)
+    field('meta', false, (item, itemPath) => readObject(sink, item, itemPath)),
+  ])
+  if (page === undefined)
+    return
 
-  const geometry = readPageGeometry(value)
+  const geometry = readPageGeometry(page)
   const paper = geometry === undefined ? undefined : getPaperSize(geometry)
   const content = geometry === undefined ? undefined : getContentRect(geometry)
   if (content !== undefined && (content.width <= 0 || content.height <= 0))
@@ -396,14 +378,14 @@ function validatePage(value: unknown, path: Path, context: DocumentContext): voi
   const usable = geometry !== undefined && content !== undefined && content.width > 0 && content.height > 0
 
   if (usable) {
-    const overflow = findBandsOverflow(value.header, value.footer, content.height)
+    const overflow = findBandsOverflow(page.header, page.footer, content.height)
     if (overflow !== undefined)
-      sink.report('page.bandsOverflow', path, overflow)
+      sink.report('page.bandsOverflow', path, { params: overflow })
   }
 
   let bodyRect: Rect | undefined
-  const defaultHeader = readBandHeight(value.header, 'default')
-  const defaultFooter = readBandHeight(value.footer, 'default')
+  const defaultHeader = readBandHeight(page.header, 'default')
+  const defaultFooter = readBandHeight(page.footer, 'default')
   if (usable && defaultHeader !== undefined && defaultFooter !== undefined) {
     const body = getBodyRect(geometry, { height: defaultHeader }, { height: defaultFooter })
     if (body.height > 0)
@@ -423,10 +405,10 @@ function validatePage(value: unknown, path: Path, context: DocumentContext): voi
     bodyPlacement.paper = paper
   if (bodyRect !== undefined)
     bodyPlacement.bodyRect = bodyRect
-  elementsOf(value.elements, [...path, 'elements'], bodyPlacement)
+  elementsOf(page.elements, [...path, 'elements'], bodyPlacement)
 
   for (const region of ['header', 'footer'] as const) {
-    const set = value[region]
+    const set = page[region]
     if (!isPlainObject(set))
       continue
     for (const key of PAGE_BAND_KEYS) {
@@ -452,33 +434,41 @@ function validatePage(value: unknown, path: Path, context: DocumentContext): voi
  */
 export function validateDocument(input: unknown, options: ValidateDocumentOptions = {}): ValidationReport {
   const issues: ValidationIssue[] = []
-  const finish = (): ValidationReport => ({ valid: !issues.some(issue => issue.severity === 'error'), issues })
+  let jsonPath: JsonPath | undefined
+  // 非 JSON 值那一处已报过，结构读取在同一路径上的问题不再重复
+  const finish = (): ValidationReport => {
+    const kept = jsonPath === undefined
+      ? issues
+      : issues.filter((issue, index) => index === 0 || issue.path.length !== jsonPath!.length || issue.path.some((segment, at) => segment !== jsonPath![at]))
+    return { valid: !kept.some(issue => issue.severity === 'error'), issues: kept }
+  }
 
   const violation = findJsonViolation(input)
   if (violation !== undefined) {
     const path = pointerToPath(input, violation)
+    jsonPath = path
     const offending = valueAtPath(input, path)
-    const sink = createIssueSink(issues, scopeOfPath(input, path))
+    const sink = createIssueSink(issues, targetOfPath(input, path))
     if (Array.isArray(offending) || isPlainObject(offending))
       sink.report('json.circular', path)
     else
-      sink.report('json.invalidValue', path, { kind: jsonViolationKind(offending) })
+      sink.report('invalid-value', path, { params: { kind: jsonViolationKind(offending) } })
   }
 
   const sink = createIssueSink(issues)
-  if (!expectObject(input, [], sink))
-    return finish()
-  if (input.schemaVersion === undefined) {
-    sink.report('schema.missingProperty', ['schemaVersion'], { property: 'schemaVersion' })
+  if (!isPlainObject(input)) {
+    sink.report('invalid-type', [], { params: { expected: 'object' } })
     return finish()
   }
-  if (!expectNumber(input.schemaVersion, ['schemaVersion'], sink))
+  if (input.schemaVersion === undefined) {
+    sink.report('required', ['schemaVersion'])
     return finish()
-  if (input.schemaVersion !== PRINT_SCHEMA_VERSION) {
-    sink.report('schema.unsupportedVersion', ['schemaVersion'], {
-      version: input.schemaVersion,
-      supported: PRINT_SCHEMA_VERSION,
-    })
+  }
+  const schemaVersion = readNumber(sink, input.schemaVersion, ['schemaVersion'])
+  if (schemaVersion === undefined)
+    return finish()
+  if (schemaVersion !== PRINT_SCHEMA_VERSION) {
+    sink.report('schema.unsupportedVersion', ['schemaVersion'], { params: { version: schemaVersion, supported: PRINT_SCHEMA_VERSION } })
     return finish()
   }
 
@@ -490,18 +480,19 @@ export function validateDocument(input: unknown, options: ValidateDocumentOption
   }
   if (options.expressionEngine !== undefined)
     context.expressionEngine = options.expressionEngine
-  checkFields(input, [
+  readFields(sink, input, [], [
     field('schemaVersion', true, () => {}),
-    field('name', false, (item, itemPath) => expectString(item, itemPath, sink)),
+    field('name', false, (item, itemPath) => readString(sink, item, itemPath)),
     field('pages', true, (item, itemPath) => {
-      if (!expectArray(item, itemPath, sink))
+      const pages = readArray(sink, item, itemPath)
+      if (pages === undefined)
         return
-      if (item.length === 0)
+      if (pages.length === 0)
         sink.report('document.noPages', itemPath)
-      item.forEach((page, index) => validatePage(page, [...itemPath, index], context))
+      pages.forEach((page, index) => validatePage(page, [...itemPath, index], context))
     }),
-    field('meta', false, (item, itemPath) => expectObject(item, itemPath, sink)),
-  ], [], sink)
+    field('meta', false, (item, itemPath) => readObject(sink, item, itemPath)),
+  ])
 
   return finish()
 }

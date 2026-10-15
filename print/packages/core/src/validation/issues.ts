@@ -3,26 +3,28 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { JsonPathSegment } from '@xihan-ui/core/json'
+import type { JsonPath } from '@xihan-ui/core/json'
+import type { IssueDetails, IssueParamValue, IssueSeverity, SchemaIssue, SchemaIssueTarget } from '@xihan-ui/designer-kit/schema'
 import type { ExpressionEngine } from '@xihan-ui/expression'
 
-/** 问题严重程度：error 模板不可用或不安全，warning 模板可用但很可能有误。 */
-export type IssueSeverity = 'error' | 'warning'
-
-/** 全部问题码及其固定的严重程度。 */
+/**
+ * 全部问题码及其固定的严重程度：不带前缀的是 @xihan-ui/designer-kit/schema 的通用问题码，
+ * 带前缀的是打印专属的问题码。
+ */
 export const VALIDATION_ISSUE_SEVERITIES = {
-  'json.invalidValue': 'error',
+  'required': 'error',
+  'invalid-type': 'error',
+  'invalid-value': 'error',
+  'out-of-range': 'error',
+  'not-integer': 'error',
+  'invalid-option': 'error',
+  'invalid-color': 'error',
+  'empty': 'error',
+  'unknown-key': 'warning',
+  'duplicate-key': 'error',
+  'duplicate-id': 'error',
   'json.circular': 'error',
-  'schema.invalidType': 'error',
-  'schema.missingProperty': 'error',
-  'schema.unknownProperty': 'warning',
   'schema.unsupportedVersion': 'error',
-  'value.empty': 'error',
-  'value.outOfRange': 'error',
-  'value.notInteger': 'error',
-  'value.invalidOption': 'error',
-  'value.invalidColor': 'error',
-  'id.duplicate': 'error',
   'field.empty': 'warning',
   'field.invalidPath': 'error',
   'template.unclosedPlaceholder': 'error',
@@ -69,20 +71,13 @@ export const VALIDATION_ISSUE_SEVERITIES = {
 export type ValidationIssueCode = keyof typeof VALIDATION_ISSUE_SEVERITIES
 
 /** 问题参数，供各语言文案插值。 */
-export type IssueParams = Record<string, string | number | boolean | readonly string[]>
+export type IssueParams = Readonly<Record<string, IssueParamValue>>
 
-/** 校验问题：只含问题码、严重程度、定位与参数，不含文案。 */
-export interface ValidationIssue {
-  code: ValidationIssueCode
-  severity: IssueSeverity
-  /** 问题所在值从文档根开始的 JSON 路径。 */
-  path: JsonPathSegment[]
-  /** 问题所在页面的标识。 */
-  pageId?: string
-  /** 问题所在元素的标识。 */
-  elementId?: string
-  params?: IssueParams
-}
+/**
+ * 校验问题：@xihan-ui/designer-kit/schema 的 SchemaIssue，严重程度总是给出。
+ * path 从文档根算起；target 指出问题落在的页面（kind 为 page）或元素（kind 为 element）。
+ */
+export type ValidationIssue = SchemaIssue<ValidationIssueCode> & { readonly severity: IssueSeverity }
 
 /** 校验报告。 */
 export interface ValidationReport {
@@ -91,33 +86,27 @@ export interface ValidationReport {
   issues: ValidationIssue[]
 }
 
-/** 问题接收器：按问题码、绝对路径与参数记录问题，并带上可选的表达式检查接入点。 */
+/** 问题接收器：designer-kit 的 IssueSink 形状，问题写进共享的数组；可带表达式引擎供表达式读取器编译源码。 */
 export interface IssueSink {
-  report: (code: ValidationIssueCode, path: readonly JsonPathSegment[], params?: IssueParams) => void
-  expressionEngine?: ExpressionEngine
+  readonly issues: ValidationIssue[]
+  readonly report: (code: ValidationIssueCode, path: JsonPath, details?: IssueDetails) => void
+  readonly expressionEngine?: ExpressionEngine
 }
 
-/** 问题定位所属的页面与元素。 */
-export interface IssueScope {
-  pageId?: string
-  elementId?: string
-}
-
-/** 创建把问题追加到 `issues` 并带上定位的接收器。 */
-export function createIssueSink(issues: ValidationIssue[], scope: IssueScope = {}, expressionEngine?: ExpressionEngine): IssueSink {
-  const sink: IssueSink = {
-    report: (code, path, params) => {
-      const issue: ValidationIssue = { code, severity: VALIDATION_ISSUE_SEVERITIES[code], path: [...path] }
-      if (scope.pageId !== undefined)
-        issue.pageId = scope.pageId
-      if (scope.elementId !== undefined)
-        issue.elementId = scope.elementId
-      if (params !== undefined)
-        issue.params = params
-      issues.push(issue)
+/** 创建把问题追加到 issues 的接收器：没有自带 target 的问题记到 target 上，严重程度按问题码查表。 */
+export function createIssueSink(issues: ValidationIssue[], target?: SchemaIssueTarget, expressionEngine?: ExpressionEngine): IssueSink {
+  return {
+    issues,
+    report: (code, path, details = {}) => {
+      const issueTarget = details.target ?? target
+      issues.push({
+        code,
+        path: [...path],
+        severity: details.severity ?? VALIDATION_ISSUE_SEVERITIES[code],
+        ...(issueTarget === undefined ? {} : { target: issueTarget }),
+        ...(details.params === undefined ? {} : { params: details.params }),
+      })
     },
+    ...(expressionEngine === undefined ? {} : { expressionEngine }),
   }
-  if (expressionEngine !== undefined)
-    sink.expressionEngine = expressionEngine
-  return sink
 }

@@ -27,7 +27,6 @@ export * from './traverse'
 export { isValidColor } from './validation/checks'
 export type {
   IssueParams,
-  IssueSeverity,
   ValidationIssue,
   ValidationIssueCode,
   ValidationReport,

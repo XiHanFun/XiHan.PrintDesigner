@@ -3,13 +3,14 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { JsonPathSegment } from '@xihan-ui/core/json'
+import type { JsonPath } from '@xihan-ui/core/json'
 import type { FormatSpecIssueCode } from '@xihan-ui/expression'
 import type { PropertyControl } from '../registry/types'
 import type { FieldRule } from './checks'
 import type { IssueSink, ValidationIssueCode } from './issues'
 import { parseTextTemplate } from '@xihan-ui/core/template'
 import { toSafeImageSource } from '@xihan-ui/core/url'
+import { readArray, readBoolean, readNumber, readObject, readOneOf, readString } from '@xihan-ui/designer-kit/schema'
 import { checkFormatSpec, FORMAT_KINDS } from '@xihan-ui/expression'
 import { BAR_CODE_FORMATS } from '@xihan-ui/headless'
 import {
@@ -21,198 +22,184 @@ import {
   TABLE_FOOTER_PLACEMENTS,
   VERTICAL_ALIGNS,
 } from '../schema/options'
-import {
-  checkFields,
-  expectArray,
-  expectBoolean,
-  expectColor,
-  expectExpression,
-  expectFieldPath,
-  expectNumber,
-  expectObject,
-  expectOption,
-  expectString,
-  expectTextTemplate,
-  field,
-} from './checks'
+import { field, readColor, readExpression, readFieldPath, readFields, readTextTemplate } from './checks'
 
-type Path = readonly JsonPathSegment[]
-
-function kindOf(value: Record<string, unknown>, kinds: readonly string[], path: Path, sink: IssueSink): string | undefined {
-  if (value.kind === undefined) {
-    sink.report('schema.missingProperty', [...path, 'kind'], { property: 'kind' })
+/** 读取变体对象的 kind：缺少报 required，不在 kinds 里报 invalid-option。 */
+function kindOf(sink: IssueSink, object: Readonly<Record<string, unknown>>, kinds: readonly string[], path: JsonPath): string | undefined {
+  if (object.kind === undefined) {
+    sink.report('required', [...path, 'kind'])
     return undefined
   }
-  return expectOption(value.kind, kinds, [...path, 'kind'], sink) ? value.kind : undefined
+  return readOneOf(sink, object.kind, [...path, 'kind'], kinds)
 }
 
 function checkVariant(
-  value: unknown,
-  variants: Readonly<Record<string, readonly FieldRule[]>>,
-  path: Path,
   sink: IssueSink,
+  value: unknown,
+  path: JsonPath,
+  variants: Readonly<Record<string, readonly FieldRule[]>>,
 ): string | undefined {
-  if (!expectObject(value, path, sink))
+  const object = readObject(sink, value, path)
+  if (object === undefined)
     return undefined
-  const kind = kindOf(value, Object.keys(variants), path, sink)
+  const kind = kindOf(sink, object, Object.keys(variants), path)
   if (kind === undefined)
     return undefined
-  checkFields(value, variants[kind] ?? [], path, sink, ['kind'])
+  readFields(sink, object, path, variants[kind] ?? [], ['kind'])
   return kind
 }
 
 /** @xihan-ui/expression 格式说明问题码对应的打印问题码。 */
 const FORMAT_ISSUE_CODES = {
-  XH_EXPR_FORMAT_INVALID_SPEC: 'schema.invalidType',
-  XH_EXPR_FORMAT_INVALID_KIND: 'value.invalidOption',
+  XH_EXPR_FORMAT_INVALID_SPEC: 'invalid-type',
+  XH_EXPR_FORMAT_INVALID_KIND: 'invalid-option',
   XH_EXPR_FORMAT_INVALID_OPTION: 'format.invalidOption',
   XH_EXPR_FORMAT_CONFLICT: 'format.conflict',
-  XH_EXPR_FORMAT_UNKNOWN_KEY: 'schema.unknownProperty',
+  XH_EXPR_FORMAT_UNKNOWN_KEY: 'unknown-key',
 } as const satisfies Record<FormatSpecIssueCode, ValidationIssueCode>
 
 /** 校验值格式：值映射与表达式格式按本包规则，其余种类交给 @xihan-ui/expression 的 checkFormatSpec。 */
-export function validateValueFormat(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectObject(value, path, sink))
+export function validateValueFormat(value: unknown, path: JsonPath, sink: IssueSink): void {
+  const object = readObject(sink, value, path)
+  if (object === undefined)
     return
-  const kind = kindOf(value, [...FORMAT_KINDS, 'map', 'expression'], path, sink)
+  const kind = kindOf(sink, object, [...FORMAT_KINDS, 'map', 'expression'], path)
   if (kind === 'map') {
-    checkFields(value, [
+    readFields(sink, object, path, [
       field('entries', true, (item, itemPath) => validateMapEntries(item, itemPath, sink)),
-      field('fallback', false, (item, itemPath) => expectString(item, itemPath, sink)),
-    ], path, sink, ['kind'])
+      field('fallback', false, (item, itemPath) => readString(sink, item, itemPath)),
+    ], ['kind'])
   }
   else if (kind === 'expression') {
-    checkFields(value, [field('expression', true, (item, itemPath) => expectExpression(item, itemPath, sink))], path, sink, ['kind'])
+    readFields(sink, object, path, [field('expression', true, (item, itemPath) => readExpression(sink, item, itemPath))], ['kind'])
   }
   else if (kind !== undefined) {
-    for (const issue of checkFormatSpec(value))
+    for (const issue of checkFormatSpec(object))
       sink.report(FORMAT_ISSUE_CODES[issue.code], [...path, ...issue.path])
   }
 }
 
-function validateMapEntries(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectArray(value, path, sink))
+function validateMapEntries(value: unknown, path: JsonPath, sink: IssueSink): void {
+  const entries = readArray(sink, value, path)
+  if (entries === undefined)
     return
   const seen = new Set<string>()
-  value.forEach((entry, index) => {
+  entries.forEach((entry, index) => {
     const entryPath = [...path, index]
-    if (!expectObject(entry, entryPath, sink))
+    const object = readFields(sink, entry, entryPath, [
+      field('value', true, (item, itemPath) => readString(sink, item, itemPath)),
+      field('text', true, (item, itemPath) => readString(sink, item, itemPath)),
+    ])
+    if (object === undefined || typeof object.value !== 'string')
       return
-    checkFields(entry, [
-      field('value', true, (item, itemPath) => expectString(item, itemPath, sink)),
-      field('text', true, (item, itemPath) => expectString(item, itemPath, sink)),
-    ], entryPath, sink)
-    if (typeof entry.value !== 'string')
-      return
-    if (seen.has(entry.value))
-      sink.report('format.duplicateMapValue', [...entryPath, 'value'], { value: entry.value })
-    seen.add(entry.value)
+    if (seen.has(object.value))
+      sink.report('format.duplicateMapValue', [...entryPath, 'value'], { params: { value: object.value } })
+    seen.add(object.value)
   })
 }
 
 function textContentRules(sink: IssueSink): Record<string, FieldRule[]> {
   return {
-    static: [field('text', true, (item, itemPath) => expectString(item, itemPath, sink))],
+    static: [field('text', true, (item, itemPath) => readString(sink, item, itemPath))],
     field: [
-      field('field', true, (item, itemPath) => expectFieldPath(item, itemPath, sink)),
+      field('field', true, (item, itemPath) => readFieldPath(sink, item, itemPath)),
       field('format', false, (item, itemPath) => validateValueFormat(item, itemPath, sink)),
-      field('emptyText', false, (item, itemPath) => expectString(item, itemPath, sink)),
+      field('emptyText', false, (item, itemPath) => readString(sink, item, itemPath)),
     ],
-    template: [field('template', true, (item, itemPath) => expectTextTemplate(item, itemPath, sink))],
+    template: [field('template', true, (item, itemPath) => readTextTemplate(sink, item, itemPath))],
     expression: [
-      field('expression', true, (item, itemPath) => expectExpression(item, itemPath, sink)),
+      field('expression', true, (item, itemPath) => readExpression(sink, item, itemPath)),
       field('format', false, (item, itemPath) => validateValueFormat(item, itemPath, sink)),
     ],
   }
 }
 
 /** 校验文本内容来源。 */
-export function validateTextContent(value: unknown, path: Path, sink: IssueSink): void {
-  checkVariant(value, textContentRules(sink), path, sink)
+export function validateTextContent(value: unknown, path: JsonPath, sink: IssueSink): void {
+  checkVariant(sink, value, path, textContentRules(sink))
 }
 
 /** 校验图片来源。 */
-export function validateImageSource(value: unknown, path: Path, sink: IssueSink): void {
-  checkVariant(value, {
+export function validateImageSource(value: unknown, path: JsonPath, sink: IssueSink): void {
+  checkVariant(sink, value, path, {
     static: [field('url', true, (item, itemPath) => {
-      if (!expectString(item, itemPath, sink))
+      const url = readString(sink, item, itemPath)
+      if (url === undefined)
         return
-      if (item.trim().length === 0)
+      if (url.trim().length === 0)
         sink.report('image.emptySource', itemPath)
-      else if (toSafeImageSource(item) === undefined)
+      else if (toSafeImageSource(url) === undefined)
         sink.report('image.unsafeSource', itemPath)
     })],
-    field: [field('field', true, (item, itemPath) => expectFieldPath(item, itemPath, sink))],
-  }, path, sink)
+    field: [field('field', true, (item, itemPath) => readFieldPath(sink, item, itemPath))],
+  })
 }
 
 /** 校验描边。 */
-export function validateStroke(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectObject(value, path, sink))
-    return
-  checkFields(value, [
-    field('width', true, (item, itemPath) => expectNumber(item, itemPath, sink, { exclusiveMin: 0, max: 50 })),
-    field('style', true, (item, itemPath) => expectOption(item, STROKE_STYLES, itemPath, sink)),
-    field('color', true, (item, itemPath) => expectColor(item, itemPath, sink)),
-  ], path, sink)
+export function validateStroke(value: unknown, path: JsonPath, sink: IssueSink): void {
+  readFields(sink, value, path, [
+    field('width', true, (item, itemPath) => readNumber(sink, item, itemPath, { exclusiveMin: 0, max: 50 })),
+    field('style', true, (item, itemPath) => readOneOf(sink, item, itemPath, STROKE_STYLES)),
+    field('color', true, (item, itemPath) => readColor(sink, item, itemPath)),
+  ])
 }
 
 /** 校验四边距离。 */
-export function validateEdges(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectObject(value, path, sink))
-    return
-  const side = (item: unknown, itemPath: Path): boolean => expectNumber(item, itemPath, sink, { min: 0 })
-  checkFields(value, ['top', 'right', 'bottom', 'left'].map(key => field(key, true, side)), path, sink)
+export function validateEdges(value: unknown, path: JsonPath, sink: IssueSink): void {
+  const side = (item: unknown, itemPath: JsonPath): void => {
+    readNumber(sink, item, itemPath, { min: 0 })
+  }
+  readFields(sink, value, path, ['top', 'right', 'bottom', 'left'].map(key => field(key, true, side)))
 }
 
 /** 校验四边边框。 */
-export function validateBorderSides(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectObject(value, path, sink))
-    return
-  const side = (item: unknown, itemPath: Path): void => validateStroke(item, itemPath, sink)
-  checkFields(value, ['top', 'right', 'bottom', 'left'].map(key => field(key, false, side)), path, sink)
+export function validateBorderSides(value: unknown, path: JsonPath, sink: IssueSink): void {
+  const side = (item: unknown, itemPath: JsonPath): void => validateStroke(item, itemPath, sink)
+  readFields(sink, value, path, ['top', 'right', 'bottom', 'left'].map(key => field(key, false, side)))
 }
 
 /** 校验单元格样式。 */
-export function validateCellStyle(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectObject(value, path, sink))
-    return
-  const boolean = (item: unknown, itemPath: Path): boolean => expectBoolean(item, itemPath, sink)
-  const color = (item: unknown, itemPath: Path): boolean => expectColor(item, itemPath, sink)
-  checkFields(value, [
-    field('fontFamily', false, (item, itemPath) => expectString(item, itemPath, sink)),
-    field('fontSize', true, (item, itemPath) => expectNumber(item, itemPath, sink, { exclusiveMin: 0, max: 500 })),
+export function validateCellStyle(value: unknown, path: JsonPath, sink: IssueSink): void {
+  const boolean = (item: unknown, itemPath: JsonPath): void => {
+    readBoolean(sink, item, itemPath)
+  }
+  const color = (item: unknown, itemPath: JsonPath): void => {
+    readColor(sink, item, itemPath)
+  }
+  readFields(sink, value, path, [
+    field('fontFamily', false, (item, itemPath) => readString(sink, item, itemPath)),
+    field('fontSize', true, (item, itemPath) => readNumber(sink, item, itemPath, { exclusiveMin: 0, max: 500 })),
     field('bold', true, boolean),
     field('italic', true, boolean),
     field('color', true, color),
     field('background', false, color),
-    field('align', false, (item, itemPath) => expectOption(item, HORIZONTAL_ALIGNS, itemPath, sink)),
-    field('verticalAlign', true, (item, itemPath) => expectOption(item, VERTICAL_ALIGNS, itemPath, sink)),
-    field('padding', true, (item, itemPath) => expectNumber(item, itemPath, sink, { min: 0 })),
-    field('lineHeight', true, (item, itemPath) => expectNumber(item, itemPath, sink, { exclusiveMin: 0, max: 100 })),
-  ], path, sink)
+    field('align', false, (item, itemPath) => readOneOf(sink, item, itemPath, HORIZONTAL_ALIGNS)),
+    field('verticalAlign', true, (item, itemPath) => readOneOf(sink, item, itemPath, VERTICAL_ALIGNS)),
+    field('padding', true, (item, itemPath) => readNumber(sink, item, itemPath, { min: 0 })),
+    field('lineHeight', true, (item, itemPath) => readNumber(sink, item, itemPath, { exclusiveMin: 0, max: 100 })),
+  ])
 }
 
-function validateTableCellContent(value: unknown, path: Path, sink: IssueSink): void {
+function validateTableCellContent(value: unknown, path: JsonPath, sink: IssueSink): void {
   const rules = textContentRules(sink)
-  checkVariant(value, {
+  checkVariant(sink, value, path, {
     field: rules.field ?? [],
     template: rules.template ?? [],
     rowNumber: [],
     expression: rules.expression ?? [],
-  }, path, sink)
+  })
 }
 
-function validateFooterCellContent(value: unknown, path: Path, sink: IssueSink): void {
-  checkVariant(value, {
+function validateFooterCellContent(value: unknown, path: JsonPath, sink: IssueSink): void {
+  checkVariant(sink, value, path, {
     ...textContentRules(sink),
     aggregate: [
-      field('fn', true, (item, itemPath) => expectOption(item, AGGREGATE_FUNCTIONS, itemPath, sink)),
-      field('field', false, (item, itemPath) => expectFieldPath(item, itemPath, sink)),
-      field('scope', true, (item, itemPath) => expectOption(item, AGGREGATE_SCOPES, itemPath, sink)),
+      field('fn', true, (item, itemPath) => readOneOf(sink, item, itemPath, AGGREGATE_FUNCTIONS)),
+      field('field', false, (item, itemPath) => readFieldPath(sink, item, itemPath)),
+      field('scope', true, (item, itemPath) => readOneOf(sink, item, itemPath, AGGREGATE_SCOPES)),
       field('format', false, (item, itemPath) => validateValueFormat(item, itemPath, sink)),
     ],
-  }, path, sink)
+  })
   if (typeof value !== 'object' || value === null)
     return
   const content = value as Record<string, unknown>
@@ -221,12 +208,12 @@ function validateFooterCellContent(value: unknown, path: Path, sink: IssueSink):
     && content.fn !== 'count'
     && content.field === undefined
   if (needsField)
-    sink.report('table.aggregateFieldMissing', path, { fn: content.fn as string })
+    sink.report('table.aggregateFieldMissing', path, { params: { fn: content.fn as string } })
 }
 
 function checkUniqueIds(
   items: readonly unknown[],
-  path: Path,
+  path: JsonPath,
   sink: IssueSink,
   code: 'table.duplicateColumnId' | 'table.duplicateRowId',
 ): void {
@@ -238,64 +225,59 @@ function checkUniqueIds(
     if (typeof id !== 'string' || id.length === 0)
       return
     if (seen.has(id))
-      sink.report(code, [...path, index, 'id'], { id })
+      sink.report(code, [...path, index, 'id'], { params: { id } })
     seen.add(id)
   })
 }
 
 /** 校验表格列。 */
-export function validateTableColumns(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectArray(value, path, sink))
+export function validateTableColumns(value: unknown, path: JsonPath, sink: IssueSink): void {
+  const columns = readArray(sink, value, path)
+  if (columns === undefined)
     return
-  value.forEach((column, index) => {
-    const columnPath = [...path, index]
-    if (!expectObject(column, columnPath, sink))
-      return
-    checkFields(column, [
-      field('id', true, (item, itemPath) => expectString(item, itemPath, sink, { nonEmpty: true })),
-      field('title', true, (item, itemPath) => expectString(item, itemPath, sink)),
-      field('width', true, (item, itemPath) => expectNumber(item, itemPath, sink, { exclusiveMin: 0 })),
-      field('align', true, (item, itemPath) => expectOption(item, HORIZONTAL_ALIGNS, itemPath, sink)),
+  columns.forEach((column, index) => {
+    const isBarCode = typeof column === 'object' && column !== null && (column as Record<string, unknown>).cellType === 'barCode'
+    readFields(sink, column, [...path, index], [
+      field('id', true, (item, itemPath) => readString(sink, item, itemPath, { nonEmpty: true })),
+      field('title', true, (item, itemPath) => readString(sink, item, itemPath)),
+      field('width', true, (item, itemPath) => readNumber(sink, item, itemPath, { exclusiveMin: 0 })),
+      field('align', true, (item, itemPath) => readOneOf(sink, item, itemPath, HORIZONTAL_ALIGNS)),
       field('content', true, (item, itemPath) => validateTableCellContent(item, itemPath, sink)),
-      field('cellType', true, (item, itemPath) => expectOption(item, TABLE_CELL_TYPES, itemPath, sink)),
-      field('barCodeFormat', column.cellType === 'barCode', (item, itemPath) => expectOption(item, BAR_CODE_FORMATS, itemPath, sink)),
-    ], columnPath, sink)
+      field('cellType', true, (item, itemPath) => readOneOf(sink, item, itemPath, TABLE_CELL_TYPES)),
+      field('barCodeFormat', isBarCode, (item, itemPath) => readOneOf(sink, item, itemPath, BAR_CODE_FORMATS)),
+    ])
   })
-  checkUniqueIds(value, path, sink, 'table.duplicateColumnId')
+  checkUniqueIds(columns, path, sink, 'table.duplicateColumnId')
 }
 
 /** 校验表尾行的结构；单元格与列的对应关系由表格规则另行校验。 */
-export function validateTableFooterRows(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectArray(value, path, sink))
+export function validateTableFooterRows(value: unknown, path: JsonPath, sink: IssueSink): void {
+  const rows = readArray(sink, value, path)
+  if (rows === undefined)
     return
-  value.forEach((row, index) => {
-    const rowPath = [...path, index]
-    if (!expectObject(row, rowPath, sink))
-      return
-    checkFields(row, [
-      field('id', true, (item, itemPath) => expectString(item, itemPath, sink, { nonEmpty: true })),
-      field('placement', true, (item, itemPath) => expectOption(item, TABLE_FOOTER_PLACEMENTS, itemPath, sink)),
-      field('height', true, (item, itemPath) => expectNumber(item, itemPath, sink, { exclusiveMin: 0 })),
+  rows.forEach((row, index) => {
+    readFields(sink, row, [...path, index], [
+      field('id', true, (item, itemPath) => readString(sink, item, itemPath, { nonEmpty: true })),
+      field('placement', true, (item, itemPath) => readOneOf(sink, item, itemPath, TABLE_FOOTER_PLACEMENTS)),
+      field('height', true, (item, itemPath) => readNumber(sink, item, itemPath, { exclusiveMin: 0 })),
       field('style', true, (item, itemPath) => validateCellStyle(item, itemPath, sink)),
       field('cells', true, (item, itemPath) => validateFooterCells(item, itemPath, sink)),
-    ], rowPath, sink)
+    ])
   })
-  checkUniqueIds(value, path, sink, 'table.duplicateRowId')
+  checkUniqueIds(rows, path, sink, 'table.duplicateRowId')
 }
 
-function validateFooterCells(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectArray(value, path, sink))
+function validateFooterCells(value: unknown, path: JsonPath, sink: IssueSink): void {
+  const cells = readArray(sink, value, path)
+  if (cells === undefined)
     return
-  value.forEach((cell, index) => {
-    const cellPath = [...path, index]
-    if (!expectObject(cell, cellPath, sink))
-      return
-    checkFields(cell, [
-      field('columnId', true, (item, itemPath) => expectString(item, itemPath, sink, { nonEmpty: true })),
-      field('colSpan', true, (item, itemPath) => expectNumber(item, itemPath, sink, { min: 1, integer: true })),
+  cells.forEach((cell, index) => {
+    readFields(sink, cell, [...path, index], [
+      field('columnId', true, (item, itemPath) => readString(sink, item, itemPath, { nonEmpty: true })),
+      field('colSpan', true, (item, itemPath) => readNumber(sink, item, itemPath, { min: 1, integer: true })),
       field('content', true, (item, itemPath) => validateFooterCellContent(item, itemPath, sink)),
-      field('align', false, (item, itemPath) => expectOption(item, HORIZONTAL_ALIGNS, itemPath, sink)),
-    ], cellPath, sink)
+      field('align', false, (item, itemPath) => readOneOf(sink, item, itemPath, HORIZONTAL_ALIGNS)),
+    ])
   })
 }
 
@@ -303,40 +285,44 @@ function validateFooterCells(value: unknown, path: Path, sink: IssueSink): void 
 const PAGE_NUMBER_VARIABLES: readonly string[] = ['$page', '$pages']
 
 /** 校验页码格式：合法的文本模板，至少用到一个页码变量，不用别的占位。 */
-export function validatePageNumberFormat(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectTextTemplate(value, path, sink))
+export function validatePageNumberFormat(value: unknown, path: JsonPath, sink: IssueSink): void {
+  const template = readTextTemplate(sink, value, path)
+  if (template === undefined)
     return
-  const placeholders = parseTextTemplate(value).segments.filter(segment => segment.kind === 'path')
+  const placeholders = parseTextTemplate(template).segments.filter(segment => segment.kind === 'path')
   const known = (segment: (typeof placeholders)[number]): boolean =>
     segment.path.length === 1 && PAGE_NUMBER_VARIABLES.includes(String(segment.path[0]))
   if (!placeholders.some(known))
     sink.report('pageNumber.noToken', path)
   for (const segment of placeholders) {
     if (!known(segment))
-      sink.report('pageNumber.unknownToken', path, { token: segment.source })
+      sink.report('pageNumber.unknownToken', path, { params: { token: segment.source } })
   }
 }
 
-/** 按属性编辑方式校验属性值。 */
-export function validateControlValue(control: PropertyControl, value: unknown, path: Path, sink: IssueSink): void {
+/** 按属性编辑方式校验属性值：内建编辑方式用 designer-kit 的读取器，复合类型按各自的结构规则。 */
+export function validateControlValue(control: PropertyControl, value: unknown, path: JsonPath, sink: IssueSink): void {
   switch (control.kind) {
     case 'number':
-      expectNumber(value, path, sink, control)
+      readNumber(sink, value, path, control)
       return
     case 'text':
-      expectString(value, path, sink)
+      readString(sink, value, path)
       return
     case 'boolean':
-      expectBoolean(value, path, sink)
+      readBoolean(sink, value, path)
       return
     case 'select':
-      expectOption(value, control.options, path, sink)
+      readOneOf(sink, value, path, control.options.map(option => option.value))
       return
     case 'color':
-      expectColor(value, path, sink)
+      readColor(sink, value, path)
+      return
+    case 'tags':
+    case 'json':
       return
     case 'field':
-      expectFieldPath(value, path, sink)
+      readFieldPath(sink, value, path)
       return
     case 'textContent':
       validateTextContent(value, path, sink)
@@ -370,6 +356,6 @@ export function validateControlValue(control: PropertyControl, value: unknown, p
       return
     case 'matrixCodeLevel':
       if (typeof value !== 'string' && typeof value !== 'number')
-        sink.report('schema.invalidType', path, { expected: 'string|number' })
+        sink.report('invalid-type', path, { params: { expected: 'string|number' } })
   }
 }
