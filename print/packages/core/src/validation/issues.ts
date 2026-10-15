@@ -3,8 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { JsonPathSegment } from '@xihan-ui/core/json'
 import type { ExpressionEngine } from '@xihan-ui/expression'
-import type { PathSegment } from '../json-path'
 
 /** 问题严重程度：error 模板不可用或不安全，warning 模板可用但很可能有误。 */
 export type IssueSeverity = 'error' | 'warning'
@@ -76,7 +76,7 @@ export interface ValidationIssue {
   code: ValidationIssueCode
   severity: IssueSeverity
   /** 问题所在值从文档根开始的 JSON 路径。 */
-  path: PathSegment[]
+  path: JsonPathSegment[]
   /** 问题所在页面的标识。 */
   pageId?: string
   /** 问题所在元素的标识。 */
@@ -93,7 +93,7 @@ export interface ValidationReport {
 
 /** 问题接收器：按问题码、绝对路径与参数记录问题，并带上可选的表达式检查接入点。 */
 export interface IssueSink {
-  report: (code: ValidationIssueCode, path: readonly PathSegment[], params?: IssueParams) => void
+  report: (code: ValidationIssueCode, path: readonly JsonPathSegment[], params?: IssueParams) => void
   expressionEngine?: ExpressionEngine
 }
 

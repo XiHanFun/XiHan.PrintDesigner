@@ -12,6 +12,7 @@ import type {
   TableElement,
   TextElement,
 } from '../src'
+import { deepFreeze } from '@xihan-ui/core/json'
 import { describe, expect, it } from 'vitest'
 import {
   applyOperation,
@@ -21,22 +22,12 @@ import {
   createPage,
   findElement,
   PrintOperationError,
-  readPath,
   validateDocument,
-  writePath,
 } from '../src'
+import { writeChanges } from '../src/operations/path'
 import { createSampleDocument } from './fixtures'
 
 const registry = createElementRegistry()
-
-function deepFreeze<T>(value: T): T {
-  if (typeof value === 'object' && value !== null) {
-    for (const key of Object.keys(value))
-      deepFreeze((value as Record<string, unknown>)[key])
-    Object.freeze(value)
-  }
-  return value
-}
 
 function sample(): PrintDocument {
   return deepFreeze(createSampleDocument())
@@ -79,71 +70,68 @@ function bodyIds(document: PrintDocument, pageIndex = 0): string[] {
   return document.pages[pageIndex]!.elements.map(element => element.id)
 }
 
-describe('路径读写', () => {
-  it('读取路径，中途不存在时返回 undefined', () => {
-    const root = { a: { b: [1, { c: 2 }] } }
-    expect(readPath(root, ['a', 'b', 1, 'c'])).toBe(2)
-    expect(readPath(root, ['a', 'x', 'y'])).toBeUndefined()
-    expect(readPath(root, [])).toBe(root)
-  })
-
-  it('写入时沿途复制，原对象不变', () => {
+describe('属性修改', () => {
+  it('写入时沿途复制，原对象不变，逆修改写回原值', () => {
     const root = deepFreeze({ a: { b: 1 }, keep: { x: 1 } })
-    const { root: next, undo } = writePath(root, ['a', 'b'], 2)
+    const { root: next, undo } = writeChanges(root, [{ path: ['a', 'b'], value: 2 }])
     expect(next).toEqual({ a: { b: 2 }, keep: { x: 1 } })
     expect(next.keep).toBe(root.keep)
-    expect(undo).toEqual({ path: ['a', 'b'], value: 1 })
+    expect(undo).toEqual([{ path: ['a', 'b'], value: 1 }])
   })
 
   it('补出缺失的中间对象，逆修改删除最上层补出的对象', () => {
-    const { root, undo } = writePath({ a: 1 } as Record<string, unknown>, ['box', 'border', 'top'], { width: 1 })
+    const { root, undo } = writeChanges({ a: 1 } as Record<string, unknown>, [{ path: ['box', 'border', 'top'], value: { width: 1 } }])
     expect(root).toEqual({ a: 1, box: { border: { top: { width: 1 } } } })
-    expect(undo).toEqual({ path: ['box'] })
+    expect(undo).toEqual([{ path: ['box'] }])
   })
 
   it('删除属性，逆修改写回原值；删除不存在的属性没有变化', () => {
     const root = { a: 1, b: { c: 2 } }
-    expect(writePath(root, ['b', 'c'], undefined)).toEqual({ root: { a: 1, b: {} }, undo: { path: ['b', 'c'], value: 2 } })
-    const missing = writePath(root, ['x', 'y'], undefined)
+    expect(writeChanges(root, [{ path: ['b', 'c'] }])).toEqual({ root: { a: 1, b: {} }, undo: [{ path: ['b', 'c'], value: 2 }] })
+    const missing = writeChanges(root, [{ path: ['x', 'y'] }])
     expect(missing.root).toBe(root)
-    expect(missing.undo).toBeUndefined()
+    expect(missing.undo).toEqual([])
   })
 
   it('写入相同的值没有变化', () => {
     const root = { a: { b: [1, 2] } }
-    const result = writePath(root, ['a'], { b: [1, 2] })
+    const result = writeChanges(root, [{ path: ['a'], value: { b: [1, 2] } }])
     expect(result.root).toBe(root)
-    expect(result.undo).toBeUndefined()
+    expect(result.undo).toEqual([])
   })
 
   it('写入的值是深拷贝', () => {
     const value = { inner: { n: 1 } }
-    const { root } = writePath({} as Record<string, unknown>, ['v'], value)
+    const { root } = writeChanges({} as Record<string, unknown>, [{ path: ['v'], value }])
     value.inner.n = 2
     expect(root).toEqual({ v: { inner: { n: 1 } } })
   })
 
+  it('一组修改的逆修改按相反顺序排列', () => {
+    const { undo } = writeChanges({ a: 1, b: 2 }, [{ path: ['a'], value: 10 }, { path: ['b'], value: 20 }])
+    expect(undo).toEqual([{ path: ['b'], value: 2 }, { path: ['a'], value: 1 }])
+  })
+
   it.each([
-    [[], 'path.invalid'],
-    [['__proto__', 'x'], 'path.invalid'],
-    [['constructor'], 'path.invalid'],
-    [['list', 5], 'path.invalid'],
-    [['list', -1], 'path.invalid'],
-    [['list', 0.5], 'path.invalid'],
-    [['list', 'x'], 'path.invalid'],
-    [['obj', 0], 'path.invalid'],
-    [['num', 'x'], 'path.invalid'],
-    [['missing', 0], 'path.invalid'],
-    [[''], 'path.invalid'],
-  ] as const)('拒绝不合法的路径 %j', (path, code) => {
+    [[]],
+    [['__proto__', 'x']],
+    [['constructor']],
+    [['list', 5]],
+    [['list', -1]],
+    [['list', 0.5]],
+    [['list', 'x']],
+    [['obj', 0]],
+    [['num', 'x']],
+    [['missing', 0]],
+  ] as const)('拒绝不合法或不存在的路径 %j', (path) => {
     const root = { list: [1, 2], obj: { a: 1 }, num: 1 }
-    expectError(() => writePath(root, path, 1), code)
+    expectError(() => writeChanges(root, [{ path, value: 1 }]), 'path.invalid')
   })
 
   it('不能删除数组项，不能写入非 JSON 值', () => {
-    expectError(() => writePath({ list: [1] }, ['list', 0], undefined), 'path.invalid')
-    expectError(() => writePath({}, ['a'], Number.NaN), 'value.invalid')
-    expectError(() => writePath({}, ['a'], { fn: () => 1 }), 'value.invalid')
+    expectError(() => writeChanges({ list: [1] }, [{ path: ['list', 0] }]), 'value.invalid')
+    expectError(() => writeChanges({}, [{ path: ['a'], value: Number.NaN }]), 'value.invalid')
+    expectError(() => writeChanges({}, [{ path: ['a'], value: { fn: () => 1 } as never }]), 'value.invalid')
   })
 })
 

@@ -3,9 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { JsonPathSegment } from '@xihan-ui/core/json'
 import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { ExpressionEngine } from '@xihan-ui/expression'
-import type { PathSegment } from '../json-path'
 import type { ElementRegistry } from '../registry/registry'
 import type { AnyElementPrototype, ElementValidationContext, PropertyDescriptor } from '../registry/types'
 import type { Edges } from '../schema/common'
@@ -37,7 +37,7 @@ import { validateControlValue, validateEdges } from './controls'
 import { LENGTH_TOLERANCE } from './element-rules'
 import { createIssueSink } from './issues'
 
-type Path = readonly PathSegment[]
+type Path = readonly JsonPathSegment[]
 
 /** 校验选项。 */
 export interface ValidateDocumentOptions {
@@ -122,7 +122,7 @@ function scopeOfPath(input: unknown, path: Path): IssueScope {
   for (let index = 0; index < path.length; index++) {
     if (typeof current !== 'object' || current === null)
       break
-    current = (current as Record<PathSegment, unknown>)[path[index] as PathSegment]
+    current = (current as Record<JsonPathSegment, unknown>)[path[index] as JsonPathSegment]
     const parent = path[index - 1]
     if ((parent === 'pages' || parent === 'elements') && isPlainObject(current) && typeof current.id === 'string') {
       if (parent === 'pages')
@@ -135,22 +135,22 @@ function scopeOfPath(input: unknown, path: Path): IssueScope {
 }
 
 /** 把 JSON Pointer 换成路径数组，数组中的片段换成下标。 */
-function pointerToPath(root: unknown, pointer: string): PathSegment[] {
-  const path: PathSegment[] = []
+function pointerToPath(root: unknown, pointer: string): JsonPathSegment[] {
+  const path: JsonPathSegment[] = []
   let current = root
   for (const token of pointer.split('/').slice(1)) {
     const key = token.replace(/~1/g, '/').replace(/~0/g, '~')
-    const segment: PathSegment = Array.isArray(current) ? Number(key) : key
+    const segment: JsonPathSegment = Array.isArray(current) ? Number(key) : key
     path.push(segment)
-    current = typeof current === 'object' && current !== null ? (current as Record<PathSegment, unknown>)[segment] : undefined
+    current = typeof current === 'object' && current !== null ? (current as Record<JsonPathSegment, unknown>)[segment] : undefined
   }
   return path
 }
 
-function valueAtPath(root: unknown, path: readonly PathSegment[]): unknown {
+function valueAtPath(root: unknown, path: readonly JsonPathSegment[]): unknown {
   let current = root
   for (const segment of path)
-    current = typeof current === 'object' && current !== null ? (current as Record<PathSegment, unknown>)[segment] : undefined
+    current = typeof current === 'object' && current !== null ? (current as Record<JsonPathSegment, unknown>)[segment] : undefined
   return current
 }
 

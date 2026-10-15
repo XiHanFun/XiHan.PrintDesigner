@@ -3,9 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { JsonValue } from '@xihan-ui/core/json'
+import type { JsonPathSegment, JsonValue } from '@xihan-ui/core/json'
 import type { Rect } from '@xihan-ui/designer-kit'
-import type { PathSegment } from '../json-path'
 import type { PageBand, PrintDocument, PrintPage } from '../schema/document'
 import type { PrintElement } from '../schema/elements'
 import type { PageBandVariant } from '../schema/options'
@@ -14,7 +13,7 @@ import type { ElementContainerRef } from '../traverse'
 /** 一处属性修改。 */
 export interface PropertyChange {
   /** 相对被修改对象的属性路径。 */
-  path: readonly PathSegment[]
+  path: readonly JsonPathSegment[]
   /** 新值；省略或为 undefined 表示删除该属性。 */
   value?: JsonValue
 }
