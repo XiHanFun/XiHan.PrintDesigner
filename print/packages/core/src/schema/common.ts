@@ -6,7 +6,7 @@
 import type { FormatSpec } from '@xihan-ui/expression'
 import type { StrokeStyle, TextAlign, VerticalAlign } from './options'
 
-/** 颜色：`#RGB`、`#RRGGBB`、`#RRGGBBAA` 或 `transparent`。 */
+/** 颜色：`#RGB`、`#RGBA`、`#RRGGBB`、`#RRGGBBAA` 或 `transparent`。 */
 export type Color = string
 
 /** 四边距离，单位 mm。 */

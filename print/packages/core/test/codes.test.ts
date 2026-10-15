@@ -56,10 +56,10 @@ describe('二维码', () => {
 })
 
 describe('颜色与图片地址', () => {
-  it('颜色只接受十六进制与 transparent', () => {
-    for (const color of ['#fff', '#FFFFFF', '#00000080', 'transparent'])
+  it('颜色只接受带 # 的十六进制与 transparent', () => {
+    for (const color of ['#fff', '#ffff', '#FFFFFF', '#00000080', 'transparent'])
       expect(isValidColor(color), color).toBe(true)
-    for (const color of ['fff', '#ffff', 'red', 'rgb(0,0,0)', '#gggggg'])
+    for (const color of ['fff', ' #fff', '#fff ', '#fffff', 'red', 'rgb(0,0,0)', '#gggggg'])
       expect(isValidColor(color), color).toBe(false)
   })
 
