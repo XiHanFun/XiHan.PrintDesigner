@@ -3,9 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { PathSegment } from '../json'
+import type { JsonValue } from '@xihan-ui/core/json'
+import type { PathSegment } from '../json-path'
 import type { PropertyChange } from './types'
-import { cloneJson, isJsonValue, isPlainObject, jsonEqual } from '../json'
+import { cloneJson, findJsonViolation, isPlainObject, jsonEquals } from '@xihan-ui/core/json'
 import { PrintOperationError } from './errors'
 
 const FORBIDDEN_KEYS: readonly string[] = ['__proto__', 'prototype', 'constructor']
@@ -79,7 +80,7 @@ function write(node: unknown, path: readonly PathSegment[], depth: number, value
  */
 export function writePath<TRoot>(root: TRoot, path: readonly PathSegment[], value: unknown): PathWriteResult<TRoot> {
   checkSegments(path)
-  if (value !== undefined && !isJsonValue(value))
+  if (value !== undefined && findJsonViolation(value) !== undefined)
     throw new PrintOperationError('value.invalid', { path: path.map(String) })
 
   let node: unknown = root
@@ -107,10 +108,10 @@ export function writePath<TRoot>(root: TRoot, path: readonly PathSegment[], valu
   }
 
   const previous = missingFrom === undefined ? node : undefined
-  if (jsonEqual(previous, value) || (missingFrom !== undefined && value === undefined))
+  if (jsonEquals(previous as JsonValue | undefined, value as JsonValue | undefined) || (missingFrom !== undefined && value === undefined))
     return { root }
 
-  const next = write(root, path, 0, value === undefined ? undefined : cloneJson(value)) as TRoot
+  const next = write(root, path, 0, value === undefined ? undefined : cloneJson(value as JsonValue)) as TRoot
   if (missingFrom !== undefined)
     return { root: next, undo: { path: path.slice(0, missingFrom + 1) } }
   if (previous === undefined)

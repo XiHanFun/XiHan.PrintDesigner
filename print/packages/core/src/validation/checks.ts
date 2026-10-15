@@ -3,11 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { PathSegment } from '../json'
+import type { PathSegment } from '../json-path'
 import type { IssueSink } from './issues'
+import { isPlainObject } from '@xihan-ui/core/json'
 import { colorHexToRgba } from '@xihan-ui/headless'
 import { isValidFieldPath } from '../field-path'
-import { isPlainObject } from '../json'
 import { parseTextTemplate } from '../text-template'
 
 type Path = readonly PathSegment[]

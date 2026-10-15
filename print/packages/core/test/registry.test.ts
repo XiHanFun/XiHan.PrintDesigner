@@ -4,13 +4,13 @@
  */
 
 import type { AnyElementPrototype, PropertyDescriptor, TableElement } from '../src'
+import { findJsonViolation } from '@xihan-ui/core/json'
 import { BAR_CODE_FORMATS, MATRIX_CODE_FORMATS } from '@xihan-ui/headless'
 import { describe, expect, it } from 'vitest'
 import {
   createBuiltinElementPrototypes,
   createElementRegistry,
   ELEMENT_CATEGORIES,
-  isJsonValue,
   PRINT_ELEMENT_TYPES,
   PROPERTY_GROUPS,
   scaleTableColumns,
@@ -47,7 +47,7 @@ describe('内置元素原型', () => {
   it.each(samplePrototypes().map(prototype => [prototype.type, prototype] as const))('%s 原型自洽', (_type, prototype) => {
     expect(prototype.defaults.type).toBe(prototype.type)
     expect(ELEMENT_CATEGORIES).toContain(prototype.category)
-    expect(isJsonValue(prototype.defaults)).toBe(true)
+    expect(findJsonViolation(prototype.defaults)).toBeUndefined()
     expect(prototype.defaults.width).toBeGreaterThanOrEqual(prototype.minSize.width)
     expect(prototype.defaults.height).toBeGreaterThanOrEqual(prototype.minSize.height)
 

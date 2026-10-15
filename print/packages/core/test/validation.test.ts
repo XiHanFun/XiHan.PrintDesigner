@@ -7,7 +7,6 @@ import type { ExpressionEngine } from '@xihan-ui/expression'
 import type { PrintDocument, PrintElement, ValidationIssue, ValidationReport } from '../src'
 import { describe, expect, it } from 'vitest'
 import {
-  cloneJson,
   createBuiltinElementPrototypes,
   createDocument,
   createElementRegistry,
@@ -19,6 +18,10 @@ import {
 import { createSampleDocument, createSampleTable } from './fixtures'
 
 const registry = createElementRegistry()
+
+function copyOf<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
 
 function summarize(report: ValidationReport): string[] {
   return report.issues.map(issue => `${issue.code}@${issue.path.join('.')}`)
@@ -100,16 +103,23 @@ describe('模板须为纯 JSON', () => {
     expect(report.issues).toHaveLength(1)
   })
 
-  it('报告函数、日期与循环引用', () => {
-    const doc = withBody(element('rect', 'r')) as unknown as Record<string, unknown>
-    doc.meta = { fn: () => 1, at: new Date(0) } as never
-    const meta = doc.meta as Record<string, unknown>
-    meta.self = meta
-    expect(issuesOf(doc)).toEqual([
-      'json.invalidValue@meta.fn',
-      'json.invalidValue@meta.at',
-      'json.circular@meta.self',
+  it('只报告第一处非 JSON 值，并给出种类', () => {
+    const withMeta = (meta: unknown): Record<string, unknown> => ({ ...withBody(element('rect', 'r')), meta })
+    const first = validateDocument(withMeta({ fn: () => 1, at: new Date(0) }))
+    expect(summarize(first)).toEqual(['json.invalidValue@meta.fn'])
+    expect(first.issues[0]!.params).toEqual({ kind: 'function' })
+    expect(validateDocument(withMeta({ at: new Date(0) })).issues[0]!.params).toEqual({ kind: 'nonPlainObject' })
+    expect(validateDocument(withMeta({ list: [1, undefined] })).issues.map(issue => [issue.path, issue.params])).toEqual([
+      [['meta', 'list', 1], { kind: 'undefined' }],
     ])
+    const cyclic: Record<string, unknown> = {}
+    cyclic.self = cyclic
+    expect(issuesOf(withMeta(cyclic))).toEqual(['json.circular@meta.self'])
+  })
+
+  it('值为 undefined 的属性也不是 JSON', () => {
+    const text = { ...element('text', 't'), name: undefined }
+    expect(issuesOf(withBody(text))).toEqual(['json.invalidValue@pages.0.elements.0.name'])
   })
 })
 
@@ -369,7 +379,7 @@ describe('内容来源与格式', () => {
 
 describe('表格', () => {
   function tableDoc(mutate: (table: Record<string, unknown>) => void): PrintDocument {
-    const table = cloneJson(createSampleTable()) as unknown as Record<string, unknown>
+    const table = copyOf(createSampleTable()) as unknown as Record<string, unknown>
     mutate(table)
     return withBody(table)
   }
@@ -511,7 +521,7 @@ describe('图形、条码与二维码', () => {
 
   it('四种码制都可用，纠错级别按码制校验，PDF417 不要求正方形', () => {
     const elements = [
-      element('matrixCode', 'dm', { format: 'data-matrix', level: undefined }),
+      (({ level: _level, ...rest }) => rest)(element('matrixCode', 'dm', { format: 'data-matrix' })),
       element('matrixCode', 'pdf', { format: 'pdf417', level: 5, width: 60, height: 15 }),
       element('matrixCode', 'aztec', { format: 'aztec', level: 23 }),
       element('matrixCode', 'badQr', { format: 'qr', level: 4 }),
@@ -552,7 +562,7 @@ describe('复合属性', () => {
   })
 
   it('单元格样式与表格网格线', () => {
-    const table = cloneJson(createSampleTable()) as unknown as Record<string, unknown>
+    const table = copyOf(createSampleTable()) as unknown as Record<string, unknown>
     table.header = { visible: true, repeat: true, height: 8, style: { fontSize: 10, bold: 'yes', italic: false, color: '#000', verticalAlign: 'center', padding: 1, lineHeight: 0 } }
     table.border = { stroke: { width: 0.2, style: 'solid', color: '#000' }, outer: true, horizontal: true }
     expect(issuesOf(withBody(table))).toEqual([
@@ -564,7 +574,7 @@ describe('复合属性', () => {
   })
 
   it('表尾单元格跨列数必须为正整数', () => {
-    const table = cloneJson(createSampleTable())
+    const table = copyOf(createSampleTable())
     const cell = table.footerRows[0]!.cells[0] as unknown as Record<string, unknown>
     cell.colSpan = 1.5
     expect(issuesOf(withBody(table))).toEqual(['value.notInteger@pages.0.elements.0.footerRows.0.cells.0.colSpan'])
@@ -633,7 +643,7 @@ describe('受限表达式', () => {
     const nested = element('text', 'n', {
       content: { kind: 'expression', expression: 'a + b', format: { kind: 'number', decimals: -1 } },
     })
-    const table = cloneJson(createSampleTable()) as unknown as Record<string, unknown>
+    const table = copyOf(createSampleTable()) as unknown as Record<string, unknown>
     const columns = table.columns as Record<string, unknown>[]
     columns[3]!.content = { kind: 'expression', expression: 'qty * (price', format: { kind: 'rmb-upper' } }
     const report = validateDocument(withBody(formatted, nested, table), { expressions: engine })
@@ -645,7 +655,7 @@ describe('受限表达式', () => {
   })
 
   it('表尾单元格可用表达式，以根数据为变量', () => {
-    const table = cloneJson(createSampleTable())
+    const table = copyOf(createSampleTable())
     table.footerRows[1]!.cells[0]!.content = { kind: 'expression', expression: 'order.no' }
     expect(validateDocument(withBody(table), { expressions: engine }).issues).toEqual([])
   })

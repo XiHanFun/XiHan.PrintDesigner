@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { PathSegment } from '../json'
+import type { PathSegment } from '../json-path'
 import type { PropertyControl } from '../registry/types'
 import type { FieldRule } from './checks'
 import type { IssueSink } from './issues'

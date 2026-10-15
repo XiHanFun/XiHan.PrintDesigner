@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { JsonObject } from '../json'
+import type { JsonObject } from '@xihan-ui/core/json'
 import type { PaperPresetName } from '../paper'
 import type { Color, Edges } from './common'
 import type { PrintElement } from './elements'

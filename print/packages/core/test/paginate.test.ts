@@ -5,7 +5,7 @@
 
 import type { TableLayoutBox, TableRowLayout, TextMeasureRequest } from '../src'
 import { describe, expect, it } from 'vitest'
-import { jsonEqual, paginate, PrintLayoutError } from '../src'
+import { paginate, PrintLayoutError } from '../src'
 import {
   boxesOf,
   boxOf,
@@ -80,7 +80,7 @@ describe('基本排版', () => {
     const data = { items: itemsOf(30) }
     const first = run(doc, data)
     const second = run(doc, data)
-    expect(jsonEqual(first, second)).toBe(true)
+    expect(first).toEqual(second)
   })
 
   it('图形、条码、二维码与图片按元素属性输出', () => {
