@@ -19,6 +19,7 @@ import type {
 } from '../schema/elements'
 import type { CellStyle, TableColumn } from '../schema/table'
 import type { AnyElementPrototype, ElementPrototype } from './types'
+import { NUMERAL_STYLES } from '@xihan-ui/expression'
 import { BAR_CODE_FORMATS, MATRIX_CODE_FORMATS } from '@xihan-ui/headless'
 import {
   IMAGE_FITS,
@@ -163,12 +164,13 @@ function pageNumberPrototype(): ElementPrototype<PageNumberElement> {
       type: 'pageNumber',
       width: 30,
       height: 6,
-      format: '{current}/{total}',
+      format: '{{$page}}/{{$pages}}',
       style: defaultTextStyle({ fontSize: 9, align: 'center', verticalAlign: 'middle' }),
     },
     properties: [
       ...layoutProperties({ rotation: false }),
       property(['format'], 'content', { kind: 'pageNumberFormat' }),
+      property(['numeral'], 'content', { kind: 'select', options: NUMERAL_STYLES }, { required: false }),
       ...textStyleProperties(),
       ...boxProperties(),
       ...behaviorProperties(),

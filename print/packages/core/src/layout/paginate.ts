@@ -247,7 +247,7 @@ export function paginate(document: PrintDocument, data: unknown, options: Pagina
       sheet.totalPages = run.length
   }
   for (const { box, element, sheet } of fixups)
-    fillPageNumber(box, element, { current: sheet.pageNumber, total: sheet.totalPages }, context)
+    fillPageNumber(box, element, { current: sheet.pageNumber, total: sheet.totalPages }, context, { pageId: sheet.pageId, elementId: element.id })
 
   return { sheets, diagnostics }
 }

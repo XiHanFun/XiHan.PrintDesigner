@@ -8,10 +8,10 @@ import type { FormatSpecIssueCode } from '@xihan-ui/expression'
 import type { PropertyControl } from '../registry/types'
 import type { FieldRule } from './checks'
 import type { IssueSink, ValidationIssueCode } from './issues'
+import { parseTextTemplate } from '@xihan-ui/core/template'
 import { toSafeImageSource } from '@xihan-ui/core/url'
 import { checkFormatSpec, FORMAT_KINDS } from '@xihan-ui/expression'
 import { BAR_CODE_FORMATS } from '@xihan-ui/headless'
-import { parsePageNumberFormat } from '../page-number-format'
 import {
   AGGREGATE_FUNCTIONS,
   AGGREGATE_SCOPES,
@@ -299,15 +299,22 @@ function validateFooterCells(value: unknown, path: Path, sink: IssueSink): void 
   })
 }
 
-/** 校验页码格式：至少含一个已知记号，不含未知记号。 */
+/** 页码模板可用的宿主变量。 */
+const PAGE_NUMBER_VARIABLES: readonly string[] = ['$page', '$pages']
+
+/** 校验页码格式：合法的文本模板，至少用到一个页码变量，不用别的占位。 */
 export function validatePageNumberFormat(value: unknown, path: Path, sink: IssueSink): void {
-  if (!expectString(value, path, sink))
+  if (!expectTextTemplate(value, path, sink))
     return
-  const { segments, unknownTokens } = parsePageNumberFormat(value)
-  if (!segments.some(segment => segment.kind === 'token'))
+  const placeholders = parseTextTemplate(value).segments.filter(segment => segment.kind === 'path')
+  const known = (segment: (typeof placeholders)[number]): boolean =>
+    segment.path.length === 1 && PAGE_NUMBER_VARIABLES.includes(String(segment.path[0]))
+  if (!placeholders.some(known))
     sink.report('pageNumber.noToken', path)
-  for (const token of unknownTokens)
-    sink.report('pageNumber.unknownToken', path, { token })
+  for (const segment of placeholders) {
+    if (!known(segment))
+      sink.report('pageNumber.unknownToken', path, { token: segment.source })
+  }
 }
 
 /** 按属性编辑方式校验属性值。 */

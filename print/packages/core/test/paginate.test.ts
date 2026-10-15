@@ -5,6 +5,7 @@
 
 import type { TableLayoutBox, TableRowLayout } from '../src'
 import type { MeasureCall } from './layout-helpers'
+import { formatValue } from '@xihan-ui/expression'
 import { describe, expect, it } from 'vitest'
 import { paginate, PrintLayoutError } from '../src'
 import {
@@ -502,13 +503,21 @@ describe('页眉页脚与页码', () => {
     expect(result.diagnostics).toEqual([])
   })
 
+  it('页码按 numeral 转成中文或罗马数字后填进模板，没有格式化器时用阿拉伯数字并给出诊断', () => {
+    const page = squarePage('p', [registry.createElement('pageNumber', { id: 'no', x: 0, y: 0, overrides: { width: 100, format: '第{{$page}}页 共{{$pages}}页', numeral: 'cn-lower' } })])
+    expect(boxOf(run(documentOf(page), {}, { formatter: formatValue }).sheets[0]!, 'no', 'text').lines).toEqual(['第一页 共一页'])
+    const plain = run(documentOf(page))
+    expect(boxOf(plain.sheets[0]!, 'no', 'text').lines).toEqual(['第1页 共1页'])
+    expect(plain.diagnostics).toEqual([{ code: 'format.unavailable', pageId: 'p', elementId: 'no' }])
+  })
+
   it('页码连续编号，总页数按编号段计算', () => {
     const first = squarePage('a', [simpleTable('t1', 10)])
     first.footer.default = {
       height: 10,
       elements: [registry.createElement('pageNumber', { id: 'no-a', x: 0, y: 90, overrides: { height: 10 } })],
     }
-    const second = squarePage('b', [registry.createElement('pageNumber', { id: 'no-b', x: 0, y: 0, overrides: { format: '第{current}页/共{total}页', width: 100 } })])
+    const second = squarePage('b', [registry.createElement('pageNumber', { id: 'no-b', x: 0, y: 0, overrides: { format: '第{{$page}}页/共{{$pages}}页', width: 100 } })])
     const third = squarePage('c', [registry.createElement('pageNumber', { id: 'no-c', x: 0, y: 0 })])
     third.numbering = { continuous: false, start: 5 }
     const result = run(documentOf(first, second, third), { items: itemsOf(20) })
