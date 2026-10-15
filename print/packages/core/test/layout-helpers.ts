@@ -6,6 +6,7 @@
 import type {
   CellStyle,
   ExpressionEngine,
+  FormatSpec,
   LayoutBox,
   LayoutSheet,
   PaginateOptions,
@@ -70,6 +71,11 @@ export function createFakeEngine(compiled: string[] = []): ExpressionEngine {
 }
 
 export const fakeEngine = createFakeEngine()
+
+/** 假格式化器：输出 `格式种类:原值`。 */
+export function fakeFormatter(value: unknown, spec: FormatSpec): string {
+  return `${spec.kind}:${String(value)}`
+}
 
 export function deepFreeze<T>(value: T): T {
   if (typeof value === 'object' && value !== null) {

@@ -185,20 +185,14 @@ function checkOptions(options: PaginateOptions): number {
   const maxSheets = options.maxSheets ?? DEFAULT_MAX_SHEETS
   if (!Number.isInteger(maxSheets) || maxSheets < 1)
     throw new PrintLayoutError('option.invalid', { option: 'maxSheets' })
-  if (options.timeZone !== undefined) {
-    try {
-      new Intl.DateTimeFormat('en-US', { timeZone: options.timeZone }).resolvedOptions()
-    }
-    catch {
-      throw new PrintLayoutError('option.invalid', { option: 'timeZone' })
-    }
-  }
+  if (options.format !== undefined && typeof options.format !== 'function')
+    throw new PrintLayoutError('option.invalid', { option: 'format' })
   return maxSheets
 }
 
 /**
  * 按数据排出模板文档的全部输出页，返回每页每个元素的布局盒。
- * 文档有 error 级校验问题、选项不合法或测量结果不合法时抛出 PrintLayoutError。
+ * 文档有 error 级校验问题、选项不合法、测量或格式化结果不合法时抛出 PrintLayoutError。
  */
 export function paginate(document: PrintDocument, data: unknown, options: PaginateOptions): PaginationResult {
   const maxSheets = checkOptions(options)
@@ -214,11 +208,11 @@ export function paginate(document: PrintDocument, data: unknown, options: Pagina
   }
 
   const diagnostics: PaginationDiagnostic[] = []
-  const contextOptions: { expressions?: PaginateOptions['expressions'], timeZone?: string } = {}
+  const contextOptions: Pick<PaginateOptions, 'expressions' | 'format'> = {}
   if (options.expressions !== undefined)
     contextOptions.expressions = options.expressions
-  if (options.timeZone !== undefined)
-    contextOptions.timeZone = options.timeZone
+  if (options.format !== undefined)
+    contextOptions.format = options.format
   const context = createLayoutContext(data, options.measurer, contextOptions, diagnostics)
 
   const sheets: LayoutSheet[] = []

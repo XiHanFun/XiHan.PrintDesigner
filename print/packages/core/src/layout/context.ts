@@ -4,7 +4,7 @@
  */
 
 import type { ExpressionCompilation, ExpressionEngine } from '../expression'
-import type { FormatResult } from '../format'
+import type { FormatResult, ValueFormatter } from '../format'
 import type { IssueParams } from '../validation/issues'
 import type {
   PaginationDiagnostic,
@@ -29,7 +29,8 @@ export interface LayoutContext {
   data: unknown
   /** 编译表达式源码，同一源码只编译一次；未提供表达式接入点时为 undefined。 */
   compile?: (source: string) => ExpressionCompilation
-  timeZone?: string
+  /** 值格式化器，返回值不是字符串时抛出 PrintLayoutError。 */
+  formatter?: ValueFormatter
   report: (code: PaginationDiagnosticCode, scope: DiagnosticScope, params?: IssueParams) => void
   measure: (request: TextMeasureRequest) => TextMeasurement
 }
@@ -44,11 +45,11 @@ function isValidMeasurement(result: unknown): result is TextMeasurement {
     && typeof height === 'number' && Number.isFinite(height) && height >= 0
 }
 
-/** 创建分页上下文：诊断按诊断码、定位与参数去重，测量结果不合法时抛出 PrintLayoutError。 */
+/** 创建分页上下文：诊断按诊断码、定位与参数去重，测量或格式化结果不合法时抛出 PrintLayoutError。 */
 export function createLayoutContext(
   data: unknown,
   measurer: TextMeasurer,
-  options: { expressions?: ExpressionEngine, timeZone?: string },
+  options: { expressions?: ExpressionEngine, format?: ValueFormatter },
   diagnostics: PaginationDiagnostic[],
 ): LayoutContext {
   const seen = new Set<string>()
@@ -85,15 +86,20 @@ export function createLayoutContext(
       return result
     }
   }
-  if (options.timeZone !== undefined)
-    context.timeZone = options.timeZone
+  const format = options.format
+  if (format !== undefined) {
+    context.formatter = (value, spec) => {
+      const text = format(value, spec)
+      if (typeof text !== 'string')
+        throw new PrintLayoutError('formatter.invalidResult', { kind: spec.kind })
+      return text
+    }
+  }
   return context
 }
 
 const FORMAT_PROBLEM_CODES = {
-  notNumber: 'format.notNumber',
-  invalidDate: 'format.invalidDate',
-  outOfRange: 'format.outOfRange',
+  formatterUnavailable: 'format.unavailable',
   expressionUnavailable: 'expression.unavailable',
   expressionFailed: 'expression.failed',
   notScalar: 'data.notScalar',
