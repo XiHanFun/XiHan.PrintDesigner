@@ -1,0 +1,75 @@
+/*
+ * Copyright (c) 2021-Present XiHanFun and contributors.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+import type { PrintElementOf, PrintElementType } from '../schema/elements'
+import type { AnyElementPrototype, ElementCategory, ElementDefaults, ElementPrototype } from './types'
+import { cloneJson } from '../json'
+import { createBuiltinElementPrototypes } from './builtins'
+import { ELEMENT_CATEGORIES } from './types'
+
+/** 创建元素的参数。 */
+export interface CreateElementInit<TType extends PrintElementType> {
+  id: string
+  x: number
+  y: number
+  /** 覆盖默认值的顶层属性。 */
+  overrides?: Partial<Omit<ElementDefaults<PrintElementOf<TType>>, 'type'>>
+}
+
+/** 物料面板中的一个分组。 */
+export interface ElementCategoryGroup {
+  category: ElementCategory
+  prototypes: AnyElementPrototype[]
+}
+
+/** 元素类型登记表。 */
+export interface ElementRegistry {
+  /** 全部原型，按物料分组顺序、再按组内顺序排列。 */
+  readonly prototypes: readonly AnyElementPrototype[]
+  /** 按类型取原型。 */
+  get: (<TType extends PrintElementType>(type: TType) => ElementPrototype<PrintElementOf<TType>> | undefined)
+    & ((type: string) => AnyElementPrototype | undefined)
+  /** 判断类型是否已登记。 */
+  has: (type: string) => boolean
+  /** 按物料分组列出原型，跳过没有原型的分组。 */
+  groupByCategory: () => ElementCategoryGroup[]
+  /** 按原型默认值创建元素；类型未登记时抛出错误。 */
+  createElement: <TType extends PrintElementType>(type: TType, init: CreateElementInit<TType>) => PrintElementOf<TType>
+}
+
+/** 创建元素类型登记表，默认登记全部内置元素；类型重复时抛出错误。 */
+export function createElementRegistry(
+  prototypes: readonly AnyElementPrototype[] = createBuiltinElementPrototypes(),
+): ElementRegistry {
+  const byType = new Map<string, AnyElementPrototype>()
+  for (const prototype of prototypes) {
+    if (byType.has(prototype.type))
+      throw new Error(`Duplicate element prototype: ${prototype.type}`)
+    byType.set(prototype.type, prototype)
+  }
+
+  const sorted = [...prototypes].sort((a, b) =>
+    ELEMENT_CATEGORIES.indexOf(a.category) - ELEMENT_CATEGORIES.indexOf(b.category) || a.order - b.order,
+  )
+
+  const get = ((type: string) => byType.get(type)) as ElementRegistry['get']
+
+  return {
+    prototypes: sorted,
+    get,
+    has: type => byType.has(type),
+    groupByCategory: () => ELEMENT_CATEGORIES
+      .map(category => ({ category, prototypes: sorted.filter(prototype => prototype.category === category) }))
+      .filter(group => group.prototypes.length > 0),
+    createElement: (type, init) => {
+      const prototype = byType.get(type)
+      if (prototype === undefined)
+        throw new Error(`Unknown element type: ${type}`)
+      const fixed = { id: init.id, type, x: init.x, y: init.y }
+      const element = Object.assign({ ...fixed }, cloneJson(prototype.defaults), cloneJson(init.overrides ?? {}), fixed)
+      return element as unknown as PrintElementOf<typeof type>
+    },
+  }
+}
