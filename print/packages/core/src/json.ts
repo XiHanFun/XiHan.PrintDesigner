@@ -28,20 +28,26 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
   return proto === Object.prototype || proto === null
 }
 
-/** 深拷贝由普通对象、数组和原始值组成的数据。 */
+/** 深拷贝由普通对象、数组和原始值组成的数据；值为 undefined 的对象属性按 JSON 序列化语义省略。 */
 export function cloneJson<T>(value: T): T {
   if (Array.isArray(value))
     return value.map(item => cloneJson(item as unknown)) as T
   if (isPlainObject(value)) {
     const result: Record<string, unknown> = {}
-    for (const key of Object.keys(value))
-      result[key] = cloneJson(value[key])
+    for (const key of Object.keys(value)) {
+      if (value[key] !== undefined)
+        result[key] = cloneJson(value[key])
+    }
     return result as T
   }
   return value
 }
 
-/** 按 JSON 语义比较两个值是否相等；对象键顺序不影响结果。 */
+function definedKeys(value: Record<string, unknown>): string[] {
+  return Object.keys(value).filter(key => value[key] !== undefined)
+}
+
+/** 按 JSON 语义比较两个值是否相等：对象键顺序不影响结果，值为 undefined 的对象属性视同不存在。 */
 export function jsonEqual(a: unknown, b: unknown): boolean {
   if (a === b)
     return true
@@ -53,45 +59,82 @@ export function jsonEqual(a: unknown, b: unknown): boolean {
   if (isPlainObject(a)) {
     if (!isPlainObject(b))
       return false
-    const keysA = Object.keys(a)
-    const keysB = Object.keys(b)
+    const keysA = definedKeys(a)
+    const keysB = definedKeys(b)
     if (keysA.length !== keysB.length)
       return false
-    return keysA.every(key => Object.hasOwn(b, key) && jsonEqual(a[key], b[key]))
+    return keysA.every(key => jsonEqual(a[key], b[key]))
   }
   return false
 }
 
-/** 判断值是否可无损地按 JSON 序列化：只含普通对象、稠密数组、字符串、有限数字、布尔与 null，且无循环引用。 */
-export function isJsonValue(value: unknown): value is JsonValue {
-  return isJsonValueInner(value, new Set())
+/** 不能按 JSON 无损表达的值的种类。 */
+export type JsonProblemKind
+  = | 'undefined'
+    | 'nonFiniteNumber'
+    | 'function'
+    | 'symbol'
+    | 'bigint'
+    | 'nonPlainObject'
+    | 'arrayHole'
+    | 'circular'
+
+/** 不能按 JSON 无损表达的值及其路径。 */
+export interface JsonProblem {
+  path: PathSegment[]
+  kind: JsonProblemKind
 }
 
-function isJsonValueInner(value: unknown, ancestors: Set<object>): boolean {
+/**
+ * 列出不能按 JSON 无损表达的值：非有限数字、函数、symbol、bigint、非普通对象、数组空位、
+ * 数组中的 undefined 与循环引用。值为 undefined 的对象属性按 JSON 序列化语义视同不存在，不列入。
+ */
+export function listJsonProblems(value: unknown): JsonProblem[] {
+  const problems: JsonProblem[] = []
+  collectJsonProblems(value, [], new Set(), problems)
+  return problems
+}
+
+function collectJsonProblems(value: unknown, path: PathSegment[], ancestors: Set<object>, problems: JsonProblem[]): void {
   if (value === null || typeof value === 'string' || typeof value === 'boolean')
-    return true
-  if (typeof value === 'number')
-    return Number.isFinite(value)
-  if (typeof value !== 'object')
-    return false
-  if (ancestors.has(value))
-    return false
+    return
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value))
+      problems.push({ path, kind: 'nonFiniteNumber' })
+    return
+  }
+  if (typeof value !== 'object') {
+    problems.push({ path, kind: typeof value as 'undefined' | 'function' | 'symbol' | 'bigint' })
+    return
+  }
+  if (ancestors.has(value)) {
+    problems.push({ path, kind: 'circular' })
+    return
+  }
   if (Array.isArray(value)) {
     ancestors.add(value)
     for (let index = 0; index < value.length; index++) {
-      if (!(index in value) || !isJsonValueInner(value[index], ancestors))
-        return false
+      if (index in value)
+        collectJsonProblems(value[index], [...path, index], ancestors, problems)
+      else
+        problems.push({ path: [...path, index], kind: 'arrayHole' })
     }
     ancestors.delete(value)
-    return true
+    return
   }
-  if (!isPlainObject(value))
-    return false
+  if (!isPlainObject(value)) {
+    problems.push({ path, kind: 'nonPlainObject' })
+    return
+  }
   ancestors.add(value)
   for (const key of Object.keys(value)) {
-    if (!isJsonValueInner(value[key], ancestors))
-      return false
+    if (value[key] !== undefined)
+      collectJsonProblems(value[key], [...path, key], ancestors, problems)
   }
   ancestors.delete(value)
-  return true
+}
+
+/** 判断值是否可按 JSON 无损表达，规则同 `listJsonProblems`。 */
+export function isJsonValue(value: unknown): value is JsonValue {
+  return listJsonProblems(value).length === 0
 }
