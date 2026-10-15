@@ -15,7 +15,6 @@ import type { DiagnosticScope, LayoutContext } from './context'
 import type { BodyGeometry, Placement, SheetCursor } from './placement'
 import type { TableCellLayout, TableLayoutBox, TableRowLayout } from './types'
 import { toSafeImageSource } from '@xihan-ui/core/url'
-import { convertLength } from '@xihan-ui/designer-kit'
 import { checkBarCodeValue, checkMatrixCodeValue } from '@xihan-ui/headless'
 import { barCodeIssueParams, matrixCodeIssueParams } from '../codes'
 import { getFieldValue } from '../data'
@@ -23,6 +22,7 @@ import { boxBase } from './boxes'
 import { contentText, evaluatedText, expressionText, isEmptyValue, templateText, valueText } from './content'
 import { LAYOUT_EPSILON } from './context'
 import { bodyBottom, isAtBodyTop, nextSheetTop } from './placement'
+import { layoutTextLines } from './text-measure'
 
 interface PreparedColumn {
   column: TableColumn
@@ -49,19 +49,9 @@ export interface PreparedTable {
   data: unknown[]
 }
 
-/** 按单元格样式换行测量；文字高度为行数乘以样式中的行高，不取测量器给出的高度。 */
+/** 按单元格样式换行排文字；文字高度为行数乘以样式中的行高。 */
 function cellLines(context: LayoutContext, text: string, style: CellStyle, width: number): { lines: string[], height: number } {
-  const request = {
-    text,
-    fontSize: style.fontSize,
-    bold: style.bold,
-    italic: style.italic,
-    letterSpacing: 0,
-    lineHeight: style.lineHeight / convertLength(style.fontSize, 'pt', 'mm'),
-    maxWidth: Math.max(0, width - style.padding * 2),
-    wrap: true,
-  }
-  const { lines } = context.measure(style.fontFamily === undefined ? request : { ...request, fontFamily: style.fontFamily })
+  const { lines } = layoutTextLines(context.measurer, text, { ...style, letterSpacing: 0 }, style.lineHeight, width - style.padding * 2, true)
   return { lines, height: lines.length * style.lineHeight }
 }
 

@@ -33,6 +33,7 @@ overrides:
   '@xihan-ui/designer-kit': link:../../XiHan.UI/ui/packages/features/designer-kit
   '@xihan-ui/expression': link:../../XiHan.UI/ui/packages/features/expression
   '@xihan-ui/headless': link:../../XiHan.UI/ui/packages/engine/headless
+  '@xihan-ui/viz': link:../../XiHan.UI/ui/packages/engine/viz
 
 importers:
 
@@ -74,6 +75,9 @@ importers:
       '@xihan-ui/headless':
         specifier: link:../../../../XiHan.UI/ui/packages/engine/headless
         version: link:../../../../XiHan.UI/ui/packages/engine/headless
+      '@xihan-ui/viz':
+        specifier: link:../../../../XiHan.UI/ui/packages/engine/viz
+        version: link:../../../../XiHan.UI/ui/packages/engine/viz
 
   packages/designer:
     dependencies:
