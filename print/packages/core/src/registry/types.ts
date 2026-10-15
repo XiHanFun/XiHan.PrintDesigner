@@ -4,9 +4,11 @@
  */
 
 import type { Rect } from '../geometry'
-import type { JsonPrimitive } from '../json'
+import type { JsonPrimitive, PathSegment } from '../json'
 import type { Size } from '../paper'
 import type { PrintElement, PrintElementOf, PrintElementType } from '../schema/elements'
+import type { ElementRegion } from '../traverse'
+import type { IssueParams, ValidationIssueCode } from '../validation/issues'
 
 /** 物料面板分组取值，按面板中的显示顺序。 */
 export const ELEMENT_CATEGORIES = ['text', 'media', 'data', 'shape', 'code'] as const
@@ -96,6 +98,18 @@ export interface ElementPrototype<TElement extends PrintElement = PrintElement> 
   properties: readonly PropertyDescriptor[]
   /** 按新元素框生成缩放后的元素，缺省直接替换坐标与宽高。 */
   resize?: (element: TElement, bounds: Rect) => TElement
+  /** 校验通用属性之外的元素专属规则；只在元素的结构校验没有 error 时调用。 */
+  validate?: (element: TElement, context: ElementValidationContext) => void
+}
+
+/** 元素专属规则的校验上下文。 */
+export interface ElementValidationContext {
+  /** 元素所在区域。 */
+  region: ElementRegion
+  /** 按 default 页眉页脚算出的正文区；页面几何不合法时为 undefined。 */
+  bodyRect?: Rect
+  /** 记录问题，路径相对元素。 */
+  report: (code: ValidationIssueCode, path?: readonly PathSegment[], params?: IssueParams) => void
 }
 
 /** 任一内置元素的原型。 */

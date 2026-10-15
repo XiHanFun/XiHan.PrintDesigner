@@ -26,6 +26,13 @@ import {
   QR_ERROR_CORRECTION_LEVELS,
   TEXT_OVERFLOWS,
 } from '../schema/options'
+import {
+  validateBarcodeRules,
+  validateLineRules,
+  validateQrCodeRules,
+  validateShapeRules,
+  validateTableRules,
+} from '../validation/element-rules'
 import { behaviorProperties, boxProperties, layoutProperties, property, textStyleProperties } from './properties'
 
 function defaultTextStyle(overrides: Partial<TextStyle> = {}): TextStyle {
@@ -243,6 +250,7 @@ function tablePrototype(): ElementPrototype<TableElement> {
       ...behaviorProperties(),
     ],
     resize: resizeTable,
+    validate: validateTableRules,
   }
 }
 
@@ -266,6 +274,7 @@ function linePrototype(): ElementPrototype<LineElement> {
       property(['stroke'], 'appearance', { kind: 'stroke' }),
       ...behaviorProperties(),
     ],
+    validate: validateLineRules,
   }
 }
 
@@ -291,6 +300,7 @@ function rectPrototype(): ElementPrototype<RectElement> {
       property(['radius'], 'appearance', { kind: 'number', unit: 'mm', min: 0, step: 0.1 }),
       ...behaviorProperties(),
     ],
+    validate: validateShapeRules,
   }
 }
 
@@ -314,6 +324,7 @@ function ellipsePrototype(): ElementPrototype<EllipseElement> {
       property(['fill'], 'appearance', { kind: 'color' }, { required: false }),
       ...behaviorProperties(),
     ],
+    validate: validateShapeRules,
   }
 }
 
@@ -346,6 +357,7 @@ function barcodePrototype(): ElementPrototype<BarcodeElement> {
       property(['color'], 'appearance', { kind: 'color' }),
       ...behaviorProperties(),
     ],
+    validate: validateBarcodeRules,
   }
 }
 
@@ -375,6 +387,7 @@ function qrCodePrototype(): ElementPrototype<QrCodeElement> {
       property(['background'], 'appearance', { kind: 'color' }, { required: false }),
       ...behaviorProperties(),
     ],
+    validate: validateQrCodeRules,
   }
 }
 

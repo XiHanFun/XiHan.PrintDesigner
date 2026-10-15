@@ -5,14 +5,15 @@
 
 // 导出 @xihanfun/print-core 的公共接口。
 
+export * from './barcode'
 export * from './factory'
 export * from './field-path'
 export * from './geometry'
 export * from './json'
 export * from './page-number-format'
 export * from './paper'
+export * from './qrcode'
 export * from './registry/builtins'
-export * from './registry/properties'
 export * from './registry/registry'
 export * from './registry/types'
 export * from './schema/common'
@@ -23,3 +24,15 @@ export * from './schema/table'
 export * from './text-template'
 export * from './traverse'
 export * from './units'
+export { isValidColor } from './validation/checks'
+export { isSafeImageUrl } from './validation/controls'
+export type {
+  IssueParams,
+  IssueSeverity,
+  ValidationIssue,
+  ValidationIssueCode,
+  ValidationReport,
+} from './validation/issues'
+export { VALIDATION_ISSUE_SEVERITIES } from './validation/issues'
+export type { ValidateDocumentOptions } from './validation/validate'
+export { validateDocument } from './validation/validate'
