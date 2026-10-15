@@ -19,6 +19,7 @@ import {
   getBodyRect,
   getContainerElements,
   getContentRect,
+  getPageBand,
   getPaperSize,
   isPaperPresetName,
   listContainers,
@@ -148,8 +149,10 @@ describe('页眉页脚变体选择', () => {
     expect(resolvePageBandKey({ ...plain, even: band(5) }, { isFirst: false, isLast: false, pageNumber: 0 })).toBe('even')
   })
 
-  it('resolvePageBand 返回命中的带区对象', () => {
+  it('resolvePageBand 返回命中的带区对象，getPageBand 按键取带区', () => {
     expect(resolvePageBand(full, { isFirst: false, isLast: false, pageNumber: 4 }).height).toBe(5)
+    expect(getPageBand(full, 'last')?.height).toBe(3)
+    expect(getPageBand({ default: band(1), singleSheet: 'first' }, 'odd')).toBeUndefined()
   })
 })
 
