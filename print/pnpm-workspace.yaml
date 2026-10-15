@@ -11,7 +11,8 @@ allowBuilds:
 # 依赖目录（单一版本事实源）。包内一律用 catalog: 引用，升级只改这里一处
 catalog:
   # 运行时依赖
-  '@xihan-ui/headless': ^4.2.0
+  '@xihan-ui/expression': ^4.3.0
+  '@xihan-ui/headless': ^4.3.0
   # 开发依赖
   '@antfu/eslint-config': ^9.5.1
   '@types/node': ^24.10.0
@@ -21,9 +22,8 @@ catalog:
   typescript: ^6.0.3
   vitest: ^4.1.11
 
-minimumReleaseAgeExclude:
-  - '@xihan-ui/core@4.2.0'
-  - '@xihan-ui/headless@4.2.0'
-  - '@xihan-ui/motion@4.2.0'
-  - '@xihan-ui/pointer@4.2.0'
-  - '@xihan-ui/viz@4.2.0'
+# 开发期临时：@xihan-ui/* 改指同级 XiHan.UI 源码（与 BasicApp 联调方式相同）。
+# UI 4.3.0 正式发布后删掉本段，即回落到 catalog 里的发布版。
+overrides:
+  '@xihan-ui/expression': 'link:../../XiHan.UI/ui/packages/features/expression'
+  '@xihan-ui/headless': 'link:../../XiHan.UI/ui/packages/engine/headless'

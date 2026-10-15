@@ -12,9 +12,6 @@ catalogs:
     '@types/node':
       specifier: ^24.10.0
       version: 24.19.2
-    '@xihan-ui/headless':
-      specifier: ^4.2.0
-      version: 4.2.0
     eslint:
       specifier: ^10.12.0
       version: 10.12.0
@@ -30,6 +27,10 @@ catalogs:
     vitest:
       specifier: ^4.1.11
       version: 4.1.11
+
+overrides:
+  '@xihan-ui/expression': link:../../XiHan.UI/ui/packages/features/expression
+  '@xihan-ui/headless': link:../../XiHan.UI/ui/packages/engine/headless
 
 importers:
 
@@ -59,9 +60,12 @@ importers:
 
   packages/core:
     dependencies:
+      '@xihan-ui/expression':
+        specifier: link:../../../../XiHan.UI/ui/packages/features/expression
+        version: link:../../../../XiHan.UI/ui/packages/features/expression
       '@xihan-ui/headless':
-        specifier: 'catalog:'
-        version: 4.2.0
+        specifier: link:../../../../XiHan.UI/ui/packages/engine/headless
+        version: link:../../../../XiHan.UI/ui/packages/engine/headless
 
   packages/designer:
     dependencies:
@@ -698,26 +702,6 @@ packages:
 
   '@vue/shared@3.5.44':
     resolution: {integrity: sha512-H82XLH0DjmSOdbEwO15x3QTo1f5PWEtv237eLpYKc0mqLu+B8hnq16lFWmuBmNurkeiG3wr+oM1FhOll/YVFRg==}
-
-  '@xihan-ui/core@4.2.0':
-    resolution: {integrity: sha512-pCagc0H+jEO8RGgMjnutrRHhCaxU5vAD9Cc7Ufj/nkOoqnZYuGv2Z4JhQJFdgkxzXoo9Pm5ovsZhVSXI/+jAXg==}
-    engines: {node: '>=18'}
-
-  '@xihan-ui/headless@4.2.0':
-    resolution: {integrity: sha512-/Nv6VoCMxGZQLXkZ/R3flcCIK7niTsVF81PlagCG1vlC5k06q9XcJxHDnc704YjgOkgDYPgSVsuYyn7oE2FSAg==}
-    engines: {node: '>=18'}
-
-  '@xihan-ui/motion@4.2.0':
-    resolution: {integrity: sha512-UrXoQZss4prK1w1gZtmerEW9k0Qb69okXDtB+lUDsXOUam5ZhnMrwMwNYCCaQ4DTHFxoHYFN58fzrsjPGmlLVg==}
-    engines: {node: '>=18'}
-
-  '@xihan-ui/pointer@4.2.0':
-    resolution: {integrity: sha512-S8W4Kvxp3Kuppo8jy7h5XeJWauOMexbvLoY+ow3etaGPT1u8/lOM3RINRopzUiQctKeusKJRd3e/71SkBMmKJQ==}
-    engines: {node: '>=18'}
-
-  '@xihan-ui/viz@4.2.0':
-    resolution: {integrity: sha512-A6j32ySPR0gInGWXvWRUa0XGFWY3+CwYK6mArVE3fjuJ1sJG0+9q/9oYfWXN8mV1seqyn9xayWkrzXENwExX+w==}
-    engines: {node: '>=18'}
 
   '@yuku-codegen/binding-android-arm64@0.8.7':
     resolution: {integrity: sha512-C/0zV5IhgVdYhGJTwrY0v8dknxlhiKwtVJkMUaexu9/QvRmzlV4vfU3hZlUSgqc2BxQHntL1mCVbDq8j0FRFDw==}
@@ -2748,23 +2732,6 @@ snapshots:
       '@vue/shared': 3.5.44
 
   '@vue/shared@3.5.44': {}
-
-  '@xihan-ui/core@4.2.0':
-    dependencies:
-      '@xihan-ui/motion': 4.2.0
-
-  '@xihan-ui/headless@4.2.0':
-    dependencies:
-      '@xihan-ui/core': 4.2.0
-      '@xihan-ui/motion': 4.2.0
-      '@xihan-ui/pointer': 4.2.0
-      '@xihan-ui/viz': 4.2.0
-
-  '@xihan-ui/motion@4.2.0': {}
-
-  '@xihan-ui/pointer@4.2.0': {}
-
-  '@xihan-ui/viz@4.2.0': {}
 
   '@yuku-codegen/binding-android-arm64@0.8.7':
     optional: true
