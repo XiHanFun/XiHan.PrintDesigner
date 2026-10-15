@@ -14,9 +14,9 @@ import type {
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { BodyGeometry, Placement, SheetCursor } from './placement'
 import type { TableCellLayout, TableLayoutBox, TableRowLayout } from './types'
+import { convertLength } from '@xihan-ui/designer-kit'
 import { canEncodeBarCode, canEncodeMatrixCode } from '../codes'
 import { getFieldValue } from '../data'
-import { ptToMm } from '../units'
 import { isSafeImageUrl } from '../validation/controls'
 import { boxBase } from './boxes'
 import { contentText, evaluatedText, expressionText, isEmptyValue, templateText, valueText } from './content'
@@ -56,7 +56,7 @@ function cellLines(context: LayoutContext, text: string, style: CellStyle, width
     bold: style.bold,
     italic: style.italic,
     letterSpacing: 0,
-    lineHeight: style.lineHeight / ptToMm(style.fontSize),
+    lineHeight: style.lineHeight / convertLength(style.fontSize, 'pt', 'mm'),
     maxWidth: Math.max(0, width - style.padding * 2),
     wrap: true,
   }

@@ -21,11 +21,8 @@ import {
   getContentRect,
   getPageBand,
   getPaperSize,
-  isPaperPresetName,
   listContainers,
   listPageBandKeys,
-  PAPER_PRESET_NAMES,
-  PAPER_PRESETS,
   PRINT_SCHEMA_VERSION,
   resolvePageBand,
   resolvePageBandKey,
@@ -36,13 +33,6 @@ function rect(id: string, x = 0, y = 0): RectElement {
 }
 
 describe('纸张与工厂', () => {
-  it('预设名列表与预设表一一对应', () => {
-    expect(PAPER_PRESET_NAMES).toEqual(Object.keys(PAPER_PRESETS))
-    expect(isPaperPresetName('A4')).toBe(true)
-    expect(isPaperPresetName('a4')).toBe(false)
-    expect(isPaperPresetName(4)).toBe(false)
-  })
-
   it('createPaper 带上预设名与纵向尺寸', () => {
     expect(createPaper('A4')).toEqual({ preset: 'A4', width: 210, height: 297 })
   })

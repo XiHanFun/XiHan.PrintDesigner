@@ -3,11 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { PaperPresetName } from './paper'
+import type { PaperPresetName } from '@xihan-ui/designer-kit'
 import type { Edges } from './schema/common'
 import type { PageBandSet, PaperSpec, PrintDocument, PrintPage } from './schema/document'
 import type { PageOrientation, SingleSheetPreference } from './schema/options'
-import { PAPER_PRESETS } from './paper'
+import { PAPER_PRESETS } from '@xihan-ui/designer-kit'
 import { PRINT_SCHEMA_VERSION } from './schema/document'
 import { forEachElement } from './traverse'
 
