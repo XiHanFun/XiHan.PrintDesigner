@@ -19,11 +19,10 @@ import type {
 } from '../schema/elements'
 import type { CellStyle, TableColumn } from '../schema/table'
 import type { AnyElementPrototype, ElementPrototype } from './types'
+import { BAR_CODE_FORMATS, MATRIX_CODE_FORMATS } from '@xihan-ui/headless'
 import {
-  BARCODE_SYMBOLOGIES,
   IMAGE_FITS,
   LINE_DIRECTIONS,
-  MATRIX_CODE_FORMATS,
   TABLE_ROW_HEIGHT_MODES,
   TEXT_OVERFLOWS,
 } from '../schema/options'
@@ -351,7 +350,7 @@ function barcodePrototype(): ElementPrototype<BarcodeElement> {
     },
     properties: [
       ...layoutProperties({ rotation: true }),
-      property(['symbology'], 'code', { kind: 'select', options: BARCODE_SYMBOLOGIES }),
+      property(['symbology'], 'code', { kind: 'select', options: BAR_CODE_FORMATS }),
       property(['content'], 'content', { kind: 'textContent' }),
       property(['showText'], 'code', { kind: 'boolean' }),
       property(['textStyle', 'fontFamily'], 'code', { kind: 'text' }, { required: false, when: showText }),

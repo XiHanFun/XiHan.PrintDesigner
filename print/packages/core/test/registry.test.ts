@@ -4,9 +4,9 @@
  */
 
 import type { AnyElementPrototype, PropertyDescriptor, TableElement } from '../src'
+import { BAR_CODE_FORMATS, MATRIX_CODE_FORMATS } from '@xihan-ui/headless'
 import { describe, expect, it } from 'vitest'
 import {
-  BARCODE_SYMBOLOGIES,
   createBuiltinElementPrototypes,
   createElementRegistry,
   ELEMENT_CATEGORIES,
@@ -78,10 +78,13 @@ describe('内置元素原型', () => {
     expect(flow.sort()).toEqual(['longText', 'table'])
   })
 
-  it('条码码制选项与码制常量一致', () => {
+  it('码制选项直接取 @xihan-ui/headless 的码制常量', () => {
     const barcode = samplePrototypes().find(prototype => prototype.type === 'barcode')!
     const symbology = barcode.properties.find(descriptor => descriptor.path[0] === 'symbology')!
-    expect(symbology.control).toEqual({ kind: 'select', options: BARCODE_SYMBOLOGIES })
+    expect(symbology.control).toEqual({ kind: 'select', options: BAR_CODE_FORMATS })
+    const qrcode = samplePrototypes().find(prototype => prototype.type === 'qrcode')!
+    const format = qrcode.properties.find(descriptor => descriptor.path[0] === 'format')!
+    expect(format.control).toEqual({ kind: 'select', options: MATRIX_CODE_FORMATS })
   })
 })
 
