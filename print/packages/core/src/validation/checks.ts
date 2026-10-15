@@ -5,6 +5,7 @@
 
 import type { PathSegment } from '../json'
 import type { IssueSink } from './issues'
+import { colorHexToRgba } from '@xihan-ui/headless'
 import { isValidFieldPath } from '../field-path'
 import { isPlainObject } from '../json'
 import { parseTextTemplate } from '../text-template'
@@ -19,11 +20,14 @@ export interface NumberConstraints {
   integer?: boolean
 }
 
-const COLOR_PATTERN = /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i
-
-/** 判断颜色是否为 `#RGB`、`#RRGGBB`、`#RRGGBBAA` 或 `transparent`。 */
+/**
+ * 判断颜色是否为 `transparent` 或以 `#` 开头、不带首尾空白的十六进制色（3、4、6、8 位），
+ * 十六进制部分以 @xihan-ui/headless 的 colorHexToRgba 能否解析为准。
+ */
 export function isValidColor(value: string): boolean {
-  return value === 'transparent' || COLOR_PATTERN.test(value)
+  if (value === 'transparent')
+    return true
+  return value.startsWith('#') && value.trim() === value && colorHexToRgba(value) !== null
 }
 
 /** 要求值为普通对象。 */
