@@ -29,9 +29,9 @@ XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components
 ├─ .github/ .gitee/ .gitcode/     # 三平台 Issue / PR 模板，GitHub 另有 CI
 └─ print/                           # pnpm monorepo 根
    └─ packages/
-      ├─ core/                    # @xihanfun/print-core：模型层，纯 TS，不碰 DOM
-      ├─ runtime/                 # @xihanfun/print-runtime：业务页面用的运行时元素
-      └─ designer/                # @xihanfun/print-designer：设计器元素
+      ├─ core/                    # @xihan-print/core：模型层，纯 TS，不碰 DOM
+      ├─ runtime/                 # @xihan-print/runtime：业务页面用的运行时元素
+      └─ designer/                # @xihan-print/designer：设计器元素
 ```
 
 仓库根没有 package.json，库命令在 `print/` 执行。
@@ -54,7 +54,7 @@ XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components
 - core 只做模型：schema 类型、校验、编辑命令与算法。tsconfig 不含 DOM 类型库，不得触碰 DOM。
 - runtime 是业务页面使用的元素，体积敏感；设计器专用的代码不进 runtime。
 - 所有包源码不得 import 任何前端框架（ESLint 已拦截）。
-- 运行时依赖只允许 `@xihanfun/*` 与 `@xihan-ui/*`；引入任何其他依赖之前先征得维护者同意。
+- 运行时依赖只允许 `@xihan-print/*` 与 `@xihan-ui/*`；引入任何其他依赖之前先征得维护者同意。
 
 ## 硬性约定
 

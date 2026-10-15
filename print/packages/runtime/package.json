@@ -1,5 +1,5 @@
 {
-  "name": "@xihanfun/print-runtime",
+  "name": "@xihan-print/runtime",
   "type": "module",
   "version": "0.0.0",
   "description": "XiHan Print Designer runtime — Web Components for previewing and printing templates.",
@@ -49,6 +49,6 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@xihanfun/print-core": "workspace:^"
+    "@xihan-print/core": "workspace:^"
   }
 }

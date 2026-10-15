@@ -58,16 +58,16 @@ importers:
 
   packages/designer:
     dependencies:
-      '@xihanfun/print-core':
+      '@xihan-print/core':
         specifier: workspace:^
         version: link:../core
-      '@xihanfun/print-runtime':
+      '@xihan-print/runtime':
         specifier: workspace:^
         version: link:../runtime
 
   packages/runtime:
     dependencies:
-      '@xihanfun/print-core':
+      '@xihan-print/core':
         specifier: workspace:^
         version: link:../core
 

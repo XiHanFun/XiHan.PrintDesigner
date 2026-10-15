@@ -45,9 +45,9 @@ XiHan.PrintDesigner 是一款框架无关的打印设计器，以原生 Web Comp
 
 | 包 | 说明 |
 | --- | --- |
-| `@xihanfun/print-core` | 模型层：模板 schema、校验与编辑命令，纯 TypeScript，不依赖 DOM |
-| `@xihanfun/print-runtime` | 运行时：业务页面使用的模板预览、浏览器打印与打印客户端连接 |
-| `@xihanfun/print-designer` | 设计器：可视化打印模板设计器 |
+| `@xihan-print/core` | 模型层：模板 schema、校验与编辑命令，纯 TypeScript，不依赖 DOM |
+| `@xihan-print/runtime` | 运行时：业务页面使用的模板预览、浏览器打印与打印客户端连接 |
+| `@xihan-print/designer` | 设计器：可视化打印模板设计器 |
 
 依赖方向为 `designer → runtime → core`。业务页面只需要 runtime，设计器只在需要编辑模板的地方加载。
 

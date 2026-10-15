@@ -1,5 +1,5 @@
 {
-  "name": "@xihanfun/print-designer",
+  "name": "@xihan-print/designer",
   "type": "module",
   "version": "0.0.0",
   "description": "XiHan Print Designer — a visual print template designer delivered as Web Components.",
@@ -49,7 +49,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@xihanfun/print-core": "workspace:^",
-    "@xihanfun/print-runtime": "workspace:^"
+    "@xihan-print/core": "workspace:^",
+    "@xihan-print/runtime": "workspace:^"
   }
 }
