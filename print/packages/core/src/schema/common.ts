@@ -102,8 +102,15 @@ export interface MapFormat {
   fallback?: string
 }
 
+/** 表达式格式：以受限表达式把值转成显示文本，表达式中以 `value` 引用待格式化的值。 */
+export interface ExpressionFormat {
+  kind: 'expression'
+  /** 受限表达式源码。 */
+  expression: string
+}
+
 /** 值格式。 */
-export type ValueFormat = NumberFormat | PercentFormat | DateFormat | ChineseAmountFormat | MapFormat
+export type ValueFormat = NumberFormat | PercentFormat | DateFormat | ChineseAmountFormat | MapFormat | ExpressionFormat
 
 /** 固定文本。 */
 export interface StaticTextContent {
@@ -127,8 +134,17 @@ export interface TemplateTextContent {
   template: string
 }
 
+/** 以受限表达式计算的文本，表达式中的变量为数据对象的顶层字段。 */
+export interface ExpressionTextContent {
+  kind: 'expression'
+  /** 受限表达式源码。 */
+  expression: string
+  /** 计算结果的格式。 */
+  format?: ValueFormat
+}
+
 /** 文本内容来源。 */
-export type TextContent = StaticTextContent | FieldTextContent | TemplateTextContent
+export type TextContent = StaticTextContent | FieldTextContent | TemplateTextContent | ExpressionTextContent
 
 /** 固定地址的图片。 */
 export interface StaticImageSource {

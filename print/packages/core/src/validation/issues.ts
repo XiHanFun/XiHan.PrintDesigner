@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { ExpressionEngine } from '../expression'
 import type { PathSegment } from '../json'
 
 /** 问题严重程度：error 模板不可用或不安全，warning 模板可用但很可能有误。 */
@@ -27,6 +28,7 @@ export const VALIDATION_ISSUE_SEVERITIES = {
   'template.unclosedPlaceholder': 'error',
   'template.emptyPlaceholder': 'error',
   'template.invalidPath': 'error',
+  'expression.invalid': 'error',
   'format.duplicateMapValue': 'warning',
   'document.noPages': 'error',
   'page.presetMismatch': 'warning',
@@ -85,9 +87,10 @@ export interface ValidationReport {
   issues: ValidationIssue[]
 }
 
-/** 问题接收器：按问题码、绝对路径与参数记录问题。 */
+/** 问题接收器：按问题码、绝对路径与参数记录问题，并带上可选的表达式检查接入点。 */
 export interface IssueSink {
   report: (code: ValidationIssueCode, path: readonly PathSegment[], params?: IssueParams) => void
+  expressions?: ExpressionEngine
 }
 
 /** 问题定位所属的页面与元素。 */
@@ -97,8 +100,8 @@ export interface IssueScope {
 }
 
 /** 创建把问题追加到 `issues` 并带上定位的接收器。 */
-export function createIssueSink(issues: ValidationIssue[], scope: IssueScope = {}): IssueSink {
-  return {
+export function createIssueSink(issues: ValidationIssue[], scope: IssueScope = {}, expressions?: ExpressionEngine): IssueSink {
+  const sink: IssueSink = {
     report: (code, path, params) => {
       const issue: ValidationIssue = { code, severity: VALIDATION_ISSUE_SEVERITIES[code], path: [...path] }
       if (scope.pageId !== undefined)
@@ -110,4 +113,7 @@ export function createIssueSink(issues: ValidationIssue[], scope: IssueScope = {
       issues.push(issue)
     },
   }
+  if (expressions !== undefined)
+    sink.expressions = expressions
+  return sink
 }

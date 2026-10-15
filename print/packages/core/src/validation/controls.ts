@@ -23,6 +23,7 @@ import {
   expectArray,
   expectBoolean,
   expectColor,
+  expectExpression,
   expectFieldPath,
   expectNumber,
   expectObject,
@@ -91,6 +92,7 @@ export function validateValueFormat(value: unknown, path: Path, sink: IssueSink)
       field('entries', true, (item, itemPath) => validateMapEntries(item, itemPath, sink)),
       field('fallback', false, text),
     ],
+    expression: [field('expression', true, (item, itemPath) => expectExpression(item, itemPath, sink))],
   }, path, sink)
 }
 
@@ -123,6 +125,10 @@ function textContentRules(sink: IssueSink): Record<string, FieldRule[]> {
       field('emptyText', false, (item, itemPath) => expectString(item, itemPath, sink)),
     ],
     template: [field('template', true, (item, itemPath) => expectTextTemplate(item, itemPath, sink))],
+    expression: [
+      field('expression', true, (item, itemPath) => expectExpression(item, itemPath, sink)),
+      field('format', false, (item, itemPath) => validateValueFormat(item, itemPath, sink)),
+    ],
   }
 }
 
@@ -194,7 +200,12 @@ export function validateCellStyle(value: unknown, path: Path, sink: IssueSink): 
 
 function validateTableCellContent(value: unknown, path: Path, sink: IssueSink): void {
   const rules = textContentRules(sink)
-  checkVariant(value, { field: rules.field ?? [], template: rules.template ?? [], rowNumber: [] }, path, sink)
+  checkVariant(value, {
+    field: rules.field ?? [],
+    template: rules.template ?? [],
+    rowNumber: [],
+    expression: rules.expression ?? [],
+  }, path, sink)
 }
 
 function validateFooterCellContent(value: unknown, path: Path, sink: IssueSink): void {
