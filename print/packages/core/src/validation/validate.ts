@@ -3,10 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { ExpressionEngine } from '@xihan-ui/expression'
-import type { Rect } from '../geometry'
 import type { PathSegment } from '../json'
-import type { Size } from '../paper'
 import type { ElementRegistry } from '../registry/registry'
 import type { AnyElementPrototype, ElementValidationContext, PropertyDescriptor } from '../registry/types'
 import type { Edges } from '../schema/common'
@@ -14,7 +13,8 @@ import type { PrintElement } from '../schema/elements'
 import type { PageBandKey, PageOrientation } from '../schema/options'
 import type { ElementRegion } from '../traverse'
 import type { IssueScope, IssueSink, ValidationIssue, ValidationReport } from './issues'
-import { getBandRect, getBodyRect, getContentRect, getElementRect, getPaperSize, rectContains } from '../geometry'
+import { expandRect, rectContains } from '@xihan-ui/designer-kit'
+import { getBandRect, getBodyRect, getContentRect, getElementRect, getPaperSize } from '../geometry'
 import { isJsonValue, isPlainObject, listJsonProblems } from '../json'
 import { PAPER_PRESET_NAMES, PAPER_PRESETS } from '../paper'
 import { createElementRegistry } from '../registry/registry'
@@ -317,16 +317,16 @@ function validateElement(
     sink.report('element.tooSmall', path, { minWidth: prototype.minSize.width, minHeight: prototype.minSize.height })
   if (placement.paper !== undefined) {
     const paperRect = { x: 0, y: 0, ...placement.paper }
-    if (!rectContains(paperRect, rect, LENGTH_TOLERANCE))
+    if (!rectContains(expandRect(paperRect, LENGTH_TOLERANCE), rect))
       sink.report('element.outsidePaper', path)
   }
   if (placement.region !== 'body') {
     if (prototype.flow)
       sink.report('element.flowInBand', path, { type: prototype.type })
-    else if (placement.bandRect !== undefined && !rectContains(placement.bandRect, rect, LENGTH_TOLERANCE))
+    else if (placement.bandRect !== undefined && !rectContains(expandRect(placement.bandRect, LENGTH_TOLERANCE), rect))
       sink.report('element.outsideBand', path, { region: placement.region })
   }
-  else if (prototype.flow && placement.bodyRect !== undefined && !rectContains(placement.bodyRect, rect, LENGTH_TOLERANCE)) {
+  else if (prototype.flow && placement.bodyRect !== undefined && !rectContains(expandRect(placement.bodyRect, LENGTH_TOLERANCE), rect)) {
     sink.report('element.flowOutsideBody', path)
   }
 

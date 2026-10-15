@@ -27,7 +27,6 @@ import {
   PAPER_PRESET_NAMES,
   PAPER_PRESETS,
   PRINT_SCHEMA_VERSION,
-  rectContains,
   resolvePageBand,
   resolvePageBandKey,
 } from '../src'
@@ -101,14 +100,6 @@ describe('页面几何', () => {
     expect(getBandRect(page, 'header', { height: 20 })).toEqual({ x: 5, y: 10, width: 190, height: 20 })
     expect(getBandRect(page, 'footer', { height: 15 })).toEqual({ x: 5, y: 262, width: 190, height: 15 })
     expect(getBodyRect(page, { height: 20 }, { height: 15 })).toEqual({ x: 5, y: 30, width: 190, height: 232 })
-  })
-
-  it('rectContains 允许容差', () => {
-    const outer = { x: 0, y: 0, width: 10, height: 10 }
-    expect(rectContains(outer, { x: 0, y: 0, width: 10, height: 10 })).toBe(true)
-    expect(rectContains(outer, { x: 0, y: 0, width: 10.000_000_1, height: 10 })).toBe(true)
-    expect(rectContains(outer, { x: 0, y: 0, width: 10.1, height: 10 })).toBe(false)
-    expect(rectContains(outer, { x: -0.5, y: 0, width: 5, height: 5 }, 1)).toBe(true)
   })
 })
 

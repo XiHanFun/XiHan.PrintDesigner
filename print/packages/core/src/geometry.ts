@@ -3,18 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { Size } from './paper'
+import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { PageBand, PageBandSet, PrintPage } from './schema/document'
 import type { ElementBase } from './schema/elements'
 import type { PageBandKey } from './schema/options'
-
-/** 矩形，单位 mm。 */
-export interface Rect {
-  x: number
-  y: number
-  width: number
-  height: number
-}
 
 /** 输出页在所属页面模板中的位置。 */
 export interface SheetPosition {
@@ -99,12 +91,4 @@ export function resolvePageBand(set: PageBandSet, sheet: SheetPosition): PageBan
 /** 取元素框。 */
 export function getElementRect(element: Pick<ElementBase<string>, 'x' | 'y' | 'width' | 'height'>): Rect {
   return { x: element.x, y: element.y, width: element.width, height: element.height }
-}
-
-/** 判断 `inner` 是否完全落在 `outer` 内，允许 `tolerance` 的误差。 */
-export function rectContains(outer: Rect, inner: Rect, tolerance = 1e-6): boolean {
-  return inner.x >= outer.x - tolerance
-    && inner.y >= outer.y - tolerance
-    && inner.x + inner.width <= outer.x + outer.width + tolerance
-    && inner.y + inner.height <= outer.y + outer.height + tolerance
 }

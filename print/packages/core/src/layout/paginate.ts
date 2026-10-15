@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { Rect } from '../geometry'
+import type { Rect } from '@xihan-ui/designer-kit'
 import type { PageBand, PrintDocument, PrintPage } from '../schema/document'
 import type { PageNumberElement, PrintElement } from '../schema/elements'
 import type { PageBandKey } from '../schema/options'

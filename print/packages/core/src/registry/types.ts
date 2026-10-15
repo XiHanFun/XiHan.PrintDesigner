@@ -3,9 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { Rect } from '../geometry'
+import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { JsonPrimitive, PathSegment } from '../json'
-import type { Size } from '../paper'
 import type { PrintElement, PrintElementOf, PrintElementType } from '../schema/elements'
 import type { ElementRegion } from '../traverse'
 import type { IssueParams, ValidationIssueCode } from '../validation/issues'

@@ -3,9 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { ExpressionEngine, FormatOptions, FormatSpec } from '@xihan-ui/expression'
-import type { Rect } from '../geometry'
-import type { Size } from '../paper'
 import type { ElementRegistry } from '../registry/registry'
 import type { BoxStyle, Color, Edges, Stroke, TextStyle } from '../schema/common'
 import type { Watermark } from '../schema/document'

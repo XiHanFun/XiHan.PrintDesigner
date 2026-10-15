@@ -50,6 +50,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@xihan-ui/designer-kit": "catalog:",
     "@xihan-ui/expression": "catalog:",
     "@xihan-ui/headless": "catalog:"
   }

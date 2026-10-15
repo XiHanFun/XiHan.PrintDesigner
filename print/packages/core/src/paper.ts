@@ -3,11 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-/** 宽高尺寸，单位 mm。 */
-export interface Size {
-  width: number
-  height: number
-}
+import type { Size } from '@xihan-ui/designer-kit'
 
 /** 内置纸张预设名。 */
 export type PaperPresetName = 'A3' | 'A4' | 'A5' | 'A6' | 'B4' | 'B5' | 'Letter' | 'Legal'
