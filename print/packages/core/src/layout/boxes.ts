@@ -15,13 +15,13 @@ import type {
 import type { ElementRegion } from '../traverse'
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { LayoutBox, LayoutBoxBase, TextLayoutBox, TextMeasurement } from './types'
+import { fillTextTemplate } from '@xihan-ui/core/template'
 import { toSafeImageSource } from '@xihan-ui/core/url'
 import { convertLength } from '@xihan-ui/designer-kit'
 import { checkBarCodeValue, matrixCodeLevelFit } from '@xihan-ui/headless'
 import { barCodeIssueParams, checkMatrixCodeContent, matrixCodeIssueParams } from '../codes'
 import { getFieldValue } from '../data'
-import { formatPageNumber } from '../page-number-format'
-import { contentText, valueText } from './content'
+import { contentText, formatValue, reportValueResult, valueText } from './content'
 import { LAYOUT_EPSILON } from './context'
 import { layoutTextLines } from './text-measure'
 
@@ -167,15 +167,25 @@ export function pageNumberBox(element: PageNumberElement, region: ElementRegion)
   return box
 }
 
-/** 按页码填入页码布局盒的文字。 */
+/** 页码按元素的数字字形转成文本；没有格式化器或转不了时用阿拉伯数字并给出诊断。 */
+function pageNumberText(value: number, element: PageNumberElement, context: LayoutContext, scope: DiagnosticScope): string {
+  if (element.numeral === undefined)
+    return String(value)
+  const result = formatValue(value, { kind: 'numeral', style: element.numeral }, context)
+  return reportValueResult(context, scope, result)
+}
+
+/** 按页码填入页码布局盒的文字：页码模板里的 `$page` 与 `$pages` 换成当前页码与总页数。 */
 export function fillPageNumber(
   box: TextLayoutBox,
   element: PageNumberElement,
   numbers: { current: number, total: number },
   context: LayoutContext,
+  scope: DiagnosticScope,
 ): void {
   const padding = paddingOf(element)
-  const text = formatPageNumber(element.format, numbers)
+  const values = { $page: pageNumberText(numbers.current, element, context, scope), $pages: pageNumberText(numbers.total, element, context, scope) }
+  const { text } = fillTextTemplate(element.format, values)
   box.lines = measureText(context, text, element.style, element.width - padding.left - padding.right, false).lines
 }
 

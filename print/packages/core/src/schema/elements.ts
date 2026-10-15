@@ -4,6 +4,7 @@
  */
 
 import type { JsonObject } from '@xihan-ui/core/json'
+import type { NumeralStyle } from '@xihan-ui/expression'
 import type { BoxStyle, Color, ImageSource, Stroke, TextContent, TextStyle } from './common'
 import type {
   BarCodeFormat,
@@ -134,8 +135,13 @@ export interface MatrixCodeElement extends ElementBase<'matrixCode'> {
 
 /** 页码。 */
 export interface PageNumberElement extends ElementBase<'pageNumber'> {
-  /** 页码格式，`{current}` 替换为当前页码，`{total}` 替换为总页数。 */
+  /**
+   * 页码格式：`{{path}}` 文本模板，可用的宿主变量为 `$page`（当前页码）与 `$pages`（所在编号段的总页数），
+   * 如 `第 {{$page}} 页 / 共 {{$pages}} 页`。
+   */
   format: string
+  /** 页码的数字字形，即 @xihan-ui/expression 的 numeral 格式（罗马数字、中文数字）；缺省为阿拉伯数字。 */
+  numeral?: NumeralStyle
   style: TextStyle
   box?: BoxStyle
 }

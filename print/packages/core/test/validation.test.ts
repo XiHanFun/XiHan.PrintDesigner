@@ -378,15 +378,20 @@ describe('内容来源与格式', () => {
     ))
   })
 
-  it('页码格式需要记号', () => {
+  it('页码格式是用 $page / $pages 的文本模板，数字字形取 numeral 的取值', () => {
     const none = element('pageNumber', 'a', { format: '页码' })
-    const unknown = element('pageNumber', 'b', { format: '{current}/{pages}' })
-    const report = validateDocument(withBody(none, unknown))
+    const unknown = element('pageNumber', 'b', { format: '{{$page}}/{{total}}' })
+    const broken = element('pageNumber', 'c', { format: '{{$page' })
+    const numeral = element('pageNumber', 'd', { numeral: 'cn-upper' })
+    const badNumeral = element('pageNumber', 'e', { numeral: 'greek' })
+    const report = validateDocument(withBody(none, unknown, broken, numeral, badNumeral))
     expect(summarize(report)).toEqual([
       'pageNumber.noToken@pages.0.elements.0.format',
       'pageNumber.unknownToken@pages.0.elements.1.format',
+      'template.unclosedPlaceholder@pages.0.elements.2.format',
+      'value.invalidOption@pages.0.elements.4.numeral',
     ])
-    expect(report.issues[1]!.params).toEqual({ token: 'pages' })
+    expect(report.issues[1]!.params).toEqual({ token: 'total' })
   })
 })
 
