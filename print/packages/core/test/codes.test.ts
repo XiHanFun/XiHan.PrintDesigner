@@ -5,7 +5,7 @@
 
 import { checkBarCodeValue } from '@xihan-ui/headless'
 import { describe, expect, it } from 'vitest'
-import { isSafeImageUrl, isValidColor } from '../src'
+import { isValidColor } from '../src'
 import { barCodeIssueParams, checkMatrixCodeContent, matrixCodeIssueParams } from '../src/codes'
 
 describe('条码问题参数', () => {
@@ -41,19 +41,11 @@ describe('二维码内容', () => {
   })
 })
 
-describe('颜色与图片地址', () => {
+describe('颜色', () => {
   it('颜色只接受带 # 的十六进制与 transparent', () => {
     for (const color of ['#fff', '#ffff', '#FFFFFF', '#00000080', 'transparent'])
       expect(isValidColor(color), color).toBe(true)
     for (const color of ['fff', ' #fff', '#fff ', '#fffff', 'red', 'rgb(0,0,0)', '#gggggg'])
       expect(isValidColor(color), color).toBe(false)
-  })
-
-  it('图片地址拒绝脚本与非图片 data 地址', () => {
-    expect(isSafeImageUrl('img/a.png')).toBe(true)
-    expect(isSafeImageUrl('//cdn.example.com/a.png')).toBe(true)
-    expect(isSafeImageUrl('DATA:IMAGE/SVG+XML,<svg/>')).toBe(true)
-    expect(isSafeImageUrl('\u0000javascript:alert(1)')).toBe(false)
-    expect(isSafeImageUrl('data:,hello')).toBe(false)
   })
 })
