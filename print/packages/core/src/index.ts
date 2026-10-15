@@ -6,6 +6,7 @@
 // 导出 @xihanfun/print-core 的公共接口。
 
 export * from './barcode'
+export * from './expression'
 export * from './factory'
 export * from './field-path'
 export * from './geometry'

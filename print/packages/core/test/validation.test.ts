@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { PrintDocument, PrintElement, ValidationIssue, ValidationReport } from '../src'
+import type { ExpressionEngine, PrintDocument, PrintElement, ValidationIssue, ValidationReport } from '../src'
 import { describe, expect, it } from 'vitest'
 import {
   cloneJson,
@@ -558,5 +558,70 @@ describe('复合属性', () => {
       'schema.invalidType@pages.0.meta',
       'schema.unknownProperty@pages.0.background',
     ])
+  })
+})
+
+describe('受限表达式', () => {
+  const engine: ExpressionEngine = {
+    check: (source) => {
+      const open = source.indexOf('(')
+      if (open === -1 || source.includes(')'))
+        return []
+      return [{ code: 'XH_EXPR_UNCLOSED', start: open, end: source.length, data: { expected: ')' } }]
+    },
+  }
+
+  const expressionText = (id: string, expression: unknown): Record<string, unknown> =>
+    element('text', id, { content: { kind: 'expression', expression } })
+
+  it('未注入检查器时只要求表达式非空', () => {
+    expect(issuesOf(withBody(expressionText('a', 'round(price'), expressionText('b', ''), expressionText('c', 1)))).toEqual([
+      'value.empty@pages.0.elements.1.content.expression',
+      'schema.invalidType@pages.0.elements.2.content.expression',
+    ])
+  })
+
+  it('注入检查器后报告表达式问题', () => {
+    const report = validateDocument(withBody(expressionText('a', 'round(price'), expressionText('b', 'round(price)')), { expressions: engine })
+    expect(summarize(report)).toEqual(['expression.invalid@pages.0.elements.0.content.expression'])
+    expect(report.issues[0]).toMatchObject({
+      severity: 'error',
+      elementId: 'a',
+      params: { code: 'XH_EXPR_UNCLOSED', start: 5, end: 11, expected: ')' },
+    })
+  })
+
+  it('检查器给出的附加数据不覆盖问题码与区间', () => {
+    const conflicting: ExpressionEngine = { check: () => [{ code: 'X', start: 0, end: 1, data: { code: 'Y', start: 9 } }] }
+    const report = validateDocument(withBody(expressionText('a', 'x')), { expressions: conflicting })
+    expect(report.issues[0]!.params).toEqual({ code: 'X', start: 0, end: 1 })
+  })
+
+  it('表达式格式、表达式内容的结果格式与表格表达式列', () => {
+    const formatted = element('text', 'f', {
+      content: { kind: 'field', field: 'amount', format: { kind: 'expression', expression: 'fixed(value' } },
+    })
+    const nested = element('text', 'n', {
+      content: { kind: 'expression', expression: 'a + b', format: { kind: 'number', decimals: -1, thousands: false } },
+    })
+    const table = cloneJson(createSampleTable()) as unknown as Record<string, unknown>
+    const columns = table.columns as Record<string, unknown>[]
+    columns[3]!.content = { kind: 'expression', expression: 'qty * (price', format: { kind: 'chineseAmount' } }
+    const report = validateDocument(withBody(formatted, nested, table), { expressions: engine })
+    expect(summarize(report)).toEqual([
+      'expression.invalid@pages.0.elements.0.content.format.expression',
+      'value.outOfRange@pages.0.elements.1.content.format.decimals',
+      'expression.invalid@pages.0.elements.2.columns.3.content.expression',
+    ])
+  })
+
+  it('表尾单元格可用表达式，以根数据为变量', () => {
+    const table = cloneJson(createSampleTable())
+    table.footerRows[1]!.cells[0]!.content = { kind: 'expression', expression: 'order.no' }
+    expect(validateDocument(withBody(table), { expressions: engine }).issues).toEqual([])
+  })
+
+  it('样例文档带上检查器也没有问题', () => {
+    expect(validateDocument(createSampleDocument(), { expressions: engine }).issues).toEqual([])
   })
 })

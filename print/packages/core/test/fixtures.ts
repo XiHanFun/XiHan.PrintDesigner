@@ -161,6 +161,20 @@ export function createSampleDocument(): PrintDocument {
       y: 5,
       overrides: { width: 90, height: 10, content: { kind: 'template', template: '{{sku}} - {{name}}' } },
     }),
+    registry.createElement('text', {
+      id: 'label-price',
+      x: 70,
+      y: 20,
+      overrides: {
+        width: 25,
+        height: 10,
+        content: {
+          kind: 'expression',
+          expression: 'price * qty',
+          format: { kind: 'number', decimals: 2, thousands: true },
+        },
+      },
+    }),
     registry.createElement('barcode', {
       id: 'label-barcode',
       x: 5,

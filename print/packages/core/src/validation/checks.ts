@@ -147,6 +147,22 @@ export function expectTextTemplate(value: unknown, path: Path, sink: IssueSink):
   return errors.length === 0
 }
 
+/** 要求值为非空的表达式源码；接收器带有表达式检查接入点时报告其中的问题。 */
+export function expectExpression(value: unknown, path: Path, sink: IssueSink): value is string {
+  if (!expectString(value, path, sink, { nonEmpty: true }))
+    return false
+  const diagnostics = sink.expressions?.check(value) ?? []
+  for (const diagnostic of diagnostics) {
+    sink.report('expression.invalid', path, {
+      ...diagnostic.data,
+      code: diagnostic.code,
+      start: diagnostic.start,
+      end: diagnostic.end,
+    })
+  }
+  return diagnostics.length === 0
+}
+
 /** 对象中一个字段的校验规则。 */
 export interface FieldRule {
   key: string

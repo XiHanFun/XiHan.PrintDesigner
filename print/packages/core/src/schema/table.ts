@@ -50,8 +50,21 @@ export interface TableRowNumberCellContent {
   kind: 'rowNumber'
 }
 
+/** 表体单元格以受限表达式计算，表达式中的变量为行对象的顶层字段。 */
+export interface TableExpressionCellContent {
+  kind: 'expression'
+  /** 受限表达式源码。 */
+  expression: string
+  /** 计算结果的格式。 */
+  format?: ValueFormat
+}
+
 /** 表体单元格内容来源。 */
-export type TableCellContent = TableFieldCellContent | TableTemplateCellContent | TableRowNumberCellContent
+export type TableCellContent
+  = | TableFieldCellContent
+    | TableTemplateCellContent
+    | TableRowNumberCellContent
+    | TableExpressionCellContent
 
 /** 表格列。 */
 export interface TableColumn {
