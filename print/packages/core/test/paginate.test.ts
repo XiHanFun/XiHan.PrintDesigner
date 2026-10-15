@@ -605,7 +605,7 @@ describe('取值、表达式与格式', () => {
     ]
     const result = run(documentOf(squarePage('p', failing)), {}, { expressions: fakeEngine })
     expect(result.diagnostics).toEqual([
-      { code: 'expression.failed', pageId: 'p', elementId: 'bad', params: { reason: 'XH_EXPR_FAILED' } },
+      { code: 'expression.failed', pageId: 'p', elementId: 'bad', params: { reason: 'XH_EXPR_FUNCTION_FAILED' } },
       { code: 'data.notScalar', pageId: 'p', elementId: 'obj' },
     ])
   })
@@ -717,7 +717,7 @@ describe('错误与上限', () => {
     }
     catch (error) {
       expect(error).toBeInstanceOf(PrintLayoutError)
-      expect((error as PrintLayoutError).issues.map(issue => [issue.code, issue.params?.code])).toEqual([['expression.invalid', 'XH_EXPR_UNKNOWN']])
+      expect((error as PrintLayoutError).issues.map(issue => [issue.code, issue.params?.code])).toEqual([['expression.invalid', 'XH_EXPR_UNKNOWN_FUNCTION']])
     }
   })
 

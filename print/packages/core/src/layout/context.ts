@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ExpressionCompilation, ExpressionEngine } from '../expression'
+import type { EngineCompileResult, ExpressionEngine } from '@xihan-ui/expression'
 import type { IssueParams } from '../validation/issues'
 import type {
   PaginationDiagnostic,
@@ -28,7 +28,7 @@ export interface DiagnosticScope {
 export interface LayoutContext {
   data: unknown
   /** 编译表达式源码，同一源码只编译一次；未提供表达式接入点时为 undefined。 */
-  compile?: (source: string) => ExpressionCompilation
+  compile?: (source: string) => EngineCompileResult
   /** 值格式化器，返回值不是字符串时抛出 PrintLayoutError。 */
   formatter?: ValueFormatter
   report: (code: PaginationDiagnosticCode, scope: DiagnosticScope, params?: IssueParams) => void
@@ -76,7 +76,7 @@ export function createLayoutContext(
   }
   const engine = options.expressions
   if (engine !== undefined) {
-    const compiled = new Map<string, ExpressionCompilation>()
+    const compiled = new Map<string, EngineCompileResult>()
     context.compile = (source) => {
       let result = compiled.get(source)
       if (result === undefined) {

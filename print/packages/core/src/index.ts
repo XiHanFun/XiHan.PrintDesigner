@@ -5,7 +5,6 @@
 
 // 导出 @xihan-print/core 的公共接口。
 
-export * from './expression'
 export * from './factory'
 export * from './field-path'
 export * from './geometry'

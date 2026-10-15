@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ExpressionEngine } from '../expression'
+import type { ExpressionEngine } from '@xihan-ui/expression'
 import type { PathSegment } from '../json'
 
 /** 问题严重程度：error 模板不可用或不安全，warning 模板可用但很可能有误。 */

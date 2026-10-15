@@ -3,9 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { ExpressionEngine } from '@xihan-ui/expression'
 import type {
   CellStyle,
-  ExpressionEngine,
   FormatSpec,
   LayoutBox,
   LayoutSheet,
@@ -75,10 +75,10 @@ export function createFakeEngine(compiled: string[] = []): ExpressionEngine {
     compile: (source) => {
       compiled.push(source)
       if (source === 'fail')
-        return { ok: true, references: [], evaluate: () => ({ ok: false, issue: { code: 'XH_EXPR_FAILED', start: 0, end: 4 } }) }
+        return { ok: true, references: [], evaluate: () => ({ ok: false, issue: { code: 'XH_EXPR_FUNCTION_FAILED', start: 0, end: 4 } }) }
       const fn = FAKE_EXPRESSIONS[source]
       if (fn === undefined)
-        return { ok: false, issues: [{ code: 'XH_EXPR_UNKNOWN', start: 0, end: source.length }] }
+        return { ok: false, issues: [{ code: 'XH_EXPR_UNKNOWN_FUNCTION', start: 0, end: source.length }] }
       return { ok: true, references: [], evaluate: scope => ({ ok: true, value: fn(scope) }) }
     },
   }

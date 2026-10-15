@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ExpressionCompilation, ExpressionIssue } from '../expression'
+import type { EngineCompileResult, ExpressionIssue } from '@xihan-ui/expression'
 import type { MapFormat, TextContent, ValueFormat } from '../schema/common'
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { PaginationDiagnosticCode, ValueFormatter } from './types'
@@ -31,7 +31,7 @@ export interface ValueResult {
 export interface ValueOptions {
   formatter?: ValueFormatter
   /** 编译表达式源码，未提供时表达式不可用。 */
-  compile?: (source: string) => ExpressionCompilation
+  compile?: (source: string) => EngineCompileResult
 }
 
 const PROBLEM_CODES = {
