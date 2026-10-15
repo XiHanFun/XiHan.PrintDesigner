@@ -3,16 +3,17 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { EngineCompileResult, ExpressionIssue } from '@xihan-ui/expression'
+import type { EngineCompileResult, ExpressionIssue, FormatSpec } from '@xihan-ui/expression'
 import type { MapFormat, TextContent, ValueFormat } from '../schema/common'
 import type { DiagnosticScope, LayoutContext } from './context'
-import type { PaginationDiagnosticCode, ValueFormatter } from './types'
+import type { PaginationDiagnosticCode } from './types'
 import { fillTextTemplate, getFieldValue, toDisplayText } from '../data'
 import { isPlainObject } from '../json'
 
-/** 取值或格式化未完成的原因：未提供格式化器、未提供表达式接入点、表达式编译或求值失败、结果不是标量。 */
+/** 取值或格式化未完成的原因：未提供格式化器、格式化器报错、未提供表达式接入点、表达式编译或求值失败、结果不是标量。 */
 export type ValueProblem
   = | 'formatterUnavailable'
+    | 'formatFailed'
     | 'expressionUnavailable'
     | 'expressionFailed'
     | 'notScalar'
@@ -25,17 +26,20 @@ export interface ValueResult {
   problem?: ValueProblem
   /** 表达式编译或求值失败时的第一处问题。 */
   issue?: ExpressionIssue
+  /** 格式化器报错时的问题码。 */
+  reason?: string
 }
 
 /** 取值与格式化依赖的注入接口。 */
 export interface ValueOptions {
-  formatter?: ValueFormatter
+  formatter?: (value: unknown, spec: FormatSpec) => string
   /** 编译表达式源码，未提供时表达式不可用。 */
   compile?: (source: string) => EngineCompileResult
 }
 
 const PROBLEM_CODES = {
   formatterUnavailable: 'format.unavailable',
+  formatFailed: 'format.failed',
   expressionUnavailable: 'expression.unavailable',
   expressionFailed: 'expression.failed',
   notScalar: 'data.notScalar',
@@ -44,7 +48,7 @@ const PROBLEM_CODES = {
 /** 把未完成的原因报告为诊断，返回结果文本。 */
 export function reportValueResult(context: LayoutContext, scope: DiagnosticScope, result: ValueResult): string {
   if (result.problem !== undefined) {
-    const reason = result.issue?.code
+    const reason = result.issue?.code ?? result.reason
     context.report(PROBLEM_CODES[result.problem], scope, reason === undefined ? undefined : { reason })
   }
   return result.text
@@ -100,7 +104,14 @@ export function formatValue(value: unknown, format: ValueFormat, options: ValueO
     return { text: mapValue(value, format) }
   if (options.formatter === undefined)
     return { text: toDisplayText(value).text, problem: 'formatterUnavailable' }
-  return { text: options.formatter(value, format) }
+  try {
+    return { text: options.formatter(value, format) }
+  }
+  catch (error) {
+    if (!(error instanceof TypeError))
+      throw error
+    return { text: toDisplayText(value).text, problem: 'formatFailed', reason: error.message }
+  }
 }
 
 /** 把一个值转成显示文本：有格式时按格式，否则直接转文本；结果为空时用 `emptyText`。 */

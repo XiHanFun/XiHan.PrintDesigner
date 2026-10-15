@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { EngineCompileResult, ExpressionEngine } from '@xihan-ui/expression'
+import type { EngineCompileResult, ExpressionEngine, FormatOptions, FormatSpec } from '@xihan-ui/expression'
 import type { IssueParams } from '../validation/issues'
 import type {
   PaginationDiagnostic,
@@ -29,8 +29,8 @@ export interface LayoutContext {
   data: unknown
   /** 编译表达式源码，同一源码只编译一次；未提供表达式接入点时为 undefined。 */
   compile?: (source: string) => EngineCompileResult
-  /** 值格式化器，返回值不是字符串时抛出 PrintLayoutError。 */
-  formatter?: ValueFormatter
+  /** 已绑定区域与时区的值格式化器，返回值不是字符串时抛出 PrintLayoutError。 */
+  formatter?: (value: unknown, spec: FormatSpec) => string
   report: (code: PaginationDiagnosticCode, scope: DiagnosticScope, params?: IssueParams) => void
   measure: (request: TextMeasureRequest) => TextMeasurement
 }
@@ -49,7 +49,7 @@ function isValidMeasurement(result: unknown): result is TextMeasurement {
 export function createLayoutContext(
   data: unknown,
   measurer: TextMeasurer,
-  options: { expressions?: ExpressionEngine, format?: ValueFormatter },
+  options: { expressions?: ExpressionEngine, format?: ValueFormatter, formatOptions?: FormatOptions },
   diagnostics: PaginationDiagnostic[],
 ): LayoutContext {
   const seen = new Set<string>()
@@ -88,8 +88,9 @@ export function createLayoutContext(
   }
   const format = options.format
   if (format !== undefined) {
+    const formatOptions = options.formatOptions ?? {}
     context.formatter = (value, spec) => {
-      const text = format(value, spec)
+      const text = format(value, spec, formatOptions)
       if (typeof text !== 'string')
         throw new PrintLayoutError('formatter.invalidResult', { kind: spec.kind })
       return text

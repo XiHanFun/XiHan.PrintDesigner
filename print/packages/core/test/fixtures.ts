@@ -28,8 +28,8 @@ export function createSampleTable(id = 'items'): TableElement {
       columns: [
         column('no', 15, { kind: 'rowNumber' }, 'center'),
         column('name', 95, { kind: 'template', template: '{{name}} {{spec}}' }),
-        column('qty', 40, { kind: 'field', field: 'qty', format: { kind: 'number', decimals: 0, thousands: false } }, 'right'),
-        column('amount', 40, { kind: 'field', field: 'amount', format: { kind: 'number', decimals: 2, thousands: true, prefix: '¥' } }, 'right'),
+        column('qty', 40, { kind: 'field', field: 'qty', format: { kind: 'number', decimals: 0 } }, 'right'),
+        column('amount', 40, { kind: 'field', field: 'amount', format: { kind: 'number', decimals: 2, grouping: true } }, 'right'),
       ],
       footerRows: [
         {
@@ -54,7 +54,7 @@ export function createSampleTable(id = 'items'): TableElement {
             {
               columnId: 'amount',
               colSpan: 1,
-              content: { kind: 'aggregate', fn: 'sum', field: 'amount', scope: 'all', format: { kind: 'chineseAmount' } },
+              content: { kind: 'aggregate', fn: 'sum', field: 'amount', scope: 'all', format: { kind: 'rmb-upper' } },
             },
           ],
         },
@@ -171,7 +171,7 @@ export function createSampleDocument(): PrintDocument {
         content: {
           kind: 'expression',
           expression: 'price * qty',
-          format: { kind: 'number', decimals: 2, thousands: true },
+          format: { kind: 'number', decimals: 2, grouping: true },
         },
       },
     }),

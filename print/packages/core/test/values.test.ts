@@ -3,8 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { EngineCompileResult } from '@xihan-ui/expression'
-import type { FormatSpec, MapFormat } from '../src'
+import type { EngineCompileResult, FormatSpec } from '@xihan-ui/expression'
+import type { MapFormat } from '../src'
 import { describe, expect, it } from 'vitest'
 import { fillTextTemplate, getFieldValue, toDisplayText } from '../src/data'
 import { evaluateExpression, formatValue, isEmptyValue, mapValue } from '../src/layout/content'
@@ -14,21 +14,36 @@ describe('值格式', () => {
 
   it('数字、百分比、日期、人民币大写交给注入的格式化器', () => {
     const specs: FormatSpec[] = [
-      { kind: 'number', decimals: 2, thousands: true },
+      { kind: 'number', decimals: 2, grouping: true },
       { kind: 'percent', decimals: 0 },
-      { kind: 'date', pattern: 'YYYY-MM-DD' },
-      { kind: 'chineseAmount' },
+      { kind: 'date', pattern: 'yyyy-MM-dd' },
+      { kind: 'rmb-upper' },
     ]
     expect(specs.map(spec => formatValue(12.5, spec, { formatter }))).toEqual([
       { text: 'number(12.5)' },
       { text: 'percent(12.5)' },
       { text: 'date(12.5)' },
-      { text: 'chineseAmount(12.5)' },
+      { text: 'rmb-upper(12.5)' },
     ])
   })
 
+  it('格式化器抛出 TypeError 时显示原值并带上问题码，其他异常照常抛出', () => {
+    const invalid = (): string => {
+      throw new TypeError('XH_EXPR_FORMAT_INVALID_VALUE')
+    }
+    expect(formatValue('x', { kind: 'number', decimals: 2 }, { formatter: invalid })).toEqual({
+      text: 'x',
+      problem: 'formatFailed',
+      reason: 'XH_EXPR_FORMAT_INVALID_VALUE',
+    })
+    const broken = (): string => {
+      throw new Error('boom')
+    }
+    expect(() => formatValue('x', { kind: 'number' }, { formatter: broken })).toThrow('boom')
+  })
+
   it('没有格式化器时显示原值并给出原因', () => {
-    expect(formatValue(12.5, { kind: 'number', decimals: 2, thousands: false })).toEqual({ text: '12.5', problem: 'formatterUnavailable' })
+    expect(formatValue(12.5, { kind: 'number', decimals: 2 })).toEqual({ text: '12.5', problem: 'formatterUnavailable' })
   })
 
   it('值映射在本包内完成，按显示文本匹配', () => {
@@ -42,7 +57,7 @@ describe('值格式', () => {
 
   it('空值不经格式化', () => {
     for (const value of [null, undefined, ''])
-      expect(formatValue(value, { kind: 'number', decimals: 2, thousands: false }, { formatter })).toEqual({ text: '' })
+      expect(formatValue(value, { kind: 'number', decimals: 2 }, { formatter })).toEqual({ text: '' })
     expect(formatValue(null, { kind: 'map', entries: [], fallback: '无' })).toEqual({ text: '' })
     expect(isEmptyValue(0)).toBe(false)
   })

@@ -12,6 +12,8 @@ import { parsePageNumberFormat } from '../page-number-format'
 import {
   AGGREGATE_FUNCTIONS,
   AGGREGATE_SCOPES,
+  FORMAT_MAX_DECIMALS,
+  FORMAT_ROUNDINGS,
   HORIZONTAL_ALIGNS,
   STROKE_STYLES,
   TABLE_CELL_TYPES,
@@ -73,27 +75,41 @@ function checkVariant(
   return kind
 }
 
+/** 数字与百分比格式的小数位：`decimals` 不能与 `minDecimals` / `maxDecimals` 同时给，`minDecimals` 不大于 `maxDecimals`。 */
+function checkDecimals(value: Record<string, unknown>, path: Path, sink: IssueSink): void {
+  if (value.decimals !== undefined && (value.minDecimals !== undefined || value.maxDecimals !== undefined))
+    sink.report('format.decimalsConflict', [...path, 'decimals'])
+  const { minDecimals, maxDecimals } = value
+  if (typeof minDecimals === 'number' && typeof maxDecimals === 'number' && minDecimals > maxDecimals)
+    sink.report('format.decimalsOrder', [...path, 'minDecimals'], { minDecimals, maxDecimals })
+}
+
 /** 校验值格式。 */
 export function validateValueFormat(value: unknown, path: Path, sink: IssueSink): void {
   const decimals = (item: unknown, itemPath: Path): boolean =>
-    expectNumber(item, itemPath, sink, { min: 0, max: 20, integer: true })
+    expectNumber(item, itemPath, sink, { min: 0, max: FORMAT_MAX_DECIMALS, integer: true })
   const text = (item: unknown, itemPath: Path): boolean => expectString(item, itemPath, sink)
-  checkVariant(value, {
-    number: [
-      field('decimals', true, decimals),
-      field('thousands', true, (item, itemPath) => expectBoolean(item, itemPath, sink)),
-      field('prefix', false, text),
-      field('suffix', false, text),
-    ],
-    percent: [field('decimals', true, decimals)],
-    date: [field('pattern', true, (item, itemPath) => expectString(item, itemPath, sink, { nonEmpty: true }))],
-    chineseAmount: [],
-    map: [
+  const rounding = (item: unknown, itemPath: Path): boolean => expectOption(item, FORMAT_ROUNDINGS, itemPath, sink)
+  const numberRules = [
+    field('decimals', false, decimals),
+    field('minDecimals', false, decimals),
+    field('maxDecimals', false, decimals),
+    field('grouping', false, (item, itemPath) => expectBoolean(item, itemPath, sink)),
+    field('rounding', false, rounding),
+  ]
+  const kind = checkVariant(value, {
+    'number': numberRules,
+    'percent': numberRules,
+    'date': [field('pattern', true, (item, itemPath) => expectString(item, itemPath, sink, { nonEmpty: true }))],
+    'rmb-upper': [field('rounding', false, rounding)],
+    'map': [
       field('entries', true, (item, itemPath) => validateMapEntries(item, itemPath, sink)),
       field('fallback', false, text),
     ],
-    expression: [field('expression', true, (item, itemPath) => expectExpression(item, itemPath, sink))],
+    'expression': [field('expression', true, (item, itemPath) => expectExpression(item, itemPath, sink))],
   }, path, sink)
+  if ((kind === 'number' || kind === 'percent') && typeof value === 'object' && value !== null)
+    checkDecimals(value as Record<string, unknown>, path, sink)
 }
 
 function validateMapEntries(value: unknown, path: Path, sink: IssueSink): void {

@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { FormatRounding } from '@xihan-ui/expression'
 import type { QrLevel } from '@xihan-ui/headless'
 
 /** 页面方向取值。 */
@@ -74,6 +75,12 @@ const QR_LEVEL_SET = { L: true, M: true, Q: true, H: true } as const satisfies R
 
 /** QR 纠错等级取值，与 QrLevel 逐一对应。 */
 export const QR_ERROR_CORRECTION_LEVELS = Object.keys(QR_LEVEL_SET) as readonly QrErrorCorrectionLevel[]
+
+/** 数字格式的舍入方式取值，与 @xihan-ui/expression 的 FormatRounding 一致。 */
+export const FORMAT_ROUNDINGS = ['half-up', 'half-even', 'floor', 'ceil', 'down'] as const satisfies readonly FormatRounding[]
+
+/** 数字格式的最大小数位数，与 @xihan-ui/expression 的格式化上限一致。 */
+export const FORMAT_MAX_DECIMALS = 34
 
 /** 表格汇总函数取值。 */
 export const AGGREGATE_FUNCTIONS = ['sum', 'avg', 'count', 'min', 'max'] as const

@@ -308,11 +308,15 @@ describe('内容来源与格式', () => {
 
   it('值格式', () => {
     const formats = [
-      { kind: 'number', decimals: 1.5, thousands: true },
-      { kind: 'percent', decimals: 30 },
+      { kind: 'number', decimals: 1.5, grouping: true },
+      { kind: 'percent', decimals: 35 },
       { kind: 'date', pattern: '' },
       { kind: 'map', entries: [{ value: '1', text: '已付' }, { value: '1', text: '重复' }] },
       { kind: 'currency' },
+      { kind: 'number', decimals: 2, maxDecimals: 3 },
+      { kind: 'percent', minDecimals: 3, maxDecimals: 1 },
+      { kind: 'rmb-upper', rounding: 'banker' },
+      { kind: 'number', thousands: true },
     ]
     const elements = formats.map((format, index) =>
       element('text', `t${index}`, { content: { kind: 'field', field: 'v', format } }),
@@ -323,6 +327,10 @@ describe('内容来源与格式', () => {
       'value.empty@pages.0.elements.2.content.format.pattern',
       'format.duplicateMapValue@pages.0.elements.3.content.format.entries.1.value',
       'value.invalidOption@pages.0.elements.4.content.format.kind',
+      'format.decimalsConflict@pages.0.elements.5.content.format.decimals',
+      'format.decimalsOrder@pages.0.elements.6.content.format.minDecimals',
+      'value.invalidOption@pages.0.elements.7.content.format.rounding',
+      'schema.unknownProperty@pages.0.elements.8.content.format.thousands',
     ])
   })
 
@@ -623,11 +631,11 @@ describe('受限表达式', () => {
       content: { kind: 'field', field: 'amount', format: { kind: 'expression', expression: 'fixed(value' } },
     })
     const nested = element('text', 'n', {
-      content: { kind: 'expression', expression: 'a + b', format: { kind: 'number', decimals: -1, thousands: false } },
+      content: { kind: 'expression', expression: 'a + b', format: { kind: 'number', decimals: -1 } },
     })
     const table = cloneJson(createSampleTable()) as unknown as Record<string, unknown>
     const columns = table.columns as Record<string, unknown>[]
-    columns[3]!.content = { kind: 'expression', expression: 'qty * (price', format: { kind: 'chineseAmount' } }
+    columns[3]!.content = { kind: 'expression', expression: 'qty * (price', format: { kind: 'rmb-upper' } }
     const report = validateDocument(withBody(formatted, nested, table), { expressions: engine })
     expect(summarize(report)).toEqual([
       'expression.invalid@pages.0.elements.0.content.format.expression',
