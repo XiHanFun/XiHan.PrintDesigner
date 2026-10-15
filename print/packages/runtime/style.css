@@ -1,0 +1,27 @@
+/*
+ * Copyright (c) 2021-Present XiHanFun and contributors.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+/* <xh-print-preview> 的预览外框：只消费 @xihan-ui 设计令牌。输出页内的颜色与尺寸来自模板，渲染时写在内联样式里。 */
+
+xh-print-preview {
+  display: block;
+  overflow: auto;
+  background: var(--xh-bg-canvas);
+}
+
+xh-print-preview [data-part='sheets'] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--xh-space-4);
+  padding: var(--xh-space-4);
+  zoom: var(--xh-print-zoom, 1);
+}
+
+xh-print-preview [data-part='sheet'] {
+  flex: none;
+  background: var(--xh-color-neutral-0);
+  box-shadow: var(--xh-elevation-raised);
+}
