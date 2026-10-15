@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { TableCell } from '@xihan-ui/designer-kit'
 import type { ElementValidationContext } from '../registry/types'
 import type {
   BarCodeElement,
@@ -12,6 +13,7 @@ import type {
   RectElement,
   TableElement,
 } from '../schema/elements'
+import { checkTableCells } from '@xihan-ui/designer-kit'
 import { checkBarCodeValue, matrixCodeLevelFit } from '@xihan-ui/headless'
 import { barCodeIssueParams, checkMatrixCodeContent, matrixCodeIssueParams } from '../codes'
 
@@ -32,25 +34,26 @@ export function validateTableRules(element: TableElement, context: ElementValida
 
   const columnIndex = new Map(columns.map((column, index) => [column.id, index]))
   element.footerRows.forEach((row, rowIndex) => {
-    const occupied = new Set<number>()
+    const cells: TableCell[] = []
     row.cells.forEach((cell, cellIndex) => {
-      const path = ['footerRows', rowIndex, 'cells', cellIndex]
-      const start = columnIndex.get(cell.columnId)
-      if (start === undefined) {
-        context.report('table.unknownColumn', [...path, 'columnId'], { columnId: cell.columnId })
-        return
-      }
-      const available = columns.length - start
-      if (cell.colSpan > available)
-        context.report('table.cellSpanOverflow', [...path, 'colSpan'], { colSpan: cell.colSpan, available })
-      for (let index = start; index < start + Math.min(cell.colSpan, available); index++) {
-        if (occupied.has(index)) {
-          context.report('table.cellOverlap', path, { columnId: columns[index]?.id ?? cell.columnId })
-          break
-        }
-        occupied.add(index)
-      }
+      const column = columnIndex.get(cell.columnId)
+      if (column === undefined)
+        context.report('table.unknownColumn', ['footerRows', rowIndex, 'cells', cellIndex, 'columnId'], { columnId: cell.columnId })
+      else
+        cells.push({ id: String(cellIndex), row: 0, column, rowSpan: 1, columnSpan: cell.colSpan })
     })
+    // 表尾行是单行网格：越界与重叠按 designer-kit 的判据，没铺满的列允许留空
+    for (const issue of checkTableCells({ rows: 1, columns: columns.length }, cells)) {
+      if (issue.code !== 'out-of-bounds' && issue.code !== 'overlap')
+        continue
+      const cellIndex = Number(issue.id)
+      const cell = row.cells[cellIndex]!
+      const path = ['footerRows', rowIndex, 'cells', cellIndex]
+      if (issue.code === 'out-of-bounds')
+        context.report('table.cellSpanOverflow', [...path, 'colSpan'], { colSpan: cell.colSpan, available: columns.length - columnIndex.get(cell.columnId)! })
+      else
+        context.report('table.cellOverlap', path, { columnId: cell.columnId })
+    }
   })
 
   if (context.bodyRect !== undefined) {
