@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ExpressionEvaluator, MapFormat } from '../src'
+import type { ExpressionCompilation, MapFormat } from '../src'
 import { describe, expect, it } from 'vitest'
 import { fillTextTemplate, getFieldValue, toDisplayText } from '../src/data'
 import {
@@ -146,20 +146,27 @@ describe('值格式', () => {
     expect(isEmptyValue(0)).toBe(false)
   })
 
-  it('表达式格式经求值接入点', () => {
-    const evaluator: ExpressionEvaluator = {
-      evaluate: (source, scope) => source === 'bad'
-        ? { ok: false, diagnostics: [{ code: 'E', start: 0, end: 3 }] }
-        : { ok: true, value: `${source}:${String(scope.value)}` },
+  it('表达式格式经表达式接入点编译求值', () => {
+    const compile = (source: string): ExpressionCompilation => {
+      if (source === 'bad')
+        return { ok: false, issues: [{ code: 'E', start: 0, end: 3 }] }
+      if (source === 'fail')
+        return { ok: true, references: [], evaluate: () => ({ ok: false, issue: { code: 'F', start: 0, end: 4 } }) }
+      return { ok: true, references: [], evaluate: scope => ({ ok: true, value: `${source}:${String(scope.value)}` }) }
     }
-    expect(formatValue(5, { kind: 'expression', expression: 'x' }, { evaluator })).toEqual({ text: 'x:5', value: 'x:5' })
-    expect(formatValue(5, { kind: 'expression', expression: 'bad' }, { evaluator })).toEqual({
+    expect(formatValue(5, { kind: 'expression', expression: 'x' }, { compile })).toEqual({ text: 'x:5', value: 'x:5' })
+    expect(formatValue(5, { kind: 'expression', expression: 'bad' }, { compile })).toEqual({
       text: '',
       problem: 'expressionFailed',
-      diagnostics: [{ code: 'E', start: 0, end: 3 }],
+      issue: { code: 'E', start: 0, end: 3 },
+    })
+    expect(formatValue(5, { kind: 'expression', expression: 'fail' }, { compile })).toEqual({
+      text: '',
+      problem: 'expressionFailed',
+      issue: { code: 'F', start: 0, end: 4 },
     })
     expect(formatValue(5, { kind: 'expression', expression: 'x' })).toEqual({ text: '', problem: 'expressionUnavailable' })
-    const objectResult: ExpressionEvaluator = { evaluate: () => ({ ok: true, value: { a: 1 } }) }
+    const objectResult = (): ExpressionCompilation => ({ ok: true, references: [], evaluate: () => ({ ok: true, value: { a: 1 } }) })
     expect(evaluateToText(objectResult, 'x', {})).toEqual({ text: '', problem: 'notScalar' })
   })
 })

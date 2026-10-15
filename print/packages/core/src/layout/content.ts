@@ -52,7 +52,7 @@ export function expressionText(
   context: LayoutContext,
   scope: DiagnosticScope,
 ): string {
-  const result = evaluateToText(context.evaluator, expression, scopeVariables(data))
+  const result = evaluateToText(context.compile, expression, scopeVariables(data))
   if (result.problem !== undefined)
     return reportFormatResult(context, scope, result)
   return format === undefined ? result.text : reportFormatResult(context, scope, formatValue(result.value, format, context))

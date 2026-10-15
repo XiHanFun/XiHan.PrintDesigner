@@ -147,20 +147,16 @@ export function expectTextTemplate(value: unknown, path: Path, sink: IssueSink):
   return errors.length === 0
 }
 
-/** 要求值为非空的表达式源码；接收器带有表达式检查接入点时报告其中的问题。 */
+/** 要求值为非空的表达式源码；接收器带有表达式接入点时编译源码并报告编译问题。 */
 export function expectExpression(value: unknown, path: Path, sink: IssueSink): value is string {
   if (!expectString(value, path, sink, { nonEmpty: true }))
     return false
-  const diagnostics = sink.expressions?.check(value) ?? []
-  for (const diagnostic of diagnostics) {
-    sink.report('expression.invalid', path, {
-      ...diagnostic.data,
-      code: diagnostic.code,
-      start: diagnostic.start,
-      end: diagnostic.end,
-    })
-  }
-  return diagnostics.length === 0
+  const compiled = sink.expressions?.compile(value)
+  if (compiled === undefined || compiled.ok)
+    return true
+  for (const issue of compiled.issues)
+    sink.report('expression.invalid', path, { ...issue.data, code: issue.code, start: issue.start, end: issue.end })
+  return false
 }
 
 /** 对象中一个字段的校验规则。 */

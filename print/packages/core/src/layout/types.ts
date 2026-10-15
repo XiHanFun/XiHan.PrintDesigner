@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ExpressionEvaluator } from '../expression'
+import type { ExpressionEngine } from '../expression'
 import type { Rect } from '../geometry'
 import type { Size } from '../paper'
 import type { ElementRegistry } from '../registry/registry'
@@ -60,8 +60,8 @@ export interface TextMeasurer {
 /** 分页选项。 */
 export interface PaginateOptions {
   measurer: TextMeasurer
-  /** 表达式求值接入点；模板含表达式而未提供时，表达式结果为空并给出诊断。 */
-  expressions?: ExpressionEvaluator
+  /** 受限表达式接入点；模板含表达式而未提供时，表达式结果为空并给出诊断。 */
+  expressions?: ExpressionEngine
   /** 日期格式化使用的 IANA 时区，缺省为运行环境时区。 */
   timeZone?: string
   /** 输出页总数上限，缺省 1000；超出时停止排版并给出诊断。 */
