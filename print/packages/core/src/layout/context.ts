@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ExpressionEvaluator } from '../expression'
+import type { ExpressionCompilation, ExpressionEngine } from '../expression'
 import type { FormatResult } from '../format'
 import type { IssueParams } from '../validation/issues'
 import type {
@@ -27,7 +27,8 @@ export interface DiagnosticScope {
 /** 一次分页内共享的上下文。 */
 export interface LayoutContext {
   data: unknown
-  evaluator?: ExpressionEvaluator
+  /** 编译表达式源码，同一源码只编译一次；未提供表达式接入点时为 undefined。 */
+  compile?: (source: string) => ExpressionCompilation
   timeZone?: string
   report: (code: PaginationDiagnosticCode, scope: DiagnosticScope, params?: IssueParams) => void
   measure: (request: TextMeasureRequest) => TextMeasurement
@@ -47,7 +48,7 @@ function isValidMeasurement(result: unknown): result is TextMeasurement {
 export function createLayoutContext(
   data: unknown,
   measurer: TextMeasurer,
-  options: { evaluator?: ExpressionEvaluator, timeZone?: string },
+  options: { expressions?: ExpressionEngine, timeZone?: string },
   diagnostics: PaginationDiagnostic[],
 ): LayoutContext {
   const seen = new Set<string>()
@@ -72,8 +73,18 @@ export function createLayoutContext(
       return result
     },
   }
-  if (options.evaluator !== undefined)
-    context.evaluator = options.evaluator
+  const engine = options.expressions
+  if (engine !== undefined) {
+    const compiled = new Map<string, ExpressionCompilation>()
+    context.compile = (source) => {
+      let result = compiled.get(source)
+      if (result === undefined) {
+        result = engine.compile(source)
+        compiled.set(source, result)
+      }
+      return result
+    }
+  }
   if (options.timeZone !== undefined)
     context.timeZone = options.timeZone
   return context
@@ -91,11 +102,8 @@ const FORMAT_PROBLEM_CODES = {
 /** 把格式化或求值的问题报告为诊断，返回结果文本。 */
 export function reportFormatResult(context: LayoutContext, scope: DiagnosticScope, result: FormatResult): string {
   if (result.problem !== undefined) {
-    const params: Record<string, string> = {}
-    const [first] = result.diagnostics ?? []
-    if (first !== undefined)
-      params.reason = first.code
-    context.report(FORMAT_PROBLEM_CODES[result.problem], scope, first === undefined ? undefined : params)
+    const reason = result.issue?.code
+    context.report(FORMAT_PROBLEM_CODES[result.problem], scope, reason === undefined ? undefined : { reason })
   }
   return result.text
 }

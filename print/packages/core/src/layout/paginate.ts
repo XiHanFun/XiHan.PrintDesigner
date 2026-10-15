@@ -202,16 +202,21 @@ function checkOptions(options: PaginateOptions): number {
  */
 export function paginate(document: PrintDocument, data: unknown, options: PaginateOptions): PaginationResult {
   const maxSheets = checkOptions(options)
-  const validation = validateDocument(document, options.registry === undefined ? {} : { registry: options.registry })
+  const validationOptions: Parameters<typeof validateDocument>[1] = {}
+  if (options.registry !== undefined)
+    validationOptions.registry = options.registry
+  if (options.expressions !== undefined)
+    validationOptions.expressions = options.expressions
+  const validation = validateDocument(document, validationOptions)
   if (!validation.valid) {
     const errors = validation.issues.filter(issue => issue.severity === 'error')
     throw new PrintLayoutError('document.invalid', { errors: errors.length }, errors)
   }
 
   const diagnostics: PaginationDiagnostic[] = []
-  const contextOptions: { evaluator?: PaginateOptions['expressions'], timeZone?: string } = {}
+  const contextOptions: { expressions?: PaginateOptions['expressions'], timeZone?: string } = {}
   if (options.expressions !== undefined)
-    contextOptions.evaluator = options.expressions
+    contextOptions.expressions = options.expressions
   if (options.timeZone !== undefined)
     contextOptions.timeZone = options.timeZone
   const context = createLayoutContext(data, options.measurer, contextOptions, diagnostics)

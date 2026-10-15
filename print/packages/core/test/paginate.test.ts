@@ -10,9 +10,10 @@ import {
   boxesOf,
   boxOf,
   cellStyle,
+  createFakeEngine,
   createFakeMeasurer,
   documentOf,
-  fakeEvaluator,
+  fakeEngine,
   itemsOf,
   registry,
   run,
@@ -524,7 +525,7 @@ describe('取值、表达式与格式', () => {
       registry.createElement('text', { id: 'exprFormat', x: 0, y: 60, overrides: { content: { kind: 'expression', expression: 'qty * price', format: { kind: 'chineseAmount' } } } }),
     ]
     const data = { amount: 1234.5, customer: { name: '张三', code: 'C01' }, name: 'abc', n: 41, qty: 2, price: 50.25 }
-    const result = run(documentOf(squarePage('p', elements)), data, { expressions: fakeEvaluator })
+    const result = run(documentOf(squarePage('p', elements)), data, { expressions: fakeEngine })
     const sheet = result.sheets[0]!
     expect(['static', 'field', 'empty', 'template', 'expr', 'formatExpr', 'exprFormat'].map(id => textOf(sheet, id))).toEqual([
       '固定',
@@ -545,9 +546,12 @@ describe('取值、表达式与格式', () => {
         { id: 'amount', title: '金额', width: 50, align: 'right', content: { kind: 'expression', expression: 'qty * price', format: { kind: 'number', decimals: 2, thousands: false } }, cellType: 'text' },
       ],
     })
-    const result = run(documentOf(squarePage('p', [table])), { items: [{ name: 'A', qty: 3, price: 1.5 }] }, { expressions: fakeEvaluator })
-    const row = tableSlices(result, 't')[0]!.rows[1]!
-    expect(row.cells.map(cell => cell.text)).toEqual(['A×3', '4.50'])
+    const compiled: string[] = []
+    const items = [{ name: 'A', qty: 3, price: 1.5 }, { name: 'B', qty: 2, price: 2 }]
+    const result = run(documentOf(squarePage('p', [table])), { items }, { expressions: createFakeEngine(compiled) })
+    const rows = tableSlices(result, 't')[0]!.rows.filter(row => row.role === 'body')
+    expect(rows.map(row => row.cells.map(cell => cell.text))).toEqual([['A×3', '4.50'], ['B×2', '4.00']])
+    expect(compiled.filter(source => source === 'qty * price')).toHaveLength(2)
   })
 
   it('没有求值接口、求值失败与结果不是标量时给出诊断', () => {
@@ -559,12 +563,12 @@ describe('取值、表达式与格式', () => {
     expect(missing.diagnostics).toEqual([{ code: 'expression.unavailable', pageId: 'p', elementId: 'a' }])
 
     const failing = [
-      registry.createElement('text', { id: 'bad', x: 0, y: 0, overrides: { content: { kind: 'expression', expression: 'nope' } } }),
+      registry.createElement('text', { id: 'bad', x: 0, y: 0, overrides: { content: { kind: 'expression', expression: 'fail' } } }),
       registry.createElement('text', { id: 'obj', x: 0, y: 10, overrides: { content: { kind: 'expression', expression: 'obj' } } }),
     ]
-    const result = run(documentOf(squarePage('p', failing)), {}, { expressions: fakeEvaluator })
+    const result = run(documentOf(squarePage('p', failing)), {}, { expressions: fakeEngine })
     expect(result.diagnostics).toEqual([
-      { code: 'expression.failed', pageId: 'p', elementId: 'bad', params: { reason: 'XH_EXPR_UNKNOWN' } },
+      { code: 'expression.failed', pageId: 'p', elementId: 'bad', params: { reason: 'XH_EXPR_FAILED' } },
       { code: 'data.notScalar', pageId: 'p', elementId: 'obj' },
     ])
   })
@@ -636,6 +640,18 @@ describe('错误与上限', () => {
       expect(error).toBeInstanceOf(PrintLayoutError)
       expect((error as PrintLayoutError).code).toBe('document.invalid')
       expect((error as PrintLayoutError).issues.map(issue => issue.code)).toEqual(['value.invalidColor'])
+    }
+  })
+
+  it('表达式编译失败时按文档不合法抛错', () => {
+    const text = registry.createElement('text', { id: 't', x: 0, y: 0, overrides: { content: { kind: 'expression', expression: 'unknown(' } } })
+    try {
+      paginate(documentOf(squarePage('p', [text])), {}, { measurer: createFakeMeasurer(), expressions: fakeEngine })
+      throw new Error('expected an error')
+    }
+    catch (error) {
+      expect(error).toBeInstanceOf(PrintLayoutError)
+      expect((error as PrintLayoutError).issues.map(issue => [issue.code, issue.params?.code])).toEqual([['expression.invalid', 'XH_EXPR_UNKNOWN']])
     }
   })
 

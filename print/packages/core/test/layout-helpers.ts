@@ -5,7 +5,7 @@
 
 import type {
   CellStyle,
-  ExpressionEvaluator,
+  ExpressionEngine,
   LayoutBox,
   LayoutSheet,
   PaginateOptions,
@@ -47,23 +47,29 @@ export function createFakeMeasurer(calls: TextMeasureRequest[] = []): TextMeasur
   }
 }
 
-/** 假求值器：按表达式源码查表求值，`fail` 求值失败。 */
-export const fakeEvaluator: ExpressionEvaluator = {
-  evaluate: (source, scope) => {
-    switch (source) {
-      case 'qty * price':
-        return { ok: true, value: Number(scope.qty) * Number(scope.price) }
-      case 'upper(name)':
-        return { ok: true, value: String(scope.name).toUpperCase() }
-      case 'value + 1':
-        return { ok: true, value: Number(scope.value) + 1 }
-      case 'obj':
-        return { ok: true, value: { nested: true } }
-      default:
-        return { ok: false, diagnostics: [{ code: 'XH_EXPR_UNKNOWN', start: 0, end: source.length }] }
-    }
-  },
+const FAKE_EXPRESSIONS: Record<string, (scope: Readonly<Record<string, unknown>>) => unknown> = {
+  'qty * price': scope => Number(scope.qty) * Number(scope.price),
+  'upper(name)': scope => String(scope.name).toUpperCase(),
+  'value + 1': scope => Number(scope.value) + 1,
+  'obj': () => ({ nested: true }),
 }
+
+/** 假表达式接入点：按源码查表求值；`fail` 编译通过但求值失败，其余未登记的源码编译失败。 */
+export function createFakeEngine(compiled: string[] = []): ExpressionEngine {
+  return {
+    compile: (source) => {
+      compiled.push(source)
+      if (source === 'fail')
+        return { ok: true, references: [], evaluate: () => ({ ok: false, issue: { code: 'XH_EXPR_FAILED', start: 0, end: 4 } }) }
+      const fn = FAKE_EXPRESSIONS[source]
+      if (fn === undefined)
+        return { ok: false, issues: [{ code: 'XH_EXPR_UNKNOWN', start: 0, end: source.length }] }
+      return { ok: true, references: [], evaluate: scope => ({ ok: true, value: fn(scope) }) }
+    },
+  }
+}
+
+export const fakeEngine = createFakeEngine()
 
 export function deepFreeze<T>(value: T): T {
   if (typeof value === 'object' && value !== null) {

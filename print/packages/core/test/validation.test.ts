@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ExpressionChecker, PrintDocument, PrintElement, ValidationIssue, ValidationReport } from '../src'
+import type { ExpressionEngine, PrintDocument, PrintElement, ValidationIssue, ValidationReport } from '../src'
 import { describe, expect, it } from 'vitest'
 import {
   cloneJson,
@@ -562,12 +562,12 @@ describe('复合属性', () => {
 })
 
 describe('受限表达式', () => {
-  const engine: ExpressionChecker = {
-    check: (source) => {
+  const engine: ExpressionEngine = {
+    compile: (source) => {
       const open = source.indexOf('(')
       if (open === -1 || source.includes(')'))
-        return []
-      return [{ code: 'XH_EXPR_UNCLOSED', start: open, end: source.length, data: { expected: ')' } }]
+        return { ok: true, references: [], evaluate: () => ({ ok: true, value: null }) }
+      return { ok: false, issues: [{ code: 'XH_EXPR_UNCLOSED', start: open, end: source.length, data: { expected: ')' } }] }
     },
   }
 
@@ -592,7 +592,7 @@ describe('受限表达式', () => {
   })
 
   it('检查器给出的附加数据不覆盖问题码与区间', () => {
-    const conflicting: ExpressionChecker = { check: () => [{ code: 'X', start: 0, end: 1, data: { code: 'Y', start: 9 } }] }
+    const conflicting: ExpressionEngine = { compile: () => ({ ok: false, issues: [{ code: 'X', start: 0, end: 1, data: { code: 'Y', start: 9 } }] }) }
     const report = validateDocument(withBody(expressionText('a', 'x')), { expressions: conflicting })
     expect(report.issues[0]!.params).toEqual({ code: 'X', start: 0, end: 1 })
   })

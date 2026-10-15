@@ -4,7 +4,7 @@
  */
 
 import type { Decimal } from './decimal'
-import type { ExpressionDiagnostic, ExpressionEvaluator } from './expression'
+import type { ExpressionCompilation, ExpressionIssue } from './expression'
 import type { DateFormat, MapFormat, NumberFormat, PercentFormat, ValueFormat } from './schema/common'
 import { toDisplayText } from './data'
 import { decimalToString, roundDecimal, shiftDecimal, toDecimal } from './decimal'
@@ -22,16 +22,16 @@ export type FormatProblem
 export interface FormatResult {
   text: string
   problem?: FormatProblem
-  /** 表达式求值失败时求值方给出的问题。 */
-  diagnostics?: readonly ExpressionDiagnostic[]
+  /** 表达式编译或求值失败时的第一处问题。 */
+  issue?: ExpressionIssue
 }
 
 /** 格式化选项。 */
 export interface FormatOptions {
   /** 日期格式化使用的 IANA 时区，缺省为运行环境时区。 */
   timeZone?: string
-  /** 表达式格式的求值接入点。 */
-  evaluator?: ExpressionEvaluator
+  /** 编译表达式源码，未提供时表达式不可用。 */
+  compile?: (source: string) => ExpressionCompilation
 }
 
 const CHINESE_DIGITS = '零壹贰叁肆伍陆柒捌玖'
@@ -199,17 +199,22 @@ export function isEmptyValue(value: unknown): boolean {
   return value === null || value === undefined || value === ''
 }
 
-/** 把表达式求值结果转成文本。 */
+/** 编译并以给定变量求表达式，结果转成文本。 */
 export function evaluateToText(
-  evaluator: ExpressionEvaluator | undefined,
+  compile: ((source: string) => ExpressionCompilation) | undefined,
   source: string,
   scope: Readonly<Record<string, unknown>>,
 ): FormatResult & { value?: unknown } {
-  if (evaluator === undefined)
+  if (compile === undefined)
     return { text: '', problem: 'expressionUnavailable' }
-  const result = evaluator.evaluate(source, scope)
+  const compiled = compile(source)
+  if (!compiled.ok) {
+    const [issue] = compiled.issues
+    return issue === undefined ? { text: '', problem: 'expressionFailed' } : { text: '', problem: 'expressionFailed', issue }
+  }
+  const result = compiled.evaluate(scope)
   if (!result.ok)
-    return { text: '', problem: 'expressionFailed', diagnostics: result.diagnostics }
+    return { text: '', problem: 'expressionFailed', issue: result.issue }
   const display = toDisplayText(result.value)
   return display.scalar ? { text: display.text, value: result.value } : { text: '', problem: 'notScalar' }
 }
@@ -217,7 +222,7 @@ export function evaluateToText(
 /** 按值格式把数据值转成显示文本；空值不经格式化直接为空串，表达式格式除外。 */
 export function formatValue(value: unknown, format: ValueFormat, options: FormatOptions = {}): FormatResult {
   if (format.kind === 'expression')
-    return evaluateToText(options.evaluator, format.expression, { value })
+    return evaluateToText(options.compile, format.expression, { value })
   if (isEmptyValue(value))
     return { text: '' }
   switch (format.kind) {
