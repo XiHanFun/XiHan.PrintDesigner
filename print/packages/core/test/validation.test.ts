@@ -3,7 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ExpressionEngine, PrintDocument, PrintElement, ValidationIssue, ValidationReport } from '../src'
+import type { ExpressionEngine } from '@xihan-ui/expression'
+import type { PrintDocument, PrintElement, ValidationIssue, ValidationReport } from '../src'
 import { describe, expect, it } from 'vitest'
 import {
   cloneJson,
@@ -587,7 +588,7 @@ describe('受限表达式', () => {
       const open = source.indexOf('(')
       if (open === -1 || source.includes(')'))
         return { ok: true, references: [], evaluate: () => ({ ok: true, value: null }) }
-      return { ok: false, issues: [{ code: 'XH_EXPR_UNCLOSED', start: open, end: source.length, data: { expected: ')' } }] }
+      return { ok: false, issues: [{ code: 'XH_EXPR_UNEXPECTED_END', start: open, end: source.length, data: { expected: ')' } }] }
     },
   }
 
@@ -607,14 +608,14 @@ describe('受限表达式', () => {
     expect(report.issues[0]).toMatchObject({
       severity: 'error',
       elementId: 'a',
-      params: { code: 'XH_EXPR_UNCLOSED', start: 5, end: 11, expected: ')' },
+      params: { code: 'XH_EXPR_UNEXPECTED_END', start: 5, end: 11, expected: ')' },
     })
   })
 
   it('检查器给出的附加数据不覆盖问题码与区间', () => {
-    const conflicting: ExpressionEngine = { compile: () => ({ ok: false, issues: [{ code: 'X', start: 0, end: 1, data: { code: 'Y', start: 9 } }] }) }
+    const conflicting: ExpressionEngine = { compile: () => ({ ok: false, issues: [{ code: 'XH_EXPR_EMPTY', start: 0, end: 1, data: { code: 'Y', start: 9 } }] }) }
     const report = validateDocument(withBody(expressionText('a', 'x')), { expressions: conflicting })
-    expect(report.issues[0]!.params).toEqual({ code: 'X', start: 0, end: 1 })
+    expect(report.issues[0]!.params).toEqual({ code: 'XH_EXPR_EMPTY', start: 0, end: 1 })
   })
 
   it('表达式格式、表达式内容的结果格式与表格表达式列', () => {

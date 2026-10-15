@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ExpressionEngine } from '../expression'
+import type { ExpressionEngine } from '@xihan-ui/expression'
 import type { Rect } from '../geometry'
 import type { Size } from '../paper'
 import type { ElementRegistry } from '../registry/registry'
