@@ -9,7 +9,8 @@ import type {
   BarcodeSymbology,
   ImageFit,
   LineDirection,
-  QrErrorCorrectionLevel,
+  MatrixCodeFormat,
+  MatrixCodeLevel,
   TextOverflow,
 } from './options'
 import type { TableBody, TableBorder, TableColumn, TableFooterRow, TableHeader } from './table'
@@ -117,10 +118,12 @@ export interface BarcodeElement extends ElementBase<'barcode'> {
   rotation: number
 }
 
-/** 二维码。 */
+/** 二维码：QR、Data Matrix、PDF417、Aztec。 */
 export interface QrCodeElement extends ElementBase<'qrcode'> {
+  format: MatrixCodeFormat
   content: TextContent
-  errorCorrection: QrErrorCorrectionLevel
+  /** 纠错级别：qr 为 L / M / Q / H，pdf417 为 0–8，aztec 为纠错码字至少占的百分比 5–95，data-matrix 没有级别；缺省取码制的默认值。 */
+  level?: MatrixCodeLevel
   color: Color
   background?: Color
   /** 四周静区宽度，单位为模块数。 */

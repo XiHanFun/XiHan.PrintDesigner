@@ -366,5 +366,9 @@ export function validateControlValue(control: PropertyControl, value: unknown, p
       return
     case 'pageNumberFormat':
       validatePageNumberFormat(value, path, sink)
+      return
+    case 'matrixCodeLevel':
+      if (typeof value !== 'string' && typeof value !== 'number')
+        sink.report('schema.invalidType', path, { expected: 'string|number' })
   }
 }

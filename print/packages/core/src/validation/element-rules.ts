@@ -12,8 +12,7 @@ import type {
   RectElement,
   TableElement,
 } from '../schema/elements'
-import { checkBarcodeValue } from '../barcode'
-import { measureQrCapacity } from '../qrcode'
+import { canEncodeBarcode, canEncodeMatrixCode, fitMatrixCodeLevel } from '../codes'
 
 /** 长度比较的容差，单位 mm。 */
 export const LENGTH_TOLERANCE = 0.01
@@ -82,28 +81,31 @@ export function validateShapeRules(element: RectElement | EllipseElement, contex
     context.report('shape.invisible', [])
 }
 
-/** 条码规则：固定内容符合码制。 */
+/** 条码规则：固定内容非空且能按码制编码。 */
 export function validateBarcodeRules(element: BarcodeElement, context: ElementValidationContext): void {
   if (element.content.kind !== 'static')
     return
-  const reason = checkBarcodeValue(element.symbology, element.content.text)
-  if (reason !== undefined)
-    context.report('barcode.invalidValue', ['content', 'text'], { symbology: element.symbology, reason })
+  if (element.content.text.length === 0)
+    context.report('value.empty', ['content', 'text'])
+  else if (!canEncodeBarcode(element.symbology, element.content.text))
+    context.report('barcode.invalidValue', ['content', 'text'], { symbology: element.symbology })
 }
 
-/** 二维码规则：固定内容非空且不超出容量，元素框为正方形。 */
+/** 二维码规则：纠错级别适用于码制，固定内容非空且能编码，除 PDF417 外元素框为正方形。 */
 export function validateQrCodeRules(element: QrCodeElement, context: ElementValidationContext): void {
+  const fit = fitMatrixCodeLevel(element.format, element.level)
+  if (fit === 'invalid')
+    context.report('qrcode.invalidLevel', ['level'], { format: element.format, level: String(element.level) })
+  else if (fit === 'ignored')
+    context.report('qrcode.levelIgnored', ['level'], { format: element.format })
   if (element.content.kind === 'static') {
     const { text } = element.content
-    if (text.length === 0) {
+    const level = fit === 'valid' ? element.level : undefined
+    if (text.length === 0)
       context.report('value.empty', ['content', 'text'])
-    }
-    else {
-      const capacity = measureQrCapacity(text, element.errorCorrection)
-      if (capacity.length > capacity.max)
-        context.report('qrcode.capacityExceeded', ['content', 'text'], { ...capacity })
-    }
+    else if (fit !== 'invalid' && !canEncodeMatrixCode(element.format, text, level))
+      context.report('qrcode.invalidValue', ['content', 'text'], { format: element.format })
   }
-  if (Math.abs(element.width - element.height) > LENGTH_TOLERANCE)
+  if (element.format !== 'pdf417' && Math.abs(element.width - element.height) > LENGTH_TOLERANCE)
     context.report('qrcode.notSquare', [], { width: element.width, height: element.height })
 }

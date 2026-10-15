@@ -59,6 +59,7 @@ export type PropertyControl
     | { kind: 'tableColumns' }
     | { kind: 'tableFooterRows' }
     | { kind: 'pageNumberFormat' }
+    | { kind: 'matrixCodeLevel' }
 
 /** 属性编辑方式的种类。 */
 export type PropertyControlKind = PropertyControl['kind']

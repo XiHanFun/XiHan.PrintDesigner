@@ -98,7 +98,7 @@ describe('基本排版', () => {
     expect(boxOf(sheet!, 'rect', 'rect')).toMatchObject({ fill: '#eeeeee', radius: 0 })
     expect(boxOf(sheet!, 'ellipse', 'ellipse').stroke).toBeDefined()
     expect(boxOf(sheet!, 'barcode', 'barcode')).toMatchObject({ symbology: 'code128', value: 'A-001', showText: true })
-    expect(boxOf(sheet!, 'qr', 'qrcode')).toMatchObject({ value: '1234567890', errorCorrection: 'M', background: '#ffffff' })
+    expect(boxOf(sheet!, 'qr', 'qrcode')).toMatchObject({ format: 'qr', value: '1234567890', level: 'M', background: '#ffffff' })
     expect(boxOf(sheet!, 'photo', 'image')).toMatchObject({ src: 'https://example.com/a.png', fit: 'contain', previewOnly: true })
     expect(result.diagnostics).toEqual([])
   })
