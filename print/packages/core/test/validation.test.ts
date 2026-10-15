@@ -621,7 +621,7 @@ describe('受限表达式', () => {
   })
 
   it('注入检查器后报告表达式问题', () => {
-    const report = validateDocument(withBody(expressionText('a', 'round(price'), expressionText('b', 'round(price)')), { expressions: engine })
+    const report = validateDocument(withBody(expressionText('a', 'round(price'), expressionText('b', 'round(price)')), { expressionEngine: engine })
     expect(summarize(report)).toEqual(['expression.invalid@pages.0.elements.0.content.expression'])
     expect(report.issues[0]).toMatchObject({
       severity: 'error',
@@ -632,7 +632,7 @@ describe('受限表达式', () => {
 
   it('检查器给出的附加数据不覆盖问题码与区间', () => {
     const conflicting: ExpressionEngine = { compile: () => ({ ok: false, issues: [{ code: 'XH_EXPR_EMPTY', start: 0, end: 1, data: { code: 'Y', start: 9 } }] }) }
-    const report = validateDocument(withBody(expressionText('a', 'x')), { expressions: conflicting })
+    const report = validateDocument(withBody(expressionText('a', 'x')), { expressionEngine: conflicting })
     expect(report.issues[0]!.params).toEqual({ code: 'XH_EXPR_EMPTY', start: 0, end: 1 })
   })
 
@@ -646,7 +646,7 @@ describe('受限表达式', () => {
     const table = copyOf(createSampleTable()) as unknown as Record<string, unknown>
     const columns = table.columns as Record<string, unknown>[]
     columns[3]!.content = { kind: 'expression', expression: 'qty * (price', format: { kind: 'rmb-upper' } }
-    const report = validateDocument(withBody(formatted, nested, table), { expressions: engine })
+    const report = validateDocument(withBody(formatted, nested, table), { expressionEngine: engine })
     expect(summarize(report)).toEqual([
       'expression.invalid@pages.0.elements.0.content.format.expression',
       'value.outOfRange@pages.0.elements.1.content.format.decimals',
@@ -657,10 +657,10 @@ describe('受限表达式', () => {
   it('表尾单元格可用表达式，以根数据为变量', () => {
     const table = copyOf(createSampleTable())
     table.footerRows[1]!.cells[0]!.content = { kind: 'expression', expression: 'order.no' }
-    expect(validateDocument(withBody(table), { expressions: engine }).issues).toEqual([])
+    expect(validateDocument(withBody(table), { expressionEngine: engine }).issues).toEqual([])
   })
 
   it('样例文档带上检查器也没有问题', () => {
-    expect(validateDocument(createSampleDocument(), { expressions: engine }).issues).toEqual([])
+    expect(validateDocument(createSampleDocument(), { expressionEngine: engine }).issues).toEqual([])
   })
 })

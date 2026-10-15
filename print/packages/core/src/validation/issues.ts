@@ -94,7 +94,7 @@ export interface ValidationReport {
 /** 问题接收器：按问题码、绝对路径与参数记录问题，并带上可选的表达式检查接入点。 */
 export interface IssueSink {
   report: (code: ValidationIssueCode, path: readonly PathSegment[], params?: IssueParams) => void
-  expressions?: ExpressionEngine
+  expressionEngine?: ExpressionEngine
 }
 
 /** 问题定位所属的页面与元素。 */
@@ -104,7 +104,7 @@ export interface IssueScope {
 }
 
 /** 创建把问题追加到 `issues` 并带上定位的接收器。 */
-export function createIssueSink(issues: ValidationIssue[], scope: IssueScope = {}, expressions?: ExpressionEngine): IssueSink {
+export function createIssueSink(issues: ValidationIssue[], scope: IssueScope = {}, expressionEngine?: ExpressionEngine): IssueSink {
   const sink: IssueSink = {
     report: (code, path, params) => {
       const issue: ValidationIssue = { code, severity: VALIDATION_ISSUE_SEVERITIES[code], path: [...path] }
@@ -117,7 +117,7 @@ export function createIssueSink(issues: ValidationIssue[], scope: IssueScope = {
       issues.push(issue)
     },
   }
-  if (expressions !== undefined)
-    sink.expressions = expressions
+  if (expressionEngine !== undefined)
+    sink.expressionEngine = expressionEngine
   return sink
 }

@@ -49,7 +49,7 @@ function isValidMeasurement(result: unknown): result is TextMeasurement {
 export function createLayoutContext(
   data: unknown,
   measurer: TextMeasurer,
-  options: { expressions?: ExpressionEngine, format?: ValueFormatter, formatOptions?: FormatOptions },
+  options: { expressionEngine?: ExpressionEngine, formatter?: ValueFormatter, formatOptions?: FormatOptions },
   diagnostics: PaginationDiagnostic[],
 ): LayoutContext {
   const seen = new Set<string>()
@@ -74,7 +74,7 @@ export function createLayoutContext(
       return result
     },
   }
-  const engine = options.expressions
+  const engine = options.expressionEngine
   if (engine !== undefined) {
     const compiled = new Map<string, EngineCompileResult>()
     context.compile = (source) => {
@@ -86,7 +86,7 @@ export function createLayoutContext(
       return result
     }
   }
-  const format = options.format
+  const format = options.formatter
   if (format !== undefined) {
     const formatOptions = options.formatOptions ?? {}
     context.formatter = (value, spec) => {

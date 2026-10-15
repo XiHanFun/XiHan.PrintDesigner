@@ -172,7 +172,7 @@ describe('表格分页', () => {
         },
       ],
     })
-    const result = run(documentOf(squarePage('p', [table])), { items: itemsOf(20), order: 'NO.1' }, { expressions: fakeEngine })
+    const result = run(documentOf(squarePage('p', [table])), { items: itemsOf(20), order: 'NO.1' }, { expressionEngine: fakeEngine })
     const slices = tableSlices(result, 't')
     expect(slices.map(slice => dataIndexes(slice).length)).toEqual([7, 8, 5])
     expect(slices.map(footerTexts)).toEqual([
@@ -210,7 +210,7 @@ describe('表格分页', () => {
       })),
     })
     const items = [{ qty: '1.5' }, { qty: 'x' }, { qty: null }, { qty: -2 }, { qty: 10 }]
-    const slices = tableSlices(run(documentOf(squarePage('p', [table])), { items }, { expressions: fakeEngine }), 't')
+    const slices = tableSlices(run(documentOf(squarePage('p', [table])), { items }, { expressionEngine: fakeEngine }), 't')
     expect(footerTexts(slices[0]!)).toEqual(['3.1666666666666665', '4', '-2', '10'])
   })
 
@@ -227,7 +227,7 @@ describe('表格分页', () => {
       })),
     })
     const items = itemsOf(3)
-    const result = run(documentOf(squarePage('p', [table])), { items }, { expressions: createFakeEngine(compiled) })
+    const result = run(documentOf(squarePage('p', [table])), { items }, { expressionEngine: createFakeEngine(compiled) })
     expect(footerTexts(tableSlices(result, 't')[0]!)).toEqual(['6', '2', '1', '3', '3'])
     expect([...new Set(compiled)].sort()).toEqual(['AVG($values)', 'MAX($values)', 'MIN($values)', 'SUM($values)'])
 
@@ -561,7 +561,7 @@ describe('取值、表达式与格式', () => {
       registry.createElement('text', { id: 'map', x: 0, y: 70, overrides: { content: { kind: 'field', field: 'gender', format: { kind: 'map', entries: [{ value: '1', text: '男' }, { value: '2', text: '女' }] } } } }),
     ]
     const data = { amount: 1234.5, customer: { name: '张三', code: 'C01' }, name: 'abc', n: 41, qty: 2, price: 50.25, gender: 2 }
-    const result = run(documentOf(squarePage('p', elements)), data, { expressions: fakeEngine, format: fakeFormatter })
+    const result = run(documentOf(squarePage('p', elements)), data, { expressionEngine: fakeEngine, formatter: fakeFormatter })
     const sheet = result.sheets[0]!
     expect(['static', 'field', 'empty', 'template', 'expr', 'formatExpr', 'exprFormat', 'map'].map(id => textOf(sheet, id))).toEqual([
       '固定',
@@ -585,7 +585,7 @@ describe('取值、表达式与格式', () => {
     })
     const compiled: string[] = []
     const items = [{ name: 'A', qty: 3, price: 1.5 }, { name: 'B', qty: 2, price: 2 }]
-    const result = run(documentOf(squarePage('p', [table])), { items }, { expressions: createFakeEngine(compiled), format: fakeFormatter })
+    const result = run(documentOf(squarePage('p', [table])), { items }, { expressionEngine: createFakeEngine(compiled), formatter: fakeFormatter })
     const rows = tableSlices(result, 't')[0]!.rows.filter(row => row.role === 'body')
     expect(rows.map(row => row.cells.map(cell => cell.text))).toEqual([['A×3', 'number:4.5'], ['B×2', 'number:4']])
     expect(compiled.filter(source => source === 'qty * price')).toHaveLength(2)
@@ -603,7 +603,7 @@ describe('取值、表达式与格式', () => {
       registry.createElement('text', { id: 'bad', x: 0, y: 0, overrides: { content: { kind: 'expression', expression: 'fail' } } }),
       registry.createElement('text', { id: 'obj', x: 0, y: 10, overrides: { content: { kind: 'expression', expression: 'obj' } } }),
     ]
-    const result = run(documentOf(squarePage('p', failing)), {}, { expressions: fakeEngine })
+    const result = run(documentOf(squarePage('p', failing)), {}, { expressionEngine: fakeEngine })
     expect(result.diagnostics).toEqual([
       { code: 'expression.failed', pageId: 'p', elementId: 'bad', params: { reason: 'XH_EXPR_FUNCTION_FAILED' } },
       { code: 'data.notScalar', pageId: 'p', elementId: 'obj' },
@@ -635,7 +635,7 @@ describe('取值、表达式与格式', () => {
       }],
     })
     const at = registry.createElement('text', { id: 'at', x: 0, y: 60, overrides: { content: { kind: 'field', field: 'at', format: { kind: 'date', pattern: 'YYYY-MM-DD' } } } })
-    const result = run(documentOf(squarePage('p', [table, at])), { items: [{ qty: 1 }, { qty: 2 }], at: '2026-10-16' }, { format, expressions: fakeEngine })
+    const result = run(documentOf(squarePage('p', [table, at])), { items: [{ qty: 1 }, { qty: 2 }], at: '2026-10-16' }, { formatter: format, expressionEngine: fakeEngine })
     expect(calls).toEqual([['2026-10-16', 'date'], [3, 'number']])
     expect(footerTexts(tableSlices(result, 't')[0]!)).toEqual(['3'])
   })
@@ -647,8 +647,8 @@ describe('取值、表达式与格式', () => {
       return 'ok'
     }
     const text = registry.createElement('text', { id: 't', x: 0, y: 0, overrides: { content: { kind: 'field', field: 'n', format: { kind: 'number', decimals: 1 } } } })
-    run(documentOf(squarePage('p', [text])), { n: 1 }, { format, locale: 'de-DE', timeZone: 'Asia/Shanghai' })
-    run(documentOf(squarePage('p', [text])), { n: 1 }, { format })
+    run(documentOf(squarePage('p', [text])), { n: 1 }, { formatter: format, locale: 'de-DE', timeZone: 'Asia/Shanghai' })
+    run(documentOf(squarePage('p', [text])), { n: 1 }, { formatter: format })
     expect(received).toEqual([{ locale: 'de-DE', timeZone: 'Asia/Shanghai' }, {}])
   })
 
@@ -657,7 +657,7 @@ describe('取值、表达式与格式', () => {
       throw new TypeError('XH_EXPR_FORMAT_OUT_OF_RANGE')
     }
     const text = registry.createElement('text', { id: 't', x: 0, y: 0, overrides: { content: { kind: 'field', field: 'n', format: { kind: 'rmb-upper' } } } })
-    const result = run(documentOf(squarePage('p', [text])), { n: 1e20 }, { format })
+    const result = run(documentOf(squarePage('p', [text])), { n: 1e20 }, { formatter: format })
     expect(textOf(result.sheets[0]!, 't')).toBe('100000000000000000000')
     expect(result.diagnostics).toEqual([
       { code: 'format.failed', pageId: 'p', elementId: 't', params: { reason: 'XH_EXPR_FORMAT_OUT_OF_RANGE' } },
@@ -668,7 +668,7 @@ describe('取值、表达式与格式', () => {
     const text = registry.createElement('text', { id: 't', x: 0, y: 0, overrides: { content: { kind: 'field', field: 'n', format: { kind: 'percent', decimals: 0 } } } })
     const format = (): string => 1 as unknown as string
     try {
-      paginate(documentOf(squarePage('p', [text])), { n: 1 }, { measurer: createFakeMeasurer(), format })
+      paginate(documentOf(squarePage('p', [text])), { n: 1 }, { measurer: createFakeMeasurer(), formatter: format })
       throw new Error('expected an error')
     }
     catch (error) {
@@ -736,7 +736,7 @@ describe('错误与上限', () => {
   it('表达式编译失败时按文档不合法抛错', () => {
     const text = registry.createElement('text', { id: 't', x: 0, y: 0, overrides: { content: { kind: 'expression', expression: 'unknown(' } } })
     try {
-      paginate(documentOf(squarePage('p', [text])), {}, { measurer: createFakeMeasurer(), expressions: fakeEngine })
+      paginate(documentOf(squarePage('p', [text])), {}, { measurer: createFakeMeasurer(), expressionEngine: fakeEngine })
       throw new Error('expected an error')
     }
     catch (error) {
@@ -760,7 +760,7 @@ describe('错误与上限', () => {
     expectOption({}, 'measurer')
     expectOption({ measurer: createFakeMeasurer(), maxSheets: 0 }, 'maxSheets')
     expectOption({ measurer: createFakeMeasurer(), maxSheets: 1.5 }, 'maxSheets')
-    expectOption({ measurer: createFakeMeasurer(), format: 'number' }, 'format')
+    expectOption({ measurer: createFakeMeasurer(), formatter: 'number' }, 'formatter')
   })
 
   it('测量结果不合法时抛错', () => {
