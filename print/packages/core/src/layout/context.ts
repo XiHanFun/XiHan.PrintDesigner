@@ -4,7 +4,6 @@
  */
 
 import type { ExpressionCompilation, ExpressionEngine } from '../expression'
-import type { FormatResult, ValueFormatter } from '../format'
 import type { IssueParams } from '../validation/issues'
 import type {
   PaginationDiagnostic,
@@ -12,6 +11,7 @@ import type {
   TextMeasurement,
   TextMeasurer,
   TextMeasureRequest,
+  ValueFormatter,
 } from './types'
 import { PrintLayoutError } from './types'
 
@@ -96,20 +96,4 @@ export function createLayoutContext(
     }
   }
   return context
-}
-
-const FORMAT_PROBLEM_CODES = {
-  formatterUnavailable: 'format.unavailable',
-  expressionUnavailable: 'expression.unavailable',
-  expressionFailed: 'expression.failed',
-  notScalar: 'data.notScalar',
-} as const satisfies Record<NonNullable<FormatResult['problem']>, PaginationDiagnosticCode>
-
-/** 把格式化或求值的问题报告为诊断，返回结果文本。 */
-export function reportFormatResult(context: LayoutContext, scope: DiagnosticScope, result: FormatResult): string {
-  if (result.problem !== undefined) {
-    const reason = result.issue?.code
-    context.report(FORMAT_PROBLEM_CODES[result.problem], scope, reason === undefined ? undefined : { reason })
-  }
-  return result.text
 }
