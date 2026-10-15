@@ -525,11 +525,12 @@ describe('复合属性', () => {
 
   it('单元格样式与表格网格线', () => {
     const table = cloneJson(createSampleTable()) as unknown as Record<string, unknown>
-    table.header = { visible: true, repeat: true, height: 8, style: { fontSize: 10, bold: 'yes', italic: false, color: '#000', verticalAlign: 'center', padding: 1 } }
+    table.header = { visible: true, repeat: true, height: 8, style: { fontSize: 10, bold: 'yes', italic: false, color: '#000', verticalAlign: 'center', padding: 1, lineHeight: 0 } }
     table.border = { stroke: { width: 0.2, style: 'solid', color: '#000' }, outer: true, horizontal: true }
     expect(issuesOf(withBody(table))).toEqual([
       'schema.invalidType@pages.0.elements.0.header.style.bold',
       'value.invalidOption@pages.0.elements.0.header.style.verticalAlign',
+      'value.outOfRange@pages.0.elements.0.header.style.lineHeight',
       'schema.missingProperty@pages.0.elements.0.border.vertical',
     ])
   })

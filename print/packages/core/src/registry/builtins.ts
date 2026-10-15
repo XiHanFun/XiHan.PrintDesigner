@@ -24,6 +24,7 @@ import {
   IMAGE_FITS,
   LINE_DIRECTIONS,
   QR_ERROR_CORRECTION_LEVELS,
+  TABLE_ROW_HEIGHT_MODES,
   TEXT_OVERFLOWS,
 } from '../schema/options'
 import {
@@ -59,6 +60,7 @@ function defaultCellStyle(overrides: Partial<CellStyle> = {}): CellStyle {
     color: '#000000',
     verticalAlign: 'middle',
     padding: 1,
+    lineHeight: 4.5,
     ...overrides,
   }
 }
@@ -222,7 +224,7 @@ function tablePrototype(): ElementPrototype<TableElement> {
       },
       body: {
         rowHeight: 7,
-        autoHeight: false,
+        rowHeightMode: 'fixed',
         style: defaultCellStyle(),
       },
       footerRows: [],
@@ -238,7 +240,7 @@ function tablePrototype(): ElementPrototype<TableElement> {
       property(['header', 'height'], 'table', { kind: 'number', unit: 'mm', exclusiveMin: 0, step: 0.1 }, { when: visible }),
       property(['header', 'style'], 'table', { kind: 'cellStyle' }, { when: visible }),
       property(['body', 'rowHeight'], 'table', { kind: 'number', unit: 'mm', exclusiveMin: 0, step: 0.1 }),
-      property(['body', 'autoHeight'], 'table', { kind: 'boolean' }),
+      property(['body', 'rowHeightMode'], 'table', { kind: 'select', options: TABLE_ROW_HEIGHT_MODES }),
       property(['body', 'style'], 'table', { kind: 'cellStyle' }),
       property(['footerRows'], 'table', { kind: 'tableFooterRows' }),
       property(['maxRowsPerPage'], 'table', { kind: 'number', unit: 'count', min: 1, step: 1, integer: true }, { required: false }),

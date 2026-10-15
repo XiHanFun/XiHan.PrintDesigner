@@ -11,6 +11,7 @@ import type {
   HorizontalAlign,
   TableCellType,
   TableFooterPlacement,
+  TableRowHeightMode,
   VerticalAlign,
 } from './options'
 
@@ -28,6 +29,8 @@ export interface CellStyle {
   verticalAlign: VerticalAlign
   /** 左右内边距，单位 mm。 */
   padding: number
+  /** 单元格文字每一行的高度，单位 mm。 */
+  lineHeight: number
 }
 
 /** 表体单元格显示行内字段。 */
@@ -93,10 +96,9 @@ export interface TableHeader {
 
 /** 表体。 */
 export interface TableBody {
-  /** 行高，单位 mm；`autoHeight` 为 true 时作为最小行高。 */
+  /** 行高，单位 mm；`rowHeightMode` 为 minimum 时作为最小行高。 */
   rowHeight: number
-  /** 是否按内容撑高行。 */
-  autoHeight: boolean
+  rowHeightMode: TableRowHeightMode
   style: CellStyle
 }
 

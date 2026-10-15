@@ -93,6 +93,12 @@ export const TABLE_FOOTER_PLACEMENTS = ['everyPage', 'lastPage'] as const
 /** 表尾行出现位置：everyPage 表格所跨的每一页，lastPage 仅表格结束的那一页。 */
 export type TableFooterPlacement = (typeof TABLE_FOOTER_PLACEMENTS)[number]
 
+/** 表体行高模式取值。 */
+export const TABLE_ROW_HEIGHT_MODES = ['fixed', 'minimum'] as const
+
+/** 表体行高模式：fixed 每行固定为设定的行高，minimum 以设定的行高为下限、按单元格内容撑高。 */
+export type TableRowHeightMode = (typeof TABLE_ROW_HEIGHT_MODES)[number]
+
 /** 表格列单元格的呈现类型取值。 */
 export const TABLE_CELL_TYPES = ['text', 'image', 'barcode', 'qrcode'] as const
 

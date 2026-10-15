@@ -9,7 +9,7 @@ import { createDocument, createElementRegistry, createPage } from '../src'
 const registry = createElementRegistry()
 
 function cellStyle(overrides: Partial<CellStyle> = {}): CellStyle {
-  return { fontSize: 10.5, bold: false, italic: false, color: '#000000', verticalAlign: 'middle', padding: 1, ...overrides }
+  return { fontSize: 10.5, bold: false, italic: false, color: '#000000', verticalAlign: 'middle', padding: 1, lineHeight: 4.5, ...overrides }
 }
 
 function column(id: string, width: number, content: TableColumn['content'], align: TableColumn['align'] = 'left'): TableColumn {
