@@ -45,9 +45,9 @@ XiHan.PrintDesigner is a framework-agnostic print designer delivered as native W
 
 | Package | Description |
 | --- | --- |
-| `@xihanfun/print-core` | Model layer: template schema, validation and edit commands; pure TypeScript, no DOM |
-| `@xihanfun/print-runtime` | Runtime: template preview, browser printing and the print client connection for business pages |
-| `@xihanfun/print-designer` | Designer: visual print template designer |
+| `@xihan-print/core` | Model layer: template schema, validation and edit commands; pure TypeScript, no DOM |
+| `@xihan-print/runtime` | Runtime: template preview, browser printing and the print client connection for business pages |
+| `@xihan-print/designer` | Designer: visual print template designer |
 
 Dependencies point `designer → runtime → core`. Business pages only need the runtime; the designer is loaded only where templates are edited.
 

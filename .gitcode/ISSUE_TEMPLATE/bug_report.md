@@ -41,7 +41,7 @@ labels: bug
 
 ## 相关包
 
-<!-- 如 @xihanfun/print-designer -->
+<!-- 如 @xihan-print/designer -->
 
 ## 版本
 

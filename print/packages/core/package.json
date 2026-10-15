@@ -1,5 +1,5 @@
 {
-  "name": "@xihanfun/print-core",
+  "name": "@xihan-print/core",
   "type": "module",
   "version": "0.0.0",
   "description": "XiHan Print Designer core — template schema, validation and edit commands; pure TypeScript, no DOM.",
