@@ -3,6 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { BarCodeFormat, MatrixCodeFormat, QrLevel } from '@xihan-ui/headless'
+
 /** 页面方向取值。 */
 export const PAGE_ORIENTATIONS = ['portrait', 'landscape'] as const
 
@@ -63,17 +65,41 @@ export const LINE_DIRECTIONS = ['horizontal', 'vertical', 'diagonalDown', 'diago
  */
 export type LineDirection = (typeof LINE_DIRECTIONS)[number]
 
-/** 一维条码码制取值。 */
-export const BARCODE_SYMBOLOGIES = ['code128', 'code39', 'ean13', 'ean8', 'upca', 'itf14'] as const
+/** 一维条码码制，即 @xihan-ui/headless 的 BarCodeFormat。 */
+export type BarcodeSymbology = BarCodeFormat
 
-/** 一维条码码制。 */
-export type BarcodeSymbology = (typeof BARCODE_SYMBOLOGIES)[number]
+const BARCODE_SYMBOLOGY_SET = {
+  code128: true,
+  ean13: true,
+  ean8: true,
+  upca: true,
+  upce: true,
+  itf14: true,
+  code39: true,
+} as const satisfies Record<BarCodeFormat, true>
 
-/** 二维码纠错等级取值。 */
-export const QR_ERROR_CORRECTION_LEVELS = ['L', 'M', 'Q', 'H'] as const
+/** 一维条码码制取值，与 BarCodeFormat 逐一对应。 */
+export const BARCODE_SYMBOLOGIES = Object.keys(BARCODE_SYMBOLOGY_SET) as readonly BarcodeSymbology[]
 
-/** 二维码纠错等级。 */
-export type QrErrorCorrectionLevel = (typeof QR_ERROR_CORRECTION_LEVELS)[number]
+export type { MatrixCodeFormat, MatrixCodeLevel } from '@xihan-ui/headless'
+
+const MATRIX_CODE_FORMAT_SET = {
+  'qr': true,
+  'data-matrix': true,
+  'pdf417': true,
+  'aztec': true,
+} as const satisfies Record<MatrixCodeFormat, true>
+
+/** 二维码码制取值，与 @xihan-ui/headless 的 MatrixCodeFormat 逐一对应。 */
+export const MATRIX_CODE_FORMATS = Object.keys(MATRIX_CODE_FORMAT_SET) as readonly MatrixCodeFormat[]
+
+/** QR 纠错等级，即 @xihan-ui/headless 的 QrLevel。 */
+export type QrErrorCorrectionLevel = QrLevel
+
+const QR_LEVEL_SET = { L: true, M: true, Q: true, H: true } as const satisfies Record<QrLevel, true>
+
+/** QR 纠错等级取值，与 QrLevel 逐一对应。 */
+export const QR_ERROR_CORRECTION_LEVELS = Object.keys(QR_LEVEL_SET) as readonly QrErrorCorrectionLevel[]
 
 /** 表格汇总函数取值。 */
 export const AGGREGATE_FUNCTIONS = ['sum', 'avg', 'count', 'min', 'max'] as const

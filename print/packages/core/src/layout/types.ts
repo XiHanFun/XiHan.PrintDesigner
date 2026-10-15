@@ -25,9 +25,10 @@ import type {
   HorizontalAlign,
   ImageFit,
   LineDirection,
+  MatrixCodeFormat,
+  MatrixCodeLevel,
   PageBandKey,
   PageOrientation,
-  QrErrorCorrectionLevel,
   TableCellType,
 } from '../schema/options'
 import type { CellStyle, TableBorder } from '../schema/table'
@@ -171,8 +172,10 @@ export interface BarcodeLayoutBox extends LayoutBoxBase {
 /** 二维码布局盒。 */
 export interface QrCodeLayoutBox extends LayoutBoxBase {
   kind: 'qrcode'
+  format: MatrixCodeFormat
   value: string
-  errorCorrection: QrErrorCorrectionLevel
+  /** 纠错级别，缺省取码制的默认值。 */
+  level?: MatrixCodeLevel
   color: Color
   background?: Color
   quietZone: number
@@ -266,7 +269,7 @@ export type PaginationDiagnosticCode
     | 'expression.failed'
     | 'image.unsafeSource'
     | 'barcode.invalidValue'
-    | 'qrcode.capacityExceeded'
+    | 'qrcode.invalidValue'
     | 'text.overflow'
     | 'table.rowOverflow'
     | 'element.overflow'

@@ -10,6 +10,9 @@ allowBuilds:
 
 # 依赖目录（单一版本事实源）。包内一律用 catalog: 引用，升级只改这里一处
 catalog:
+  # 运行时依赖
+  '@xihan-ui/headless': ^4.2.0
+  # 开发依赖
   '@antfu/eslint-config': ^9.5.1
   '@types/node': ^24.10.0
   eslint: ^10.12.0
@@ -17,3 +20,10 @@ catalog:
   tsdown: ~0.22.0
   typescript: ^6.0.3
   vitest: ^4.1.11
+
+minimumReleaseAgeExclude:
+  - '@xihan-ui/core@4.2.0'
+  - '@xihan-ui/headless@4.2.0'
+  - '@xihan-ui/motion@4.2.0'
+  - '@xihan-ui/pointer@4.2.0'
+  - '@xihan-ui/viz@4.2.0'

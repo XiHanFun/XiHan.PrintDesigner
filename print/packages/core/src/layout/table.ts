@@ -14,9 +14,8 @@ import type {
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { BodyGeometry, Placement, SheetCursor } from './placement'
 import type { TableCellLayout, TableLayoutBox, TableRowLayout } from './types'
-import { checkBarcodeValue } from '../barcode'
+import { canEncodeBarcode, canEncodeMatrixCode } from '../codes'
 import { getFieldValue } from '../data'
-import { measureQrCapacity } from '../qrcode'
 import { ptToMm } from '../units'
 import { isSafeImageUrl } from '../validation/controls'
 import { boxBase } from './boxes'
@@ -116,18 +115,14 @@ function bodyRow(table: TableElement, columns: PreparedColumn[], row: unknown, i
           cell.text = ''
         }
         break
-      case 'barcode': {
-        const reason = column.symbology === undefined ? undefined : checkBarcodeValue(column.symbology, text)
-        if (reason !== undefined)
-          context.report('barcode.invalidValue', scope, { columnId: column.id, symbology: column.symbology ?? '', reason })
+      case 'barcode':
+        if (text.length > 0 && column.symbology !== undefined && !canEncodeBarcode(column.symbology, text))
+          context.report('barcode.invalidValue', scope, { columnId: column.id, symbology: column.symbology })
         break
-      }
-      case 'qrcode': {
-        const capacity = measureQrCapacity(text, 'M')
-        if (capacity.length > capacity.max)
-          context.report('qrcode.capacityExceeded', scope, { columnId: column.id, ...capacity })
+      case 'qrcode':
+        if (text.length > 0 && !canEncodeMatrixCode('qr', text))
+          context.report('qrcode.invalidValue', scope, { columnId: column.id, format: 'qr' })
         break
-      }
     }
     return cell
   })

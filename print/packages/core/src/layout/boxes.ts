@@ -15,10 +15,9 @@ import type {
 import type { ElementRegion } from '../traverse'
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { LayoutBox, LayoutBoxBase, TextLayoutBox, TextMeasurement } from './types'
-import { checkBarcodeValue } from '../barcode'
+import { canEncodeBarcode, canEncodeMatrixCode, fitMatrixCodeLevel } from '../codes'
 import { getFieldValue } from '../data'
 import { formatPageNumber } from '../page-number-format'
-import { measureQrCapacity } from '../qrcode'
 import { isSafeImageUrl } from '../validation/controls'
 import { contentText, valueText } from './content'
 import { LAYOUT_EPSILON } from './context'
@@ -122,9 +121,8 @@ function layoutImage(element: ImageElement, region: ElementRegion, context: Layo
 
 function layoutBarcode(element: BarcodeElement, region: ElementRegion, context: LayoutContext, scope: DiagnosticScope): LayoutBox {
   const value = contentText(element.content, context.data, context, scope)
-  const reason = checkBarcodeValue(element.symbology, value)
-  if (reason !== undefined)
-    context.report('barcode.invalidValue', scope, { symbology: element.symbology, reason })
+  if (value.length > 0 && !canEncodeBarcode(element.symbology, value))
+    context.report('barcode.invalidValue', scope, { symbology: element.symbology })
   return {
     ...boxBase(element, region),
     kind: 'barcode',
@@ -139,18 +137,20 @@ function layoutBarcode(element: BarcodeElement, region: ElementRegion, context: 
 
 function layoutQrCode(element: QrCodeElement, region: ElementRegion, context: LayoutContext, scope: DiagnosticScope): LayoutBox {
   const value = contentText(element.content, context.data, context, scope)
-  const capacity = measureQrCapacity(value, element.errorCorrection)
-  if (capacity.length > capacity.max)
-    context.report('qrcode.capacityExceeded', scope, { ...capacity })
+  const level = fitMatrixCodeLevel(element.format, element.level) === 'valid' ? element.level : undefined
+  if (value.length > 0 && !canEncodeMatrixCode(element.format, value, level))
+    context.report('qrcode.invalidValue', scope, { format: element.format })
   const box: LayoutBox = {
     ...boxBase(element, region),
     kind: 'qrcode',
+    format: element.format,
     value,
-    errorCorrection: element.errorCorrection,
     color: element.color,
     quietZone: element.quietZone,
     rotation: element.rotation,
   }
+  if (level !== undefined)
+    box.level = level
   if (element.background !== undefined)
     box.background = element.background
   return box

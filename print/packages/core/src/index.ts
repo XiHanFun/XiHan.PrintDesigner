@@ -5,7 +5,6 @@
 
 // 导出 @xihan-print/core 的公共接口。
 
-export * from './barcode'
 export * from './expression'
 export * from './factory'
 export * from './field-path'
@@ -22,7 +21,6 @@ export type { PathWriteResult } from './operations/path'
 export * from './operations/types'
 export * from './page-number-format'
 export * from './paper'
-export * from './qrcode'
 export * from './registry/builtins'
 export * from './registry/registry'
 export * from './registry/types'
