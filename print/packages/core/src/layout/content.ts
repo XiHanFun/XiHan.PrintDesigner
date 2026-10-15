@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { EngineCompileResult, ExpressionIssue, FormatSpec } from '@xihan-ui/expression'
+import type { EngineEvaluation, ExpressionIssue, FormatSpec } from '@xihan-ui/expression'
 import type { MapFormat, TextContent, ValueFormat } from '../schema/common'
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { PaginationDiagnosticCode } from './types'
@@ -33,8 +33,8 @@ export interface ValueResult {
 /** 取值与格式化依赖的注入接口。 */
 export interface ValueOptions {
   formatter?: (value: unknown, spec: FormatSpec) => string
-  /** 编译表达式源码，未提供时表达式不可用。 */
-  compile?: (source: string) => EngineCompileResult
+  /** 按源码求值，未提供时表达式不可用。 */
+  evaluate?: (source: string, scope: Readonly<Record<string, unknown>>) => EngineEvaluation
 }
 
 const PROBLEM_CODES = {
@@ -71,20 +71,15 @@ export function scopeVariables(scope: unknown): Readonly<Record<string, unknown>
   return isPlainObject(scope) ? scope : {}
 }
 
-/** 编译并以给定变量求表达式，结果转成文本。 */
+/** 以给定变量求表达式，结果转成文本；编译不通过与求值失败都记为 expressionFailed，带上第一处问题。 */
 export function evaluateExpression(
-  compile: ValueOptions['compile'],
+  evaluate: ValueOptions['evaluate'],
   source: string,
   variables: Readonly<Record<string, unknown>>,
 ): ValueResult {
-  if (compile === undefined)
+  if (evaluate === undefined)
     return { text: '', problem: 'expressionUnavailable' }
-  const compiled = compile(source)
-  if (!compiled.ok) {
-    const [issue] = compiled.issues
-    return issue === undefined ? { text: '', problem: 'expressionFailed' } : { text: '', problem: 'expressionFailed', issue }
-  }
-  const result = compiled.evaluate(variables)
+  const result = evaluate(source, variables)
   if (!result.ok)
     return { text: '', problem: 'expressionFailed', issue: result.issue }
   const display = toDisplayText(result.value)
@@ -97,7 +92,7 @@ export function evaluateExpression(
  */
 export function formatValue(value: unknown, format: ValueFormat, options: ValueOptions = {}): ValueResult {
   if (format.kind === 'expression')
-    return evaluateExpression(options.compile, format.expression, { value })
+    return evaluateExpression(options.evaluate, format.expression, { value })
   if (isEmptyValue(value))
     return { text: '' }
   if (format.kind === 'map')
@@ -151,7 +146,7 @@ export function evaluatedText(
   context: LayoutContext,
   scope: DiagnosticScope,
 ): string {
-  const result = evaluateExpression(context.compile, source, variables)
+  const result = evaluateExpression(context.evaluate, source, variables)
   if (result.problem !== undefined)
     return reportValueResult(context, scope, result)
   return format === undefined ? result.text : reportValueResult(context, scope, formatValue(result.value, format, context))

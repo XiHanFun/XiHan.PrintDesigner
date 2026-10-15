@@ -3,10 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { EngineCompileResult, ExpressionEngine, FormatOptions, FormatSpec } from '@xihan-ui/expression'
+import type { EngineCompileResult, EngineEvaluation, ExpressionEngine, FormatOptions, FormatSpec } from '@xihan-ui/expression'
 import type { TextMeasurer, TextSize } from '@xihan-ui/viz'
 import type { IssueParams } from '../validation/issues'
 import type { PaginationDiagnostic, PaginationDiagnosticCode, ValueFormatter } from './types'
+import { evaluateSource } from '@xihan-ui/expression'
 import { PrintLayoutError } from './types'
 
 /** 长度比较的容差，单位 mm。 */
@@ -21,8 +22,8 @@ export interface DiagnosticScope {
 /** 一次分页内共享的上下文。 */
 export interface LayoutContext {
   data: unknown
-  /** 编译表达式源码，同一源码只编译一次；未提供表达式接入点时为 undefined。 */
-  compile?: (source: string) => EngineCompileResult
+  /** 按源码在给定变量上求值，同一源码一轮分页只编译一次；未提供表达式引擎时为 undefined。 */
+  evaluate?: (source: string, scope: Readonly<Record<string, unknown>>) => EngineEvaluation
   /** 已绑定区域与时区的值格式化器，返回值不是字符串时抛出 PrintLayoutError。 */
   formatter?: (value: unknown, spec: FormatSpec) => string
   report: (code: PaginationDiagnosticCode, scope: DiagnosticScope, params?: IssueParams) => void
@@ -78,15 +79,8 @@ export function createLayoutContext(
   }
   const engine = options.expressionEngine
   if (engine !== undefined) {
-    const compiled = new Map<string, EngineCompileResult>()
-    context.compile = (source) => {
-      let result = compiled.get(source)
-      if (result === undefined) {
-        result = engine.compile(source)
-        compiled.set(source, result)
-      }
-      return result
-    }
+    const cache = new Map<string, EngineCompileResult>()
+    context.evaluate = (source, scope) => evaluateSource(engine, source, scope, cache)
   }
   const format = options.formatter
   if (format !== undefined) {

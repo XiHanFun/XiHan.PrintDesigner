@@ -3,8 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { EngineCompileResult, FormatSpec } from '@xihan-ui/expression'
+import type { EngineCompileResult, ExpressionEngine, FormatSpec } from '@xihan-ui/expression'
 import type { MapFormat } from '../src'
+import { evaluateSource } from '@xihan-ui/expression'
 import { describe, expect, it } from 'vitest'
 import { fillTextTemplate, getFieldValue, toDisplayText } from '../src/data'
 import { evaluateExpression, formatValue, isEmptyValue, mapValue } from '../src/layout/content'
@@ -62,7 +63,7 @@ describe('值格式', () => {
     expect(isEmptyValue(0)).toBe(false)
   })
 
-  it('表达式格式经表达式接入点编译求值', () => {
+  it('表达式格式经表达式引擎按源码求值', () => {
     const compile = (source: string): EngineCompileResult => {
       if (source === 'bad')
         return { ok: false, issues: [{ code: 'XH_EXPR_UNEXPECTED_TOKEN', start: 0, end: 3 }] }
@@ -70,21 +71,22 @@ describe('值格式', () => {
         return { ok: true, references: [], evaluate: () => ({ ok: false, issue: { code: 'XH_EXPR_DIVISION_BY_ZERO', start: 0, end: 4 } }) }
       return { ok: true, references: [], evaluate: scope => ({ ok: true, value: `${source}:${String(scope.value)}` }) }
     }
-    expect(formatValue(5, { kind: 'expression', expression: 'x' }, { compile })).toEqual({ text: 'x:5', value: 'x:5' })
-    expect(formatValue(null, { kind: 'expression', expression: 'x' }, { compile })).toEqual({ text: 'x:null', value: 'x:null' })
-    expect(formatValue(5, { kind: 'expression', expression: 'bad' }, { compile })).toEqual({
+    const engine: ExpressionEngine = { compile }
+    const evaluate = (source: string, scope: Readonly<Record<string, unknown>>) => evaluateSource(engine, source, scope)
+    expect(formatValue(5, { kind: 'expression', expression: 'x' }, { evaluate })).toEqual({ text: 'x:5', value: 'x:5' })
+    expect(formatValue(null, { kind: 'expression', expression: 'x' }, { evaluate })).toEqual({ text: 'x:null', value: 'x:null' })
+    expect(formatValue(5, { kind: 'expression', expression: 'bad' }, { evaluate })).toEqual({
       text: '',
       problem: 'expressionFailed',
       issue: { code: 'XH_EXPR_UNEXPECTED_TOKEN', start: 0, end: 3 },
     })
-    expect(formatValue(5, { kind: 'expression', expression: 'fail' }, { compile })).toEqual({
+    expect(formatValue(5, { kind: 'expression', expression: 'fail' }, { evaluate })).toEqual({
       text: '',
       problem: 'expressionFailed',
       issue: { code: 'XH_EXPR_DIVISION_BY_ZERO', start: 0, end: 4 },
     })
     expect(formatValue(5, { kind: 'expression', expression: 'x' })).toEqual({ text: '', problem: 'expressionUnavailable' })
-    const objectResult = (): EngineCompileResult => ({ ok: true, references: [], evaluate: () => ({ ok: true, value: { a: 1 } }) })
-    expect(evaluateExpression(objectResult, 'x', {})).toEqual({ text: '', problem: 'notScalar' })
+    expect(evaluateExpression(() => ({ ok: true, value: { a: 1 } }), 'x', {})).toEqual({ text: '', problem: 'notScalar' })
   })
 })
 
