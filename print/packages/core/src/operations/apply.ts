@@ -3,9 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { JsonValue } from '@xihan-ui/core/json'
+import type { JsonPathSegment, JsonValue } from '@xihan-ui/core/json'
 import type { Rect } from '@xihan-ui/designer-kit'
-import type { PathSegment } from '../json-path'
 import type { ElementRegistry } from '../registry/registry'
 import type { PageBand, PageBandSet, PrintDocument, PrintPage } from '../schema/document'
 import type { PrintElement } from '../schema/elements'
@@ -313,7 +312,7 @@ function movePage(document: PrintDocument, operation: MovePageOperation): Operat
   }
 }
 
-function checkPageChange(page: PrintPage, path: readonly PathSegment[]): void {
+function checkPageChange(page: PrintPage, path: readonly JsonPathSegment[]): void {
   const [head, second, third] = path
   if (typeof head === 'string' && PAGE_SETTING_KEYS.includes(head))
     return
@@ -322,7 +321,7 @@ function checkPageChange(page: PrintPage, path: readonly PathSegment[]): void {
       return
     const isBandHeight = path.length === 3
       && third === 'height'
-      && (PAGE_BAND_KEYS as readonly PathSegment[]).includes(second as PathSegment)
+      && (PAGE_BAND_KEYS as readonly JsonPathSegment[]).includes(second as JsonPathSegment)
     if (isBandHeight) {
       if (page[head][second as PageBandKey] === undefined)
         throw bandNotFound(page.id, head, String(second))

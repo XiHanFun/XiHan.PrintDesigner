@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { PathSegment } from '../json-path'
+import type { JsonPathSegment } from '@xihan-ui/core/json'
 import type { PropertyControl } from '../registry/types'
 import type { FieldRule } from './checks'
 import type { IssueSink } from './issues'
@@ -36,7 +36,7 @@ import {
   field,
 } from './checks'
 
-type Path = readonly PathSegment[]
+type Path = readonly JsonPathSegment[]
 
 function kindOf(value: Record<string, unknown>, kinds: readonly string[], path: Path, sink: IssueSink): string | undefined {
   if (value.kind === undefined) {
