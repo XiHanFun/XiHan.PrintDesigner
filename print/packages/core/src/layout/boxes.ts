@@ -15,7 +15,8 @@ import type {
 import type { ElementRegion } from '../traverse'
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { LayoutBox, LayoutBoxBase, TextLayoutBox, TextMeasurement } from './types'
-import { canEncodeBarCode, canEncodeMatrixCode, fitMatrixCodeLevel } from '../codes'
+import { checkBarCodeValue, matrixCodeLevelFit } from '@xihan-ui/headless'
+import { barCodeIssueParams, checkMatrixCodeContent, matrixCodeIssueParams } from '../codes'
 import { getFieldValue } from '../data'
 import { formatPageNumber } from '../page-number-format'
 import { isSafeImageUrl } from '../validation/controls'
@@ -121,8 +122,9 @@ function layoutImage(element: ImageElement, region: ElementRegion, context: Layo
 
 function layoutBarCode(element: BarCodeElement, region: ElementRegion, context: LayoutContext, scope: DiagnosticScope): LayoutBox {
   const value = contentText(element.content, context.data, context, scope)
-  if (value.length > 0 && !canEncodeBarCode(element.format, value))
-    context.report('barCode.invalidValue', scope, { format: element.format })
+  const issue = checkBarCodeValue(element.format, value)
+  if (issue !== undefined)
+    context.report('barCode.invalidValue', scope, barCodeIssueParams(element.format, issue))
   return {
     ...boxBase(element, region),
     kind: 'barCode',
@@ -137,9 +139,10 @@ function layoutBarCode(element: BarCodeElement, region: ElementRegion, context: 
 
 function layoutMatrixCode(element: MatrixCodeElement, region: ElementRegion, context: LayoutContext, scope: DiagnosticScope): LayoutBox {
   const value = contentText(element.content, context.data, context, scope)
-  const level = fitMatrixCodeLevel(element.format, element.level) === 'valid' ? element.level : undefined
-  if (value.length > 0 && !canEncodeMatrixCode(element.format, value, level))
-    context.report('matrixCode.invalidValue', scope, { format: element.format })
+  const level = matrixCodeLevelFit(element.format, element.level) === 'valid' ? element.level : undefined
+  const issue = checkMatrixCodeContent(element.format, value, level)
+  if (issue !== undefined)
+    context.report('matrixCode.invalidValue', scope, matrixCodeIssueParams(element.format, issue))
   const box: LayoutBox = {
     ...boxBase(element, region),
     kind: 'matrixCode',

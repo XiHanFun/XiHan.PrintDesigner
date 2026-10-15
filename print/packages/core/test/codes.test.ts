@@ -3,55 +3,41 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import { MATRIX_CODE_FORMATS } from '@xihan-ui/headless'
+import { checkBarCodeValue } from '@xihan-ui/headless'
 import { describe, expect, it } from 'vitest'
-import { isSafeImageUrl, isValidColor, QR_ERROR_CORRECTION_LEVELS } from '../src'
-import { canEncodeBarCode, canEncodeMatrixCode, fitMatrixCodeLevel } from '../src/codes'
+import { isSafeImageUrl, isValidColor } from '../src'
+import { barCodeIssueParams, checkMatrixCodeContent, matrixCodeIssueParams } from '../src/codes'
 
-describe('纠错等级取值', () => {
-  it('与 @xihan-ui/headless 的 QrLevel 逐一对应', () => {
-    expect(QR_ERROR_CORRECTION_LEVELS).toEqual(['L', 'M', 'Q', 'H'])
-  })
-})
-
-describe('一维条码', () => {
+describe('条码问题参数', () => {
   it.each([
-    ['ean13', '4006381333931', true],
-    ['ean13', '400638133393', true],
-    ['ean13', '4006381333932', false],
-    ['ean8', '963850', false],
-    ['upce', '01234565', true],
-    ['code39', 'ABC-123', true],
-    ['code39', 'abc', false],
-    ['code128', 'Ab-12', true],
-    ['code128', '中文', false],
-  ] as const)('%s「%s」能否编码：%s', (format, value, expected) => {
-    expect(canEncodeBarCode(format, value)).toBe(expected)
+    ['ean13', '4006381333932', { format: 'ean13', reason: 'invalid-check-digit', expected: 1, actual: 2 }],
+    ['ean8', '963850', { format: 'ean8', reason: 'invalid-length', length: 6, lengths: ['7', '8'] }],
+    ['code39', 'abc', { format: 'code39', reason: 'invalid-character', character: 'a' }],
+    ['upce', '2123456', { format: 'upce', reason: 'invalid-number-system', actual: '2' }],
+  ] as const)('%s「%s」', (format, value, params) => {
+    const issue = checkBarCodeValue(format, value)
+    expect(issue).toBeDefined()
+    expect(barCodeIssueParams(format, issue!)).toEqual(params)
+  })
+
+  it('不认识的码制只带码制与问题码', () => {
+    expect(barCodeIssueParams('ean13', { code: 'unknown-format' })).toEqual({ format: 'ean13', reason: 'unknown-format' })
   })
 })
 
-describe('二维码', () => {
-  it('纠错级别按码制判断', () => {
-    expect(fitMatrixCodeLevel('qr', undefined)).toBe('valid')
-    expect(fitMatrixCodeLevel('qr', 'H')).toBe('valid')
-    expect(fitMatrixCodeLevel('qr', 3)).toBe('invalid')
-    expect(fitMatrixCodeLevel('pdf417', 8)).toBe('valid')
-    expect(fitMatrixCodeLevel('pdf417', 9)).toBe('invalid')
-    expect(fitMatrixCodeLevel('pdf417', 'M')).toBe('invalid')
-    expect(fitMatrixCodeLevel('aztec', 23)).toBe('valid')
-    expect(fitMatrixCodeLevel('aztec', 4)).toBe('invalid')
-    expect(fitMatrixCodeLevel('aztec', 50.5)).toBe('invalid')
-    expect(fitMatrixCodeLevel('data-matrix', 'M')).toBe('ignored')
-    expect(fitMatrixCodeLevel('data-matrix', undefined)).toBe('valid')
+describe('二维码内容', () => {
+  it('纠错级别适用时按级别检查', () => {
+    expect(checkMatrixCodeContent('qr', '中'.repeat(425), 'H')).toEqual({ code: 'capacity-exceeded' })
+    expect(checkMatrixCodeContent('qr', '中'.repeat(425), 'L')).toBeUndefined()
   })
 
-  it('按码制与纠错级别判断内容能否编码', () => {
-    for (const format of MATRIX_CODE_FORMATS)
-      expect(canEncodeMatrixCode(format, '1234567890'), format).toBe(true)
-    expect(canEncodeMatrixCode('qr', '中'.repeat(425), 'H')).toBe(false)
-    expect(canEncodeMatrixCode('qr', '中'.repeat(425), 'L')).toBe(true)
-    expect(canEncodeMatrixCode('pdf417', 'ABC', 2)).toBe(true)
-    expect(canEncodeMatrixCode('aztec', 'ABC', 50)).toBe(true)
+  it('纠错级别不适用或被忽略时按没给级别检查', () => {
+    expect(checkMatrixCodeContent('pdf417', 'ABC', 'H')).toBeUndefined()
+    expect(checkMatrixCodeContent('data-matrix', 'ABC', 'M')).toBeUndefined()
+  })
+
+  it('问题参数带码制与问题码', () => {
+    expect(matrixCodeIssueParams('qr', { code: 'capacity-exceeded' })).toEqual({ format: 'qr', reason: 'capacity-exceeded' })
   })
 })
 

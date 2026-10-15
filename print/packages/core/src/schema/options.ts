@@ -4,7 +4,6 @@
  */
 
 import type { FormatRounding } from '@xihan-ui/expression'
-import type { QrLevel } from '@xihan-ui/headless'
 
 /** 页面方向取值。 */
 export const PAGE_ORIENTATIONS = ['portrait', 'landscape'] as const
@@ -67,14 +66,6 @@ export const LINE_DIRECTIONS = ['horizontal', 'vertical', 'diagonalDown', 'diago
 export type LineDirection = (typeof LINE_DIRECTIONS)[number]
 
 export type { BarCodeFormat, MatrixCodeFormat, MatrixCodeLevel } from '@xihan-ui/headless'
-
-/** QR 纠错等级，即 @xihan-ui/headless 的 QrLevel。 */
-export type QrErrorCorrectionLevel = QrLevel
-
-const QR_LEVEL_SET = { L: true, M: true, Q: true, H: true } as const satisfies Record<QrLevel, true>
-
-/** QR 纠错等级取值，与 QrLevel 逐一对应。 */
-export const QR_ERROR_CORRECTION_LEVELS = Object.keys(QR_LEVEL_SET) as readonly QrErrorCorrectionLevel[]
 
 /** 数字格式的舍入方式取值，与 @xihan-ui/expression 的 FormatRounding 一致。 */
 export const FORMAT_ROUNDINGS = ['half-up', 'half-even', 'floor', 'ceil', 'down'] as const satisfies readonly FormatRounding[]
