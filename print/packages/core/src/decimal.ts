@@ -38,50 +38,27 @@ export function toDecimal(value: unknown): Decimal | undefined {
   return undefined
 }
 
-function pow10(exponent: number): bigint {
-  return 10n ** BigInt(exponent)
-}
-
 function signed(decimal: Decimal): bigint {
   return decimal.sign === -1 ? -decimal.coefficient : decimal.coefficient
 }
 
-function fromSigned(value: bigint, scale: number): Decimal {
-  return value < 0n ? { sign: -1, coefficient: -value, scale } : { sign: 1, coefficient: value, scale }
+function scaled(decimal: Decimal, scale: number): bigint {
+  return signed(decimal) * 10n ** BigInt(scale - decimal.scale)
 }
 
 /** 精确相加。 */
 export function addDecimals(a: Decimal, b: Decimal): Decimal {
   const scale = Math.max(a.scale, b.scale)
-  const sum = signed(a) * pow10(scale - a.scale) + signed(b) * pow10(scale - b.scale)
-  return fromSigned(sum, scale)
+  const sum = scaled(a, scale) + scaled(b, scale)
+  return sum < 0n ? { sign: -1, coefficient: -sum, scale } : { sign: 1, coefficient: sum, scale }
 }
 
 /** 比较大小，返回负数、0 或正数。 */
 export function compareDecimals(a: Decimal, b: Decimal): number {
   const scale = Math.max(a.scale, b.scale)
-  const left = signed(a) * pow10(scale - a.scale)
-  const right = signed(b) * pow10(scale - b.scale)
+  const left = scaled(a, scale)
+  const right = scaled(b, scale)
   return left === right ? 0 : left < right ? -1 : 1
-}
-
-/** 小数点右移 `places` 位，即乘以 10 的 `places` 次方。 */
-export function shiftDecimal(decimal: Decimal, places: number): Decimal {
-  const scale = decimal.scale - places
-  if (scale >= 0)
-    return { ...decimal, scale }
-  return { ...decimal, coefficient: decimal.coefficient * pow10(-scale), scale: 0 }
-}
-
-/** 按绝对值四舍五入到 `decimals` 位小数。 */
-export function roundDecimal(decimal: Decimal, decimals: number): Decimal {
-  if (decimal.scale <= decimals)
-    return { ...decimal, coefficient: decimal.coefficient * pow10(decimals - decimal.scale), scale: decimals }
-  const divisor = pow10(decimal.scale - decimals)
-  let coefficient = decimal.coefficient / divisor
-  if ((decimal.coefficient % divisor) * 2n >= divisor)
-    coefficient += 1n
-  return { sign: coefficient === 0n ? 1 : decimal.sign, coefficient, scale: decimals }
 }
 
 /** 转成定点字符串，小数位数为十进制数自身的 scale。 */

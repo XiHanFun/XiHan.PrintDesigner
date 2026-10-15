@@ -14,6 +14,7 @@ import {
   createFakeMeasurer,
   documentOf,
   fakeEngine,
+  fakeFormatter,
   itemsOf,
   registry,
   run,
@@ -523,18 +524,20 @@ describe('取值、表达式与格式', () => {
       registry.createElement('text', { id: 'expr', x: 0, y: 40, overrides: { content: { kind: 'expression', expression: 'upper(name)' } } }),
       registry.createElement('text', { id: 'formatExpr', x: 0, y: 50, overrides: { content: { kind: 'field', field: 'n', format: { kind: 'expression', expression: 'value + 1' } } } }),
       registry.createElement('text', { id: 'exprFormat', x: 0, y: 60, overrides: { content: { kind: 'expression', expression: 'qty * price', format: { kind: 'chineseAmount' } } } }),
+      registry.createElement('text', { id: 'map', x: 0, y: 70, overrides: { content: { kind: 'field', field: 'gender', format: { kind: 'map', entries: [{ value: '1', text: '男' }, { value: '2', text: '女' }] } } } }),
     ]
-    const data = { amount: 1234.5, customer: { name: '张三', code: 'C01' }, name: 'abc', n: 41, qty: 2, price: 50.25 }
-    const result = run(documentOf(squarePage('p', elements)), data, { expressions: fakeEngine })
+    const data = { amount: 1234.5, customer: { name: '张三', code: 'C01' }, name: 'abc', n: 41, qty: 2, price: 50.25, gender: 2 }
+    const result = run(documentOf(squarePage('p', elements)), data, { expressions: fakeEngine, format: fakeFormatter })
     const sheet = result.sheets[0]!
-    expect(['static', 'field', 'empty', 'template', 'expr', 'formatExpr', 'exprFormat'].map(id => textOf(sheet, id))).toEqual([
+    expect(['static', 'field', 'empty', 'template', 'expr', 'formatExpr', 'exprFormat', 'map'].map(id => textOf(sheet, id))).toEqual([
       '固定',
-      '¥1,234.50',
+      'number:1234.5',
       '-',
       '张三（C01）',
       'ABC',
       '42',
-      '壹佰元伍角',
+      'chineseAmount:100.5',
+      '女',
     ])
     expect(result.diagnostics).toEqual([])
   })
@@ -548,9 +551,9 @@ describe('取值、表达式与格式', () => {
     })
     const compiled: string[] = []
     const items = [{ name: 'A', qty: 3, price: 1.5 }, { name: 'B', qty: 2, price: 2 }]
-    const result = run(documentOf(squarePage('p', [table])), { items }, { expressions: createFakeEngine(compiled) })
+    const result = run(documentOf(squarePage('p', [table])), { items }, { expressions: createFakeEngine(compiled), format: fakeFormatter })
     const rows = tableSlices(result, 't')[0]!.rows.filter(row => row.role === 'body')
-    expect(rows.map(row => row.cells.map(cell => cell.text))).toEqual([['A×3', '4.50'], ['B×2', '4.00']])
+    expect(rows.map(row => row.cells.map(cell => cell.text))).toEqual([['A×3', 'number:4.5'], ['B×2', 'number:4']])
     expect(compiled.filter(source => source === 'qty * price')).toHaveLength(2)
   })
 
@@ -577,14 +580,43 @@ describe('取值、表达式与格式', () => {
     const table = simpleTable('t', 10, {
       columns: [{ id: 'qty', title: '数量', width: 100, align: 'right', content: { kind: 'field', field: 'qty', format: { kind: 'number', decimals: 0, thousands: false } }, cellType: 'text' }],
     })
-    const result = run(documentOf(squarePage('p', [table])), { items: [{ qty: 'a' }, { qty: 'b' }, { qty: 'c' }] })
-    expect(result.diagnostics).toEqual([{ code: 'format.notNumber', pageId: 'p', elementId: 't' }])
+    const result = run(documentOf(squarePage('p', [table])), { items: [{ qty: 1 }, { qty: 2 }, { qty: 3 }] })
+    expect(result.diagnostics).toEqual([{ code: 'format.unavailable', pageId: 'p', elementId: 't' }])
+    expect(tableSlices(result, 't')[0]!.rows.filter(row => row.role === 'body').map(row => row.cells[0]!.text)).toEqual(['1', '2', '3'])
   })
 
-  it('日期按给定时区格式化', () => {
-    const text = registry.createElement('text', { id: 'd', x: 0, y: 0, overrides: { content: { kind: 'field', field: 'at', format: { kind: 'date', pattern: 'YYYY-MM-DD HH:mm' } } } })
-    const result = run(documentOf(squarePage('p', [text])), { at: '2026-10-16T16:30:00Z' }, { timeZone: 'Asia/Shanghai' })
-    expect(textOf(result.sheets[0]!, 'd')).toBe('2026-10-17 00:30')
+  it('格式化器收到原值与格式说明，汇总值以十进制字符串传入', () => {
+    const calls: [unknown, string][] = []
+    const format = (value: unknown, spec: { kind: string }): string => {
+      calls.push([value, spec.kind])
+      return String(value)
+    }
+    const table = simpleTable('t', 10, {
+      footerRows: [{
+        id: 'total',
+        placement: 'lastPage',
+        height: 10,
+        style: cellStyle(),
+        cells: [{ columnId: 'qty', colSpan: 1, content: { kind: 'aggregate', fn: 'sum', field: 'qty', scope: 'all', format: { kind: 'number', decimals: 2, thousands: false } } }],
+      }],
+    })
+    const at = registry.createElement('text', { id: 'at', x: 0, y: 60, overrides: { content: { kind: 'field', field: 'at', format: { kind: 'date', pattern: 'YYYY-MM-DD' } } } })
+    const result = run(documentOf(squarePage('p', [table, at])), { items: [{ qty: 0.1 }, { qty: 0.2 }], at: '2026-10-16' }, { format })
+    expect(calls).toEqual([['2026-10-16', 'date'], ['0.3', 'number']])
+    expect(footerTexts(tableSlices(result, 't')[0]!)).toEqual(['0.3'])
+  })
+
+  it('格式化器返回的不是字符串时抛错', () => {
+    const text = registry.createElement('text', { id: 't', x: 0, y: 0, overrides: { content: { kind: 'field', field: 'n', format: { kind: 'percent', decimals: 0 } } } })
+    const format = (): string => 1 as unknown as string
+    try {
+      paginate(documentOf(squarePage('p', [text])), { n: 1 }, { measurer: createFakeMeasurer(), format })
+      throw new Error('expected an error')
+    }
+    catch (error) {
+      expect(error).toBeInstanceOf(PrintLayoutError)
+      expect((error as PrintLayoutError).code).toBe('formatter.invalidResult')
+    }
   })
 
   it('水印替换占位', () => {
@@ -670,7 +702,7 @@ describe('错误与上限', () => {
     expectOption({}, 'measurer')
     expectOption({ measurer: createFakeMeasurer(), maxSheets: 0 }, 'maxSheets')
     expectOption({ measurer: createFakeMeasurer(), maxSheets: 1.5 }, 'maxSheets')
-    expectOption({ measurer: createFakeMeasurer(), timeZone: 'Mars/Olympus' }, 'timeZone')
+    expectOption({ measurer: createFakeMeasurer(), format: 'number' }, 'format')
   })
 
   it('测量结果不合法时抛错', () => {

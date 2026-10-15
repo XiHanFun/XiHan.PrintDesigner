@@ -4,6 +4,7 @@
  */
 
 import type { ExpressionEngine } from '../expression'
+import type { ValueFormatter } from '../format'
 import type { Rect } from '../geometry'
 import type { Size } from '../paper'
 import type { ElementRegistry } from '../registry/registry'
@@ -62,8 +63,8 @@ export interface PaginateOptions {
   measurer: TextMeasurer
   /** 受限表达式接入点；模板含表达式而未提供时，表达式结果为空并给出诊断。 */
   expressions?: ExpressionEngine
-  /** 日期格式化使用的 IANA 时区，缺省为运行环境时区。 */
-  timeZone?: string
+  /** 数字、百分比、日期、人民币大写格式的格式化器；模板用到这些格式而未提供时，显示原值并给出诊断。 */
+  format?: ValueFormatter
   /** 输出页总数上限，缺省 1000；超出时停止排版并给出诊断。 */
   maxSheets?: number
   /** 元素类型登记表，默认为内置元素的登记表。 */
@@ -245,9 +246,7 @@ export interface LayoutSheet {
 export type PaginationDiagnosticCode
   = | 'data.notArray'
     | 'data.notScalar'
-    | 'format.notNumber'
-    | 'format.invalidDate'
-    | 'format.outOfRange'
+    | 'format.unavailable'
     | 'expression.unavailable'
     | 'expression.failed'
     | 'image.unsafeSource'
@@ -272,8 +271,8 @@ export interface PaginationResult {
   diagnostics: PaginationDiagnostic[]
 }
 
-/** 分页无法进行的原因：文档有 error 级校验问题、选项不合法、测量器返回了不合法的结果。 */
-export type PrintLayoutErrorCode = 'document.invalid' | 'option.invalid' | 'measurer.invalidResult'
+/** 分页无法进行的原因：文档有 error 级校验问题、选项不合法、测量器或格式化器返回了不合法的结果。 */
+export type PrintLayoutErrorCode = 'document.invalid' | 'option.invalid' | 'measurer.invalidResult' | 'formatter.invalidResult'
 
 /** 分页无法进行时抛出的错误。 */
 export class PrintLayoutError extends Error {

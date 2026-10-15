@@ -3,20 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ExpressionCompilation, MapFormat } from '../src'
+import type { ExpressionCompilation, FormatSpec, MapFormat } from '../src'
 import { describe, expect, it } from 'vitest'
 import { fillTextTemplate, getFieldValue, toDisplayText } from '../src/data'
-import {
-  addDecimals,
-  compareDecimals,
-  decimalToNumber,
-  decimalToString,
-  roundDecimal,
-  shiftDecimal,
-  toDecimal,
-  zeroDecimal,
-} from '../src/decimal'
-import { evaluateToText, formatChineseAmount, formatValue, isEmptyValue } from '../src/format'
+import { addDecimals, compareDecimals, decimalToNumber, decimalToString, toDecimal, zeroDecimal } from '../src/decimal'
+import { evaluateToText, formatMapValue, formatValue, isEmptyValue } from '../src/format'
 
 function decimal(value: unknown): NonNullable<ReturnType<typeof toDecimal>> {
   const result = toDecimal(value)
@@ -49,100 +40,43 @@ describe('十进制数', () => {
     expect(compareDecimals(decimal(-2), decimal(1))).toBeLessThan(0)
     expect(compareDecimals(decimal('0.3'), decimal('0.25'))).toBeGreaterThan(0)
   })
-
-  it('按绝对值四舍五入', () => {
-    expect(decimalToString(roundDecimal(decimal(1.005), 2))).toBe('1.01')
-    expect(decimalToString(roundDecimal(decimal(-1.005), 2))).toBe('-1.01')
-    expect(decimalToString(roundDecimal(decimal(1.004), 2))).toBe('1.00')
-    expect(decimalToString(roundDecimal(decimal(2.5), 0))).toBe('3')
-    expect(decimalToString(roundDecimal(decimal(-0.004), 2))).toBe('0.00')
-    expect(decimalToString(roundDecimal(decimal(7), 2))).toBe('7.00')
-  })
-
-  it('小数点移位', () => {
-    expect(decimalToString(shiftDecimal(decimal(0.07), 2))).toBe('7')
-    expect(decimalToString(shiftDecimal(decimal(12), 3))).toBe('12000')
-    expect(decimalToString(shiftDecimal(decimal(12), -3))).toBe('0.012')
-  })
-})
-
-describe('人民币大写', () => {
-  it.each([
-    [0, '零元整'],
-    [1, '壹元整'],
-    [10, '壹拾元整'],
-    [1001, '壹仟零壹元整'],
-    [1010, '壹仟零壹拾元整'],
-    [10001, '壹万零壹元整'],
-    [100000, '壹拾万元整'],
-    [100010000, '壹亿零壹万元整'],
-    [100000001, '壹亿零壹元整'],
-    [1000000000000, '壹万亿元整'],
-    [1000100000000, '壹万零壹亿元整'],
-    [1.5, '壹元伍角'],
-    [1.05, '壹元零伍分'],
-    [0.05, '伍分'],
-    [0.5, '伍角'],
-    [12345.67, '壹万贰仟叁佰肆拾伍元陆角柒分'],
-    [-8.2, '负捌元贰角'],
-    [0.004, '零元整'],
-    [0.995, '壹元整'],
-  ])('%s → %s', (value, expected) => {
-    expect(formatChineseAmount(decimal(value))).toBe(expected)
-  })
-
-  it('整数部分超过 16 位时返回 undefined', () => {
-    expect(formatChineseAmount(decimal('9999999999999999.99'))).toBe('玖仟玖佰玖拾玖万玖仟玖佰玖拾玖亿玖仟玖佰玖拾玖万玖仟玖佰玖拾玖元玖角玖分')
-    expect(formatChineseAmount(decimal('10000000000000000'))).toBeUndefined()
-  })
 })
 
 describe('值格式', () => {
-  it('数字：小数位、千分位与前后缀', () => {
-    expect(formatValue(1234567.005, { kind: 'number', decimals: 2, thousands: true, prefix: '¥' })).toEqual({ text: '¥1,234,567.01' })
-    expect(formatValue('-1234', { kind: 'number', decimals: 0, thousands: true, suffix: ' 件' })).toEqual({ text: '-1,234 件' })
-    expect(formatValue(999, { kind: 'number', decimals: 1, thousands: true })).toEqual({ text: '999.0' })
-    expect(formatValue('n/a', { kind: 'number', decimals: 2, thousands: false })).toEqual({ text: 'n/a', problem: 'notNumber' })
+  const formatter = (value: unknown, spec: FormatSpec): string => `${spec.kind}(${String(value)})`
+
+  it('数字、百分比、日期、人民币大写交给注入的格式化器', () => {
+    const specs: FormatSpec[] = [
+      { kind: 'number', decimals: 2, thousands: true },
+      { kind: 'percent', decimals: 0 },
+      { kind: 'date', pattern: 'YYYY-MM-DD' },
+      { kind: 'chineseAmount' },
+    ]
+    expect(specs.map(spec => formatValue(12.5, spec, { formatter }))).toEqual([
+      { text: 'number(12.5)' },
+      { text: 'percent(12.5)' },
+      { text: 'date(12.5)' },
+      { text: 'chineseAmount(12.5)' },
+    ])
   })
 
-  it('百分比按十进制移位，不受浮点误差影响', () => {
-    expect(formatValue(0.07, { kind: 'percent', decimals: 0 })).toEqual({ text: '7%' })
-    expect(formatValue(0.12345, { kind: 'percent', decimals: 2 })).toEqual({ text: '12.35%' })
+  it('没有格式化器时显示原值并给出原因', () => {
+    expect(formatValue(12.5, { kind: 'number', decimals: 2, thousands: false })).toEqual({ text: '12.5', problem: 'formatterUnavailable' })
   })
 
-  it('日期：不带时区的字符串按字面取值', () => {
-    const format = { kind: 'date', pattern: 'YYYY年MM月DD日 HH:mm:ss' } as const
-    expect(formatValue('2026-10-16', format)).toEqual({ text: '2026年10月16日 00:00:00' })
-    expect(formatValue('2026-10-16T08:05', format)).toEqual({ text: '2026年10月16日 08:05:00' })
-    expect(formatValue('2026-10-16 23:59:58.123', format)).toEqual({ text: '2026年10月16日 23:59:58' })
-  })
-
-  it('日期：带时区的字符串、时间戳与 Date 按时区换算', () => {
-    const format = { kind: 'date', pattern: 'YYYY-MM-DD HH:mm' } as const
-    expect(formatValue('2026-10-16T16:30:00Z', format, { timeZone: 'Asia/Shanghai' })).toEqual({ text: '2026-10-17 00:30' })
-    expect(formatValue(Date.UTC(2026, 0, 1, 0, 0), format, { timeZone: 'UTC' })).toEqual({ text: '2026-01-01 00:00' })
-    expect(formatValue(new Date(Date.UTC(2026, 0, 1, 12)), format, { timeZone: 'America/New_York' })).toEqual({ text: '2026-01-01 07:00' })
-    expect(formatValue('not a date', format)).toEqual({ text: 'not a date', problem: 'invalidDate' })
-    expect(formatValue(true, format)).toEqual({ text: 'true', problem: 'invalidDate' })
-  })
-
-  it('人民币大写与超出范围', () => {
-    expect(formatValue('100.5', { kind: 'chineseAmount' })).toEqual({ text: '壹佰元伍角' })
-    expect(formatValue('1e20', { kind: 'chineseAmount' })).toEqual({ text: '1e20', problem: 'outOfRange' })
-    expect(formatValue('x', { kind: 'chineseAmount' })).toEqual({ text: 'x', problem: 'notNumber' })
-  })
-
-  it('值映射按显示文本匹配', () => {
-    const format: MapFormat = { kind: 'map', entries: [{ value: '1', text: '已付' }, { value: 'true', text: '是' }], fallback: '未知' }
-    expect(formatValue(1, format)).toEqual({ text: '已付' })
-    expect(formatValue(true, format)).toEqual({ text: '是' })
-    expect(formatValue(2, format)).toEqual({ text: '未知' })
-    expect(formatValue(2, { kind: 'map', entries: [] })).toEqual({ text: '2' })
+  it('值映射在本包内完成，按显示文本匹配', () => {
+    const format: MapFormat = { kind: 'map', entries: [{ value: '1', text: '男' }, { value: '2', text: '女' }], fallback: '未知' }
+    expect(formatValue(1, format)).toEqual({ text: '男' })
+    expect(formatValue('2', format)).toEqual({ text: '女' })
+    expect(formatValue(3, format)).toEqual({ text: '未知' })
+    expect(formatMapValue(true, { kind: 'map', entries: [{ value: 'true', text: '是' }] })).toBe('是')
+    expect(formatMapValue(3, { kind: 'map', entries: [] })).toBe('3')
   })
 
   it('空值不经格式化', () => {
     for (const value of [null, undefined, ''])
-      expect(formatValue(value, { kind: 'number', decimals: 2, thousands: false })).toEqual({ text: '' })
+      expect(formatValue(value, { kind: 'number', decimals: 2, thousands: false }, { formatter })).toEqual({ text: '' })
+    expect(formatValue(null, { kind: 'map', entries: [], fallback: '无' })).toEqual({ text: '' })
     expect(isEmptyValue(0)).toBe(false)
   })
 
@@ -155,6 +89,7 @@ describe('值格式', () => {
       return { ok: true, references: [], evaluate: scope => ({ ok: true, value: `${source}:${String(scope.value)}` }) }
     }
     expect(formatValue(5, { kind: 'expression', expression: 'x' }, { compile })).toEqual({ text: 'x:5', value: 'x:5' })
+    expect(formatValue(null, { kind: 'expression', expression: 'x' }, { compile })).toEqual({ text: 'x:null', value: 'x:null' })
     expect(formatValue(5, { kind: 'expression', expression: 'bad' }, { compile })).toEqual({
       text: '',
       problem: 'expressionFailed',
