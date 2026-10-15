@@ -59,6 +59,30 @@ describe('renderSheets', () => {
   })
 })
 
+describe('水印', () => {
+  it('按模板铺满整张输出页：颜色与透明度写进图样，旋转方向取反，间距按毫米换成像素', () => {
+    const page = pageOf('p', [])
+    page.watermark = { text: '机密 {{no}}', fontSize: 12, color: '#999999', opacity: 0.2, rotation: 30, gapX: 25.4, gapY: 0 }
+    const [sheet] = renderSheets(layout(documentOf(page), { no: 'A-1' }), container)
+    const layer = sheet!.querySelector<HTMLElement>('[data-part="watermark"]')!
+    expect(layer.style.backgroundRepeat).toBe('repeat')
+    const image = layer.style.backgroundImage
+    const svg = decodeURIComponent(image.slice(image.indexOf(',') + 1, image.lastIndexOf('"')))
+    expect(svg).toContain('rotate(-30 ')
+    expect(svg).toContain('fill="#999999" fill-opacity="0.2"')
+    expect(svg).toContain('机密 A-1')
+    expect(layer.style.backgroundSize).toMatch(/^\d+px \d+px$/)
+  })
+
+  it('没有水印或文字为空时不铺', () => {
+    const page = pageOf('p', [])
+    page.watermark = { text: '  ', fontSize: 12, color: '#999999', opacity: 0.2, rotation: 0, gapX: 10, gapY: 10 }
+    const [sheet] = renderSheets(layout(documentOf(page, pageOf('q', []))), container)
+    expect(sheet!.querySelector('[data-part="watermark"]')).toBeNull()
+    expect(container.querySelectorAll('[data-part="watermark"]')).toHaveLength(0)
+  })
+})
+
 describe('文本', () => {
   it('按 core 排好的行逐行输出，字号、行高、字间距与颜色来自文字样式', () => {
     const text = registry.createElement('text', {

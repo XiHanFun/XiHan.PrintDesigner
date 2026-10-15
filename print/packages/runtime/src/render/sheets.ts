@@ -7,6 +7,7 @@ import type { LayoutSheet, PaginationResult } from '@xihan-print/core'
 import type { Size } from '@xihan-ui/designer-kit'
 import { renderBox } from './boxes'
 import { mm, setStyles } from './css'
+import { renderWatermark } from './watermark'
 
 /** renderSheets 的选项。 */
 export interface RenderSheetsOptions {
@@ -37,6 +38,9 @@ function renderSheet(doc: Document, sheet: LayoutSheet, options: RenderSheetsOpt
       continue
     element.append(renderBox(doc, box))
   }
+  const watermark = sheet.watermark === undefined ? undefined : renderWatermark(doc, sheet.watermark)
+  if (watermark !== undefined)
+    element.append(watermark)
   return element
 }
 
