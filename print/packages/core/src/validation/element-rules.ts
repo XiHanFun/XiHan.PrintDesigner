@@ -12,7 +12,8 @@ import type {
   RectElement,
   TableElement,
 } from '../schema/elements'
-import { canEncodeBarCode, canEncodeMatrixCode, fitMatrixCodeLevel } from '../codes'
+import { checkBarCodeValue, matrixCodeLevelFit } from '@xihan-ui/headless'
+import { barCodeIssueParams, checkMatrixCodeContent, matrixCodeIssueParams } from '../codes'
 
 /** 长度比较的容差，单位 mm。 */
 export const LENGTH_TOLERANCE = 0.01
@@ -85,26 +86,28 @@ export function validateShapeRules(element: RectElement | EllipseElement, contex
 export function validateBarCodeRules(element: BarCodeElement, context: ElementValidationContext): void {
   if (element.content.kind !== 'static')
     return
-  if (element.content.text.length === 0)
+  const { text } = element.content
+  const issue = checkBarCodeValue(element.format, text)
+  if (text.length === 0)
     context.report('value.empty', ['content', 'text'])
-  else if (!canEncodeBarCode(element.format, element.content.text))
-    context.report('barCode.invalidValue', ['content', 'text'], { format: element.format })
+  else if (issue !== undefined)
+    context.report('barCode.invalidValue', ['content', 'text'], barCodeIssueParams(element.format, issue))
 }
 
 /** 二维码规则：纠错级别适用于码制，固定内容非空且能编码，除 PDF417 外元素框为正方形。 */
 export function validateMatrixCodeRules(element: MatrixCodeElement, context: ElementValidationContext): void {
-  const fit = fitMatrixCodeLevel(element.format, element.level)
+  const fit = matrixCodeLevelFit(element.format, element.level)
   if (fit === 'invalid')
     context.report('matrixCode.invalidLevel', ['level'], { format: element.format, level: String(element.level) })
   else if (fit === 'ignored')
     context.report('matrixCode.levelIgnored', ['level'], { format: element.format })
   if (element.content.kind === 'static') {
     const { text } = element.content
-    const level = fit === 'valid' ? element.level : undefined
+    const issue = fit === 'invalid' ? undefined : checkMatrixCodeContent(element.format, text, element.level)
     if (text.length === 0)
       context.report('value.empty', ['content', 'text'])
-    else if (fit !== 'invalid' && !canEncodeMatrixCode(element.format, text, level))
-      context.report('matrixCode.invalidValue', ['content', 'text'], { format: element.format })
+    else if (issue !== undefined)
+      context.report('matrixCode.invalidValue', ['content', 'text'], matrixCodeIssueParams(element.format, issue))
   }
   if (element.format !== 'pdf417' && Math.abs(element.width - element.height) > LENGTH_TOLERANCE)
     context.report('matrixCode.notSquare', [], { width: element.width, height: element.height })

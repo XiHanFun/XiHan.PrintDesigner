@@ -503,7 +503,12 @@ describe('图形、条码与二维码', () => {
       'barCode.invalidValue@pages.0.elements.3.content.text',
       'value.empty@pages.0.elements.4.content.text',
     ])
-    expect(report.issues[0]!.params).toEqual({ format: 'ean13' })
+    expect(report.issues.slice(0, 4).map(issue => issue.params)).toEqual([
+      { format: 'ean13', reason: 'invalid-check-digit', expected: 1, actual: 2 },
+      { format: 'ean8', reason: 'invalid-length', length: 6, lengths: ['7', '8'] },
+      { format: 'code39', reason: 'invalid-character', character: 'a' },
+      { format: 'code128', reason: 'invalid-character', character: '中' },
+    ])
   })
 
   it('二维码固定内容不能为空或无法编码，元素框应为正方形', () => {
@@ -516,7 +521,7 @@ describe('图形、条码与二维码', () => {
       'matrixCode.invalidValue@pages.0.elements.1.content.text',
       'matrixCode.notSquare@pages.0.elements.2',
     ])
-    expect(report.issues[1]!.params).toEqual({ format: 'qr' })
+    expect(report.issues[1]!.params).toEqual({ format: 'qr', reason: 'capacity-exceeded' })
   })
 
   it('四种码制都可用，纠错级别按码制校验，PDF417 不要求正方形', () => {

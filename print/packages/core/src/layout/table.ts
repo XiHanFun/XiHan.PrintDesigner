@@ -15,7 +15,8 @@ import type { DiagnosticScope, LayoutContext } from './context'
 import type { BodyGeometry, Placement, SheetCursor } from './placement'
 import type { TableCellLayout, TableLayoutBox, TableRowLayout } from './types'
 import { convertLength } from '@xihan-ui/designer-kit'
-import { canEncodeBarCode, canEncodeMatrixCode } from '../codes'
+import { checkBarCodeValue, checkMatrixCodeValue } from '@xihan-ui/headless'
+import { barCodeIssueParams, matrixCodeIssueParams } from '../codes'
 import { getFieldValue } from '../data'
 import { isSafeImageUrl } from '../validation/controls'
 import { boxBase } from './boxes'
@@ -115,14 +116,19 @@ function bodyRow(table: TableElement, columns: PreparedColumn[], row: unknown, i
           cell.text = ''
         }
         break
-      case 'barCode':
-        if (text.length > 0 && column.barCodeFormat !== undefined && !canEncodeBarCode(column.barCodeFormat, text))
-          context.report('barCode.invalidValue', scope, { columnId: column.id, format: column.barCodeFormat })
+      case 'barCode': {
+        const format = column.barCodeFormat
+        const issue = format === undefined ? undefined : checkBarCodeValue(format, text)
+        if (format !== undefined && issue !== undefined)
+          context.report('barCode.invalidValue', scope, { columnId: column.id, ...barCodeIssueParams(format, issue) })
         break
-      case 'matrixCode':
-        if (text.length > 0 && !canEncodeMatrixCode('qr', text))
-          context.report('matrixCode.invalidValue', scope, { columnId: column.id, format: 'qr' })
+      }
+      case 'matrixCode': {
+        const issue = checkMatrixCodeValue('qr', text)
+        if (issue !== undefined)
+          context.report('matrixCode.invalidValue', scope, { columnId: column.id, ...matrixCodeIssueParams('qr', issue) })
         break
+      }
     }
     return cell
   })
