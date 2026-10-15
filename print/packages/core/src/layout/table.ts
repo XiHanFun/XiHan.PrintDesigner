@@ -20,14 +20,12 @@ import { getFieldValue } from '../data'
 import { addDecimals, compareDecimals, decimalToNumber, decimalToString, toDecimal, zeroDecimal } from '../decimal'
 import { isEmptyValue } from '../format'
 import { measureQrCapacity } from '../qrcode'
+import { ptToMm } from '../units'
 import { isSafeImageUrl } from '../validation/controls'
 import { boxBase } from './boxes'
 import { contentText, expressionText, templateText, valueText } from './content'
 import { LAYOUT_EPSILON } from './context'
 import { bodyBottom, isAtBodyTop, nextSheetTop } from './placement'
-
-/** 表格单元格文字的行高，字号的倍数。 */
-export const TABLE_CELL_LINE_HEIGHT = 1.2
 
 interface PreparedColumn {
   column: TableColumn
@@ -54,6 +52,7 @@ export interface PreparedTable {
   data: unknown[]
 }
 
+/** 按单元格样式换行测量；文字高度为行数乘以样式中的行高，不取测量器给出的高度。 */
 function cellLines(context: LayoutContext, text: string, style: CellStyle, width: number): { lines: string[], height: number } {
   const request = {
     text,
@@ -61,12 +60,12 @@ function cellLines(context: LayoutContext, text: string, style: CellStyle, width
     bold: style.bold,
     italic: style.italic,
     letterSpacing: 0,
-    lineHeight: TABLE_CELL_LINE_HEIGHT,
+    lineHeight: style.lineHeight / ptToMm(style.fontSize),
     maxWidth: Math.max(0, width - style.padding * 2),
     wrap: true,
   }
-  const measurement = context.measure(style.fontFamily === undefined ? request : { ...request, fontFamily: style.fontFamily })
-  return { lines: measurement.lines, height: measurement.height }
+  const { lines } = context.measure(style.fontFamily === undefined ? request : { ...request, fontFamily: style.fontFamily })
+  return { lines, height: lines.length * style.lineHeight }
 }
 
 function bodyCellText(content: TableCellContent, row: unknown, index: number, context: LayoutContext, scope: DiagnosticScope): string {
@@ -109,7 +108,7 @@ function bodyRow(table: TableElement, columns: PreparedColumn[], row: unknown, i
       case 'text': {
         const measured = cellLines(context, text, style, prepared.width)
         cell.lines = measured.lines
-        if (table.body.autoHeight)
+        if (table.body.rowHeightMode === 'minimum')
           height = Math.max(height, measured.height)
         break
       }
@@ -254,7 +253,7 @@ function sumHeights(rows: readonly { height: number }[]): number {
 }
 
 /**
- * 从起点开始按行排表格：数据行不跨页拆分；每段可重复表头，每段带每页表尾行，最后一段另带末页表尾行；
+ * 从起点开始按行排表格：数据行不跨页拆分，行高按固定或最小行高模式确定；每段可重复表头，每段带每页表尾行，最后一段另带末页表尾行；
  * 按每页最大行数与补空行设置补齐。只有一段时高度不小于设计高度（以当页剩余空间为限）。
  */
 export function placeTable(

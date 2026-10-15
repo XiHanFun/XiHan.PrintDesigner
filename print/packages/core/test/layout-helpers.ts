@@ -102,7 +102,7 @@ export function run(document: PrintDocument, data: unknown = {}, options: Partia
 }
 
 export function cellStyle(overrides: Partial<CellStyle> = {}): CellStyle {
-  return { fontSize: 10, bold: false, italic: false, color: '#000000', verticalAlign: 'middle', padding: 1, ...overrides }
+  return { fontSize: 10, bold: false, italic: false, color: '#000000', verticalAlign: 'middle', padding: 1, lineHeight: 4, ...overrides }
 }
 
 /** 10 mm 表头、10 mm 行高、两列（name 60 mm、qty 40 mm）的表格，绑定 `items`。 */
@@ -121,7 +121,7 @@ export function simpleTable(id: string, y: number, overrides: Partial<TableEleme
       dataField: 'items',
       columns,
       header: { visible: true, repeat: true, height: 10, style: cellStyle({ bold: true }) },
-      body: { rowHeight: 10, autoHeight: false, style: cellStyle() },
+      body: { rowHeight: 10, rowHeightMode: 'fixed', style: cellStyle() },
       ...overrides,
     },
   })

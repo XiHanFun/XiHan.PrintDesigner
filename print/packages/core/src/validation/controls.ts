@@ -195,6 +195,7 @@ export function validateCellStyle(value: unknown, path: Path, sink: IssueSink): 
     field('align', false, (item, itemPath) => expectOption(item, HORIZONTAL_ALIGNS, itemPath, sink)),
     field('verticalAlign', true, (item, itemPath) => expectOption(item, VERTICAL_ALIGNS, itemPath, sink)),
     field('padding', true, (item, itemPath) => expectNumber(item, itemPath, sink, { min: 0 })),
+    field('lineHeight', true, (item, itemPath) => expectNumber(item, itemPath, sink, { exclusiveMin: 0, max: 100 })),
   ], path, sink)
 }
 

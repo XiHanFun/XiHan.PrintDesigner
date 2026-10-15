@@ -261,17 +261,29 @@ describe('表格分页', () => {
     expect(tableSlices(result, 't')[0]!.height).toBe(20)
   })
 
-  it('自动行高按单元格内容撑高', () => {
-    const table = simpleTable('t', 10, { body: { rowHeight: 5, autoHeight: true, style: cellStyle() } })
+  it('最小行高模式按单元格行数乘以行高撑高，固定行高模式不撑高', () => {
     const items = [{ name: 'short', qty: 1 }, { name: 'x'.repeat(60), qty: 2 }]
-    const [box] = tableSlices(run(documentOf(squarePage('p', [table])), { items }), 't')
+    const minimum = simpleTable('t', 10, { body: { rowHeight: 5, rowHeightMode: 'minimum', style: cellStyle({ lineHeight: 3.5 }) } })
+    const [box] = tableSlices(run(documentOf(squarePage('p', [minimum])), { items }), 't')
     const bodyRows = box!.rows.filter(row => row.role === 'body')
-    expect(bodyRows.map(row => row.height)).toEqual([5, 10 * 0.4 * 1.2 * 3])
+    expect(bodyRows.map(row => row.height)).toEqual([5, 10.5])
     expect(bodyRows[1]!.cells[0]!.lines).toHaveLength(3)
+
+    const fixed = simpleTable('t', 10, { body: { rowHeight: 5, rowHeightMode: 'fixed', style: cellStyle({ lineHeight: 3.5 }) } })
+    const [fixedBox] = tableSlices(run(documentOf(squarePage('p', [fixed])), { items }), 't')
+    expect(fixedBox!.rows.filter(row => row.role === 'body').map(row => row.height)).toEqual([5, 5])
+  })
+
+  it('单元格行高按 mm 换算成测量请求的行高倍数', () => {
+    const calls: TextMeasureRequest[] = []
+    const table = simpleTable('t', 10, { body: { rowHeight: 10, rowHeightMode: 'fixed', style: cellStyle({ fontSize: 9, lineHeight: 4.5 }) } })
+    paginate(documentOf(squarePage('p', [table])), { items: [{ name: 'a', qty: 1 }] }, { measurer: createFakeMeasurer(calls) })
+    const request = calls.find(call => call.text === 'a')!
+    expect(request.lineHeight * 9 * 25.4 / 72).toBeCloseTo(4.5, 10)
   })
 
   it('单行高于空白正文区时强制放下并给出诊断', () => {
-    const table = simpleTable('t', 10, { body: { rowHeight: 120, autoHeight: false, style: cellStyle() } })
+    const table = simpleTable('t', 10, { body: { rowHeight: 120, rowHeightMode: 'fixed', style: cellStyle() } })
     const result = run(documentOf(squarePage('p', [table])), { items: itemsOf(2) })
     expect(tableSlices(result, 't').map(dataIndexes)).toEqual([[0], [1]])
     expect(result.diagnostics).toEqual([
