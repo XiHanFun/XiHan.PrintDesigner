@@ -67,9 +67,9 @@ export type ValueFormatter = (value: unknown, spec: FormatSpec, options: FormatO
 export interface PaginateOptions {
   measurer: TextMeasurer
   /** 受限表达式接入点；模板含表达式而未提供时，表达式结果为空并给出诊断。 */
-  expressions?: ExpressionEngine
+  expressionEngine?: ExpressionEngine
   /** 数字、百分比、日期、人民币大写格式的格式化器；模板用到这些格式而未提供时，显示原值并给出诊断。 */
-  format?: ValueFormatter
+  formatter?: ValueFormatter
   /** 交给格式化器的区域，只决定小数点与千分位符号。 */
   locale?: string
   /** 交给格式化器的时区：`UTC`、`±HH:mm` 或 IANA 名称。 */

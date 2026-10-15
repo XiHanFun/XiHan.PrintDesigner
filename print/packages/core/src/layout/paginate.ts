@@ -185,8 +185,8 @@ function checkOptions(options: PaginateOptions): number {
   const maxSheets = options.maxSheets ?? DEFAULT_MAX_SHEETS
   if (!Number.isInteger(maxSheets) || maxSheets < 1)
     throw new PrintLayoutError('option.invalid', { option: 'maxSheets' })
-  if (options.format !== undefined && typeof options.format !== 'function')
-    throw new PrintLayoutError('option.invalid', { option: 'format' })
+  if (options.formatter !== undefined && typeof options.formatter !== 'function')
+    throw new PrintLayoutError('option.invalid', { option: 'formatter' })
   return maxSheets
 }
 
@@ -199,8 +199,8 @@ export function paginate(document: PrintDocument, data: unknown, options: Pagina
   const validationOptions: Parameters<typeof validateDocument>[1] = {}
   if (options.registry !== undefined)
     validationOptions.registry = options.registry
-  if (options.expressions !== undefined)
-    validationOptions.expressions = options.expressions
+  if (options.expressionEngine !== undefined)
+    validationOptions.expressionEngine = options.expressionEngine
   const validation = validateDocument(document, validationOptions)
   if (!validation.valid) {
     const errors = validation.issues.filter(issue => issue.severity === 'error')
@@ -209,10 +209,10 @@ export function paginate(document: PrintDocument, data: unknown, options: Pagina
 
   const diagnostics: PaginationDiagnostic[] = []
   const contextOptions: Parameters<typeof createLayoutContext>[2] = {}
-  if (options.expressions !== undefined)
-    contextOptions.expressions = options.expressions
-  if (options.format !== undefined)
-    contextOptions.format = options.format
+  if (options.expressionEngine !== undefined)
+    contextOptions.expressionEngine = options.expressionEngine
+  if (options.formatter !== undefined)
+    contextOptions.formatter = options.formatter
   const formatOptions: { locale?: string, timeZone?: string } = {}
   if (options.locale !== undefined)
     formatOptions.locale = options.locale

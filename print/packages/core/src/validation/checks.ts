@@ -155,7 +155,7 @@ export function expectTextTemplate(value: unknown, path: Path, sink: IssueSink):
 export function expectExpression(value: unknown, path: Path, sink: IssueSink): value is string {
   if (!expectString(value, path, sink, { nonEmpty: true }))
     return false
-  const compiled = sink.expressions?.compile(value)
+  const compiled = sink.expressionEngine?.compile(value)
   if (compiled === undefined || compiled.ok)
     return true
   for (const issue of compiled.issues)

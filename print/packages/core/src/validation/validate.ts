@@ -45,7 +45,7 @@ export interface ValidateDocumentOptions {
   /** 元素类型登记表，默认为内置元素的登记表。 */
   registry?: ElementRegistry
   /** 受限表达式接入点；缺省时只检查表达式源码非空。 */
-  expressions?: ExpressionEngine
+  expressionEngine?: ExpressionEngine
 }
 
 interface DescriptorNode {
@@ -56,7 +56,7 @@ interface DescriptorNode {
 
 interface DocumentContext {
   registry: ElementRegistry
-  expressions?: ExpressionEngine
+  expressionEngine?: ExpressionEngine
   issues: ValidationIssue[]
   ids: Set<string>
   trees: Map<AnyElementPrototype, DescriptorNode>
@@ -312,7 +312,7 @@ function validateElement(
     scope.pageId = pageId
   if (elementId !== undefined)
     scope.elementId = elementId
-  const sink = createIssueSink(context.issues, scope, context.expressions)
+  const sink = createIssueSink(context.issues, scope, context.expressionEngine)
   if (!expectObject(value, path, sink))
     return
 
@@ -371,7 +371,7 @@ function validateElement(
 
 function validatePage(value: unknown, path: Path, context: DocumentContext): void {
   const pageId = isPlainObject(value) && typeof value.id === 'string' ? value.id : undefined
-  const sink = createIssueSink(context.issues, pageId === undefined ? {} : { pageId }, context.expressions)
+  const sink = createIssueSink(context.issues, pageId === undefined ? {} : { pageId }, context.expressionEngine)
   if (!expectObject(value, path, sink))
     return
 
@@ -489,8 +489,8 @@ export function validateDocument(input: unknown, options: ValidateDocumentOption
     ids: new Set(),
     trees: new Map(),
   }
-  if (options.expressions !== undefined)
-    context.expressions = options.expressions
+  if (options.expressionEngine !== undefined)
+    context.expressionEngine = options.expressionEngine
   checkFields(input, [
     field('schemaVersion', true, () => {}),
     field('name', false, (item, itemPath) => expectString(item, itemPath, sink)),
