@@ -4,15 +4,9 @@
  */
 
 import type { EngineCompileResult, ExpressionEngine, FormatOptions, FormatSpec } from '@xihan-ui/expression'
+import type { TextMeasurer, TextSize } from '@xihan-ui/viz'
 import type { IssueParams } from '../validation/issues'
-import type {
-  PaginationDiagnostic,
-  PaginationDiagnosticCode,
-  TextMeasurement,
-  TextMeasurer,
-  TextMeasureRequest,
-  ValueFormatter,
-} from './types'
+import type { PaginationDiagnostic, PaginationDiagnosticCode, ValueFormatter } from './types'
 import { PrintLayoutError } from './types'
 
 /** 长度比较的容差，单位 mm。 */
@@ -32,17 +26,30 @@ export interface LayoutContext {
   /** 已绑定区域与时区的值格式化器，返回值不是字符串时抛出 PrintLayoutError。 */
   formatter?: (value: unknown, spec: FormatSpec) => string
   report: (code: PaginationDiagnosticCode, scope: DiagnosticScope, params?: IssueParams) => void
-  measure: (request: TextMeasureRequest) => TextMeasurement
+  /** 注入的文字度量器，量出的宽度不是非负有限数时抛出 PrintLayoutError。 */
+  measurer: TextMeasurer
 }
 
-function isValidMeasurement(result: unknown): result is TextMeasurement {
+function isValidSize(result: unknown): result is TextSize {
   if (typeof result !== 'object' || result === null)
     return false
-  const { lines, width, height } = result as Record<string, unknown>
-  return Array.isArray(lines)
-    && lines.every(line => typeof line === 'string')
-    && typeof width === 'number' && Number.isFinite(width) && width >= 0
-    && typeof height === 'number' && Number.isFinite(height) && height >= 0
+  const { width } = result as Record<string, unknown>
+  return typeof width === 'number' && Number.isFinite(width) && width >= 0
+}
+
+/** 包一层检查：量出的宽度不是非负有限数时抛出 PrintLayoutError。 */
+function checkedMeasurer(measurer: TextMeasurer): TextMeasurer {
+  return {
+    get version() {
+      return measurer.version
+    },
+    measure: (text, font) => {
+      const result = measurer.measure(text, font)
+      if (!isValidSize(result))
+        throw new PrintLayoutError('measurer.invalidResult', { text })
+      return result
+    },
+  }
 }
 
 /** 创建分页上下文：诊断按诊断码、定位与参数去重，测量或格式化结果不合法时抛出 PrintLayoutError。 */
@@ -67,12 +74,7 @@ export function createLayoutContext(
         diagnostic.params = params
       diagnostics.push(diagnostic)
     },
-    measure: (request) => {
-      const result = measurer.measure(request)
-      if (!isValidMeasurement(result))
-        throw new PrintLayoutError('measurer.invalidResult', { text: request.text })
-      return result
-    },
+    measurer: checkedMeasurer(measurer),
   }
   const engine = options.expressionEngine
   if (engine !== undefined) {

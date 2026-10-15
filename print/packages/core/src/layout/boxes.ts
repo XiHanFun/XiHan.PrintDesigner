@@ -16,12 +16,14 @@ import type { ElementRegion } from '../traverse'
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { LayoutBox, LayoutBoxBase, TextLayoutBox, TextMeasurement } from './types'
 import { toSafeImageSource } from '@xihan-ui/core/url'
+import { convertLength } from '@xihan-ui/designer-kit'
 import { checkBarCodeValue, matrixCodeLevelFit } from '@xihan-ui/headless'
 import { barCodeIssueParams, checkMatrixCodeContent, matrixCodeIssueParams } from '../codes'
 import { getFieldValue } from '../data'
 import { formatPageNumber } from '../page-number-format'
 import { contentText, valueText } from './content'
 import { LAYOUT_EPSILON } from './context'
+import { layoutTextLines } from './text-measure'
 
 /** 缩小字号以容纳文字时的最小字号，单位 pt。 */
 export const MIN_SHRINK_FONT_SIZE = 4
@@ -50,7 +52,7 @@ export function boxBase(element: PrintElement, region: ElementRegion): LayoutBox
   }
 }
 
-/** 按文本样式测量文字。 */
+/** 按文本样式排文字：行高为字号（换成 mm）乘以行高倍数。 */
 export function measureText(
   context: LayoutContext,
   text: string,
@@ -58,17 +60,9 @@ export function measureText(
   maxWidth: number,
   wrap: boolean,
 ): TextMeasurement {
-  const request = {
-    text,
-    fontSize: style.fontSize,
-    bold: style.bold,
-    italic: style.italic,
-    letterSpacing: style.letterSpacing,
-    lineHeight: style.lineHeight,
-    maxWidth: Math.max(0, maxWidth),
-    wrap,
-  }
-  return context.measure(style.fontFamily === undefined ? request : { ...request, fontFamily: style.fontFamily })
+  const lineHeight = convertLength(style.fontSize, 'pt', 'mm') * style.lineHeight
+  const { lines, width } = layoutTextLines(context.measurer, text, style, lineHeight, maxWidth, wrap)
+  return { lines, width, height: lines.length * lineHeight }
 }
 
 function layoutText(element: TextElement, region: ElementRegion, context: LayoutContext, scope: DiagnosticScope): TextLayoutBox {

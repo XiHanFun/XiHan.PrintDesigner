@@ -15,6 +15,7 @@ catalog:
   '@xihan-ui/designer-kit': ^5.0.0
   '@xihan-ui/expression': ^5.0.0
   '@xihan-ui/headless': ^5.0.0
+  '@xihan-ui/viz': ^5.0.0
   # 开发依赖
   '@antfu/eslint-config': ^9.5.1
   '@types/node': ^24.10.0
@@ -31,3 +32,4 @@ overrides:
   '@xihan-ui/designer-kit': 'link:../../XiHan.UI/ui/packages/features/designer-kit'
   '@xihan-ui/expression': 'link:../../XiHan.UI/ui/packages/features/expression'
   '@xihan-ui/headless': 'link:../../XiHan.UI/ui/packages/engine/headless'
+  '@xihan-ui/viz': 'link:../../XiHan.UI/ui/packages/engine/viz'

@@ -5,6 +5,7 @@
 
 import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { ExpressionEngine, FormatOptions, FormatSpec } from '@xihan-ui/expression'
+import type { TextMeasurer } from '@xihan-ui/viz'
 import type { ElementRegistry } from '../registry/registry'
 import type { BoxStyle, Color, Edges, Stroke, TextStyle } from '../schema/common'
 import type { Watermark } from '../schema/document'
@@ -24,25 +25,7 @@ import type { CellStyle, TableBorder } from '../schema/table'
 import type { ElementRegion } from '../traverse'
 import type { IssueParams, ValidationIssue } from '../validation/issues'
 
-/** 文本测量请求。 */
-export interface TextMeasureRequest {
-  text: string
-  fontFamily?: string
-  /** 字号，单位 pt。 */
-  fontSize: number
-  bold: boolean
-  italic: boolean
-  /** 字间距，单位 pt。 */
-  letterSpacing: number
-  /** 行高，字号的倍数。 */
-  lineHeight: number
-  /** 可用宽度，单位 mm。 */
-  maxWidth: number
-  /** 是否在可用宽度处自动换行；为 false 时只在换行符处断行。 */
-  wrap: boolean
-}
-
-/** 文本测量结果，长度单位 mm。 */
+/** 按文本样式排出的文字，长度单位 mm。 */
 export interface TextMeasurement {
   /** 换行后的各行文字。 */
   lines: string[]
@@ -50,11 +33,6 @@ export interface TextMeasurement {
   width: number
   /** 全部行的总高度。 */
   height: number
-}
-
-/** 文本测量器，由宿主或上层包按实际字体实现。 */
-export interface TextMeasurer {
-  measure: (request: TextMeasureRequest) => TextMeasurement
 }
 
 /**
@@ -65,6 +43,10 @@ export type ValueFormatter = (value: unknown, spec: FormatSpec, options: FormatO
 
 /** 分页选项。 */
 export interface PaginateOptions {
+  /**
+   * 文字度量器，即 @xihan-ui/viz 的 TextMeasurer：按 CSS 像素量字宽，字号与可用宽度由 core 换算后交给它。
+   * 浏览器里用 @xihan-ui/viz 的 createCanvasMeasurer(document)。
+   */
   measurer: TextMeasurer
   /** 受限表达式接入点；模板含表达式而未提供时，表达式结果为空并给出诊断。 */
   expressionEngine?: ExpressionEngine

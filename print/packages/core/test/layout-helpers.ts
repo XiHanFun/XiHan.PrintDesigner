@@ -4,6 +4,7 @@
  */
 
 import type { ExpressionEngine, FormatSpec } from '@xihan-ui/expression'
+import type { FontSpec, TextMeasurer } from '@xihan-ui/viz'
 import type {
   CellStyle,
   LayoutBox,
@@ -15,34 +16,28 @@ import type {
   PrintPage,
   TableColumn,
   TableElement,
-  TextMeasurer,
-  TextMeasureRequest,
 } from '../src'
 import { createDocument, createElementRegistry, createPage, paginate } from '../src'
 
 export const registry = createElementRegistry()
 
-/** 假测量器：每个字符宽 `字号 × 0.2` mm，每行高 `字号 × 0.4 × 行高倍数` mm，按字符数断行。 */
-export function createFakeMeasurer(calls: TextMeasureRequest[] = []): TextMeasurer {
+/** 度量器收到的一次请求。 */
+export interface MeasureCall {
+  text: string
+  font: FontSpec
+}
+
+/**
+ * 假度量器：每个字符宽「字号（pt）× 0.2」mm，按 CSS 像素交回；略收一点，整倍数宽度不被浮点误差挤到下一行。
+ * 记下每次量的文字与字体。
+ */
+export function createFakeMeasurer(calls: MeasureCall[] = []): TextMeasurer {
   return {
-    measure: (request) => {
-      calls.push(request)
-      const charWidth = request.fontSize * 0.2
-      const perLine = Math.max(1, Math.floor(request.maxWidth / charWidth + 1e-9))
-      const lines: string[] = []
-      if (request.text.length > 0) {
-        for (const paragraph of request.text.split('\n')) {
-          const chars = Array.from(paragraph)
-          if (!request.wrap || chars.length <= perLine) {
-            lines.push(paragraph)
-            continue
-          }
-          for (let index = 0; index < chars.length; index += perLine)
-            lines.push(chars.slice(index, index + perLine).join(''))
-        }
-      }
-      const width = lines.reduce((max, line) => Math.max(max, Array.from(line).length * charWidth), 0)
-      return { lines, width, height: lines.length * request.fontSize * 0.4 * request.lineHeight }
+    version: 0,
+    measure: (text, font) => {
+      calls.push({ text, font })
+      const charWidth = font.size * 0.75 * 0.2 * 96 / 25.4 * (1 - 1e-9)
+      return { width: Array.from(text).length * charWidth, ascent: font.size * 0.8, descent: font.size * 0.2 }
     },
   }
 }

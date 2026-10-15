@@ -3,7 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { TableLayoutBox, TableRowLayout, TextMeasureRequest } from '../src'
+import type { TableLayoutBox, TableRowLayout } from '../src'
+import type { MeasureCall } from './layout-helpers'
 import { describe, expect, it } from 'vitest'
 import { paginate, PrintLayoutError } from '../src'
 import {
@@ -38,6 +39,9 @@ function roles(box: TableLayoutBox): TableRowLayout['role'][] {
 function footerTexts(box: TableLayoutBox): string[] {
   return box.rows.filter(row => row.role === 'footer').map(row => row.cells.map(cell => cell.text).join('|'))
 }
+
+/** 10pt、行高倍数 1 的一行高，单位 mm。 */
+const LINE_10PT = 10 * 25.4 / 72
 
 describe('基本排版', () => {
   it('单页文档按设计坐标输出布局盒', () => {
@@ -296,12 +300,13 @@ describe('表格分页', () => {
     expect(fixedBox!.rows.filter(row => row.role === 'body').map(row => row.height)).toEqual([5, 5])
   })
 
-  it('单元格行高按 mm 换算成测量请求的行高倍数', () => {
-    const calls: TextMeasureRequest[] = []
+  it('单元格的字号与行高换成 CSS 像素交给度量器', () => {
+    const calls: MeasureCall[] = []
     const table = simpleTable('t', 10, { body: { rowHeight: 10, rowHeightMode: 'fixed', style: cellStyle({ fontSize: 9, lineHeight: 4.5 }) } })
     paginate(documentOf(squarePage('p', [table])), { items: [{ name: 'a', qty: 1 }] }, { measurer: createFakeMeasurer(calls) })
-    const request = calls.find(call => call.text === 'a')!
-    expect(request.lineHeight * 9 * 25.4 / 72).toBeCloseTo(4.5, 10)
+    const { font } = calls.find(call => call.text === 'a')!
+    expect(font.size).toBeCloseTo(12, 10)
+    expect(font.lineHeight).toBeCloseTo(4.5 * 96 / 25.4, 10)
   })
 
   it('单行高于空白正文区时强制放下并给出诊断', () => {
@@ -386,8 +391,8 @@ describe('下推', () => {
     remark.style = { ...remark.style, fontSize: 10, lineHeight: 1 }
     const after = registry.createElement('text', { id: 'after', x: 0, y: 25 })
     const result = run(documentOf(squarePage('p', [remark, after])))
-    expect(boxOf(result.sheets[0]!, 'remark', 'text').height).toBe(20)
-    expect(boxOf(result.sheets[0]!, 'after', 'text').y).toBe(35)
+    expect(boxOf(result.sheets[0]!, 'remark', 'text').height).toBeCloseTo(5 * LINE_10PT, 10)
+    expect(boxOf(result.sheets[0]!, 'after', 'text').y).toBeCloseTo(25 + 5 * LINE_10PT - 10, 10)
   })
 
   it('后一个表格接在前一个表格之后续排', () => {
@@ -431,13 +436,16 @@ describe('长文本', () => {
   }
 
   it('按整行切分到后续输出页', () => {
+    // 正文区从 y = 10 起还剩 90 mm，放得下 25 行
     const result = run(documentOf(squarePage('p', [longText('字'.repeat(50 * 30))])))
     expect(result.sheets).toHaveLength(2)
     const [first, second] = result.sheets.map(sheet => boxOf(sheet, 'remark', 'text'))
-    expect(first).toMatchObject({ y: 10, height: 88, fragment: { index: 0, last: false } })
-    expect(first!.lines).toHaveLength(22)
-    expect(second).toMatchObject({ y: 0, height: 32, fragment: { index: 1, last: true } })
-    expect(second!.lines).toHaveLength(8)
+    expect(first).toMatchObject({ y: 10, fragment: { index: 0, last: false } })
+    expect(first!.height).toBeCloseTo(25 * LINE_10PT, 10)
+    expect(first!.lines).toHaveLength(25)
+    expect(second).toMatchObject({ y: 0, fragment: { index: 1, last: true } })
+    expect(second!.height).toBeCloseTo(5 * LINE_10PT, 10)
+    expect(second!.lines).toHaveLength(5)
   })
 
   it('内容少时保留设计高度，内边距计入每段', () => {
@@ -447,7 +455,9 @@ describe('长文本', () => {
     const padded = longText('字'.repeat(50 * 30))
     padded.box = { padding: { top: 2, right: 0, bottom: 2, left: 0 } }
     const boxes = run(documentOf(squarePage('p', [padded]))).sheets.map(sheet => boxOf(sheet, 'remark', 'text'))
-    expect(boxes.map(box => [box.lines.length, box.height])).toEqual([[21, 88], [9, 40]])
+    expect(boxes.map(box => box.lines.length)).toEqual([24, 6])
+    expect(boxes[0]!.height).toBeCloseTo(24 * LINE_10PT + 4, 10)
+    expect(boxes[1]!.height).toBeCloseTo(6 * LINE_10PT + 4, 10)
   })
 
   it('空文本按设计高度占位', () => {
@@ -542,11 +552,11 @@ describe('页眉页脚与页码', () => {
     expect(run(documentOf(page('first'))).sheets[0]!.footer.key).toBe('first')
   })
 
-  it('页码文字按页码格式测量', () => {
-    const calls: TextMeasureRequest[] = []
+  it('页码文字按页码格式测量，不折行', () => {
+    const calls: MeasureCall[] = []
     const page = squarePage('p', [registry.createElement('pageNumber', { id: 'no', x: 0, y: 0 })])
     paginate(documentOf(page), {}, { measurer: createFakeMeasurer(calls) })
-    expect(calls.map(call => [call.text, call.wrap])).toEqual([['1/1', false]])
+    expect(calls.map(call => call.text)).toEqual(['1/1'])
   })
 })
 
@@ -707,16 +717,19 @@ describe('固定尺寸文本', () => {
   })
 
   it('按内边距与换行设置测量', () => {
-    const calls: TextMeasureRequest[] = []
+    const calls: MeasureCall[] = []
+    // 去掉内边距可用 40 mm，10.5pt 每字 2.1 mm，一行放 19 个
     const element = registry.createElement('text', {
       id: 't',
       x: 0,
       y: 0,
-      overrides: { width: 50, wrap: true, overflow: 'visible', box: { padding: { top: 1, right: 4, bottom: 1, left: 6 } }, content: { kind: 'static', text: 'x' } },
+      overrides: { width: 50, wrap: true, overflow: 'visible', box: { padding: { top: 1, right: 4, bottom: 1, left: 6 } }, content: { kind: 'static', text: 'x'.repeat(20) } },
     })
     const result = paginate(documentOf(squarePage('p', [element])), {}, { measurer: createFakeMeasurer(calls) })
-    expect(calls[0]).toMatchObject({ text: 'x', maxWidth: 40, wrap: true, fontSize: 10.5, lineHeight: 1.2 })
-    expect(boxOf(result.sheets[0]!, 't', 'text')).toMatchObject({ overflow: 'visible', box: { padding: { left: 6 } } })
+    expect(calls[0]!.font).toMatchObject({ family: 'sans-serif', weight: 400, style: 'normal' })
+    expect(calls[0]!.font.size).toBeCloseTo(14, 10)
+    expect(calls[0]!.font.lineHeight).toBeCloseTo(16.8, 10)
+    expect(boxOf(result.sheets[0]!, 't', 'text')).toMatchObject({ lines: ['x'.repeat(19), 'x'], overflow: 'visible', box: { padding: { left: 6 } } })
   })
 })
 
@@ -766,8 +779,8 @@ describe('错误与上限', () => {
   })
 
   it('测量结果不合法时抛错', () => {
-    const text = registry.createElement('text', { id: 't', x: 0, y: 0 })
-    const measurer = { measure: () => ({ lines: ['x'], width: 1, height: Number.NaN }) }
+    const text = registry.createElement('text', { id: 't', x: 0, y: 0, overrides: { content: { kind: 'static', text: 'x' } } })
+    const measurer = { version: 0, measure: () => ({ width: Number.NaN, ascent: 0, descent: 0 }) }
     expect(() => paginate(documentOf(squarePage('p', [text])), {}, { measurer })).toThrow(PrintLayoutError)
   })
 
