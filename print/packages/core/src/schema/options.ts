@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { BarCodeFormat, MatrixCodeFormat, QrLevel } from '@xihan-ui/headless'
+import type { BarCodeFormat, QrLevel } from '@xihan-ui/headless'
 
 /** 页面方向取值。 */
 export const PAGE_ORIENTATIONS = ['portrait', 'landscape'] as const
@@ -65,33 +65,10 @@ export const LINE_DIRECTIONS = ['horizontal', 'vertical', 'diagonalDown', 'diago
  */
 export type LineDirection = (typeof LINE_DIRECTIONS)[number]
 
-/** 一维条码码制，即 @xihan-ui/headless 的 BarCodeFormat。 */
+/** 一维条码码制，即 @xihan-ui/headless 的 BarCodeFormat，取值列表为其 BAR_CODE_FORMATS。 */
 export type BarcodeSymbology = BarCodeFormat
 
-const BARCODE_SYMBOLOGY_SET = {
-  code128: true,
-  ean13: true,
-  ean8: true,
-  upca: true,
-  upce: true,
-  itf14: true,
-  code39: true,
-} as const satisfies Record<BarCodeFormat, true>
-
-/** 一维条码码制取值，与 BarCodeFormat 逐一对应。 */
-export const BARCODE_SYMBOLOGIES = Object.keys(BARCODE_SYMBOLOGY_SET) as readonly BarcodeSymbology[]
-
 export type { MatrixCodeFormat, MatrixCodeLevel } from '@xihan-ui/headless'
-
-const MATRIX_CODE_FORMAT_SET = {
-  'qr': true,
-  'data-matrix': true,
-  'pdf417': true,
-  'aztec': true,
-} as const satisfies Record<MatrixCodeFormat, true>
-
-/** 二维码码制取值，与 @xihan-ui/headless 的 MatrixCodeFormat 逐一对应。 */
-export const MATRIX_CODE_FORMATS = Object.keys(MATRIX_CODE_FORMAT_SET) as readonly MatrixCodeFormat[]
 
 /** QR 纠错等级，即 @xihan-ui/headless 的 QrLevel。 */
 export type QrErrorCorrectionLevel = QrLevel

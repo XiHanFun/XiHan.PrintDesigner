@@ -7,11 +7,11 @@ import type { PathSegment } from '../json'
 import type { PropertyControl } from '../registry/types'
 import type { FieldRule } from './checks'
 import type { IssueSink } from './issues'
+import { BAR_CODE_FORMATS } from '@xihan-ui/headless'
 import { parsePageNumberFormat } from '../page-number-format'
 import {
   AGGREGATE_FUNCTIONS,
   AGGREGATE_SCOPES,
-  BARCODE_SYMBOLOGIES,
   HORIZONTAL_ALIGNS,
   STROKE_STYLES,
   TABLE_CELL_TYPES,
@@ -264,7 +264,7 @@ export function validateTableColumns(value: unknown, path: Path, sink: IssueSink
       field('align', true, (item, itemPath) => expectOption(item, HORIZONTAL_ALIGNS, itemPath, sink)),
       field('content', true, (item, itemPath) => validateTableCellContent(item, itemPath, sink)),
       field('cellType', true, (item, itemPath) => expectOption(item, TABLE_CELL_TYPES, itemPath, sink)),
-      field('symbology', column.cellType === 'barcode', (item, itemPath) => expectOption(item, BARCODE_SYMBOLOGIES, itemPath, sink)),
+      field('symbology', column.cellType === 'barcode', (item, itemPath) => expectOption(item, BAR_CODE_FORMATS, itemPath, sink)),
     ], columnPath, sink)
   })
   checkUniqueIds(value, path, sink, 'table.duplicateColumnId')

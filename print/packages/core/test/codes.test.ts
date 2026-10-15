@@ -3,20 +3,13 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import { MATRIX_CODE_FORMATS } from '@xihan-ui/headless'
 import { describe, expect, it } from 'vitest'
-import {
-  BARCODE_SYMBOLOGIES,
-  isSafeImageUrl,
-  isValidColor,
-  MATRIX_CODE_FORMATS,
-  QR_ERROR_CORRECTION_LEVELS,
-} from '../src'
+import { isSafeImageUrl, isValidColor, QR_ERROR_CORRECTION_LEVELS } from '../src'
 import { canEncodeBarcode, canEncodeMatrixCode, fitMatrixCodeLevel } from '../src/codes'
 
-describe('码制取值', () => {
-  it('与 @xihan-ui/headless 的码制类型逐一对应', () => {
-    expect([...BARCODE_SYMBOLOGIES].sort()).toEqual(['code128', 'code39', 'ean13', 'ean8', 'itf14', 'upca', 'upce'])
-    expect([...MATRIX_CODE_FORMATS].sort()).toEqual(['aztec', 'data-matrix', 'pdf417', 'qr'])
+describe('纠错等级取值', () => {
+  it('与 @xihan-ui/headless 的 QrLevel 逐一对应', () => {
     expect(QR_ERROR_CORRECTION_LEVELS).toEqual(['L', 'M', 'Q', 'H'])
   })
 })
