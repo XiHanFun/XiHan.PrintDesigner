@@ -4,14 +4,14 @@
  */
 
 import type { MatrixCodeFormat, MatrixCodeLevel, Pdf417Level, QrLevel } from '@xihan-ui/headless'
-import type { BarcodeSymbology } from './schema/options'
+import type { BarCodeFormat } from './schema/options'
 import { aztecEncode, barEncode, dmEncode, pdf417Encode, qrEncode } from '@xihan-ui/headless'
 import { QR_ERROR_CORRECTION_LEVELS } from './schema/options'
 
 /** 判断内容能否按码制编成一维条码，以 @xihan-ui/headless 的 barEncode 为准。 */
-export function canEncodeBarcode(symbology: BarcodeSymbology, value: string): boolean {
+export function canEncodeBarCode(format: BarCodeFormat, value: string): boolean {
   try {
-    barEncode(symbology, value)
+    barEncode(format, value)
     return true
   }
   catch {

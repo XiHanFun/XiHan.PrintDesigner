@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { BarCodeFormat, QrLevel } from '@xihan-ui/headless'
+import type { QrLevel } from '@xihan-ui/headless'
 
 /** 页面方向取值。 */
 export const PAGE_ORIENTATIONS = ['portrait', 'landscape'] as const
@@ -65,10 +65,7 @@ export const LINE_DIRECTIONS = ['horizontal', 'vertical', 'diagonalDown', 'diago
  */
 export type LineDirection = (typeof LINE_DIRECTIONS)[number]
 
-/** 一维条码码制，即 @xihan-ui/headless 的 BarCodeFormat，取值列表为其 BAR_CODE_FORMATS。 */
-export type BarcodeSymbology = BarCodeFormat
-
-export type { MatrixCodeFormat, MatrixCodeLevel } from '@xihan-ui/headless'
+export type { BarCodeFormat, MatrixCodeFormat, MatrixCodeLevel } from '@xihan-ui/headless'
 
 /** QR 纠错等级，即 @xihan-ui/headless 的 QrLevel。 */
 export type QrErrorCorrectionLevel = QrLevel
@@ -103,7 +100,7 @@ export const TABLE_ROW_HEIGHT_MODES = ['fixed', 'minimum'] as const
 export type TableRowHeightMode = (typeof TABLE_ROW_HEIGHT_MODES)[number]
 
 /** 表格列单元格的呈现类型取值。 */
-export const TABLE_CELL_TYPES = ['text', 'image', 'barcode', 'qrcode'] as const
+export const TABLE_CELL_TYPES = ['text', 'image', 'barCode', 'matrixCode'] as const
 
 /** 表格列单元格的呈现类型。 */
 export type TableCellType = (typeof TABLE_CELL_TYPES)[number]

@@ -7,7 +7,7 @@ import type { Color, Stroke, TextContent, ValueFormat } from './common'
 import type {
   AggregateFunction,
   AggregateScope,
-  BarcodeSymbology,
+  BarCodeFormat,
   HorizontalAlign,
   TableCellType,
   TableFooterPlacement,
@@ -80,8 +80,8 @@ export interface TableColumn {
   align: HorizontalAlign
   content: TableCellContent
   cellType: TableCellType
-  /** 条码码制，`cellType` 为 barcode 时必填。 */
-  symbology?: BarcodeSymbology
+  /** 条码码制，`cellType` 为 barCode 时必填；matrixCode 单元格按 QR 编码。 */
+  barCodeFormat?: BarCodeFormat
 }
 
 /** 表头。 */

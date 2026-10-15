@@ -120,8 +120,8 @@ export function createSampleDocument(): PrintDocument {
       y: 42,
       overrides: { width: 100, content: { kind: 'field', field: 'customer.name', emptyText: '-' } },
     }),
-    registry.createElement('barcode', { id: 'order-barcode', x: 120, y: 32 }),
-    registry.createElement('qrcode', {
+    registry.createElement('barCode', { id: 'order-barcode', x: 120, y: 32 }),
+    registry.createElement('matrixCode', {
       id: 'order-qrcode',
       x: 175,
       y: 37,
@@ -175,11 +175,11 @@ export function createSampleDocument(): PrintDocument {
         },
       },
     }),
-    registry.createElement('barcode', {
+    registry.createElement('barCode', {
       id: 'label-barcode',
       x: 5,
       y: 20,
-      overrides: { width: 60, height: 20, symbology: 'ean13', content: { kind: 'static', text: '4006381333931' } },
+      overrides: { width: 60, height: 20, format: 'ean13', content: { kind: 'static', text: '4006381333931' } },
     }),
   ]
 

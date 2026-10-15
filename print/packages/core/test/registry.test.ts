@@ -79,10 +79,10 @@ describe('内置元素原型', () => {
   })
 
   it('码制选项直接取 @xihan-ui/headless 的码制常量', () => {
-    const barcode = samplePrototypes().find(prototype => prototype.type === 'barcode')!
-    const symbology = barcode.properties.find(descriptor => descriptor.path[0] === 'symbology')!
-    expect(symbology.control).toEqual({ kind: 'select', options: BAR_CODE_FORMATS })
-    const qrcode = samplePrototypes().find(prototype => prototype.type === 'qrcode')!
+    const barcode = samplePrototypes().find(prototype => prototype.type === 'barCode')!
+    const barCodeFormat = barcode.properties.find(descriptor => descriptor.path[0] === 'format')!
+    expect(barCodeFormat.control).toEqual({ kind: 'select', options: BAR_CODE_FORMATS })
+    const qrcode = samplePrototypes().find(prototype => prototype.type === 'matrixCode')!
     const format = qrcode.properties.find(descriptor => descriptor.path[0] === 'format')!
     expect(format.control).toEqual({ kind: 'select', options: MATRIX_CODE_FORMATS })
   })
@@ -100,8 +100,8 @@ describe('元素类型登记表', () => {
       'line',
       'rect',
       'ellipse',
-      'barcode',
-      'qrcode',
+      'barCode',
+      'matrixCode',
     ])
     expect(registry.groupByCategory().map(group => [group.category, group.prototypes.length])).toEqual([
       ['text', 3],
