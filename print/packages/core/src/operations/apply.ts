@@ -29,6 +29,7 @@ import type {
   UpdatePageOperation,
 } from './types'
 import { cloneJson, findJsonViolation, isPlainObject, jsonEquals } from '@xihan-ui/core/json'
+import { applyInSequence } from '@xihan-ui/designer-kit'
 import { collectDocumentIds } from '../factory'
 import { createElementRegistry } from '../registry/registry'
 import { PAGE_BAND_VARIANTS } from '../schema/options'
@@ -433,7 +434,7 @@ export function applyOperation(
 }
 
 /**
- * 按顺序执行一组编辑操作，整体成功或整体失败。逆操作为各操作逆操作按相反顺序的拼接；
+ * 按顺序执行一组编辑操作，整体成功或整体失败（@xihan-ui/designer-kit 的 applyInSequence）。逆操作为各操作逆操作按相反顺序的拼接；
  * 全部操作都没有带来变化时返回传入的文档本身与空数组。
  */
 export function applyOperations(
@@ -441,12 +442,5 @@ export function applyOperations(
   operations: readonly PrintOperation[],
   options: ApplyOperationOptions = {},
 ): OperationResult {
-  let current = document
-  let inverse: PrintOperation[] = []
-  for (const operation of operations) {
-    const result = applyOperation(current, operation, options)
-    current = result.document
-    inverse = [...result.inverse, ...inverse]
-  }
-  return { document: current, inverse }
+  return applyInSequence((current: PrintDocument, operation: PrintOperation) => applyOperation(current, operation, options), document, operations)
 }

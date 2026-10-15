@@ -4,7 +4,7 @@
  */
 
 import type { JsonPathSegment, JsonValue } from '@xihan-ui/core/json'
-import type { Rect } from '@xihan-ui/designer-kit'
+import type { OperationResult as KitOperationResult, Rect } from '@xihan-ui/designer-kit'
 import type { PageBand, PrintDocument, PrintPage } from '../schema/document'
 import type { PrintElement } from '../schema/elements'
 import type { PageBandVariant } from '../schema/options'
@@ -136,9 +136,8 @@ export type PrintOperation
 /** 编辑操作的种类。 */
 export type PrintOperationType = PrintOperation['type']
 
-/** 操作结果：新文档与逆操作。操作没有带来变化时 `document` 就是传入的文档，`inverse` 为空数组。 */
-export interface OperationResult {
-  document: PrintDocument
-  /** 按顺序作用于新文档即可还原出传入文档的操作。 */
-  inverse: PrintOperation[]
-}
+/**
+ * 操作结果，即 @xihan-ui/designer-kit 的 OperationResult：新文档，以及按顺序作用于新文档即可还原出传入文档的逆操作。
+ * 操作没有带来变化时 `document` 就是传入的文档，`inverse` 为空数组。
+ */
+export type OperationResult = KitOperationResult<PrintDocument, PrintOperation>

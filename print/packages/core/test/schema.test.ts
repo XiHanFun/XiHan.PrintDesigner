@@ -4,6 +4,7 @@
  */
 
 import type { PageBandSet, PrintDocument, RectElement } from '../src'
+import { nextFreeId } from '@xihan-ui/designer-kit'
 import { describe, expect, it } from 'vitest'
 import {
   collectDocumentIds,
@@ -11,7 +12,6 @@ import {
   createEdges,
   createPage,
   createPaper,
-  createUniqueId,
   findElement,
   findPage,
   forEachElement,
@@ -185,12 +185,11 @@ describe('元素遍历与查找', () => {
     expect(findPage(doc, 'p3')).toBeUndefined()
   })
 
-  it('createUniqueId 取已用最大序号加一', () => {
+  it('collectDocumentIds 收齐页面与各区域元素的标识，交给 nextFreeId 接着编号', () => {
     const doc = sampleDocument()
     expect(collectDocumentIds(doc)).toEqual(new Set(['p1', 'p2', 'b1', 'b2', 'h1', 'f1', 'b3']))
-    expect(createUniqueId(doc, 'text')).toBe('text-1')
     doc.pages[0]!.elements.push(rect('text-1'), rect('text-7'), rect('text-07'), rect('text-x'))
-    expect(createUniqueId(doc, 'text')).toBe('text-8')
-    expect(createUniqueId(doc, 'page')).toBe('page-1')
+    expect(nextFreeId('text-', collectDocumentIds(doc))).toBe('text-8')
+    expect(nextFreeId('page-', collectDocumentIds(doc))).toBe('page-1')
   })
 })
