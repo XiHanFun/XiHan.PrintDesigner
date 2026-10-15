@@ -3,10 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ExpressionEngine } from '@xihan-ui/expression'
+import type { ExpressionEngine, FormatSpec } from '@xihan-ui/expression'
 import type {
   CellStyle,
-  FormatSpec,
   LayoutBox,
   LayoutSheet,
   PaginateOptions,

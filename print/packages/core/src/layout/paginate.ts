@@ -208,11 +208,17 @@ export function paginate(document: PrintDocument, data: unknown, options: Pagina
   }
 
   const diagnostics: PaginationDiagnostic[] = []
-  const contextOptions: Pick<PaginateOptions, 'expressions' | 'format'> = {}
+  const contextOptions: Parameters<typeof createLayoutContext>[2] = {}
   if (options.expressions !== undefined)
     contextOptions.expressions = options.expressions
   if (options.format !== undefined)
     contextOptions.format = options.format
+  const formatOptions: { locale?: string, timeZone?: string } = {}
+  if (options.locale !== undefined)
+    formatOptions.locale = options.locale
+  if (options.timeZone !== undefined)
+    formatOptions.timeZone = options.timeZone
+  contextOptions.formatOptions = formatOptions
   const context = createLayoutContext(data, options.measurer, contextOptions, diagnostics)
 
   const sheets: LayoutSheet[] = []

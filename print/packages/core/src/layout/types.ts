@@ -3,21 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ExpressionEngine } from '@xihan-ui/expression'
+import type { ExpressionEngine, FormatOptions, FormatSpec } from '@xihan-ui/expression'
 import type { Rect } from '../geometry'
 import type { Size } from '../paper'
 import type { ElementRegistry } from '../registry/registry'
-import type {
-  BoxStyle,
-  ChineseAmountFormat,
-  Color,
-  DateFormat,
-  Edges,
-  NumberFormat,
-  PercentFormat,
-  Stroke,
-  TextStyle,
-} from '../schema/common'
+import type { BoxStyle, Color, Edges, Stroke, TextStyle } from '../schema/common'
 import type { Watermark } from '../schema/document'
 import type { BarCodeTextStyle, PrintElementType } from '../schema/elements'
 import type {
@@ -68,11 +58,11 @@ export interface TextMeasurer {
   measure: (request: TextMeasureRequest) => TextMeasurement
 }
 
-/** 交给注入的值格式化器处理的格式说明。 */
-export type FormatSpec = NumberFormat | PercentFormat | DateFormat | ChineseAmountFormat
-
-/** 值格式化器：按格式说明把值转成显示文本，由宿主或上层包实现。 */
-export type ValueFormatter = (value: unknown, spec: FormatSpec) => string
+/**
+ * 值格式化器：按 @xihan-ui/expression 的格式说明把值转成显示文本，签名与其 formatValue 相同；
+ * 格式说明或值不合法时抛出 TypeError，message 为问题码。
+ */
+export type ValueFormatter = (value: unknown, spec: FormatSpec, options: FormatOptions) => string
 
 /** 分页选项。 */
 export interface PaginateOptions {
@@ -81,6 +71,10 @@ export interface PaginateOptions {
   expressions?: ExpressionEngine
   /** 数字、百分比、日期、人民币大写格式的格式化器；模板用到这些格式而未提供时，显示原值并给出诊断。 */
   format?: ValueFormatter
+  /** 交给格式化器的区域，只决定小数点与千分位符号。 */
+  locale?: string
+  /** 交给格式化器的时区：`UTC`、`±HH:mm` 或 IANA 名称。 */
+  timeZone?: string
   /** 输出页总数上限，缺省 1000；超出时停止排版并给出诊断。 */
   maxSheets?: number
   /** 元素类型登记表，默认为内置元素的登记表。 */
@@ -265,6 +259,7 @@ export type PaginationDiagnosticCode
   = | 'data.notArray'
     | 'data.notScalar'
     | 'format.unavailable'
+    | 'format.failed'
     | 'expression.unavailable'
     | 'expression.failed'
     | 'image.unsafeSource'

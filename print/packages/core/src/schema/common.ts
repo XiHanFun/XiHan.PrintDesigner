@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { FormatSpec } from '@xihan-ui/expression'
 import type { StrokeStyle, TextAlign, VerticalAlign } from './options'
 
 /** 颜色：`#RGB`、`#RRGGBB`、`#RRGGBBAA` 或 `transparent`。 */
@@ -60,34 +61,6 @@ export interface TextStyle {
   letterSpacing: number
 }
 
-/** 数字格式。 */
-export interface NumberFormat {
-  kind: 'number'
-  /** 小数位数。 */
-  decimals: number
-  /** 是否显示千分位分隔符。 */
-  thousands: boolean
-  prefix?: string
-  suffix?: string
-}
-
-/** 百分比格式：数值乘以 100 后加 `%`。 */
-export interface PercentFormat {
-  kind: 'percent'
-  decimals: number
-}
-
-/** 日期格式：pattern 支持 YYYY、MM、DD、HH、mm、ss。 */
-export interface DateFormat {
-  kind: 'date'
-  pattern: string
-}
-
-/** 人民币金额大写格式。 */
-export interface ChineseAmountFormat {
-  kind: 'chineseAmount'
-}
-
 /** 值映射的一项：数据值（按字符串比较）与显示文本。 */
 export interface ValueMapEntry {
   value: string
@@ -109,8 +82,11 @@ export interface ExpressionFormat {
   expression: string
 }
 
-/** 值格式。 */
-export type ValueFormat = NumberFormat | PercentFormat | DateFormat | ChineseAmountFormat | MapFormat | ExpressionFormat
+/**
+ * 值格式：数字、百分比、日期与人民币大写即 @xihan-ui/expression 的 FormatSpec，交给注入的格式化器；
+ * 值映射在本包内完成，表达式格式经表达式接入点。
+ */
+export type ValueFormat = FormatSpec | MapFormat | ExpressionFormat
 
 /** 固定文本。 */
 export interface StaticTextContent {

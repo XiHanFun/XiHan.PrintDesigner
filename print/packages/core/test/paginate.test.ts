@@ -552,12 +552,12 @@ describe('取值、表达式与格式', () => {
   it('文本内容的四种来源与值格式', () => {
     const elements = [
       registry.createElement('text', { id: 'static', x: 0, y: 0, overrides: { content: { kind: 'static', text: '固定' } } }),
-      registry.createElement('text', { id: 'field', x: 0, y: 10, overrides: { content: { kind: 'field', field: 'amount', format: { kind: 'number', decimals: 2, thousands: true, prefix: '¥' } } } }),
+      registry.createElement('text', { id: 'field', x: 0, y: 10, overrides: { content: { kind: 'field', field: 'amount', format: { kind: 'number', decimals: 2, grouping: true } } } }),
       registry.createElement('text', { id: 'empty', x: 0, y: 20, overrides: { content: { kind: 'field', field: 'missing', emptyText: '-' } } }),
       registry.createElement('text', { id: 'template', x: 0, y: 30, overrides: { content: { kind: 'template', template: '{{customer.name}}（{{customer.code}}）' } } }),
       registry.createElement('text', { id: 'expr', x: 0, y: 40, overrides: { content: { kind: 'expression', expression: 'upper(name)' } } }),
       registry.createElement('text', { id: 'formatExpr', x: 0, y: 50, overrides: { content: { kind: 'field', field: 'n', format: { kind: 'expression', expression: 'value + 1' } } } }),
-      registry.createElement('text', { id: 'exprFormat', x: 0, y: 60, overrides: { content: { kind: 'expression', expression: 'qty * price', format: { kind: 'chineseAmount' } } } }),
+      registry.createElement('text', { id: 'exprFormat', x: 0, y: 60, overrides: { content: { kind: 'expression', expression: 'qty * price', format: { kind: 'rmb-upper' } } } }),
       registry.createElement('text', { id: 'map', x: 0, y: 70, overrides: { content: { kind: 'field', field: 'gender', format: { kind: 'map', entries: [{ value: '1', text: '男' }, { value: '2', text: '女' }] } } } }),
     ]
     const data = { amount: 1234.5, customer: { name: '张三', code: 'C01' }, name: 'abc', n: 41, qty: 2, price: 50.25, gender: 2 }
@@ -570,7 +570,7 @@ describe('取值、表达式与格式', () => {
       '张三（C01）',
       'ABC',
       '42',
-      'chineseAmount:100.5',
+      'rmb-upper:100.5',
       '女',
     ])
     expect(result.diagnostics).toEqual([])
@@ -580,7 +580,7 @@ describe('取值、表达式与格式', () => {
     const table = simpleTable('t', 10, {
       columns: [
         { id: 'name', title: '品名', width: 50, align: 'left', content: { kind: 'template', template: '{{name}}×{{qty}}' }, cellType: 'text' },
-        { id: 'amount', title: '金额', width: 50, align: 'right', content: { kind: 'expression', expression: 'qty * price', format: { kind: 'number', decimals: 2, thousands: false } }, cellType: 'text' },
+        { id: 'amount', title: '金额', width: 50, align: 'right', content: { kind: 'expression', expression: 'qty * price', format: { kind: 'number', decimals: 2 } }, cellType: 'text' },
       ],
     })
     const compiled: string[] = []
@@ -612,7 +612,7 @@ describe('取值、表达式与格式', () => {
 
   it('同一元素的同一问题只报告一次', () => {
     const table = simpleTable('t', 10, {
-      columns: [{ id: 'qty', title: '数量', width: 100, align: 'right', content: { kind: 'field', field: 'qty', format: { kind: 'number', decimals: 0, thousands: false } }, cellType: 'text' }],
+      columns: [{ id: 'qty', title: '数量', width: 100, align: 'right', content: { kind: 'field', field: 'qty', format: { kind: 'number', decimals: 0 } }, cellType: 'text' }],
     })
     const result = run(documentOf(squarePage('p', [table])), { items: [{ qty: 1 }, { qty: 2 }, { qty: 3 }] })
     expect(result.diagnostics).toEqual([{ code: 'format.unavailable', pageId: 'p', elementId: 't' }])
@@ -631,13 +631,37 @@ describe('取值、表达式与格式', () => {
         placement: 'lastPage',
         height: 10,
         style: cellStyle(),
-        cells: [{ columnId: 'qty', colSpan: 1, content: { kind: 'aggregate', fn: 'sum', field: 'qty', scope: 'all', format: { kind: 'number', decimals: 2, thousands: false } } }],
+        cells: [{ columnId: 'qty', colSpan: 1, content: { kind: 'aggregate', fn: 'sum', field: 'qty', scope: 'all', format: { kind: 'number', decimals: 2 } } }],
       }],
     })
     const at = registry.createElement('text', { id: 'at', x: 0, y: 60, overrides: { content: { kind: 'field', field: 'at', format: { kind: 'date', pattern: 'YYYY-MM-DD' } } } })
     const result = run(documentOf(squarePage('p', [table, at])), { items: [{ qty: 1 }, { qty: 2 }], at: '2026-10-16' }, { format, expressions: fakeEngine })
     expect(calls).toEqual([['2026-10-16', 'date'], [3, 'number']])
     expect(footerTexts(tableSlices(result, 't')[0]!)).toEqual(['3'])
+  })
+
+  it('区域与时区原样交给格式化器', () => {
+    const received: unknown[] = []
+    const format = (_value: unknown, _spec: unknown, options: unknown): string => {
+      received.push(options)
+      return 'ok'
+    }
+    const text = registry.createElement('text', { id: 't', x: 0, y: 0, overrides: { content: { kind: 'field', field: 'n', format: { kind: 'number', decimals: 1 } } } })
+    run(documentOf(squarePage('p', [text])), { n: 1 }, { format, locale: 'de-DE', timeZone: 'Asia/Shanghai' })
+    run(documentOf(squarePage('p', [text])), { n: 1 }, { format })
+    expect(received).toEqual([{ locale: 'de-DE', timeZone: 'Asia/Shanghai' }, {}])
+  })
+
+  it('格式化器报错时显示原值并诊断问题码', () => {
+    const format = (): string => {
+      throw new TypeError('XH_EXPR_FORMAT_OUT_OF_RANGE')
+    }
+    const text = registry.createElement('text', { id: 't', x: 0, y: 0, overrides: { content: { kind: 'field', field: 'n', format: { kind: 'rmb-upper' } } } })
+    const result = run(documentOf(squarePage('p', [text])), { n: 1e20 }, { format })
+    expect(textOf(result.sheets[0]!, 't')).toBe('100000000000000000000')
+    expect(result.diagnostics).toEqual([
+      { code: 'format.failed', pageId: 'p', elementId: 't', params: { reason: 'XH_EXPR_FORMAT_OUT_OF_RANGE' } },
+    ])
   })
 
   it('格式化器返回的不是字符串时抛错', () => {

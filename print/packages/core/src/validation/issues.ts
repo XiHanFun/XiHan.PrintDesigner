@@ -30,6 +30,8 @@ export const VALIDATION_ISSUE_SEVERITIES = {
   'template.invalidPath': 'error',
   'expression.invalid': 'error',
   'format.duplicateMapValue': 'warning',
+  'format.decimalsConflict': 'error',
+  'format.decimalsOrder': 'error',
   'document.noPages': 'error',
   'page.presetMismatch': 'warning',
   'page.noContentArea': 'error',
