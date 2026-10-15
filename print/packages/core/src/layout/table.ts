@@ -3,7 +3,6 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { Decimal } from '../decimal'
 import type { TableElement } from '../schema/elements'
 import type {
   AggregateCellContent,
@@ -17,13 +16,11 @@ import type { BodyGeometry, Placement, SheetCursor } from './placement'
 import type { TableCellLayout, TableLayoutBox, TableRowLayout } from './types'
 import { checkBarcodeValue } from '../barcode'
 import { getFieldValue } from '../data'
-import { addDecimals, compareDecimals, decimalToNumber, decimalToString, toDecimal, zeroDecimal } from '../decimal'
-import { isEmptyValue } from '../format'
 import { measureQrCapacity } from '../qrcode'
 import { ptToMm } from '../units'
 import { isSafeImageUrl } from '../validation/controls'
 import { boxBase } from './boxes'
-import { contentText, expressionText, templateText, valueText } from './content'
+import { contentText, evaluatedText, expressionText, isEmptyValue, templateText, valueText } from './content'
 import { LAYOUT_EPSILON } from './context'
 import { bodyBottom, isAtBodyTop, nextSheetTop } from './placement'
 
@@ -175,28 +172,27 @@ export function prepareTable(table: TableElement, context: LayoutContext, scope:
   return prepared
 }
 
-function aggregateValue(content: AggregateCellContent, rows: readonly unknown[]): unknown {
-  if (content.fn === 'count' && content.field === undefined)
-    return rows.length
+/** 汇总函数对应的表达式源码，变量 `$values` 为参与汇总的字段值列表。 */
+export const AGGREGATE_EXPRESSIONS = {
+  sum: 'SUM($values)',
+  avg: 'AVG($values)',
+  min: 'MIN($values)',
+  max: 'MAX($values)',
+} as const
+
+/** 计数在本包内完成，求和、平均、最小、最大经表达式接入点求值。 */
+function aggregateText(
+  content: AggregateCellContent,
+  rows: readonly unknown[],
+  context: LayoutContext,
+  scope: DiagnosticScope,
+): string {
   const values = content.field === undefined ? [] : rows.map(row => getFieldValue(row, content.field as string))
-  if (content.fn === 'count')
-    return values.filter(value => !isEmptyValue(value)).length
-  const numbers = values.map(toDecimal).filter((value): value is Decimal => value !== undefined)
-  const sum = numbers.reduce(addDecimals, zeroDecimal())
-  switch (content.fn) {
-    case 'sum':
-      return decimalToString(sum)
-    case 'avg':
-      return numbers.length === 0 ? undefined : decimalToNumber(sum) / numbers.length
-    case 'min':
-    case 'max': {
-      if (numbers.length === 0)
-        return undefined
-      const direction = content.fn === 'min' ? -1 : 1
-      const extreme = numbers.reduce((best, value) => compareDecimals(value, best) * direction > 0 ? value : best)
-      return decimalToString(extreme)
-    }
+  if (content.fn === 'count') {
+    const count = content.field === undefined ? rows.length : values.filter(value => !isEmptyValue(value)).length
+    return valueText(count, content.format, undefined, context, scope)
   }
+  return evaluatedText(AGGREGATE_EXPRESSIONS[content.fn], { $values: values }, content.format, context, scope)
 }
 
 interface SliceRange {
@@ -223,7 +219,7 @@ function footerRow(
       const rows = cell.content.scope === 'all'
         ? data
         : data.slice(cell.content.scope === 'page' ? range.start : 0, range.end)
-      text = valueText(aggregateValue(cell.content, rows), cell.content.format, undefined, context, scope)
+      text = aggregateText(cell.content, rows, context, scope)
     }
     else {
       text = contentText(cell.content, context.data, context, scope)

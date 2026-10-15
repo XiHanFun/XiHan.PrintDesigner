@@ -172,7 +172,7 @@ describe('表格分页', () => {
         },
       ],
     })
-    const result = run(documentOf(squarePage('p', [table])), { items: itemsOf(20), order: 'NO.1' })
+    const result = run(documentOf(squarePage('p', [table])), { items: itemsOf(20), order: 'NO.1' }, { expressions: fakeEngine })
     const slices = tableSlices(result, 't')
     expect(slices.map(slice => dataIndexes(slice).length)).toEqual([7, 8, 5])
     expect(slices.map(footerTexts)).toEqual([
@@ -210,8 +210,30 @@ describe('表格分页', () => {
       })),
     })
     const items = [{ qty: '1.5' }, { qty: 'x' }, { qty: null }, { qty: -2 }, { qty: 10 }]
-    const slices = tableSlices(run(documentOf(squarePage('p', [table])), { items }), 't')
+    const slices = tableSlices(run(documentOf(squarePage('p', [table])), { items }, { expressions: fakeEngine }), 't')
     expect(footerTexts(slices[0]!)).toEqual(['3.1666666666666665', '4', '-2', '10'])
+  })
+
+  it('求和、平均、最小、最大经表达式接入点求值，计数在本包内完成', () => {
+    const compiled: string[] = []
+    const fns = ['sum', 'avg', 'min', 'max', 'count'] as const
+    const table = simpleTable('t', 10, {
+      footerRows: fns.map(fn => ({
+        id: fn,
+        placement: 'lastPage' as const,
+        height: 5,
+        style: cellStyle(),
+        cells: [{ columnId: 'qty', colSpan: 1, content: { kind: 'aggregate' as const, fn, field: 'qty', scope: 'all' as const } }],
+      })),
+    })
+    const items = itemsOf(3)
+    const result = run(documentOf(squarePage('p', [table])), { items }, { expressions: createFakeEngine(compiled) })
+    expect(footerTexts(tableSlices(result, 't')[0]!)).toEqual(['6', '2', '1', '3', '3'])
+    expect([...new Set(compiled)].sort()).toEqual(['AVG($values)', 'MAX($values)', 'MIN($values)', 'SUM($values)'])
+
+    const withoutEngine = run(documentOf(squarePage('p', [table])), { items })
+    expect(footerTexts(tableSlices(withoutEngine, 't')[0]!)).toEqual(['', '', '', '', '3'])
+    expect(withoutEngine.diagnostics).toEqual([{ code: 'expression.unavailable', pageId: 'p', elementId: 't' }])
   })
 
   it('跨列的表尾单元格合并列宽，对齐方式逐级继承', () => {
@@ -597,7 +619,7 @@ describe('取值、表达式与格式', () => {
     expect(tableSlices(result, 't')[0]!.rows.filter(row => row.role === 'body').map(row => row.cells[0]!.text)).toEqual(['1', '2', '3'])
   })
 
-  it('格式化器收到原值与格式说明，汇总值以十进制字符串传入', () => {
+  it('格式化器收到原值与格式说明，汇总值为表达式接入点的求值结果', () => {
     const calls: [unknown, string][] = []
     const format = (value: unknown, spec: { kind: string }): string => {
       calls.push([value, spec.kind])
@@ -613,9 +635,9 @@ describe('取值、表达式与格式', () => {
       }],
     })
     const at = registry.createElement('text', { id: 'at', x: 0, y: 60, overrides: { content: { kind: 'field', field: 'at', format: { kind: 'date', pattern: 'YYYY-MM-DD' } } } })
-    const result = run(documentOf(squarePage('p', [table, at])), { items: [{ qty: 0.1 }, { qty: 0.2 }], at: '2026-10-16' }, { format })
-    expect(calls).toEqual([['2026-10-16', 'date'], ['0.3', 'number']])
-    expect(footerTexts(tableSlices(result, 't')[0]!)).toEqual(['0.3'])
+    const result = run(documentOf(squarePage('p', [table, at])), { items: [{ qty: 1 }, { qty: 2 }], at: '2026-10-16' }, { format, expressions: fakeEngine })
+    expect(calls).toEqual([['2026-10-16', 'date'], [3, 'number']])
+    expect(footerTexts(tableSlices(result, 't')[0]!)).toEqual(['3'])
   })
 
   it('格式化器返回的不是字符串时抛错', () => {

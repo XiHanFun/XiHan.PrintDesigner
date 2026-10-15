@@ -4,11 +4,20 @@
  */
 
 import type { ExpressionEngine } from '../expression'
-import type { ValueFormatter } from '../format'
 import type { Rect } from '../geometry'
 import type { Size } from '../paper'
 import type { ElementRegistry } from '../registry/registry'
-import type { BoxStyle, Color, Edges, Stroke, TextStyle } from '../schema/common'
+import type {
+  BoxStyle,
+  ChineseAmountFormat,
+  Color,
+  DateFormat,
+  Edges,
+  NumberFormat,
+  PercentFormat,
+  Stroke,
+  TextStyle,
+} from '../schema/common'
 import type { Watermark } from '../schema/document'
 import type { BarcodeTextStyle, PrintElementType } from '../schema/elements'
 import type {
@@ -57,6 +66,12 @@ export interface TextMeasurement {
 export interface TextMeasurer {
   measure: (request: TextMeasureRequest) => TextMeasurement
 }
+
+/** 交给注入的值格式化器处理的格式说明。 */
+export type FormatSpec = NumberFormat | PercentFormat | DateFormat | ChineseAmountFormat
+
+/** 值格式化器：按格式说明把值转成显示文本，由宿主或上层包实现。 */
+export type ValueFormatter = (value: unknown, spec: FormatSpec) => string
 
 /** 分页选项。 */
 export interface PaginateOptions {

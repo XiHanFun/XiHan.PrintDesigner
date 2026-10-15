@@ -48,7 +48,21 @@ export function createFakeMeasurer(calls: TextMeasureRequest[] = []): TextMeasur
   }
 }
 
+function numbersOf(scope: Readonly<Record<string, unknown>>): number[] {
+  return (scope.$values as unknown[])
+    .filter(value => value !== null && value !== '')
+    .map(Number)
+    .filter(Number.isFinite)
+}
+
 const FAKE_EXPRESSIONS: Record<string, (scope: Readonly<Record<string, unknown>>) => unknown> = {
+  'SUM($values)': scope => numbersOf(scope).reduce((sum, value) => sum + value, 0),
+  'AVG($values)': (scope) => {
+    const numbers = numbersOf(scope)
+    return numbers.length === 0 ? null : numbers.reduce((sum, value) => sum + value, 0) / numbers.length
+  },
+  'MIN($values)': scope => numbersOf(scope).length === 0 ? null : Math.min(...numbersOf(scope)),
+  'MAX($values)': scope => numbersOf(scope).length === 0 ? null : Math.max(...numbersOf(scope)),
   'qty * price': scope => Number(scope.qty) * Number(scope.price),
   'upper(name)': scope => String(scope.name).toUpperCase(),
   'value + 1': scope => Number(scope.value) + 1,

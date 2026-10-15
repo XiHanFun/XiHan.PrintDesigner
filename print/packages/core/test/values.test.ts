@@ -6,41 +6,7 @@
 import type { ExpressionCompilation, FormatSpec, MapFormat } from '../src'
 import { describe, expect, it } from 'vitest'
 import { fillTextTemplate, getFieldValue, toDisplayText } from '../src/data'
-import { addDecimals, compareDecimals, decimalToNumber, decimalToString, toDecimal, zeroDecimal } from '../src/decimal'
-import { evaluateToText, formatMapValue, formatValue, isEmptyValue } from '../src/format'
-
-function decimal(value: unknown): NonNullable<ReturnType<typeof toDecimal>> {
-  const result = toDecimal(value)
-  if (result === undefined)
-    throw new Error(`not a number: ${String(value)}`)
-  return result
-}
-
-describe('十进制数', () => {
-  it('识别数字与数字字符串，含科学计数法', () => {
-    expect(decimalToString(decimal(12.5))).toBe('12.5')
-    expect(decimalToString(decimal('-0.0300'))).toBe('-0.0300')
-    expect(decimalToString(decimal(1e-7))).toBe('0.0000001')
-    expect(decimalToString(decimal(1e21))).toBe('1000000000000000000000')
-    expect(decimalToString(decimal(' +3. '))).toBe('3')
-    expect(decimalToString(decimal('.5'))).toBe('0.5')
-    expect(decimalToString(decimal(-0))).toBe('0')
-  })
-
-  it('不能识别的值返回 undefined', () => {
-    for (const value of ['', 'abc', '1,000', '1.2.3', Number.NaN, Number.POSITIVE_INFINITY, null, true, {}])
-      expect(toDecimal(value), String(value)).toBeUndefined()
-  })
-
-  it('精确相加与比较', () => {
-    const sum = [0.1, 0.2, 0.3].map(decimal).reduce(addDecimals, zeroDecimal())
-    expect(decimalToString(sum)).toBe('0.6')
-    expect(decimalToNumber(addDecimals(decimal('19.99'), decimal('-20')))).toBe(-0.01)
-    expect(compareDecimals(decimal('1.10'), decimal(1.1))).toBe(0)
-    expect(compareDecimals(decimal(-2), decimal(1))).toBeLessThan(0)
-    expect(compareDecimals(decimal('0.3'), decimal('0.25'))).toBeGreaterThan(0)
-  })
-})
+import { evaluateExpression, formatValue, isEmptyValue, mapValue } from '../src/layout/content'
 
 describe('值格式', () => {
   const formatter = (value: unknown, spec: FormatSpec): string => `${spec.kind}(${String(value)})`
@@ -69,8 +35,8 @@ describe('值格式', () => {
     expect(formatValue(1, format)).toEqual({ text: '男' })
     expect(formatValue('2', format)).toEqual({ text: '女' })
     expect(formatValue(3, format)).toEqual({ text: '未知' })
-    expect(formatMapValue(true, { kind: 'map', entries: [{ value: 'true', text: '是' }] })).toBe('是')
-    expect(formatMapValue(3, { kind: 'map', entries: [] })).toBe('3')
+    expect(mapValue(true, { kind: 'map', entries: [{ value: 'true', text: '是' }] })).toBe('是')
+    expect(mapValue(3, { kind: 'map', entries: [] })).toBe('3')
   })
 
   it('空值不经格式化', () => {
@@ -102,7 +68,7 @@ describe('值格式', () => {
     })
     expect(formatValue(5, { kind: 'expression', expression: 'x' })).toEqual({ text: '', problem: 'expressionUnavailable' })
     const objectResult = (): ExpressionCompilation => ({ ok: true, references: [], evaluate: () => ({ ok: true, value: { a: 1 } }) })
-    expect(evaluateToText(objectResult, 'x', {})).toEqual({ text: '', problem: 'notScalar' })
+    expect(evaluateExpression(objectResult, 'x', {})).toEqual({ text: '', problem: 'notScalar' })
   })
 })
 
