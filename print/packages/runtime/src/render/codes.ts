@@ -3,6 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+// 条码与二维码直接用 @xihan-ui/headless 的 connectBarCode / connectMatrixCode 算出几何，输出普通 SVG。
+
 import type { BarCodeFormat, BarCodeTextStyle, Color, MatrixCodeFormat, MatrixCodeLevel } from '@xihan-print/core'
 import type { MatrixCodeProps } from '@xihan-ui/headless'
 import { DEFAULT_FONT_FAMILY } from '@xihan-print/core'
