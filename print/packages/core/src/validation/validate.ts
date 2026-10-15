@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ExpressionEngine } from '../expression'
+import type { ExpressionChecker } from '../expression'
 import type { Rect } from '../geometry'
 import type { PathSegment } from '../json'
 import type { Size } from '../paper'
@@ -45,7 +45,7 @@ export interface ValidateDocumentOptions {
   /** 元素类型登记表，默认为内置元素的登记表。 */
   registry?: ElementRegistry
   /** 受限表达式检查接入点；缺省时只检查表达式源码非空。 */
-  expressions?: ExpressionEngine
+  expressions?: ExpressionChecker
 }
 
 interface DescriptorNode {
@@ -56,7 +56,7 @@ interface DescriptorNode {
 
 interface DocumentContext {
   registry: ElementRegistry
-  expressions?: ExpressionEngine
+  expressions?: ExpressionChecker
   issues: ValidationIssue[]
   ids: Set<string>
   trees: Map<AnyElementPrototype, DescriptorNode>
