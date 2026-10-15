@@ -4,7 +4,7 @@
  */
 
 import type { JsonObject } from '@xihan-ui/core/json'
-import type { PaperPresetName } from '../paper'
+import type { PaperPresetName } from '@xihan-ui/designer-kit'
 import type { Color, Edges } from './common'
 import type { PrintElement } from './elements'
 import type { PageOrientation, SingleSheetPreference } from './options'

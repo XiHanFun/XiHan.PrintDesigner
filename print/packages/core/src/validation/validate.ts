@@ -14,9 +14,8 @@ import type { PageBandKey, PageOrientation } from '../schema/options'
 import type { ElementRegion } from '../traverse'
 import type { IssueScope, IssueSink, ValidationIssue, ValidationReport } from './issues'
 import { findJsonViolation, isPlainObject } from '@xihan-ui/core/json'
-import { expandRect, rectContains } from '@xihan-ui/designer-kit'
+import { expandRect, isPaperPresetName, PAPER_PRESET_NAMES, PAPER_PRESETS, rectContains } from '@xihan-ui/designer-kit'
 import { getBandRect, getBodyRect, getContentRect, getElementRect, getPaperSize } from '../geometry'
-import { PAPER_PRESET_NAMES, PAPER_PRESETS } from '../paper'
 import { createElementRegistry } from '../registry/registry'
 import { PRINT_SCHEMA_VERSION } from '../schema/document'
 import { PAGE_ORIENTATIONS, SINGLE_SHEET_PREFERENCES } from '../schema/options'
@@ -231,9 +230,9 @@ function validatePaper(value: unknown, path: Path, sink: IssueSink): void {
     field('height', true, size),
   ], path, sink)
   const preset = value.preset
-  if (typeof preset !== 'string' || !(PAPER_PRESET_NAMES as readonly string[]).includes(preset))
+  if (!isPaperPresetName(preset))
     return
-  const expected = PAPER_PRESETS[preset as keyof typeof PAPER_PRESETS]
+  const expected = PAPER_PRESETS[preset]
   const matches = isFiniteNumber(value.width) && isFiniteNumber(value.height)
     && Math.abs(value.width - expected.width) <= LENGTH_TOLERANCE
     && Math.abs(value.height - expected.height) <= LENGTH_TOLERANCE
