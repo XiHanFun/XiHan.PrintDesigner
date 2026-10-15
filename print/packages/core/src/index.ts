@@ -8,7 +8,7 @@
 export * from './factory'
 export * from './field-path'
 export * from './geometry'
-export * from './json'
+export type { JsonPath, PathSegment } from './json-path'
 export { MIN_SHRINK_FONT_SIZE, SHRINK_FONT_STEP } from './layout/boxes'
 export { DEFAULT_MAX_SHEETS, paginate } from './layout/paginate'
 export * from './layout/types'

@@ -4,7 +4,7 @@
  */
 
 import type { ExpressionEngine } from '@xihan-ui/expression'
-import type { PathSegment } from '../json'
+import type { PathSegment } from '../json-path'
 
 /** 问题严重程度：error 模板不可用或不安全，warning 模板可用但很可能有误。 */
 export type IssueSeverity = 'error' | 'warning'

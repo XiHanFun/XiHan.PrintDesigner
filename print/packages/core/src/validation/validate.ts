@@ -5,7 +5,7 @@
 
 import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { ExpressionEngine } from '@xihan-ui/expression'
-import type { PathSegment } from '../json'
+import type { PathSegment } from '../json-path'
 import type { ElementRegistry } from '../registry/registry'
 import type { AnyElementPrototype, ElementValidationContext, PropertyDescriptor } from '../registry/types'
 import type { Edges } from '../schema/common'
@@ -13,9 +13,9 @@ import type { PrintElement } from '../schema/elements'
 import type { PageBandKey, PageOrientation } from '../schema/options'
 import type { ElementRegion } from '../traverse'
 import type { IssueScope, IssueSink, ValidationIssue, ValidationReport } from './issues'
+import { findJsonViolation, isPlainObject } from '@xihan-ui/core/json'
 import { expandRect, rectContains } from '@xihan-ui/designer-kit'
 import { getBandRect, getBodyRect, getContentRect, getElementRect, getPaperSize } from '../geometry'
-import { isJsonValue, isPlainObject, listJsonProblems } from '../json'
 import { PAPER_PRESET_NAMES, PAPER_PRESETS } from '../paper'
 import { createElementRegistry } from '../registry/registry'
 import { PRINT_SCHEMA_VERSION } from '../schema/document'
@@ -133,6 +133,35 @@ function scopeOfPath(input: unknown, path: Path): IssueScope {
     }
   }
   return scope
+}
+
+/** 把 JSON Pointer 换成路径数组，数组中的片段换成下标。 */
+function pointerToPath(root: unknown, pointer: string): PathSegment[] {
+  const path: PathSegment[] = []
+  let current = root
+  for (const token of pointer.split('/').slice(1)) {
+    const key = token.replace(/~1/g, '/').replace(/~0/g, '~')
+    const segment: PathSegment = Array.isArray(current) ? Number(key) : key
+    path.push(segment)
+    current = typeof current === 'object' && current !== null ? (current as Record<PathSegment, unknown>)[segment] : undefined
+  }
+  return path
+}
+
+function valueAtPath(root: unknown, path: readonly PathSegment[]): unknown {
+  let current = root
+  for (const segment of path)
+    current = typeof current === 'object' && current !== null ? (current as Record<PathSegment, unknown>)[segment] : undefined
+  return current
+}
+
+/** 非 JSON 值的种类：undefined、非有限数字、函数、symbol、bigint 或非普通对象。 */
+function jsonViolationKind(value: unknown): string {
+  if (typeof value === 'number')
+    return 'nonFiniteNumber'
+  if (typeof value === 'object' && value !== null)
+    return 'nonPlainObject'
+  return typeof value
 }
 
 function checkId(value: unknown, path: Path, sink: IssueSink, ids: Set<string>): void {
@@ -308,7 +337,7 @@ function validateElement(
   validateDescriptorNode(value, descriptorTree(context, prototype), path, sink, ['id', 'type', 'meta'])
   if (value.meta !== undefined)
     expectObject(value.meta, [...path, 'meta'], sink)
-  if (context.issues.slice(firstIssue).some(issue => issue.severity === 'error') || !isJsonValue(value))
+  if (context.issues.slice(firstIssue).some(issue => issue.severity === 'error') || findJsonViolation(value) !== undefined)
     return
 
   const element = value as unknown as PrintElement
@@ -426,12 +455,15 @@ export function validateDocument(input: unknown, options: ValidateDocumentOption
   const issues: ValidationIssue[] = []
   const finish = (): ValidationReport => ({ valid: !issues.some(issue => issue.severity === 'error'), issues })
 
-  for (const problem of listJsonProblems(input)) {
-    const sink = createIssueSink(issues, scopeOfPath(input, problem.path))
-    if (problem.kind === 'circular')
-      sink.report('json.circular', problem.path)
+  const violation = findJsonViolation(input)
+  if (violation !== undefined) {
+    const path = pointerToPath(input, violation)
+    const offending = valueAtPath(input, path)
+    const sink = createIssueSink(issues, scopeOfPath(input, path))
+    if (Array.isArray(offending) || isPlainObject(offending))
+      sink.report('json.circular', path)
     else
-      sink.report('json.invalidValue', problem.path, { kind: problem.kind })
+      sink.report('json.invalidValue', path, { kind: jsonViolationKind(offending) })
   }
 
   const sink = createIssueSink(issues)

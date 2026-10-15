@@ -3,8 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { JsonValue } from '@xihan-ui/core/json'
 import type { Rect } from '@xihan-ui/designer-kit'
-import type { PathSegment } from '../json'
+import type { PathSegment } from '../json-path'
 import type { ElementRegistry } from '../registry/registry'
 import type { PageBand, PageBandSet, PrintDocument, PrintPage } from '../schema/document'
 import type { PrintElement } from '../schema/elements'
@@ -28,8 +29,8 @@ import type {
   UpdateElementOperation,
   UpdatePageOperation,
 } from './types'
+import { cloneJson, findJsonViolation, isPlainObject, jsonEquals } from '@xihan-ui/core/json'
 import { collectDocumentIds } from '../factory'
-import { cloneJson, isJsonValue, isPlainObject, jsonEqual } from '../json'
 import { createElementRegistry } from '../registry/registry'
 import { PAGE_BAND_VARIANTS } from '../schema/options'
 import { findElement, findPage, getContainerElements, PAGE_BAND_KEYS } from '../traverse'
@@ -40,6 +41,11 @@ import { writeChanges } from './path'
 export interface ApplyOperationOptions {
   /** 提供元素专属缩放行为的登记表，默认为内置元素的登记表。 */
   registry?: ElementRegistry
+}
+
+/** 深拷贝已确认是纯 JSON 的模板数据。 */
+function copy<T>(value: T): T {
+  return cloneJson(value as unknown as JsonValue) as unknown as T
 }
 
 const PAGE_SETTING_KEYS: readonly string[] = ['name', 'paper', 'orientation', 'margins', 'numbering', 'watermark', 'meta']
@@ -89,7 +95,7 @@ function requireNewIds(document: PrintDocument, ids: readonly string[]): void {
 }
 
 function requireJson(value: unknown, field: string): void {
-  if (!isPlainObject(value) || !isJsonValue(value))
+  if (!isPlainObject(value) || findJsonViolation(value) !== undefined)
     throw new PrintOperationError('value.invalid', { field })
 }
 
@@ -135,7 +141,7 @@ function diffChanges(previous: PrintElement, next: PrintElement): PropertyChange
   const keys = new Set([...Object.keys(before), ...Object.keys(after)])
   const changes: PropertyChange[] = []
   for (const key of keys) {
-    if (jsonEqual(before[key], after[key]))
+    if (jsonEquals(before[key], after[key] as JsonValue | undefined))
       continue
     changes.push(before[key] === undefined ? { path: [key] } : { path: [key], value: before[key] })
   }
@@ -154,7 +160,7 @@ function addElement(document: PrintDocument, operation: AddElementOperation): Op
   requireNewIds(document, [operation.element.id])
   const index = requireInsertIndex(operation.index, elements.length)
   const next = elements.slice()
-  next.splice(index, 0, cloneJson(operation.element))
+  next.splice(index, 0, copy(operation.element))
   return {
     document: replacePage(document, pageIndex, withContainerElements(page, operation.container, next)),
     inverse: [{ type: 'removeElement', id: operation.element.id }],
@@ -274,7 +280,7 @@ function addPage(document: PrintDocument, operation: AddPageOperation): Operatio
   requireNewIds(document, [operation.page.id, ...pageElementIds(operation.page)])
   const index = requireInsertIndex(operation.index, document.pages.length)
   const pages = document.pages.slice()
-  pages.splice(index, 0, cloneJson(operation.page))
+  pages.splice(index, 0, copy(operation.page))
   return {
     document: { ...document, pages },
     inverse: [{ type: 'removePage', pageId: operation.page.id }],
@@ -354,7 +360,7 @@ function addBand(document: PrintDocument, operation: AddBandOperation): Operatio
   if (!Array.isArray(operation.band.elements))
     throw new PrintOperationError('value.invalid', { field: 'band' })
   requireNewIds(document, operation.band.elements.map(element => element.id))
-  const nextPage = { ...page, [operation.region]: replaceBand(set, operation.variant, cloneJson(operation.band)) }
+  const nextPage = { ...page, [operation.region]: replaceBand(set, operation.variant, copy(operation.band)) }
   return {
     document: replacePage(document, index, nextPage),
     inverse: [{ type: 'removeBand', pageId: page.id, region: operation.region, variant: operation.variant }],

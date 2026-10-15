@@ -3,8 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { JsonValue } from '@xihan-ui/core/json'
 import type { Rect } from '@xihan-ui/designer-kit'
-import type { JsonValue, PathSegment } from '../json'
+import type { PathSegment } from '../json-path'
 import type { PageBand, PrintDocument, PrintPage } from '../schema/document'
 import type { PrintElement } from '../schema/elements'
 import type { PageBandVariant } from '../schema/options'

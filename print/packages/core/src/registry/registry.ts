@@ -3,9 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { JsonValue } from '@xihan-ui/core/json'
 import type { PrintElementOf, PrintElementType } from '../schema/elements'
 import type { AnyElementPrototype, ElementCategory, ElementDefaults, ElementPrototype } from './types'
-import { cloneJson } from '../json'
+import { cloneJson } from '@xihan-ui/core/json'
 import { createBuiltinElementPrototypes } from './builtins'
 import { ELEMENT_CATEGORIES } from './types'
 
@@ -68,7 +69,7 @@ export function createElementRegistry(
       if (prototype === undefined)
         throw new Error(`Unknown element type: ${type}`)
       const fixed = { id: init.id, type, x: init.x, y: init.y }
-      const element = Object.assign({ ...fixed }, cloneJson(prototype.defaults), cloneJson(init.overrides ?? {}), fixed)
+      const element = Object.assign({ ...fixed }, cloneJson(prototype.defaults as unknown as JsonValue), cloneJson((init.overrides ?? {}) as JsonValue), fixed)
       return element as unknown as PrintElementOf<typeof type>
     },
   }

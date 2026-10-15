@@ -20,7 +20,6 @@ import {
   createElementRegistry,
   createPage,
   findElement,
-  jsonEqual,
   PrintOperationError,
   readPath,
   validateDocument,
@@ -49,11 +48,11 @@ function apply(document: PrintDocument, operation: PrintOperation | PrintOperati
   deepFreeze(result.document)
   expect(result.inverse.length).toBeGreaterThan(0)
   const undone = applyOperations(result.document, result.inverse)
-  expect(jsonEqual(undone.document, document)).toBe(true)
+  expect(undone.document).toEqual(document)
   const redone = applyOperations(undone.document, undone.inverse)
-  expect(jsonEqual(redone.document, result.document)).toBe(true)
+  expect(redone.document).toEqual(result.document)
   const serialized = JSON.parse(JSON.stringify(result.inverse)) as PrintOperation[]
-  expect(jsonEqual(applyOperations(result.document, serialized).document, document)).toBe(true)
+  expect(applyOperations(result.document, serialized).document).toEqual(document)
   return result
 }
 
@@ -586,6 +585,6 @@ describe('随机操作序列', () => {
 
     for (const inverse of inverses.reverse())
       doc = applyOperations(doc, inverse).document
-    expect(jsonEqual(doc, original)).toBe(true)
+    expect(doc).toEqual(original)
   })
 })

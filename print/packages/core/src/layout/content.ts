@@ -7,8 +7,8 @@ import type { EngineCompileResult, ExpressionIssue, FormatSpec } from '@xihan-ui
 import type { MapFormat, TextContent, ValueFormat } from '../schema/common'
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { PaginationDiagnosticCode } from './types'
+import { isPlainObject } from '@xihan-ui/core/json'
 import { fillTextTemplate, getFieldValue, toDisplayText } from '../data'
-import { isPlainObject } from '../json'
 
 /** 取值或格式化未完成的原因：未提供格式化器、格式化器报错、未提供表达式接入点、表达式编译或求值失败、结果不是标量。 */
 export type ValueProblem
