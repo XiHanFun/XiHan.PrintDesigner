@@ -195,6 +195,34 @@ public sealed class PrintRequestHandlerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task RejectsPageRangesThatSelectNothing()
+    {
+        var peer = await PeerAsync();
+
+        await SendAsync(peer, Html("g1", options: new PrintOptions { PageRanges = "4-9" }));
+        Assert.Equal("options.pageRanges", (string?)(await peer.ErrorAsync("r-g1", PrintErrorCodes.BadRequest))["details"]!["field"]);
+        await SendAsync(peer, new ExportPdfRequest("r-g2", "g2", Document, new PrintOptions { PageRanges = "4" }));
+        await peer.ErrorAsync("r-g2", PrintErrorCodes.BadRequest);
+
+        await peer.QuietAsync();
+        Assert.Empty(_backend.Calls);
+    }
+
+    [Fact]
+    public async Task CancelsTheJobWhenTheUserCancelsThePrintDialog()
+    {
+        var peer = await PeerAsync();
+        _backend.Fail = _ => new PrintCancelledByUser();
+
+        await SendAsync(peer, Html("u1", options: new PrintOptions { Dialog = true }));
+        await AcceptedAsync(peer, "u1");
+        await EventAsync(peer, "job.started", "u1");
+
+        var cancelled = await EventAsync(peer, "job.cancelled", "u1");
+        Assert.Null(cancelled["error"]);
+    }
+
+    [Fact]
     public async Task RejectsDuplicateJobIdsAndFullQueues()
     {
         Create(new JobQueueOptions { MaxActivePerSession = 2 });

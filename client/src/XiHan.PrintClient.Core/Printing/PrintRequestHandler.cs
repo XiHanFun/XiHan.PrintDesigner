@@ -43,7 +43,7 @@ public sealed class PrintRequestHandler : IRequestHandler
                 await SubmitAsync(session, html.Id, () =>
                 {
                     var (name, error) = Resolve(html.Printer);
-                    return (Unsupported(_capabilities.Html, "html") ?? Unsupported(html.Options) ?? error,
+                    return (Unsupported(_capabilities.Html, "html") ?? Unsupported(html.Options) ?? Unselectable(html.Document, html.Options) ?? error,
                         () => PrintJob.Html(html.JobId, session, name!, html.Document, html.Options));
                 }, cancellationToken).ConfigureAwait(false);
                 break;
@@ -57,7 +57,7 @@ public sealed class PrintRequestHandler : IRequestHandler
                 break;
             case ExportPdfRequest pdf:
                 await SubmitAsync(session, pdf.Id, () =>
-                    (Unsupported(_capabilities.Pdf, "pdf"), () => PrintJob.Pdf(pdf.JobId, session, pdf.Document, pdf.Options)), cancellationToken).ConfigureAwait(false);
+                    (Unsupported(_capabilities.Pdf, "pdf") ?? Unselectable(pdf.Document, pdf.Options), () => PrintJob.Pdf(pdf.JobId, session, pdf.Document, pdf.Options)), cancellationToken).ConfigureAwait(false);
                 break;
             case GetJobRequest getJob:
                 var status = _jobs.Status(session, getJob.JobId);
@@ -116,6 +116,13 @@ public sealed class PrintRequestHandler : IRequestHandler
     private ProtocolError? Unsupported(PrintOptions options)
     {
         return options.Duplex != DuplexMode.Simplex && !_capabilities.Duplex ? Unsupported(false, "duplex") : null;
+    }
+
+    private static ProtocolError? Unselectable(PrintDocument document, PrintOptions options)
+    {
+        return PageSelection.Parse(options.PageRanges, document.SheetCount) is null
+            ? new ProtocolError(PrintErrorCodes.BadRequest, $"页码范围在 {document.SheetCount} 页里一页都没选中", new JsonObject { ["field"] = "options.pageRanges" })
+            : null;
     }
 
     private static ProtocolError? Unsupported(bool supported, string capability)

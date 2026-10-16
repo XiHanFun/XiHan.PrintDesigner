@@ -1,0 +1,8 @@
+<Project>
+  <!-- 不用 WPF：去掉 WebView2 包自带的 WPF 程序集引用，不与 WindowsBase 冲突，也不随产物发布 -->
+  <Target Name="RemoveWebView2Wpf" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.Wpf'" />
+    </ItemGroup>
+  </Target>
+</Project>

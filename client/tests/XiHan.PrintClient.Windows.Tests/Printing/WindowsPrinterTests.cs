@@ -4,9 +4,11 @@
 using XiHan.PrintClient.Core.Printing;
 using XiHan.PrintClient.Core.Protocol;
 using XiHan.PrintClient.Windows.Printing;
+using XiHan.PrintClient.Windows.Tests.Rendering;
 
 namespace XiHan.PrintClient.Windows.Tests.Printing;
 
+[Collection(TestPrinterCollection.Name)]
 public sealed class WindowsPrinterTests
 {
     /// <summary>

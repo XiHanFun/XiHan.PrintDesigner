@@ -12,6 +12,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="XiHan.PrintClient.Windows.Tests" />
   </ItemGroup>
 
