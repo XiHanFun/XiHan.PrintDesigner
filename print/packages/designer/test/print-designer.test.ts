@@ -152,9 +152,24 @@ describe('<xh-print-designer>', () => {
     expect(values).toEqual(['show:default', 'add:first', 'add:last', 'add:odd', 'add:even'])
   })
 
+  it('外框按 panels 显示工具栏与页面页签，画布总是显示', async () => {
+    const region = (name: string): Element | null => designer.querySelector(`[data-part="frame"] [data-part="region"][data-region="${name}"]`)
+    expect(region('toolbar')!.contains(designer.querySelector('[data-part="toolbar"]'))).toBe(true)
+    expect(region('pages')).not.toBeNull()
+    expect(region('canvas')!.contains(viewport())).toBe(true)
+    designer.panels = 'pages'
+    await designer.updateComplete
+    expect([region('toolbar'), region('pages') !== null]).toEqual([null, true])
+    designer.panels = ''
+    await designer.updateComplete
+    expect([region('pages'), region('canvas') !== null]).toEqual([null, true])
+  })
+
   it('切到预览态时用 <xh-print-preview> 显示当前模板，派发 mode-change；只读时不能删除', async () => {
     designer.mode = 'preview'
     await designer.updateComplete
+    expect(designer.querySelector('[data-part="frame"] [data-region="pages"]')).toBeNull()
+    expect(designer.querySelector('[data-part="frame"] [data-region="toolbar"]')).not.toBeNull()
     const preview = designer.querySelector('xh-print-preview')!
     expect(preview.schema).toBe(designer.schema)
     expect(designer.querySelector<HTMLElement>('[data-part="preview"]')!.hidden).toBe(false)

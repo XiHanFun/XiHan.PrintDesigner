@@ -6,7 +6,7 @@
 // <xh-print-designer>：打印模板设计器。画布按纸张显示一张页面模板（页眉、正文、页脚三区），元素用 runtime 的渲染代码画；
 // 点选与 Shift / Ctrl 追加选择，拖空白或按住中键平移，Ctrl / ⌘ + 滚轮缩放；页眉页脚可切换变体、拖边界改高度；
 // 双击表格进入表格编辑态；键盘撤销重做、删除、微移、层级与系统剪贴板；可切到 <xh-print-preview> 预览与打印。
-// 物料面板、属性面板、问题列表、标尺与参考线、变换覆盖层由 @xihan-ui/designer-shell 提供，这里只留接入点。
+// 整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区。
 
 import type {
   DesignLayout,
@@ -26,6 +26,7 @@ import type {
 import type { PrintDesignerTranslations, PrintOutcome } from '@xihan-print/runtime'
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { AlignMode, DataField, DistributeAxis, ExecuteOptions, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
+import type { DesignerFrameRegion } from '@xihan-ui/designer-shell'
 import type { ExpressionEngine } from '@xihan-ui/expression'
 import type { PointerSession } from '@xihan-ui/pointer'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
@@ -61,6 +62,7 @@ import {
   wheelZoomFactor,
   zoomBy,
 } from '@xihan-ui/designer-kit'
+import { defineDesignerShellElement, parseDesignerPanels, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
@@ -275,7 +277,15 @@ const TOOLBAR_GROUPS: readonly (readonly Command[])[] = [
 
 const PAGE_COMMANDS: readonly Command[] = ['add-page', 'remove-page', 'move-page-left', 'move-page-right']
 
+/** 外框的命名区：上方是工具栏与页面模板页签，中间是画布。 */
+const FRAME_REGIONS: readonly DesignerFrameRegion[] = [
+  { name: 'toolbar', position: 'top' },
+  { name: 'pages', position: 'top' },
+  { name: 'canvas', position: 'center' },
+]
+
 interface Layers {
+  readonly frame: XhDesignerFrameElement
   readonly toolbar: HTMLElement
   readonly toolbarRoot: HTMLElement
   readonly items: Map<Command, HTMLButtonElement>
@@ -484,6 +494,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       this.#lastMode = this.mode
       emitEvent(this, 'mode-change', { mode: this.mode })
     }
+    layers.frame.panels = this.#framePanels()
     this.#renderToolbar(layers, t)
     this.#renderPages(layers, t)
     layers.viewport.setAttribute('aria-label', t.canvas)
@@ -740,6 +751,14 @@ export class XhPrintDesigner extends XhReactiveElement {
     })
   }
 
+  /** 交给外框的 panels：预览态只留工具栏。 */
+  #framePanels(): string | undefined {
+    if (this.mode !== 'preview')
+      return this.panels
+    const shown = parseDesignerPanels(this.panels)
+    return shown === undefined || shown.has('toolbar') ? 'toolbar' : ''
+  }
+
   #translations(): PrintDesignerTranslations {
     return this.#config.translations<PrintDesignerTranslations>(PRINT_DESIGNER_TAG, DEFAULT_TRANSLATIONS, this.translations)
   }
@@ -845,7 +864,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   // —— 内部：渲染 ——
 
   #ensureLayers(): Layers {
-    if (this.#layers?.toolbar.parentElement === this)
+    if (this.#layers?.frame.parentElement === this)
       return this.#layers
     const doc = this.ownerDocument
     const items = new Map<Command, HTMLButtonElement>()
@@ -861,13 +880,10 @@ export class XhPrintDesigner extends XhReactiveElement {
     })
     groups.push(createAuthoredElement(doc, 'button', { 'data-xh-part': 'overflow-trigger', 'type': 'button' }))
     const toolbarRoot = createAuthoredElement(doc, 'div', { 'data-xh-part': 'root' }, groups)
-    const toolbar = createGeneratedElement(doc, 'div')
-    toolbar.dataset.part = 'toolbar'
-    toolbar.append(createAuthoredElement(doc, 'xh-toolbar', { size: 'sm' }, [toolbarRoot]))
+    const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'toolbar' }, [createAuthoredElement(doc, 'xh-toolbar', { size: 'sm' }, [toolbarRoot])])
     toolbarRoot.addEventListener('click', this.#onCommandClick)
 
-    const pages = createGeneratedElement(doc, 'div')
-    pages.dataset.part = 'pages'
+    const pages = createAuthoredElement(doc, 'div', { 'slot': 'pages', 'data-part': 'pages' })
 
     const paper = createAuthoredElement(doc, 'div', { 'data-part': 'paper' })
     const frames = createAuthoredElement(doc, 'div', { 'data-part': 'frames' })
@@ -887,21 +903,12 @@ export class XhPrintDesigner extends XhReactiveElement {
     ])
     menu.addEventListener('select', this.#onMenuSelect)
     this.#fillMenu(menuContent, 'blank')
-    const preview = createGeneratedElement(doc, 'div')
-    preview.dataset.part = 'preview'
-    preview.hidden = true
+    const preview = createAuthoredElement(doc, 'div', { 'data-part': 'preview', 'hidden': true })
     const rulers = createAuthoredElement(doc, 'div', { 'data-part': 'rulers', 'hidden': true })
-    const workspace = createGeneratedElement(doc, 'div')
-    workspace.dataset.part = 'workspace'
-    workspace.append(pages, rulers, menu, preview)
-    // 物料面板、属性面板与问题列表由 @xihan-ui/designer-shell 提供，接入前留空
-    const slot = (name: string): HTMLElement => {
-      const node = createGeneratedElement(doc, 'div')
-      node.dataset.part = name
-      node.hidden = true
-      return node
-    }
-    this.append(toolbar, slot('palette'), workspace, slot('properties'), slot('issues'))
+    const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [rulers, menu, preview])
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, pages, workspace]) as XhDesignerFrameElement
+    frame.regions = FRAME_REGIONS
+    this.append(frame)
 
     viewport.addEventListener('pointerdown', this.#onPointerDown)
     viewport.addEventListener('dblclick', this.#onDoubleClick)
@@ -911,7 +918,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { toolbar, toolbarRoot, items, pages, workspace, menu, menuContent, viewport, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
+    this.#layers = { frame, toolbar, toolbarRoot, items, pages, workspace, menu, menuContent, viewport, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
     return this.#layers
   }
 
@@ -1740,6 +1747,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 /** 注册 <xh-print-designer>；重复调用不报错。 */
 export function definePrintDesigner(): void {
   definePrintPreview()
+  defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
   registerElement(PRINT_DESIGNER_TAG, XhPrintDesigner)
 }
 
