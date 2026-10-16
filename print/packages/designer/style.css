@@ -52,15 +52,23 @@ xh-print-designer [data-part='pages'] {
   padding: var(--xh-space-1) var(--xh-space-2);
 }
 
+xh-print-designer [data-part='workspace'] > xh-designer-ruler {
+  flex: 1 1 auto;
+}
+
 xh-print-designer [data-print-canvas],
 xh-print-designer [data-print-canvas-root],
-xh-print-designer [data-part='workspace'] > xh-context-menu {
+xh-print-designer [data-print-canvas-menu] {
   display: flex;
   flex: 1 1 auto;
   min-block-size: 0;
 }
 
-xh-print-designer [data-part='workspace'] > xh-context-menu[hidden] {
+xh-print-designer [data-print-canvas-menu] {
+  block-size: 100%;
+}
+
+xh-print-designer [data-print-canvas-menu][hidden] {
   display: none;
 }
 
