@@ -3,12 +3,13 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 属性面板的编辑对象：按选择取页面设置、选中元素或表格编辑态下的部位，给出属性描述、对象从文档根算起的路径，
-// 以及把对象上一处属性的修改换成编辑操作的方法。
+// 属性面板的编辑对象：按选择取页面设置、选中元素或表格编辑态下的部位，给出拆分后的属性描述、面板读值用的视图、
+// 对象从文档根算起的路径，以及把面板上一处修改换成编辑操作的方法。
 
-import type { PrintOperation, PropertyDescriptor, TableElement } from '@xihan-print/core'
+import type { PrintOperation, PropertyChange, PropertyDescriptor, TableElement } from '@xihan-print/core'
 import type { JsonPath, JsonPathSegment, JsonValue } from '@xihan-ui/core/json'
 import type { PrintEditor, PrintTablePart } from './editor'
+import type { ExpandedDescriptor } from './property-expand'
 import {
   findElement,
   pageProperties,
@@ -18,6 +19,7 @@ import {
   tableFooterRowProperties,
   tableHeaderProperties,
 } from '@xihan-print/core'
+import { expandProperties } from './property-expand'
 
 /** 表格部位在属性面板里的对象种类。 */
 export const TABLE_PART_KINDS: Readonly<Record<PrintTablePart['kind'], string>> = {
@@ -28,16 +30,20 @@ export const TABLE_PART_KINDS: Readonly<Record<PrintTablePart['kind'], string>> 
   footerCell: 'table-footer-cell',
 }
 
+/** 复合属性是否原样保留（宿主或设计器给了编辑器），入参是对象种类与描述。 */
+export type KeepComposite = (kind: string, descriptor: PropertyDescriptor) => boolean
+
 /** 属性面板的一个编辑对象。 */
 export interface PropertySubject {
   /** 对象种类：page、元素种类或表格部位种类。 */
   readonly kind: string
   readonly id: string
+  /** 面板读值用的视图：对象本身加上 $view 下的开关等值。 */
   readonly value: JsonValue
-  readonly descriptors: readonly PropertyDescriptor[]
+  readonly descriptors: readonly ExpandedDescriptor[]
   /** 对象从文档根算起的路径。 */
   readonly path: JsonPath
-  /** 把对象上 path 处的属性改成 value（undefined 为删除）的编辑操作。 */
+  /** 把面板上 path 处改成 value（undefined 为清除）换成编辑操作。 */
   readonly write: (path: JsonPath, value: JsonValue | undefined) => PrintOperation
 }
 
@@ -69,8 +75,30 @@ function tablePart(table: TableElement, part: PrintTablePart): { readonly prefix
   }
 }
 
+/** 拆开对象的复合属性，组成编辑对象；toOperation 把一组相对对象的修改换成编辑操作。 */
+function subject(
+  kind: string,
+  id: string,
+  raw: unknown,
+  descriptors: readonly PropertyDescriptor[],
+  path: JsonPath,
+  keep: KeepComposite,
+  toOperation: (changes: PropertyChange[]) => PrintOperation,
+): PropertySubject {
+  const value = asJson(raw)
+  const expanded = expandProperties(descriptors, descriptor => keep(kind, descriptor))
+  return {
+    kind,
+    id,
+    value: expanded.view(value),
+    descriptors: expanded.descriptors,
+    path,
+    write: (at, next) => toOperation(expanded.write(value, at, next)),
+  }
+}
+
 /** 按当前选择取编辑对象：表格编辑态下是选中的部位，选中元素时是这些元素，什么都没选时是当前页面设置。 */
-export function propertySubjects(editor: PrintEditor, editingTable: string | undefined): PropertySubject[] {
+export function propertySubjects(editor: PrintEditor, editingTable: string | undefined, keep: KeepComposite): PropertySubject[] {
   const { document, selection } = editor
   const part = selection.tablePart
   if (editingTable !== undefined && part !== undefined) {
@@ -81,15 +109,11 @@ export function propertySubjects(editor: PrintEditor, editingTable: string | und
     const located = tablePart(table, part)
     if (located === undefined)
       return []
-    const kind = TABLE_PART_KINDS[part.kind]
-    return [{
-      kind,
-      id: `${table.id}:${JSON.stringify(located.prefix)}`,
-      value: asJson(located.value),
-      descriptors: located.descriptors,
-      path: [...found.path, ...located.prefix],
-      write: (path, value) => ({ type: 'updateElement', id: table.id, changes: [{ path: [...located.prefix, ...path], value }] }),
-    }]
+    return [subject(TABLE_PART_KINDS[part.kind], `${table.id}:${JSON.stringify(located.prefix)}`, located.value, located.descriptors, [...found.path, ...located.prefix], keep, changes => ({
+      type: 'updateElement',
+      id: table.id,
+      changes: changes.map(change => ({ ...change, path: [...located.prefix, ...change.path] })),
+    }))]
   }
   if (selection.elements.length > 0) {
     const selected = new Set(selection.elements)
@@ -98,23 +122,9 @@ export function propertySubjects(editor: PrintEditor, editingTable: string | und
       const prototype = editor.registry.get(element.type)
       if (found === undefined || prototype === undefined)
         return []
-      return [{
-        kind: element.type,
-        id: element.id,
-        value: asJson(element),
-        descriptors: prototype.properties,
-        path: found.path,
-        write: (path: JsonPath, value: JsonValue | undefined): PrintOperation => ({ type: 'updateElement', id: element.id, changes: [{ path, value }] }),
-      }]
+      return [subject(element.type, element.id, element, prototype.properties, found.path, keep, changes => ({ type: 'updateElement', id: element.id, changes }))]
     })
   }
   const page = editor.page
-  return [{
-    kind: 'page',
-    id: page.id,
-    value: asJson(page),
-    descriptors: pageProperties(),
-    path: ['pages', document.pages.indexOf(page)],
-    write: (path, value) => ({ type: 'updatePage', pageId: page.id, changes: [{ path, value }] }),
-  }]
+  return [subject('page', page.id, page, pageProperties(), ['pages', document.pages.indexOf(page)], keep, changes => ({ type: 'updatePage', pageId: page.id, changes }))]
 }

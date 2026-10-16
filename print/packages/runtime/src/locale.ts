@@ -122,6 +122,27 @@ const PROPERTY_NAMES: Readonly<Record<string, string>> = {
   'table-column:width': '列宽',
   'table-header:height': '行高',
   'table-footer-row:height': '行高',
+  'stroke/width': '线宽',
+  'stroke/style': '线型',
+  'stroke/color': '颜色',
+  'edges/top': '上',
+  'edges/right': '右',
+  'edges/bottom': '下',
+  'edges/left': '左',
+  'borderSides/top': '上边框',
+  'borderSides/right': '右边框',
+  'borderSides/bottom': '下边框',
+  'borderSides/left': '左边框',
+  'cellStyle/fontFamily': '字体',
+  'cellStyle/fontSize': '字号',
+  'cellStyle/bold': '粗体',
+  'cellStyle/italic': '斜体',
+  'cellStyle/color': '文字颜色',
+  'cellStyle/background': '背景',
+  'cellStyle/align': '水平对齐',
+  'cellStyle/verticalAlign': '垂直对齐',
+  'cellStyle/padding': '左右内边距',
+  'cellStyle/lineHeight': '行高',
 }
 
 const PROPERTY_OPTIONS: Readonly<Record<string, string>> = {
@@ -159,6 +180,10 @@ const PROPERTY_OPTIONS: Readonly<Record<string, string>> = {
   'matrixCode': '二维码',
   'everyPage': '每一页',
   'lastPage': '只在最后一页',
+  'solid': '实线',
+  'dashed': '虚线',
+  'dotted': '点线',
+  'double': '双线',
 }
 
 /** 校验问题与分页诊断的中文说明；不认识的问题码原样返回。 */
@@ -390,6 +415,7 @@ const designer: PrintDesignerTranslations = {
     watermark: '水印',
   },
   propertyNames: PROPERTY_NAMES,
+  propertyPart: (parent, part) => `${parent} · ${part}`,
   propertyOptions: PROPERTY_OPTIONS,
   units: { mm: 'mm', pt: 'pt', deg: '°', ratio: '倍', count: '' },
   pageSettings: '页面设置',
