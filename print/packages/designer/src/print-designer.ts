@@ -13,6 +13,7 @@
 import type {
   DesignLayout,
   ElementCategory,
+  ElementContainerRef,
   ElementRegion,
   ElementRegistry,
   LayoutBox,
@@ -1755,15 +1756,53 @@ export class XhPrintDesigner extends XhReactiveElement {
     const elements = new Map(this.#editor.visibleElements().map(item => [item.element.id, item.element]))
     const entries = [...rects].filter(([id]) => elements.has(id))
     if (kind === 'move') {
-      const first = entries[0]
-      if (first === undefined)
-        return []
-      const origin = elements.get(first[0])!
-      return [{ type: 'moveElements', ids: entries.map(([id]) => id), dx: first[1].x - origin.x, dy: first[1].y - origin.y }]
+      const delta = this.#moveDelta(rects)
+      return delta === undefined ? [] : this.#moveOperations(entries.map(([id]) => id), delta.dx, delta.dy)
     }
     if (kind === 'resize')
       return entries.map(([id, rect]) => ({ type: 'resizeElement', id, bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } }))
     return entries.map(([id, rect]) => ({ type: 'updateElement', id, changes: [{ path: ['rotation'], value: normalizeAngle(rect.rotation ?? 0) }] }))
+  }
+
+  /** 移动手势的位移：取第一个仍可见的选中项，新矩形与它当前位置之差。 */
+  #moveDelta(rects: ReadonlyMap<string, Rect>): { readonly dx: number, readonly dy: number } | undefined {
+    const elements = new Map(this.#editor.visibleElements().map(item => [item.element.id, item.element]))
+    for (const [id, rect] of rects) {
+      const element = elements.get(id)
+      if (element !== undefined)
+        return { dx: rect.x - element.x, dy: rect.y - element.y }
+    }
+    return undefined
+  }
+
+  /**
+   * 平移一组元素。中心落进另一个区（页眉、正文、页脚）的元素在同一步里从原容器删掉、加到该区当前显示的带区，
+   * 层级在最上；跨页延展的元素只能在正文区，留在原容器。
+   */
+  #moveOperations(ids: readonly string[], dx: number, dy: number): PrintOperation[] {
+    const page = this.#editor.page
+    const bands = this.#editor.bands
+    const stay: string[] = []
+    const moved: PrintOperation[] = []
+    for (const id of ids) {
+      const found = findElement(this.#editor.document, id)
+      if (found === undefined)
+        continue
+      const { element, container } = found
+      const rect = elementRect(element)
+      const region = this.#editor.registry.get(element.type)?.flow === true
+        ? container.region
+        : this.#regionAt({ x: rect.x + dx + rect.width / 2, y: rect.y + dy + rect.height / 2 })
+      if (region === container.region) {
+        stay.push(id)
+        continue
+      }
+      const target: ElementContainerRef = region === 'body'
+        ? { pageId: page.id, region }
+        : { pageId: page.id, region, band: page[region][bands[region]] === undefined ? 'default' : bands[region] }
+      moved.push({ type: 'removeElement', id }, { type: 'addElement', container: target, element: { ...element, x: element.x + dx, y: element.y + dy } })
+    }
+    return stay.length === 0 || (dx === 0 && dy === 0) ? moved : [{ type: 'moveElements', ids: stay, dx, dy }, ...moved]
   }
 
   /** 拖动中每帧回滚到手势开始时再执行一次，画布按新矩形重排；松手提交为一步撤销，Alt 拖动时改为复制到新位置。 */
@@ -1782,11 +1821,10 @@ export class XhPrintDesigner extends XhReactiveElement {
       return
     history.begin()
     if (phase === 'end' && copy === true && kind === 'move') {
-      const operations = this.#transformOperations(kind, rects)
-      const move = operations[0]
+      const delta = this.#moveDelta(rects)
       const duplicated = this.#editor.duplicate({ offset: 0 })
-      if (move?.type === 'moveElements')
-        this.#editor.moveElements(duplicated.elements, move.dx, move.dy)
+      if (delta !== undefined)
+        this.#editor.execute(this.#moveOperations(duplicated.elements, delta.dx, delta.dy))
     }
     else {
       this.#editor.execute(this.#transformOperations(kind, rects))
