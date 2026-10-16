@@ -202,6 +202,20 @@ describe('页面', () => {
     ])
   })
 
+  it('参考线：两轴都是非负的数字数组', () => {
+    const page = createPage({ id: 'p' })
+    page.guides = { x: [10, 105.5], y: [] }
+    expect(validateDocument(createDocument({ pages: [page] })).issues).toEqual([])
+    const broken = createPage({ id: 'p' }) as unknown as Record<string, unknown>
+    broken.guides = { x: [-1, 'a'], z: [] }
+    expect(issuesOf({ schemaVersion: 1, pages: [broken] })).toEqual([
+      'unknown-key@pages.0.guides.z',
+      'required@pages.0.guides.y',
+      'out-of-range@pages.0.guides.x.0',
+      'invalid-type@pages.0.guides.x.1',
+    ])
+  })
+
   it('空白水印文字给出 warning', () => {
     const page = createPage({ id: 'p' })
     page.watermark = { text: '  ', fontSize: 30, color: '#999', opacity: 0.2, rotation: 45, gapX: 10, gapY: 10 }
