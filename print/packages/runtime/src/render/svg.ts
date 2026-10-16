@@ -5,7 +5,7 @@
 
 import type { Stroke } from '@xihan-print/core'
 import { SVG_NS } from '@xihan-ui/web-components/authoring'
-import { setStyles, svgDash } from './css'
+import { mm, setStyles, svgDash } from './css'
 
 /** 写 SVG 属性，数值保留四位小数。 */
 export function setAttributes(element: Element, attributes: Readonly<Record<string, string | number>>): void {
@@ -13,11 +13,23 @@ export function setAttributes(element: Element, attributes: Readonly<Record<stri
     element.setAttribute(name, typeof value === 'number' ? String(Math.round(value * 1e4) / 1e4) : value)
 }
 
-/** 铺满父元素的 SVG，视图坐标即毫米。 */
+/** SVG 视口向父元素四周外扩的距离，单位 mm。 */
+const SVG_BLEED = 1
+
+/** 覆盖父元素并四周外扩 SVG_BLEED 的 SVG，视图坐标即毫米、原点在父元素左上角；父元素宽或高为 0 时视口仍有面积。 */
 export function createMmSvg(doc: Document, width: number, height: number): SVGSVGElement {
   const svg = doc.createElementNS(SVG_NS, 'svg')
-  setAttributes(svg, { viewBox: `0 0 ${Math.round(width * 1e4) / 1e4} ${Math.round(height * 1e4) / 1e4}`, preserveAspectRatio: 'none', width: '100%', height: '100%' })
-  setStyles(svg, { 'position': 'absolute', 'inset': '0', 'overflow': 'visible', 'pointer-events': 'none' })
+  const round = (value: number): number => Math.round(value * 1e4) / 1e4
+  setAttributes(svg, { viewBox: `${-SVG_BLEED} ${-SVG_BLEED} ${round(width + SVG_BLEED * 2)} ${round(height + SVG_BLEED * 2)}`, preserveAspectRatio: 'none' })
+  setStyles(svg, {
+    'position': 'absolute',
+    'left': mm(-SVG_BLEED),
+    'top': mm(-SVG_BLEED),
+    'width': `calc(100% + ${mm(SVG_BLEED * 2)})`,
+    'height': `calc(100% + ${mm(SVG_BLEED * 2)})`,
+    'overflow': 'visible',
+    'pointer-events': 'none',
+  })
   return svg
 }
 

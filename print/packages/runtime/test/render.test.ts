@@ -138,6 +138,17 @@ describe('图形与图片', () => {
     expect(boxIn(container, 'l').querySelectorAll('line')).toHaveLength(2)
   })
 
+  it('高为 0 的横线：SVG 视口四周外扩 1 mm，视图坐标仍是毫米', () => {
+    const line = registry.createElement('line', { id: 'l', x: 0, y: 0, overrides: { width: 80, height: 0 } })
+    render([line])
+    const svg = boxIn(container, 'l').querySelector('svg')!
+    expect(svg.getAttribute('viewBox')).toBe('-1 -1 82 2')
+    expect([svg.style.left, svg.style.top]).toEqual(['-1mm', '-1mm'])
+    expect([svg.style.width, svg.style.height]).toEqual([expect.stringMatching(/^calc\(100% \+ /), expect.stringMatching(/^calc\(100% \+ /)])
+    const segment = svg.querySelector('line')!
+    expect([segment.getAttribute('x1'), segment.getAttribute('y1'), segment.getAttribute('x2'), segment.getAttribute('y2')]).toEqual(['0', '0', '80', '0'])
+  })
+
   it('图片按地址加载并按 fit 铺放，地址为空时不放图片', () => {
     const image = registry.createElement('image', { id: 'i', x: 0, y: 0, overrides: { source: { kind: 'field', field: 'photo' }, fit: 'cover' } })
     render([image], { photo: 'https://example.com/a.png' })
