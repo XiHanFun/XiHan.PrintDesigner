@@ -135,12 +135,12 @@ function strokeParts(base: PropertyDescriptor, path: JsonPath, labelParent: stri
 
 const SIDES = ['top', 'right', 'bottom', 'left'] as const
 
-/** 绑定字段的编辑方式：给了字段树时是平铺的下拉（选项名为字段名加路径），否则是文本框。 */
+/** 绑定字段的编辑方式：给了字段树时是平铺的下拉（选项名为字段名加路径，选项再少也不换成切换按钮组），否则是文本框。 */
 function fieldControl(context: ExpandContext, kinds: readonly DataFieldKind[], base?: JsonPath): PropertyControl {
   if (context.fields === undefined)
     return { kind: 'text' }
   const entries = listDataFields(context.fields, { kinds, ...(base === undefined ? {} : { base }) })
-  return { kind: 'select', options: entries.map(entry => ({ value: entry.text, label: entry.field.label === undefined ? entry.text : `${entry.field.label} (${entry.text})` })) }
+  return { kind: 'select', appearance: 'dropdown', options: entries.map(entry => ({ value: entry.text, label: entry.field.label === undefined ? entry.text : `${entry.field.label} (${entry.text})` })) }
 }
 
 /** 内容的一个分项：只在 kinds 里的来源种类下显示。 */

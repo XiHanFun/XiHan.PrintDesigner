@@ -358,6 +358,7 @@ describe('<xh-print-designer>', () => {
     await designer.updateComplete
     expect(find('content.kind').control.options!.map(option => option.value)).toEqual(['static', 'field', 'template', 'expression'])
     expect(find('content.field').control.options).toEqual([{ value: 'name', label: 'Name (name)' }])
+    expect(find('content.field').control).toMatchObject({ kind: 'select', appearance: 'dropdown' })
     expect([panel.labelOf!(find('content.kind') as never), panel.labelOf!(find('content.template') as never)]).toEqual(['Content', 'Content · Template'])
     change(['content', 'kind'], 'template')
     expect(designer.schema.pages[0]!.elements[0]).toMatchObject({ content: { kind: 'template', template: '' } })
