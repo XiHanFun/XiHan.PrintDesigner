@@ -7,7 +7,8 @@
 // 可选的对象前面加一个开关。开关等面板上读不到的值放在编辑对象的 $view 下，写入时再换回模板里的修改；
 // 个别分项改动时要连带改别处（如改纸张宽高时去掉预设），也在写入时换成一组修改。
 // 文本内容、单元格内容与图片来源先选来源种类，再按种类显示对应输入，切换种类时整体换成该种类的缺省对象；
-// 绑定字段在给了字段树时是平铺的下拉，值格式暂用 JSON 文本框。
+// 绑定字段在给了字段树时是平铺的下拉，值格式暂用 JSON 文本框；二维码纠错级别按码制显示下拉或数字，
+// 页码格式是一行文本。
 
 import type { PropertyChange, PropertyDescriptor } from '@xihan-print/core'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
@@ -17,6 +18,7 @@ import type { DesignerPropertyDescriptor } from '@xihan-ui/designer-shell'
 import { AGGREGATE_FUNCTIONS, AGGREGATE_SCOPES, createPaper, HORIZONTAL_ALIGNS, STROKE_STYLES, VERTICAL_ALIGNS } from '@xihan-print/core'
 import { formatJsonPath, getJsonAt } from '@xihan-ui/core/json'
 import { listDataFields, PAPER_PRESET_NAMES } from '@xihan-ui/designer-kit'
+import { MATRIX_CODE_LEVEL_RANGES, QR_LEVELS } from '@xihan-ui/headless'
 
 /** 面板上读写、模板里没有的值放在编辑对象的这个键下。 */
 export const VIEW_KEY = '$view'
@@ -200,6 +202,30 @@ const EXPANDERS: Readonly<Record<string, Expander>> = {
     return { descriptors: [{ ...descriptor, control: fieldControl(context, control.target === 'list' ? ['list'] : ['value']) }] }
   },
   valueFormat: descriptor => ({ descriptors: [{ ...descriptor, control: FORMAT }] }),
+  pageNumberFormat: descriptor => ({ descriptors: [{ ...descriptor, control: { kind: 'text' } }] }),
+  matrixCodeLevel: (descriptor) => {
+    const { path } = descriptor
+    const format = [...path.slice(0, -1), 'format']
+    const when = (value: string): PropertyCondition => ({ path: format, equals: value })
+    const range = (kind: keyof typeof MATRIX_CODE_LEVEL_RANGES): PropertyControl => {
+      const { min, max, step } = MATRIX_CODE_LEVEL_RANGES[kind]
+      return { kind: 'number', min, max, step, integer: true }
+    }
+    const level = (control: PropertyControl, value: string): ExpandedDescriptor => {
+      const visibleWhen = both(descriptor.visibleWhen, when(value))
+      return { path, control, group: descriptor.group, visibleWhen }
+    }
+    return {
+      descriptors: [
+        level({ kind: 'select', options: choices(QR_LEVELS) }, 'qr'),
+        level(range('pdf417'), 'pdf417'),
+        level(range('aztec'), 'aztec'),
+      ],
+      writes: {
+        [formatJsonPath(format)]: (_value, next) => [set(format, next), { path }],
+      },
+    }
+  },
   textContent: (descriptor, context) => content(descriptor, TEXT_KINDS, textContent, textParts(fieldControl(context, ['value']))),
   imageSource: (descriptor, context) => content(
     descriptor,
