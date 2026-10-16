@@ -29,7 +29,7 @@ public static class ClientDefaults
     public static IReadOnlyList<int> Ports { get; } = [17620, 17621, 17622, 17623];
 
     /// <summary>
-    /// 单条消息的上限，字节
+    /// 单条消息的上限，字节：要装得下 base64 编码后的全部任务资源加输出页
     /// </summary>
-    public const int MaxMessageBytes = 32 * 1024 * 1024;
+    public const int MaxMessageBytes = 96 * 1024 * 1024;
 }
