@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { TableLayoutBox, TableRowLayout } from '../src'
+import type { PaginationDiagnostic, TableLayoutBox, TableRowLayout } from '../src'
 import type { MeasureCall } from './layout-helpers'
 import { formatValue } from '@xihan-ui/expression'
 import { describe, expect, it } from 'vitest'
@@ -39,6 +39,11 @@ function roles(box: TableLayoutBox): TableRowLayout['role'][] {
 
 function footerTexts(box: TableLayoutBox): string[] {
   return box.rows.filter(row => row.role === 'footer').map(row => row.cells.map(cell => cell.text).join('|'))
+}
+
+/** 首个页面模板正文里第 index 个元素的诊断定位。 */
+function at(id: string, index: number): Pick<PaginationDiagnostic, 'path' | 'target'> {
+  return { path: ['pages', 0, 'elements', index], target: { kind: 'element', id } }
 }
 
 /** 10pt、行高倍数 1 的一行高，单位 mm。 */
@@ -238,7 +243,7 @@ describe('表格分页', () => {
 
     const withoutEngine = run(documentOf(squarePage('p', [table])), { items })
     expect(footerTexts(tableSlices(withoutEngine, 't')[0]!)).toEqual(['', '', '', '', '3'])
-    expect(withoutEngine.diagnostics).toEqual([{ code: 'expression.unavailable', pageId: 'p', elementId: 't' }])
+    expect(withoutEngine.diagnostics).toEqual([{ code: 'expression.unavailable', severity: 'warning', ...at('t', 0) }])
   })
 
   it('跨列的表尾单元格合并列宽，对齐方式逐级继承', () => {
@@ -284,7 +289,7 @@ describe('表格分页', () => {
     expect(box!.height).toBe(40)
 
     const result = run(documentOf(squarePage('p', [simpleTable('t', 10)])), {})
-    expect(result.diagnostics).toEqual([{ code: 'data.notArray', pageId: 'p', elementId: 't', params: { field: 'items' } }])
+    expect(result.diagnostics).toEqual([{ code: 'data.notArray', severity: 'warning', ...at('t', 0), params: { field: 'items' } }])
     expect(tableSlices(result, 't')[0]!.height).toBe(20)
   })
 
@@ -315,8 +320,8 @@ describe('表格分页', () => {
     const result = run(documentOf(squarePage('p', [table])), { items: itemsOf(2) })
     expect(tableSlices(result, 't').map(dataIndexes)).toEqual([[0], [1]])
     expect(result.diagnostics).toEqual([
-      { code: 'table.rowOverflow', pageId: 'p', elementId: 't', params: { dataIndex: 0 } },
-      { code: 'table.rowOverflow', pageId: 'p', elementId: 't', params: { dataIndex: 1 } },
+      { code: 'table.rowOverflow', severity: 'warning', ...at('t', 0), params: { dataIndex: 0 } },
+      { code: 'table.rowOverflow', severity: 'warning', ...at('t', 0), params: { dataIndex: 1 } },
     ])
   })
 
@@ -425,7 +430,7 @@ describe('下推', () => {
     const result = run(doc, { items: itemsOf(5) })
     expect(result.sheets).toHaveLength(3)
     expect(boxesOf(result.sheets[2]!, 'tall')).toMatchObject([{ y: 0 }])
-    expect(result.diagnostics).toEqual([{ code: 'element.overflow', pageId: 'p', elementId: 'tall' }])
+    expect(result.diagnostics).toEqual([{ code: 'element.overflow', severity: 'warning', ...at('tall', 1) }])
   })
 })
 
@@ -508,7 +513,7 @@ describe('页眉页脚与页码', () => {
     expect(boxOf(run(documentOf(page), {}, { formatter: formatValue }).sheets[0]!, 'no', 'text').lines).toEqual(['第一页 共一页'])
     const plain = run(documentOf(page))
     expect(boxOf(plain.sheets[0]!, 'no', 'text').lines).toEqual(['第1页 共1页'])
-    expect(plain.diagnostics).toEqual([{ code: 'format.unavailable', pageId: 'p', elementId: 'no' }])
+    expect(plain.diagnostics).toEqual([{ code: 'format.unavailable', severity: 'warning', ...at('no', 0) }])
   })
 
   it('页码连续编号，总页数按编号段计算', () => {
@@ -618,7 +623,7 @@ describe('取值、表达式与格式', () => {
     ]
     const missing = run(documentOf(squarePage('p', elements)), { name: 'x' })
     expect(textOf(missing.sheets[0]!, 'a')).toBe('')
-    expect(missing.diagnostics).toEqual([{ code: 'expression.unavailable', pageId: 'p', elementId: 'a' }])
+    expect(missing.diagnostics).toEqual([{ code: 'expression.unavailable', severity: 'warning', ...at('a', 0) }])
 
     const failing = [
       registry.createElement('text', { id: 'bad', x: 0, y: 0, overrides: { content: { kind: 'expression', expression: 'fail' } } }),
@@ -626,8 +631,8 @@ describe('取值、表达式与格式', () => {
     ]
     const result = run(documentOf(squarePage('p', failing)), {}, { expressionEngine: fakeEngine })
     expect(result.diagnostics).toEqual([
-      { code: 'expression.failed', pageId: 'p', elementId: 'bad', params: { reason: 'XH_EXPR_FUNCTION_FAILED' } },
-      { code: 'data.notScalar', pageId: 'p', elementId: 'obj' },
+      { code: 'expression.failed', severity: 'error', ...at('bad', 0), params: { reason: 'XH_EXPR_FUNCTION_FAILED' } },
+      { code: 'data.notScalar', severity: 'warning', ...at('obj', 1) },
     ])
   })
 
@@ -636,7 +641,7 @@ describe('取值、表达式与格式', () => {
       columns: [{ id: 'qty', title: '数量', width: 100, align: 'right', content: { kind: 'field', field: 'qty', format: { kind: 'number', decimals: 0 } }, cellType: 'text' }],
     })
     const result = run(documentOf(squarePage('p', [table])), { items: [{ qty: 1 }, { qty: 2 }, { qty: 3 }] })
-    expect(result.diagnostics).toEqual([{ code: 'format.unavailable', pageId: 'p', elementId: 't' }])
+    expect(result.diagnostics).toEqual([{ code: 'format.unavailable', severity: 'warning', ...at('t', 0) }])
     expect(tableSlices(result, 't')[0]!.rows.filter(row => row.role === 'body').map(row => row.cells[0]!.text)).toEqual(['1', '2', '3'])
   })
 
@@ -681,7 +686,7 @@ describe('取值、表达式与格式', () => {
     const result = run(documentOf(squarePage('p', [text])), { n: 1e20 }, { formatter: format })
     expect(textOf(result.sheets[0]!, 't')).toBe('100000000000000000000')
     expect(result.diagnostics).toEqual([
-      { code: 'format.failed', pageId: 'p', elementId: 't', params: { reason: 'XH_EXPR_FORMAT_OUT_OF_RANGE' } },
+      { code: 'format.failed', severity: 'warning', ...at('t', 0), params: { reason: 'XH_EXPR_FORMAT_OUT_OF_RANGE' } },
     ])
   })
 
@@ -722,7 +727,7 @@ describe('固定尺寸文本', () => {
   it('缩到最小字号仍放不下时给出诊断', () => {
     const result = run(documentOf(squarePage('p', [shrinking('a'.repeat(200))])))
     expect(boxOf(result.sheets[0]!, 's', 'text').style.fontSize).toBe(4)
-    expect(result.diagnostics).toEqual([{ code: 'text.overflow', pageId: 'p', elementId: 's', params: { fontSize: 4 } }])
+    expect(result.diagnostics).toEqual([{ code: 'text.overflow', severity: 'warning', ...at('s', 0), params: { fontSize: 4 } }])
   })
 
   it('按内边距与换行设置测量', () => {
@@ -798,8 +803,25 @@ describe('错误与上限', () => {
     const result = run(doc, { items: itemsOf(100) }, { maxSheets: 2 })
     expect(result.sheets.map(sheet => sheet.pageId)).toEqual(['a', 'a'])
     expect(result.diagnostics).toEqual([
-      { code: 'layout.sheetLimit', pageId: 'a', elementId: 't', params: { limit: 2 } },
-      { code: 'layout.sheetLimit', pageId: 'b', params: { limit: 2 } },
+      { code: 'layout.sheetLimit', severity: 'error', ...at('t', 0), params: { limit: 2 } },
+      { code: 'layout.sheetLimit', severity: 'error', path: ['pages', 1], target: { kind: 'page', id: 'b' }, params: { limit: 2 } },
+    ])
+  })
+})
+
+describe('诊断的形状', () => {
+  it('path 从文档根指到元素或页面，target 为同一对象，严重程度按诊断码查表', () => {
+    const page = squarePage('p', [
+      registry.createElement('text', { id: 'a', x: 0, y: 0, overrides: { content: { kind: 'static', text: 'x' } } }),
+      registry.createElement('image', { id: 'img', x: 0, y: 20, overrides: { source: { kind: 'field', field: 'photo' } } }),
+    ])
+    page.footer.default = { height: 10, elements: [registry.createElement('pageNumber', { id: 'no', x: 0, y: 90, overrides: { height: 10, numeral: 'roman-upper' } })] }
+    page.watermark = { text: '{{obj}}', fontSize: 12, color: '#999999', opacity: 0.2, rotation: 0, gapX: 10, gapY: 10 }
+    const result = run(documentOf(squarePage('q'), page), { photo: 'javascript:alert(1)', obj: { a: 1 } })
+    expect(result.diagnostics).toEqual([
+      { code: 'image.unsafeSource', severity: 'error', path: ['pages', 1, 'elements', 1], target: { kind: 'element', id: 'img' } },
+      { code: 'data.notScalar', severity: 'warning', path: ['pages', 1], target: { kind: 'page', id: 'p' }, params: { field: 'obj' } },
+      { code: 'format.unavailable', severity: 'warning', path: ['pages', 1, 'footer', 'default', 'elements', 0], target: { kind: 'element', id: 'no' } },
     ])
   })
 })

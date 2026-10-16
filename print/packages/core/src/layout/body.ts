@@ -14,11 +14,11 @@ import { placeLongText } from './long-text'
 import { bodyBottom, compareCursors, nextSheetTop } from './placement'
 import { placeTable } from './table'
 
-/** 已取值与测量的正文元素。 */
+/** 已取值与测量的正文元素；scope 为元素的诊断定位。 */
 export type BodyItem
-  = | { kind: 'fixed', element: PrintElement, index: number, box: LayoutBox }
-    | { kind: 'longText', element: PrintElement, index: number, prepared: PreparedLongText }
-    | { kind: 'table', element: PrintElement, index: number, prepared: PreparedTable }
+  = | { kind: 'fixed', element: PrintElement, index: number, scope: DiagnosticScope, box: LayoutBox }
+    | { kind: 'longText', element: PrintElement, index: number, scope: DiagnosticScope, prepared: PreparedLongText }
+    | { kind: 'table', element: PrintElement, index: number, scope: DiagnosticScope, prepared: PreparedTable }
 
 /** 正文排版结果。 */
 export interface BodyLayout {
@@ -94,7 +94,7 @@ function placeFlow(
  * 不在任何元素之下的元素留在首页设计位置；被下推的不跨页元素越过正文区底边时移到下一页正文区顶部；
  * 长文本与表格从起点续排到后续输出页。
  */
-export function layoutBody(items: readonly BodyItem[], geometry: BodyGeometry, context: LayoutContext, pageId: string): BodyLayout {
+export function layoutBody(items: readonly BodyItem[], geometry: BodyGeometry, context: LayoutContext): BodyLayout {
   const order = [...items].sort((a, b) =>
     a.element.y - b.element.y || a.element.height - b.element.height || a.index - b.index,
   )
@@ -103,7 +103,7 @@ export function layoutBody(items: readonly BodyItem[], geometry: BodyGeometry, c
   let truncated = false
 
   for (const item of order) {
-    const scope = { pageId, elementId: item.element.id }
+    const { scope } = item
     const { cursor, displaced } = startOf(item, placed)
     const placement = item.kind === 'fixed'
       ? placeFixed(item, cursor, displaced, geometry, context, scope)
