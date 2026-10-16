@@ -63,7 +63,7 @@ pnpm build
 
 Other commands: `pnpm typecheck`, `pnpm test`, `pnpm lint`.
 
-Development preview (paginated preview and browser printing of sample templates, not a product): until XiHan.UI is published, `@xihan-ui/*` points at a sibling XiHan.UI checkout, so build the packages it needs in `XiHan.UI/ui` first, then start it from `print/` and open http://localhost:5191 .
+Development preview (paginated preview, browser printing and the designer on sample templates, not a product): until XiHan.UI is published, `@xihan-ui/*` points at a sibling XiHan.UI checkout, so build the packages it needs in `XiHan.UI/ui` first, then start it from `print/` and open http://localhost:5191 .
 
 ```bash
 # XiHan.UI/ui

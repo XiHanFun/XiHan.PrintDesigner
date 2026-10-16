@@ -7,10 +7,11 @@
   <style>
     body { margin: 0; background: var(--xh-bg-page); color: var(--xh-fg-default); }
     .page { display: grid; gap: var(--xh-space-4); max-inline-size: 80rem; margin-inline: auto; padding: var(--xh-space-4); }
-    .bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--xh-space-3); }
+    .bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--xh-space-3); margin-block: var(--xh-space-3); }
     .switch-label { display: inline-flex; align-items: center; gap: var(--xh-space-2); color: var(--xh-fg-muted); font-size: var(--xh-font-size-sm); }
     .status { margin: 0; color: var(--xh-fg-muted); font-size: var(--xh-font-size-sm); }
-    xh-print-preview { block-size: 48rem; border: var(--xh-stroke-thin) solid var(--xh-border-default); border-radius: var(--xh-radius-md); }
+    xh-print-preview, xh-print-designer { block-size: 48rem; border: var(--xh-stroke-thin) solid var(--xh-border-default); border-radius: var(--xh-radius-md); }
+    .log { min-block-size: 6rem; max-block-size: 10rem; overflow: auto; margin-block-start: var(--xh-space-3); padding: var(--xh-space-2); border: var(--xh-stroke-thin) solid var(--xh-border-subtle); border-radius: var(--xh-radius-md); color: var(--xh-fg-muted); font-family: var(--xh-font-family-mono); font-size: var(--xh-font-size-xs); white-space: pre-wrap; }
   </style>
 </head>
 <body>
@@ -19,7 +20,7 @@
       <div data-xh-part="root">
         <div data-xh-part="content">
           <div data-xh-part="title">这是开发预览，不是产品</div>
-          <div data-xh-part="description">只用来查看打印运行时的分页与渲染效果。模板与数据都是写死的示例，界面与接口都还会变。</div>
+          <div data-xh-part="description">只用来查看打印运行时与设计器的当前进度。模板与数据都是写死的示例，界面与接口都还会变，修改不会保存。</div>
         </div>
       </div>
     </xh-alert>
@@ -32,19 +33,6 @@
           <button data-xh-part="item" type="button" value="notice">内部通知</button>
         </div>
       </xh-toggle-group>
-      <xh-toolbar>
-        <div data-xh-part="root" aria-label="预览操作">
-          <div data-xh-part="group">
-            <button data-xh-part="item" type="button" value="zoom-out">缩小</button>
-            <button data-xh-part="item" type="button" value="actual">100%</button>
-            <button data-xh-part="item" type="button" value="zoom-in">放大</button>
-          </div>
-          <div data-xh-part="separator"></div>
-          <div data-xh-part="group">
-            <button data-xh-part="item" type="button" value="print">浏览器打印</button>
-          </div>
-        </div>
-      </xh-toolbar>
       <span class="switch-label">
         <xh-switch id="zh">
           <button data-xh-part="root" aria-label="中文语言包">
@@ -55,8 +43,50 @@
       </span>
     </div>
 
-    <p class="status" id="status" aria-live="polite"></p>
-    <xh-print-preview id="preview"></xh-print-preview>
+    <xh-tabs default-value="preview">
+      <div data-xh-part="root">
+        <div data-xh-part="list" aria-label="预览内容">
+          <button data-xh-part="trigger" value="preview">分页预览</button>
+          <button data-xh-part="trigger" value="designer">设计器</button>
+          <div data-xh-part="indicator"></div>
+        </div>
+
+        <div data-xh-part="content" value="preview">
+          <div class="bar">
+            <xh-toolbar>
+              <div data-xh-part="root" aria-label="预览操作">
+                <div data-xh-part="group">
+                  <button data-xh-part="item" type="button" value="zoom-out">缩小</button>
+                  <button data-xh-part="item" type="button" value="actual">100%</button>
+                  <button data-xh-part="item" type="button" value="zoom-in">放大</button>
+                </div>
+                <div data-xh-part="separator"></div>
+                <div data-xh-part="group">
+                  <button data-xh-part="item" type="button" value="print">浏览器打印</button>
+                </div>
+              </div>
+            </xh-toolbar>
+          </div>
+          <p class="status" id="status" aria-live="polite"></p>
+          <xh-print-preview id="preview"></xh-print-preview>
+        </div>
+
+        <div data-xh-part="content" value="designer">
+          <div class="bar">
+            <span class="switch-label">
+              <xh-switch id="sample-data">
+                <button data-xh-part="root" aria-label="画布按示例数据显示">
+                  <span data-xh-part="thumb"></span>
+                </button>
+              </xh-switch>
+              画布按示例数据显示
+            </span>
+          </div>
+          <xh-print-designer id="designer"></xh-print-designer>
+          <div class="log" id="log" aria-live="polite"></div>
+        </div>
+      </div>
+    </xh-tabs>
   </main>
   <script type="module" src="./src/main.ts"></script>
 </body>

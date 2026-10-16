@@ -63,7 +63,7 @@ pnpm build
 
 其余命令：`pnpm typecheck`、`pnpm test`、`pnpm lint`。
 
-开发预览页（示例模板的分页预览与浏览器打印，不是产品）：UI 正式发布前，`@xihan-ui/*` 指向同级的 XiHan.UI 源码，先在 `XiHan.UI/ui` 构建依赖的包，再在 `print/` 下启动，打开 http://localhost:5191 。
+开发预览页（示例模板的分页预览、浏览器打印与设计器，不是产品）：UI 正式发布前，`@xihan-ui/*` 指向同级的 XiHan.UI 源码，先在 `XiHan.UI/ui` 构建依赖的包，再在 `print/` 下启动，打开 http://localhost:5191 。
 
 ```bash
 # XiHan.UI/ui
