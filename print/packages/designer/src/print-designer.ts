@@ -11,12 +11,14 @@
 
 import type {
   DesignLayout,
+  ElementCategory,
   ElementRegion,
   ElementRegistry,
   LayoutBox,
   PageBandKey,
   PrintDocument,
   PrintElement,
+  PrintElementType,
   PrintOperation,
   ReorderTarget,
   TableElement,
@@ -30,10 +32,14 @@ import type { AlignMode, DataField, DistributeAxis, ExecuteOptions, Point, Rect,
 import type {
   DesignerFrameRegion,
   DesignerGuides,
+  DesignerPaletteDragPayload,
+  DesignerPaletteEventMap,
+  DesignerPaletteGroup,
   DesignerRulerEventMap,
   DesignerSnapOptions,
   DesignerTransformEventMap,
   DesignerTransformItem,
+  DropOver,
   PanRequestDetail,
 } from '@xihan-ui/designer-shell'
 import type { ExpressionEngine } from '@xihan-ui/expression'
@@ -73,7 +79,15 @@ import {
   wheelZoomFactor,
   zoomBy,
 } from '@xihan-ui/designer-kit'
-import { defineDesignerShellElement, parseDesignerPanels, XhDesignerFrameElement, XhDesignerRulerElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
+import {
+  defineDesignerShellElement,
+  parseDesignerPanels,
+  registerDropTarget,
+  XhDesignerFrameElement,
+  XhDesignerPaletteElement,
+  XhDesignerRulerElement,
+  XhDesignerTransformElement,
+} from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
@@ -167,6 +181,7 @@ const DEFAULT_TRANSLATIONS: PrintDesignerTranslations = {
   addBandVariant: 'Add variant',
   removeBandVariant: 'Remove variant',
   resizeBand: region => `Resize ${region}`,
+  categories: { text: 'Text', media: 'Media', data: 'Data', shape: 'Shapes', code: 'Codes' },
   elements: {
     text: 'Text',
     longText: 'Long text',
@@ -291,15 +306,23 @@ const PAGE_COMMANDS: readonly Command[] = ['add-page', 'remove-page', 'move-page
 
 const NO_GUIDES: DesignerGuides = { x: [], y: [] }
 
-/** 外框的命名区：上方是工具栏与页面模板页签，中间是画布。 */
-const FRAME_REGIONS: readonly DesignerFrameRegion[] = [
-  { name: 'toolbar', position: 'top' },
-  { name: 'pages', position: 'top' },
-  { name: 'canvas', position: 'center' },
-]
+/** 外框的命名区：上方是工具栏与页面模板页签，左侧物料，中间画布；label 是分隔条名称里的区名。 */
+function frameRegions(t: PrintDesignerTranslations): DesignerFrameRegion[] {
+  return [
+    { name: 'toolbar', position: 'top' },
+    { name: 'pages', position: 'top' },
+    { name: 'palette', position: 'start', size: 16, label: t.palette },
+    { name: 'canvas', position: 'center' },
+  ]
+}
+
+function isPaletteDrag(payload: unknown): payload is DesignerPaletteDragPayload {
+  return typeof payload === 'object' && payload !== null && (payload as { source?: unknown }).source === 'palette' && typeof (payload as { id?: unknown }).id === 'string'
+}
 
 interface Layers {
   readonly frame: XhDesignerFrameElement
+  readonly palette: XhDesignerPaletteElement
   readonly toolbar: HTMLElement
   readonly toolbarRoot: HTMLElement
   readonly items: Map<Command, HTMLButtonElement>
@@ -421,6 +444,9 @@ export class XhPrintDesigner extends XhReactiveElement {
   #lastMode: PrintDesignerMode = 'design'
   #lastGrid = 1
   #spacePan = false
+  #regions: { readonly key: string, readonly regions: readonly DesignerFrameRegion[] } | undefined
+  #paletteKey = ''
+  #unregisterDrop: (() => void) | undefined
   #hoverId: string | undefined
 
   constructor() {
@@ -502,6 +528,11 @@ export class XhPrintDesigner extends XhReactiveElement {
       this.#resizeObserver ??= new ResizeObserver(() => this.#onResize())
       this.#resizeObserver.observe(layers.viewport)
     }
+    this.#unregisterDrop ??= registerDropTarget<unknown>(layers.viewport, {
+      over: (point, payload) => this.#dropOver(point, payload),
+      drop: (point, payload) => this.#drop(point, payload),
+      leave: () => this.#showDropPreview(undefined),
+    })
   }
 
   override disconnectedCallback(): void {
@@ -509,6 +540,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#resizeObserver?.disconnect()
     this.#cancelGesture()
     this.#layers?.overlay.cancel()
+    this.#unregisterDrop?.()
+    this.#unregisterDrop = undefined
   }
 
   protected override update(changed: PropertyValues): void {
@@ -528,6 +561,8 @@ export class XhPrintDesigner extends XhReactiveElement {
       emitEvent(this, 'mode-change', { mode: this.mode })
     }
     layers.frame.panels = this.#framePanels()
+    this.#syncFrameRegions(layers, t)
+    this.#syncPalette(layers, t)
     this.#renderToolbar(layers, t)
     this.#renderPages(layers, t)
     layers.viewport.setAttribute('aria-label', t.canvas)
@@ -569,14 +604,11 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 新建元素并选中：at 是元素中心的纸张坐标（mm），缺省放在视口中央；位置吸附网格，region 缺省按落点所在区决定。 */
   addElement(type: string, at?: Point, options: { readonly region?: ElementRegion } = {}): PrintElement {
-    const prototype = this.#editor.registry.get(type)
-    if (prototype === undefined)
-      throw new Error(`[print-designer] element type "${type}" is not registered`)
     const center = at ?? this.#viewportCenter()
-    const size = prototype.defaults as { width: number, height: number }
-    const x = this.#snapValue(center.x - size.width / 2)
-    const y = this.#snapValue(center.y - size.height / 2)
-    return this.#editor.addElement(type, { x, y, region: options.region ?? this.#regionAt(center) })
+    const placed = this.#placement(type, center)
+    if (placed === undefined)
+      throw new Error(`[print-designer] element type "${type}" is not registered`)
+    return this.#editor.addElement(type, { x: placed.x, y: placed.y, region: options.region ?? this.#regionAt(center) })
   }
 
   select(selection: Partial<PrintSelection>): void {
@@ -786,6 +818,15 @@ export class XhPrintDesigner extends XhReactiveElement {
     })
   }
 
+  #syncFrameRegions(layers: Layers, t: PrintDesignerTranslations): void {
+    const regions = frameRegions(t)
+    const key = JSON.stringify(regions)
+    if (this.#regions?.key === key)
+      return
+    this.#regions = { key, regions }
+    layers.frame.regions = regions
+  }
+
   /** 交给外框的 panels：预览态只留工具栏。 */
   #framePanels(): string | undefined {
     if (this.mode !== 'preview')
@@ -936,8 +977,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     overlay.formatMeasure = rect => this.#translations().measure(this.#formatMm(rect.width), this.#formatMm(rect.height))
     overlay.addEventListener('transform', this.#onTransform)
     overlay.addEventListener('marquee', this.#onMarquee)
-    overlay.addEventListener('pan-request', this.#onPanRequest)
     const viewport = createAuthoredElement(doc, 'div', { 'data-part': 'viewport', 'tabindex': 0, 'role': 'region' }, [world, overlay])
+    viewport.addEventListener('pan-request', this.#onPanRequest)
     const menuContent = createAuthoredElement(doc, 'div', { 'data-xh-part': 'content' })
     const trigger = createAuthoredElement(doc, 'div', { 'data-xh-part': 'trigger', 'data-print-canvas': '' }, [viewport])
     const menu = createAuthoredElement(doc, 'xh-context-menu', { 'size': 'sm', 'data-print-canvas-menu': '' }, [
@@ -945,14 +986,15 @@ export class XhPrintDesigner extends XhReactiveElement {
     ])
     menu.addEventListener('select', this.#onMenuSelect)
     this.#fillMenu(menuContent, 'blank')
+    const palette = createAuthoredElement(doc, 'xh-designer-palette', { 'slot': 'palette', 'data-part': 'palette', 'collapsible': true }) as XhDesignerPaletteElement
+    palette.addEventListener('item-activate', this.#onPaletteActivate)
     const preview = createAuthoredElement(doc, 'div', { 'data-part': 'preview', 'hidden': true })
     const ruler = createAuthoredElement(doc, 'xh-designer-ruler', { 'unit-size': 1 }) as XhDesignerRulerElement
     ruler.viewport = this.#viewport
     ruler.snap = (_axis, value) => this.#snapValue(value)
     ruler.addEventListener('guides-change', this.#onGuidesChange)
     const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [ruler, menu, preview])
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, pages, workspace]) as XhDesignerFrameElement
-    frame.regions = FRAME_REGIONS
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, pages, palette, workspace]) as XhDesignerFrameElement
     this.append(frame)
 
     viewport.addEventListener('pointerdown', this.#onPointerDown)
@@ -967,7 +1009,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, toolbar, toolbarRoot, items, pages, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
+    this.#layers = { frame, palette, toolbar, toolbarRoot, items, pages, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
     return this.#layers
   }
 
@@ -1366,6 +1408,66 @@ export class XhPrintDesigner extends XhReactiveElement {
       preview.locale = this.locale
     if (this.timeZone !== undefined)
       preview.timeZone = this.timeZone
+  }
+
+  /** 新元素按缺省尺寸、以 center 为中心、左上角吸附网格后的外框；类型未登记时为 undefined。 */
+  #placement(type: string, center: Point): Rect | undefined {
+    const prototype = this.#editor.registry.get(type)
+    if (prototype === undefined)
+      return undefined
+    const { width, height } = prototype.defaults as { width: number, height: number }
+    return { x: this.#snapValue(center.x - width / 2), y: this.#snapValue(center.y - height / 2), width, height }
+  }
+
+  // —— 内部：物料面板与拖放 ——
+
+  #syncPalette(layers: Layers, t: PrintDesignerTranslations): void {
+    layers.palette.readonly = this.readonly
+    const groups = this.#editor.registry.groupByCategory()
+    const key = JSON.stringify([groups.map(group => [group.category, group.prototypes.map(prototype => prototype.type)]), t.categories, t.elements])
+    if (key === this.#paletteKey)
+      return
+    this.#paletteKey = key
+    layers.palette.groups = groups.map((group): DesignerPaletteGroup => ({
+      id: group.category,
+      label: t.categories[group.category as ElementCategory] ?? group.category,
+      items: group.prototypes.map(prototype => ({ id: prototype.type, label: t.elements[prototype.type as PrintElementType] ?? prototype.type })),
+    }))
+  }
+
+  readonly #onPaletteActivate = (event: Event): void => {
+    const { id } = (event as DesignerPaletteEventMap['item-activate']).detail
+    if (!this.readonly && this.mode === 'design' && this.#editor.registry.has(id))
+      this.addElement(id)
+  }
+
+  /** 物料拖到画布上：按落点画出新元素的外框，藏起跟手预览。 */
+  #dropOver(point: Point, payload: unknown): DropOver {
+    const placed = !this.readonly && this.mode === 'design' && isPaletteDrag(payload)
+      ? this.#placement(payload.id, this.clientToWorld(point.x, point.y))
+      : undefined
+    this.#showDropPreview(placed)
+    return placed === undefined ? { accept: false } : { accept: true, ghost: 'hide' }
+  }
+
+  #drop(point: Point, payload: unknown): void {
+    this.#showDropPreview(undefined)
+    if (!isPaletteDrag(payload) || this.readonly || this.mode !== 'design' || !this.#editor.registry.has(payload.id))
+      return
+    this.#stopAutoFit()
+    this.addElement(payload.id, this.clientToWorld(point.x, point.y))
+    this.#layers?.viewport.focus({ preventScroll: true })
+  }
+
+  /** 落点框借用覆盖层的悬停框。 */
+  #showDropPreview(rect: Rect | undefined): void {
+    this.#hoverId = undefined
+    this.#ensureLayers().overlay.hover = rect
+  }
+
+  /** 侧边面板里的按键与剪贴板事件归面板自己。 */
+  #fromPanel(target: Element | undefined): boolean {
+    return target?.closest('xh-designer-palette, xh-designer-properties, xh-designer-issues') != null
   }
 
   // —— 内部：标尺与参考线 ——
@@ -1825,7 +1927,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (event.defaultPrevented || this.mode !== 'design')
       return
     const target = event.target instanceof Element ? event.target : undefined
-    if (target && target !== this.#layers?.viewport && target.closest('input, textarea, select, [contenteditable]'))
+    if (target && target !== this.#layers?.viewport && (target.closest('input, textarea, select, [contenteditable]') || this.#fromPanel(target)))
       return
     if (event.key === 'Escape') {
       if (this.#gesture)
@@ -1945,7 +2047,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   #ownsClipboardEvent(event: ClipboardEvent): boolean {
     const target = event.target instanceof Element ? event.target : undefined
-    return target === undefined || target === this.#layers?.viewport || !target.closest('input, textarea, select, [contenteditable]')
+    return target === undefined || target === this.#layers?.viewport || !(target.closest('input, textarea, select, [contenteditable]') || this.#fromPanel(target))
   }
 
   readonly #onCopy = (event: ClipboardEvent): void => {
@@ -1992,6 +2094,7 @@ export function definePrintDesigner(): void {
   defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
   defineDesignerShellElement('xh-designer-transform', XhDesignerTransformElement)
   defineDesignerShellElement('xh-designer-ruler', XhDesignerRulerElement)
+  defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)
   registerElement(PRINT_DESIGNER_TAG, XhPrintDesigner)
 }
 

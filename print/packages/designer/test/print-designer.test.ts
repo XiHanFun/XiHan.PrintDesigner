@@ -168,6 +168,23 @@ describe('<xh-print-designer>', () => {
     expect([ruler.hidden, ruler.contains(viewport()), viewport().isConnected]).toEqual([true, false, true])
   })
 
+  it('物料面板按登记表分组列出元素，激活即加到视口中央；面板里的按键不触发画布快捷键，只读时不加', async () => {
+    const palette = designer.querySelector('xh-designer-palette')!
+    expect(palette.closest('[data-region="palette"]')).not.toBeNull()
+    expect(palette.groups!.map(group => group.id)).toEqual(['text', 'media', 'data', 'shape', 'code'])
+    expect(palette.groups![0]!.items.map(item => [item.id, item.label])).toEqual([['text', 'Text'], ['longText', 'Long text'], ['pageNumber', 'Page number']])
+    palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'rect', payload: undefined } }))
+    const added = designer.schema.pages[0]!.elements.at(-1)!
+    expect([added.type, designer.getSelection().elements]).toEqual(['rect', [added.id]])
+    palette.dispatchEvent(new KeyboardEvent('keydown', { key: 'Delete', bubbles: true, cancelable: true }))
+    expect(designer.schema.pages[0]!.elements).toHaveLength(3)
+    designer.readonly = true
+    await designer.updateComplete
+    expect(palette.readonly).toBe(true)
+    palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'rect', payload: undefined } }))
+    expect(designer.schema.pages[0]!.elements).toHaveLength(3)
+  })
+
   it('复制写入系统剪贴板，粘贴换新 id；别的内容粘进来时忽略', () => {
     designer.select({ elements: ['a'] })
     const copied = clipboardData()
