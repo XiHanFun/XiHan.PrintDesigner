@@ -56,6 +56,7 @@ const designer: PrintDesignerTranslations = {
   addBandVariant: '新增变体',
   removeBandVariant: '删除变体',
   resizeBand: region => `调整${REGION_NAMES[region]}高度`,
+  categories: { text: '文字', media: '图片', data: '数据', shape: '图形', code: '条码' },
   elements: {
     text: '文本',
     longText: '长文本',

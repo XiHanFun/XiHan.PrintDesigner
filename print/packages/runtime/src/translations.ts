@@ -5,7 +5,7 @@
 
 // 打印产品各元素的文案键：预览与设计器的文案类型集中在这里，并补进 UI 的 XhTranslationOverrides。
 
-import type { ElementRegion, PageBandKey, PrintElementType } from '@xihan-print/core'
+import type { ElementCategory, ElementRegion, PageBandKey, PrintElementType } from '@xihan-print/core'
 
 /** 预览元素的文案。 */
 export interface PrintPreviewTranslations {
@@ -81,6 +81,8 @@ export interface PrintDesignerTranslations {
   readonly resizeBand: (region: 'header' | 'footer') => string
   /** 元素种类的名称。 */
   readonly elements: Readonly<Record<PrintElementType, string>>
+  /** 物料分组的名称。 */
+  readonly categories: Readonly<Record<ElementCategory, string>>
   /** 画布上一个元素的可访问名：种类名加元素名称或标识。 */
   readonly elementLabel: (type: string, name: string) => string
   /** 表格部位的名称。 */
