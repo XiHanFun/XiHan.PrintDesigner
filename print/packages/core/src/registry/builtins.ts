@@ -25,7 +25,6 @@ import { BAR_CODE_FORMATS, MATRIX_CODE_FORMATS } from '@xihan-ui/headless'
 import {
   IMAGE_FITS,
   LINE_DIRECTIONS,
-  TABLE_ROW_HEIGHT_MODES,
   TEXT_OVERFLOWS,
 } from '../schema/options'
 import {
@@ -35,7 +34,8 @@ import {
   validateShapeRules,
   validateTableRules,
 } from '../validation/element-rules'
-import { behaviorProperties, boxProperties, choices, layoutProperties, property, textStyleProperties } from './properties'
+import { tableBodyProperties, tableHeaderProperties } from './part-properties'
+import { behaviorProperties, boxProperties, choices, layoutProperties, nestProperties, property, textStyleProperties } from './properties'
 
 function defaultTextStyle(overrides: Partial<TextStyle> = {}): TextStyle {
   return {
@@ -205,7 +205,6 @@ function imagePrototype(): ElementPrototype<ImageElement> {
 }
 
 function tablePrototype(): ElementPrototype<TableElement> {
-  const visible: PropertyCondition = { path: ['header', 'visible'], equals: true }
   return {
     type: 'table',
     category: 'data',
@@ -237,13 +236,8 @@ function tablePrototype(): ElementPrototype<TableElement> {
       ...layoutProperties({ rotation: false }),
       property(['dataField'], 'data', { kind: 'field', target: 'list' }),
       property(['columns'], 'table', { kind: 'tableColumns' }),
-      property(['header', 'visible'], 'table', { kind: 'boolean' }),
-      property(['header', 'repeat'], 'table', { kind: 'boolean' }, { visibleWhen: visible }),
-      property(['header', 'height'], 'table', { kind: 'number', unit: 'mm', exclusiveMin: 0, step: 0.1 }, { visibleWhen: visible }),
-      property(['header', 'style'], 'table', { kind: 'cellStyle' }, { visibleWhen: visible }),
-      property(['body', 'rowHeight'], 'table', { kind: 'number', unit: 'mm', exclusiveMin: 0, step: 0.1 }),
-      property(['body', 'rowHeightMode'], 'table', { kind: 'select', options: choices(TABLE_ROW_HEIGHT_MODES) }),
-      property(['body', 'style'], 'table', { kind: 'cellStyle' }),
+      ...nestProperties(['header'], tableHeaderProperties()),
+      ...nestProperties(['body'], tableBodyProperties()),
       property(['footerRows'], 'table', { kind: 'tableFooterRows' }),
       property(['maxRowsPerPage'], 'table', { kind: 'number', unit: 'count', min: 1, step: 1, integer: true }, { optional: true }),
       property(['fillEmptyRows'], 'table', { kind: 'boolean' }),

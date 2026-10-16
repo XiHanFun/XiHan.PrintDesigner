@@ -16,11 +16,17 @@ export const ELEMENT_CATEGORIES = ['text', 'media', 'data', 'shape', 'code'] as 
 /** 物料面板分组：文字、图片、数据、图形、条码。 */
 export type ElementCategory = (typeof ELEMENT_CATEGORIES)[number]
 
-/** 属性面板分组取值，按面板中的显示顺序。 */
+/** 元素与表格部位的属性分组取值，按面板中的显示顺序。 */
 export const PROPERTY_GROUPS = ['layout', 'content', 'data', 'text', 'table', 'code', 'appearance', 'behavior'] as const
 
-/** 属性面板分组：布局、内容、数据、文字、表格、条码、外观、行为。 */
-export type PropertyGroup = (typeof PROPERTY_GROUPS)[number]
+/** 页面设置的属性分组取值，按面板中的显示顺序。 */
+export const PAGE_PROPERTY_GROUPS = ['page', 'paper', 'bands', 'numbering', 'watermark'] as const
+
+/**
+ * 属性面板分组：元素与表格部位用布局、内容、数据、文字、表格、条码、外观、行为，
+ * 页面设置用页面、纸张、页眉页脚、页码、水印。
+ */
+export type PropertyGroup = (typeof PROPERTY_GROUPS)[number] | (typeof PAGE_PROPERTY_GROUPS)[number]
 
 /** 数值属性的单位：mm、pt、角度、倍数或个数。 */
 export type PropertyUnit = 'mm' | 'pt' | 'deg' | 'ratio' | 'count'
@@ -47,6 +53,10 @@ export type PropertyControl
     | { kind: 'tableFooterRows' }
     | { kind: 'pageNumberFormat' }
     | { kind: 'matrixCodeLevel' }
+    | { kind: 'paper' }
+    | { kind: 'watermark' }
+    | { kind: 'cellContent' }
+    | { kind: 'footerCellContent' }
 
 /** 属性编辑方式的种类。 */
 export type PropertyControlKind = PropertyControl['kind']

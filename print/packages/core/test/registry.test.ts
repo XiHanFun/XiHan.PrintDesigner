@@ -4,19 +4,30 @@
  */
 
 import type { JsonValue } from '@xihan-ui/core/json'
-import type { AnyElementPrototype, PropertyDescriptor, TableElement } from '../src'
+import type { AnyElementPrototype, PropertyDescriptor, TableElement, ValidationIssue } from '../src'
 import { findJsonViolation, getJsonAt } from '@xihan-ui/core/json'
-import { checkProperties } from '@xihan-ui/designer-kit/properties'
+import { checkProperties, isPropertyVisible } from '@xihan-ui/designer-kit/properties'
 import { BAR_CODE_FORMATS, MATRIX_CODE_FORMATS } from '@xihan-ui/headless'
 import { describe, expect, it } from 'vitest'
 import {
   createBuiltinElementPrototypes,
   createElementRegistry,
+  createPage,
   ELEMENT_CATEGORIES,
+  nestProperties,
+  PAGE_PROPERTY_GROUPS,
+  pageProperties,
   PRINT_ELEMENT_TYPES,
   PROPERTY_GROUPS,
   scaleTableColumns,
+  tableBodyProperties,
+  tableColumnProperties,
+  tableFooterCellProperties,
+  tableFooterRowProperties,
+  tableHeaderProperties,
 } from '../src'
+import { validateControlValue } from '../src/validation/controls'
+import { createIssueSink } from '../src/validation/issues'
 
 function samplePrototypes(): AnyElementPrototype[] {
   return createBuiltinElementPrototypes()
@@ -65,6 +76,13 @@ describe('内置元素原型', () => {
         continue
       expect(descriptors.some(descriptor => descriptor.path[0] === key), key).toBe(true)
     }
+  })
+
+  it('表格的表头、表体属性由部位描述加前缀得到', () => {
+    const table = samplePrototypes().find(prototype => prototype.type === 'table')!
+    const nested = table.properties.filter(descriptor => descriptor.path[0] === 'header' || descriptor.path[0] === 'body')
+    expect(nested).toEqual([...nestProperties(['header'], tableHeaderProperties()), ...nestProperties(['body'], tableBodyProperties())])
+    expect(nested.find(descriptor => descriptor.path.join('.') === 'header.repeat')!.visibleWhen).toEqual({ path: ['header', 'visible'], equals: true })
   })
 
   it('只有长文本与表格是跨页续排元素', () => {
@@ -188,5 +206,68 @@ describe('表格缩放', () => {
     expect(wider).toMatchObject({ x: 5, y: 5, width: 120, height: 40 })
     const taller = prototype.resize!(table, { x: 0, y: 0, width: 180, height: 60 })
     expect(taller.columns).toBe(table.columns)
+  })
+})
+
+describe('页面与表格部位的属性描述', () => {
+  function issuesFor(descriptors: readonly PropertyDescriptor[], target: unknown): string[] {
+    const issues: ValidationIssue[] = []
+    const sink = createIssueSink(issues)
+    for (const descriptor of descriptors) {
+      expect([...PROPERTY_GROUPS, ...PAGE_PROPERTY_GROUPS]).toContain(descriptor.group)
+      const value = getJsonAt(target as JsonValue, descriptor.path)
+      if (descriptor.present)
+        expect(value, descriptor.path.join('.')).not.toBeUndefined()
+      if (value !== undefined)
+        validateControlValue(descriptor.control, value, descriptor.path, sink)
+    }
+    return issues.map(issue => `${issue.code}@${issue.path.join('.')}`)
+  }
+
+  it('页面设置描述覆盖新建页面的全部字段，变体高度只在变体存在时显示', () => {
+    const page = createPage({ id: 'p' })
+    page.header.first = { height: 12, elements: [] }
+    page.watermark = { text: '样张', fontSize: 30, color: '#999999', opacity: 0.2, rotation: 30, gapX: 20, gapY: 20 }
+    const descriptors = pageProperties()
+    expect(issuesFor(descriptors, page)).toEqual([])
+    const visible = descriptors.filter(descriptor => isPropertyVisible(descriptor, page as unknown as JsonValue)).map(descriptor => descriptor.path.join('.'))
+    expect(visible).toContain('header.first.height')
+    expect(visible).not.toContain('header.last.height')
+    for (const key of Object.keys(page)) {
+      if (key !== 'id' && key !== 'elements')
+        expect(descriptors.some(descriptor => descriptor.path[0] === key), key).toBe(true)
+    }
+  })
+
+  it('页面设置的复合编辑方式按结构校验取值', () => {
+    const page = createPage({ id: 'p' }) as unknown as Record<string, unknown>
+    page.paper = { preset: 'A4', width: 100, height: 297 }
+    page.watermark = { text: '', fontSize: 0, color: '#999999', opacity: 0.2, rotation: 0, gapX: 1, gapY: 1 }
+    expect(issuesFor(pageProperties(), page)).toEqual([
+      'page.presetMismatch@paper',
+      'watermark.emptyText@watermark.text',
+      'out-of-range@watermark.fontSize',
+    ])
+  })
+
+  it('表格部位描述与表格的列、表头、表体、表尾行、表尾格对得上', () => {
+    const table = createElementRegistry().createElement('table', { id: 't', x: 0, y: 0 })
+    const column = { ...table.columns[0]!, content: { kind: 'field', field: 'name' } }
+    expect(issuesFor(tableColumnProperties(), column)).toEqual([])
+    expect(issuesFor(tableColumnProperties(), { ...column, cellType: 'barCode', barCodeFormat: 'ean13' })).toEqual([])
+    expect(issuesFor(tableHeaderProperties(), table.header)).toEqual([])
+    expect(issuesFor(tableBodyProperties(), table.body)).toEqual([])
+    const row = { id: 'sum', placement: 'lastPage', height: 7, style: table.body.style, cells: [] }
+    expect(issuesFor(tableFooterRowProperties(), row)).toEqual([])
+    const cell = { columnId: column.id, colSpan: 2, content: { kind: 'aggregate', fn: 'sum', scope: 'all' } }
+    expect(issuesFor(tableFooterCellProperties(), cell)).toEqual(['table.aggregateFieldMissing@content'])
+  })
+
+  it('nestProperties 给路径与显示条件里的路径加前缀', () => {
+    const nested = nestProperties(['a'], [
+      { path: ['b'], group: 'table', control: { kind: 'boolean' }, present: true, visibleWhen: { all: [{ path: ['c'], equals: 1 }, { not: { path: ['d'], filled: true } }] } },
+    ])
+    expect(nested[0]!.path).toEqual(['a', 'b'])
+    expect(nested[0]!.visibleWhen).toEqual({ all: [{ path: ['a', 'c'], equals: 1 }, { not: { path: ['a', 'd'], filled: true } }] })
   })
 })

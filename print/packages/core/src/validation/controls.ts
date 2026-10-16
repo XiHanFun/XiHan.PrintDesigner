@@ -10,6 +10,7 @@ import type { FieldRule } from './checks'
 import type { IssueSink, ValidationIssueCode } from './issues'
 import { parseTextTemplate } from '@xihan-ui/core/template'
 import { toSafeImageSource } from '@xihan-ui/core/url'
+import { isPaperPresetName, PAPER_PRESET_NAMES, PAPER_PRESETS } from '@xihan-ui/designer-kit'
 import { readArray, readBoolean, readNumber, readObject, readOneOf, readString } from '@xihan-ui/designer-kit/schema'
 import { checkFormatSpec, FORMAT_KINDS } from '@xihan-ui/expression'
 import { BAR_CODE_FORMATS } from '@xihan-ui/headless'
@@ -23,6 +24,7 @@ import {
   VERTICAL_ALIGNS,
 } from '../schema/options'
 import { field, readColor, readExpression, readFieldPath, readFields, readTextTemplate } from './checks'
+import { LENGTH_TOLERANCE } from './element-rules'
 
 /** 读取变体对象的 kind：缺少报 required，不在 kinds 里报 invalid-option。 */
 function kindOf(sink: IssueSink, object: Readonly<Record<string, unknown>>, kinds: readonly string[], path: JsonPath): string | undefined {
@@ -180,7 +182,8 @@ export function validateCellStyle(value: unknown, path: JsonPath, sink: IssueSin
   ])
 }
 
-function validateTableCellContent(value: unknown, path: JsonPath, sink: IssueSink): void {
+/** 校验表体单元格的内容来源。 */
+export function validateTableCellContent(value: unknown, path: JsonPath, sink: IssueSink): void {
   const rules = textContentRules(sink)
   checkVariant(sink, value, path, {
     field: rules.field ?? [],
@@ -190,7 +193,8 @@ function validateTableCellContent(value: unknown, path: JsonPath, sink: IssueSin
   })
 }
 
-function validateFooterCellContent(value: unknown, path: JsonPath, sink: IssueSink): void {
+/** 校验表尾单元格的内容来源。 */
+export function validateFooterCellContent(value: unknown, path: JsonPath, sink: IssueSink): void {
   checkVariant(sink, value, path, {
     ...textContentRules(sink),
     aggregate: [
@@ -281,6 +285,47 @@ function validateFooterCells(value: unknown, path: JsonPath, sink: IssueSink): v
   })
 }
 
+/** 校验纸张：宽高为正，给了预设时宽高须与预设相符。 */
+export function validatePaper(value: unknown, path: JsonPath, sink: IssueSink): void {
+  const size = (item: unknown, itemPath: JsonPath): void => {
+    readNumber(sink, item, itemPath, { exclusiveMin: 0 })
+  }
+  const paper = readFields(sink, value, path, [
+    field('preset', false, (item, itemPath) => readOneOf(sink, item, itemPath, PAPER_PRESET_NAMES)),
+    field('width', true, size),
+    field('height', true, size),
+  ])
+  if (paper === undefined || !isPaperPresetName(paper.preset))
+    return
+  const expected = PAPER_PRESETS[paper.preset]
+  const matches = typeof paper.width === 'number' && typeof paper.height === 'number'
+    && Math.abs(paper.width - expected.width) <= LENGTH_TOLERANCE
+    && Math.abs(paper.height - expected.height) <= LENGTH_TOLERANCE
+  if (!matches)
+    sink.report('page.presetMismatch', path, { params: { preset: paper.preset } })
+}
+
+/** 校验水印。 */
+export function validateWatermark(value: unknown, path: JsonPath, sink: IssueSink): void {
+  const gap = (item: unknown, itemPath: JsonPath): void => {
+    readNumber(sink, item, itemPath, { min: 0 })
+  }
+  readFields(sink, value, path, [
+    field('text', true, (item, itemPath) => {
+      const text = readTextTemplate(sink, item, itemPath)
+      if (text !== undefined && text.trim().length === 0)
+        sink.report('watermark.emptyText', itemPath)
+    }),
+    field('fontFamily', false, (item, itemPath) => readString(sink, item, itemPath)),
+    field('fontSize', true, (item, itemPath) => readNumber(sink, item, itemPath, { exclusiveMin: 0, max: 500 })),
+    field('color', true, (item, itemPath) => readColor(sink, item, itemPath)),
+    field('opacity', true, (item, itemPath) => readNumber(sink, item, itemPath, { min: 0, max: 1 })),
+    field('rotation', true, (item, itemPath) => readNumber(sink, item, itemPath, { min: -360, max: 360 })),
+    field('gapX', true, gap),
+    field('gapY', true, gap),
+  ])
+}
+
 /** 页码模板可用的宿主变量。 */
 const PAGE_NUMBER_VARIABLES: readonly string[] = ['$page', '$pages']
 
@@ -353,6 +398,18 @@ export function validateControlValue(control: PropertyControl, value: unknown, p
       return
     case 'pageNumberFormat':
       validatePageNumberFormat(value, path, sink)
+      return
+    case 'paper':
+      validatePaper(value, path, sink)
+      return
+    case 'watermark':
+      validateWatermark(value, path, sink)
+      return
+    case 'cellContent':
+      validateTableCellContent(value, path, sink)
+      return
+    case 'footerCellContent':
+      validateFooterCellContent(value, path, sink)
       return
     case 'matrixCodeLevel':
       if (typeof value !== 'string' && typeof value !== 'number')
