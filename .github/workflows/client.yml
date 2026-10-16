@@ -1,0 +1,36 @@
+name: Client
+
+on:
+  push:
+    branches: [dev, main]
+    paths: ['client/**', '.github/workflows/client.yml']
+  pull_request:
+    branches: [dev, main]
+    paths: ['client/**', '.github/workflows/client.yml']
+
+# 同一分支连续推送时只保留最新一轮；main 上每个提交都跑完整结论
+concurrency:
+  group: client-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+defaults:
+  run:
+    working-directory: client
+
+jobs:
+  build:
+    name: 构建与测试
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      # SDK 版本以 client/global.json 为准
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: client/global.json
+      - run: dotnet restore XiHan.PrintClient.slnx
+      - name: Build
+        run: dotnet build XiHan.PrintClient.slnx -c Release --no-restore
+      # dotnet test 由 global.json 的 test.runner 驱动 Microsoft.Testing.Platform
+      - name: Test
+        run: dotnet test --solution XiHan.PrintClient.slnx -c Release --no-build

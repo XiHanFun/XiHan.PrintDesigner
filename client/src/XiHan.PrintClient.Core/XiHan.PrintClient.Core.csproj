@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 平台无关的部分：协议、会话、来源授权、任务队列、设置与各平台接口 -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="XiHan.PrintClient.Core.Tests" />
+  </ItemGroup>
+
+</Project>

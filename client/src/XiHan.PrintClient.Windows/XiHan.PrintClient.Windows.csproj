@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Windows 上的实现：WebView2 渲染、winspool、注册表自启、单实例 -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XiHan.PrintClient.Core\XiHan.PrintClient.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="XiHan.PrintClient.Windows.Tests" />
+  </ItemGroup>
+
+</Project>

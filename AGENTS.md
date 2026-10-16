@@ -6,7 +6,7 @@
 
 XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components 交付，任何前端项目都能使用。本仓库是开源版（MIT），必须能独立安装、构建和使用，不接收依赖私有包的代码。
 
-本仓库还将包含本地打印客户端（.NET 桌面程序，放在 `client/`），落地时在本文件补充它的技术栈、命令与约定。
+本仓库还包含本地打印客户端（Windows 托盘程序，.NET 10 + WebView2，放在 `client/`），约定见「打印客户端」一节。
 
 ### 技术栈
 
@@ -27,6 +27,11 @@ XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components
 ├─ AGENTS.md
 ├─ CLAUDE.md -> AGENTS.md         # Claude Code 仓库指令入口
 ├─ .github/ .gitee/ .gitcode/     # 三平台 Issue / PR 模板，GitHub 另有 CI
+├─ client/                         # 打印客户端（.NET 解决方案 XiHan.PrintClient.slnx）
+│  ├─ src/XiHan.PrintClient.Core/      # net10.0，平台无关：协议、会话、来源授权、任务队列与各平台接口
+│  ├─ src/XiHan.PrintClient.Windows/   # net10.0-windows：WebView2 渲染、winspool、注册表自启、单实例
+│  ├─ src/XiHan.PrintClient/           # WinForms 托盘程序，产物 XiHanPrint.exe
+│  └─ tests/                           # xunit.v3，dotnet test 走 Microsoft.Testing.Platform
 └─ print/                           # pnpm monorepo 根
    ├─ packages/
    │  ├─ core/                    # @xihan-print/core：模型层，纯 TS，不碰 DOM
@@ -35,7 +40,7 @@ XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components
    └─ playground/                 # @xihan-print/playground：开发预览页（private，不发布）
 ```
 
-仓库根没有 package.json，库命令在 `print/` 执行。
+仓库根没有 package.json，库命令在 `print/` 执行；客户端命令在 `client/` 执行。
 
 ## 常用命令（`print/`）
 
@@ -87,6 +92,21 @@ pnpm dev
  */
 ```
 
+## 打印客户端（`client/`）
+
+设计依据是总会话共享笔记里的 `print-client-draft.md`（用户已批准）：只监听 127.0.0.1 的 WebSocket，子协议 `xihan-print.v1`，端口 17620–17623；按来源授权；WebView2 只渲染、不跑页面脚本、不联网。
+
+| 任务 | 命令（在 `client/`） |
+| --- | --- |
+| 构建 | `dotnet build XiHan.PrintClient.slnx -c Release` |
+| 测试 | `dotnet test --solution XiHan.PrintClient.slnx -c Release --no-build` |
+
+- SDK 版本以 `client/global.json` 为准，与 XiHan.Framework 一致；包版本集中在 `Directory.Packages.props`。
+- 运行时 NuGet 依赖只有 `Microsoft.Web.WebView2`；新增任何运行时依赖前先征得维护者同意，能用 .NET 自带库或 Windows API 自写的就自写。
+- Core 不引用任何 Windows 专属 API，平台相关的实现放在平台项目里，经 Core 的接口接入。
+- 代码风格照 XiHan.Framework：文件头两行版权注释，文件级命名空间，公开成员写中文 XML 注释，注释只写做什么。
+- 提交前跑构建、测试与 `git diff --check`。
+
 ## 分支与 worktree
 
 - 主检出上的日常改动直接提交到 `dev`；`main` 只接收发版。
@@ -97,7 +117,7 @@ pnpm dev
 
 - 保留用户已有和无关改动；不要 reset、checkout 或清理它们。
 - 使用 Conventional Commits：`<type>(<scope>): <中文说明>`，scope 取 `core`、`runtime`、`designer`、`client`、`repo`。
-- 一项完整功能一个提交；提交前跑 `pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test` 与 `git diff --check`。
+- 一项完整功能一个提交；改 `print/` 的提交前跑 `pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test`，改 `client/` 的跑构建与测试，都要过 `git diff --check`。
 - 不推送、不发布、不创建远程 PR，除非用户明确要求。
 
 ## 禁止事项

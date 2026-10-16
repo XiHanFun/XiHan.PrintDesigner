@@ -1,0 +1,16 @@
+# 构建与测试产物
+bin/
+obj/
+artifacts/
+TestResults/
+*.trx
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# 安装包输出
+installer/output/

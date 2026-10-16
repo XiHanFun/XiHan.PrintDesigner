@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/XiHan.PrintClient.Core/XiHan.PrintClient.Core.csproj" />
+    <Project Path="src/XiHan.PrintClient.Windows/XiHan.PrintClient.Windows.csproj" />
+    <Project Path="src/XiHan.PrintClient/XiHan.PrintClient.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/XiHan.PrintClient.Core.Tests/XiHan.PrintClient.Core.Tests.csproj" />
+    <Project Path="tests/XiHan.PrintClient.Windows.Tests/XiHan.PrintClient.Windows.Tests.csproj" />
+  </Folder>
+</Solution>

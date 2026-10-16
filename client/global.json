@@ -1,0 +1,11 @@
+{
+  "sdk": {
+    "version": "10.0.111",
+    // 与 XiHan.Framework 一致：只允许同一功能带内的补丁升级
+    "rollForward": "latestPatch"
+  },
+  "test": {
+    // dotnet test 走 Microsoft.Testing.Platform
+    "runner": "Microsoft.Testing.Platform"
+  }
+}
