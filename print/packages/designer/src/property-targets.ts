@@ -8,8 +8,9 @@
 
 import type { PrintOperation, PropertyChange, PropertyDescriptor, TableElement } from '@xihan-print/core'
 import type { JsonPath, JsonPathSegment, JsonValue } from '@xihan-ui/core/json'
+import type { DataField } from '@xihan-ui/designer-kit'
 import type { PrintEditor, PrintTablePart } from './editor'
-import type { ExpandedDescriptor } from './property-expand'
+import type { ExpandContext, ExpandedDescriptor } from './property-expand'
 import {
   findElement,
   pageProperties,
@@ -19,6 +20,7 @@ import {
   tableFooterRowProperties,
   tableHeaderProperties,
 } from '@xihan-print/core'
+import { isJsonPathText, parseJsonPath } from '@xihan-ui/core/json'
 import { expandProperties } from './property-expand'
 
 /** 表格部位在属性面板里的对象种类。 */
@@ -83,10 +85,11 @@ function subject(
   descriptors: readonly PropertyDescriptor[],
   path: JsonPath,
   keep: KeepComposite,
+  context: ExpandContext,
   toOperation: (changes: PropertyChange[]) => PrintOperation,
 ): PropertySubject {
   const value = asJson(raw)
-  const expanded = expandProperties(descriptors, descriptor => keep(kind, descriptor))
+  const expanded = expandProperties(descriptors, descriptor => keep(kind, descriptor), context)
   return {
     kind,
     id,
@@ -97,9 +100,13 @@ function subject(
   }
 }
 
-/** 按当前选择取编辑对象：表格编辑态下是选中的部位，选中元素时是这些元素，什么都没选时是当前页面设置。 */
-export function propertySubjects(editor: PrintEditor, editingTable: string | undefined, keep: KeepComposite): PropertySubject[] {
+/**
+ * 按当前选择取编辑对象：表格编辑态下是选中的部位，选中元素时是这些元素，什么都没选时是当前页面设置。
+ * fields 是可绑定的字段树；表格部位里相对行的字段从表格的数组字段往下列。
+ */
+export function propertySubjects(editor: PrintEditor, editingTable: string | undefined, keep: KeepComposite, fields?: readonly DataField[]): PropertySubject[] {
   const { document, selection } = editor
+  const context: ExpandContext = fields === undefined ? {} : { fields }
   const part = selection.tablePart
   if (editingTable !== undefined && part !== undefined) {
     const found = findElement(document, editingTable)
@@ -109,7 +116,9 @@ export function propertySubjects(editor: PrintEditor, editingTable: string | und
     const located = tablePart(table, part)
     if (located === undefined)
       return []
-    return [subject(TABLE_PART_KINDS[part.kind], `${table.id}:${JSON.stringify(located.prefix)}`, located.value, located.descriptors, [...found.path, ...located.prefix], keep, changes => ({
+    const rowBase = isJsonPathText(table.dataField) ? parseJsonPath(table.dataField) : undefined
+    const partContext = rowBase === undefined ? context : { ...context, rowBase }
+    return [subject(TABLE_PART_KINDS[part.kind], `${table.id}:${JSON.stringify(located.prefix)}`, located.value, located.descriptors, [...found.path, ...located.prefix], keep, partContext, changes => ({
       type: 'updateElement',
       id: table.id,
       changes: changes.map(change => ({ ...change, path: [...located.prefix, ...change.path] })),
@@ -122,9 +131,9 @@ export function propertySubjects(editor: PrintEditor, editingTable: string | und
       const prototype = editor.registry.get(element.type)
       if (found === undefined || prototype === undefined)
         return []
-      return [subject(element.type, element.id, element, prototype.properties, found.path, keep, changes => ({ type: 'updateElement', id: element.id, changes }))]
+      return [subject(element.type, element.id, element, prototype.properties, found.path, keep, context, changes => ({ type: 'updateElement', id: element.id, changes }))]
     })
   }
   const page = editor.page
-  return [subject('page', page.id, page, pageProperties(), ['pages', document.pages.indexOf(page)], keep, changes => ({ type: 'updatePage', pageId: page.id, changes }))]
+  return [subject('page', page.id, page, pageProperties(), ['pages', document.pages.indexOf(page)], keep, context, changes => ({ type: 'updatePage', pageId: page.id, changes }))]
 }

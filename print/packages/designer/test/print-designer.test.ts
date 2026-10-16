@@ -14,11 +14,32 @@ import type { XhPrintDesigner } from '../src'
 import { createDocument, createElementRegistry, createPage } from '@xihan-print/core'
 import { printZhCN } from '@xihan-print/runtime/locale'
 import { CLIPBOARD_FORMAT, clipboardMimeType } from '@xihan-ui/designer-kit'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { definePrintDesigner } from '../src'
 
 const registry = createElementRegistry()
 const PX_PER_MM = 96 / 25.4
+
+// jsdom 不排版：属性面板的多行输入框按计算样式与 scrollHeight 自动调高，这里按浏览器的初始值与一行 16 像素补上
+const LAYOUT_DEFAULTS: Readonly<Record<string, string>> = {
+  'writing-mode': 'horizontal-tb',
+  'box-sizing': 'content-box',
+  'max-block-size': 'none',
+  'padding-top': '0px',
+  'padding-bottom': '0px',
+  'border-top-width': '0px',
+  'border-bottom-width': '0px',
+}
+const computedStyle = window.getComputedStyle.bind(window)
+vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
+  const style = computedStyle(element, pseudo)
+  return new Proxy(style, {
+    get: (target, key) => key === 'getPropertyValue'
+      ? (name: string): string => target.getPropertyValue(name) || LAYOUT_DEFAULTS[name] || ''
+      : typeof Reflect.get(target, key) === 'function' ? (Reflect.get(target, key) as (...args: unknown[]) => unknown).bind(target) : Reflect.get(target, key),
+  })
+})
+Object.defineProperty(HTMLTextAreaElement.prototype, 'scrollHeight', { configurable: true, get: () => 16 })
 
 const measurer: TextMeasurer = {
   version: 0,
@@ -318,6 +339,37 @@ describe('<xh-print-designer>', () => {
     expect(label('watermark.opacity')).toBe('Watermark · Opacity')
     change(['watermark', 'text'], '样稿')
     expect(designer.schema.pages[0]!.watermark!.text).toBe('样稿')
+  })
+
+  it('内容类：先选来源种类再按种类显示输入，切换种类整体换成缺省对象；字段按字段树平铺成下拉，表格列从数组字段往下列', async () => {
+    designer.fields = [
+      { name: 'name', label: 'Name', kind: 'value' },
+      { name: 'items', kind: 'list', children: [{ name: 'qty', kind: 'value' }] },
+    ]
+    const panel = designer.querySelector('xh-designer-properties')!
+    interface Target { kind: string, id: string, descriptors: readonly { path: readonly (string | number)[], control: { kind: string, options?: readonly { value: unknown, label?: string }[] }, visibleWhen?: unknown }[] }
+    const target = (): Target => panel.targets![0]! as unknown as Target
+    const find = (path: string): Target['descriptors'][number] => target().descriptors.find(descriptor => descriptor.path.join('.') === path)!
+    const change = (path: (string | number)[], value: unknown): void => {
+      const { kind, id } = target()
+      panel.dispatchEvent(new CustomEvent('property-change', { detail: { path, value, targets: [{ kind, id }], merge: `m${path.join('.')}` } }))
+    }
+    designer.select({ elements: ['a'] })
+    await designer.updateComplete
+    expect(find('content.kind').control.options!.map(option => option.value)).toEqual(['static', 'field', 'template', 'expression'])
+    expect(find('content.field').control.options).toEqual([{ value: 'name', label: 'Name (name)' }])
+    expect([panel.labelOf!(find('content.kind') as never), panel.labelOf!(find('content.template') as never)]).toEqual(['Content', 'Content · Template'])
+    change(['content', 'kind'], 'template')
+    expect(designer.schema.pages[0]!.elements[0]).toMatchObject({ content: { kind: 'template', template: '' } })
+
+    designer.select({ elements: ['t'] })
+    await designer.updateComplete
+    expect(find('dataField').control.options!.map(option => option.value)).toEqual(['items'])
+    key('Enter')
+    const table = designer.schema.pages[0]!.elements[1] as { columns: { id: string }[] }
+    designer.select({ elements: ['t'], tablePart: { kind: 'column', elementId: 't', columnId: table.columns[0]!.id } })
+    await designer.updateComplete
+    expect(find('content.field').control.options!.map(option => option.value)).toEqual(['qty'])
   })
 
   it('属性面板：表格编辑态下编辑选中的部位，修改写回整张表格', async () => {

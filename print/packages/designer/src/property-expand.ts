@@ -6,14 +6,17 @@
 // 复合属性拆成属性面板自带的编辑方式：线拆成线宽、线型、颜色，边距拆成四边，单元格样式、纸张与水印逐项拆开；
 // 可选的对象前面加一个开关。开关等面板上读不到的值放在编辑对象的 $view 下，写入时再换回模板里的修改；
 // 个别分项改动时要连带改别处（如改纸张宽高时去掉预设），也在写入时换成一组修改。
+// 文本内容、单元格内容与图片来源先选来源种类，再按种类显示对应输入，切换种类时整体换成该种类的缺省对象；
+// 绑定字段在给了字段树时是平铺的下拉，值格式暂用 JSON 文本框。
 
 import type { PropertyChange, PropertyDescriptor } from '@xihan-print/core'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
+import type { DataField, DataFieldKind } from '@xihan-ui/designer-kit'
 import type { PropertyCondition, PropertyControl } from '@xihan-ui/designer-kit/properties'
 import type { DesignerPropertyDescriptor } from '@xihan-ui/designer-shell'
-import { createPaper, HORIZONTAL_ALIGNS, STROKE_STYLES, VERTICAL_ALIGNS } from '@xihan-print/core'
+import { AGGREGATE_FUNCTIONS, AGGREGATE_SCOPES, createPaper, HORIZONTAL_ALIGNS, STROKE_STYLES, VERTICAL_ALIGNS } from '@xihan-print/core'
 import { formatJsonPath, getJsonAt } from '@xihan-ui/core/json'
-import { PAPER_PRESET_NAMES } from '@xihan-ui/designer-kit'
+import { listDataFields, PAPER_PRESET_NAMES } from '@xihan-ui/designer-kit'
 
 /** 面板上读写、模板里没有的值放在编辑对象的这个键下。 */
 export const VIEW_KEY = '$view'
@@ -47,7 +50,13 @@ export interface ExpandedProperties {
   readonly write: (value: JsonValue, path: JsonPath, next: JsonValue | undefined) => PropertyChange[]
 }
 
-type Expander = (descriptor: PropertyDescriptor) => Expansion
+/** 拆分时用到的数据：字段树，以及表格列与表尾汇总的字段相对的数组字段路径。 */
+export interface ExpandContext {
+  readonly fields?: readonly DataField[]
+  readonly rowBase?: JsonPath
+}
+
+type Expander = (descriptor: PropertyDescriptor, context: ExpandContext) => Expansion
 
 function viewPath(key: string): JsonPath {
   return [VIEW_KEY, key]
@@ -124,7 +133,107 @@ function strokeParts(base: PropertyDescriptor, path: JsonPath, labelParent: stri
 
 const SIDES = ['top', 'right', 'bottom', 'left'] as const
 
+/** 绑定字段的编辑方式：给了字段树时是平铺的下拉（选项名为字段名加路径），否则是文本框。 */
+function fieldControl(context: ExpandContext, kinds: readonly DataFieldKind[], base?: JsonPath): PropertyControl {
+  if (context.fields === undefined)
+    return { kind: 'text' }
+  const entries = listDataFields(context.fields, { kinds, ...(base === undefined ? {} : { base }) })
+  return { kind: 'select', options: entries.map(entry => ({ value: entry.text, label: entry.field.label === undefined ? entry.text : `${entry.field.label} (${entry.text})` })) }
+}
+
+/** 内容的一个分项：只在 kinds 里的来源种类下显示。 */
+interface ContentPart {
+  readonly key: string
+  readonly control: PropertyControl
+  readonly kinds: readonly string[]
+}
+
+/** 来源种类加各种类的分项；切换种类时整体换成 create 给出的缺省对象。 */
+function content(descriptor: PropertyDescriptor, kinds: readonly string[], create: (kind: string) => JsonValue, parts: readonly ContentPart[]): Expansion {
+  const { path } = descriptor
+  const parent = formatJsonPath(path)
+  const kind = [...path, 'kind']
+  return {
+    descriptors: [
+      part(descriptor, kind, { kind: 'select', options: choices(kinds) }, parent),
+      ...parts.map(item => part(descriptor, [...path, item.key], item.control, `content/${item.key}`, { path: kind, oneOf: [...item.kinds] }, parent)),
+    ],
+    writes: {
+      [formatJsonPath(kind)]: (_value, next) => typeof next === 'string' && kinds.includes(next) ? [{ path, value: create(next) }] : [],
+    },
+  }
+}
+
+const MULTILINE: PropertyControl = { kind: 'text', multiline: true }
+const FORMAT: PropertyControl = { kind: 'json' }
+
+/** 文本内容的种类与缺省对象。 */
+const TEXT_KINDS = ['static', 'field', 'template', 'expression'] as const
+
+function textContent(kind: string): JsonValue {
+  switch (kind) {
+    case 'static':
+      return { kind, text: '' }
+    case 'template':
+      return { kind, template: '' }
+    case 'expression':
+      return { kind, expression: '' }
+    default:
+      return { kind, field: '' }
+  }
+}
+
+function textParts(field: PropertyControl): ContentPart[] {
+  return [
+    { key: 'text', control: MULTILINE, kinds: ['static'] },
+    { key: 'field', control: field, kinds: ['field'] },
+    { key: 'emptyText', control: { kind: 'text' }, kinds: ['field'] },
+    { key: 'template', control: MULTILINE, kinds: ['template'] },
+    { key: 'expression', control: MULTILINE, kinds: ['expression'] },
+    { key: 'format', control: FORMAT, kinds: ['field', 'expression'] },
+  ]
+}
+
 const EXPANDERS: Readonly<Record<string, Expander>> = {
+  field: (descriptor, context) => {
+    const control = descriptor.control as { readonly target?: string }
+    return { descriptors: [{ ...descriptor, control: fieldControl(context, control.target === 'list' ? ['list'] : ['value']) }] }
+  },
+  valueFormat: descriptor => ({ descriptors: [{ ...descriptor, control: FORMAT }] }),
+  textContent: (descriptor, context) => content(descriptor, TEXT_KINDS, textContent, textParts(fieldControl(context, ['value']))),
+  imageSource: (descriptor, context) => content(
+    descriptor,
+    ['static', 'field'],
+    (kind): JsonValue => kind === 'static' ? { kind, url: '' } : { kind, field: '' },
+    [
+      { key: 'url', control: { kind: 'text' }, kinds: ['static'] },
+      { key: 'field', control: fieldControl(context, ['value']), kinds: ['field'] },
+    ],
+  ),
+  cellContent: (descriptor, context) => content(
+    descriptor,
+    ['field', 'template', 'rowNumber', 'expression'],
+    kind => kind === 'rowNumber' ? { kind } : textContent(kind),
+    [
+      { key: 'field', control: fieldControl(context, ['value'], context.rowBase), kinds: ['field'] },
+      { key: 'emptyText', control: { kind: 'text' }, kinds: ['field'] },
+      { key: 'template', control: MULTILINE, kinds: ['template'] },
+      { key: 'expression', control: MULTILINE, kinds: ['expression'] },
+      { key: 'format', control: FORMAT, kinds: ['field', 'expression'] },
+    ],
+  ),
+  footerCellContent: (descriptor, context) => content(
+    descriptor,
+    [...TEXT_KINDS, 'aggregate'],
+    kind => kind === 'aggregate' ? { kind, fn: 'count', scope: 'all' } : textContent(kind),
+    [
+      ...textParts(fieldControl(context, ['value'])).filter(item => item.key !== 'format'),
+      { key: 'fn', control: { kind: 'select', options: choices(AGGREGATE_FUNCTIONS) }, kinds: ['aggregate'] },
+      { key: 'field', control: fieldControl(context, ['value'], context.rowBase), kinds: ['aggregate'] },
+      { key: 'scope', control: { kind: 'select', options: choices(AGGREGATE_SCOPES) }, kinds: ['aggregate'] },
+      { key: 'format', control: FORMAT, kinds: ['field', 'expression', 'aggregate'] },
+    ],
+  ),
   stroke: (descriptor) => {
     const { path } = descriptor
     const key = formatJsonPath(path)
@@ -223,7 +332,7 @@ const EXPANDERS: Readonly<Record<string, Expander>> = {
  * 把复合属性拆开：keep 为真的描述（宿主或设计器给了编辑器）原样保留，能拆的拆成自带的编辑方式，
  * 其余原样保留，由调用方决定是否显示。
  */
-export function expandProperties(descriptors: readonly PropertyDescriptor[], keep: (descriptor: PropertyDescriptor) => boolean): ExpandedProperties {
+export function expandProperties(descriptors: readonly PropertyDescriptor[], keep: (descriptor: PropertyDescriptor) => boolean, context: ExpandContext = {}): ExpandedProperties {
   const expanded: ExpandedDescriptor[] = []
   const views: Record<string, ViewRule> = {}
   const writes: Record<string, WriteRule> = {}
@@ -233,7 +342,7 @@ export function expandProperties(descriptors: readonly PropertyDescriptor[], kee
       expanded.push(descriptor)
       continue
     }
-    const expansion = expander(descriptor)
+    const expansion = expander(descriptor, context)
     expanded.push(...expansion.descriptors)
     Object.assign(views, expansion.views)
     Object.assign(writes, expansion.writes)
