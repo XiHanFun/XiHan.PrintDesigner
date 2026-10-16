@@ -5,7 +5,7 @@
 
 // <xh-print-designer>：打印模板设计器。画布按纸张显示一张页面模板（页眉、正文、页脚三区），元素用 runtime 的渲染代码画；
 // 点选与 Shift / Ctrl 追加选择，拖动元素移动，控制柄缩放与旋转，拖空白框选，按住空格或中键拖动平移，Ctrl / ⌘ + 滚轮缩放；
-// 页眉页脚可切换变体、拖边界改高度；
+// 画布外有毫米标尺，从标尺拖出的参考线存进页面模板；页眉页脚可切换变体、拖边界改高度；
 // 双击表格进入表格编辑态；键盘撤销重做、删除、微移、层级与系统剪贴板；可切到 <xh-print-preview> 预览与打印。
 // 整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区。
 
@@ -27,7 +27,15 @@ import type {
 import type { PrintDesignerTranslations, PrintOutcome } from '@xihan-print/runtime'
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { AlignMode, DataField, DistributeAxis, ExecuteOptions, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
-import type { DesignerFrameRegion, DesignerSnapOptions, DesignerTransformEventMap, DesignerTransformItem, PanRequestDetail } from '@xihan-ui/designer-shell'
+import type {
+  DesignerFrameRegion,
+  DesignerGuides,
+  DesignerRulerEventMap,
+  DesignerSnapOptions,
+  DesignerTransformEventMap,
+  DesignerTransformItem,
+  PanRequestDetail,
+} from '@xihan-ui/designer-shell'
 import type { ExpressionEngine } from '@xihan-ui/expression'
 import type { PointerSession } from '@xihan-ui/pointer'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
@@ -61,10 +69,11 @@ import {
   screenToWorld,
   selectInMarquee,
   snapToGrid,
+  unionRects,
   wheelZoomFactor,
   zoomBy,
 } from '@xihan-ui/designer-kit'
-import { defineDesignerShellElement, parseDesignerPanels, XhDesignerFrameElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
+import { defineDesignerShellElement, parseDesignerPanels, XhDesignerFrameElement, XhDesignerRulerElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
@@ -280,6 +289,8 @@ const TOOLBAR_GROUPS: readonly (readonly Command[])[] = [
 
 const PAGE_COMMANDS: readonly Command[] = ['add-page', 'remove-page', 'move-page-left', 'move-page-right']
 
+const NO_GUIDES: DesignerGuides = { x: [], y: [] }
+
 /** 外框的命名区：上方是工具栏与页面模板页签，中间是画布。 */
 const FRAME_REGIONS: readonly DesignerFrameRegion[] = [
   { name: 'toolbar', position: 'top' },
@@ -295,6 +306,7 @@ interface Layers {
   readonly pages: HTMLElement
   readonly workspace: HTMLElement
   readonly menu: HTMLElement
+  readonly ruler: XhDesignerRulerElement
   readonly menuContent: HTMLElement
   readonly viewport: HTMLElement
   readonly overlay: XhDesignerTransformElement
@@ -520,7 +532,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#renderPages(layers, t)
     layers.viewport.setAttribute('aria-label', t.canvas)
     const preview = this.mode === 'preview'
-    layers.menu.hidden = preview
+    this.#placeCanvas(layers, preview)
     layers.preview.hidden = !preview
     if (preview) {
       this.#syncPreview(this.#ensurePreview())
@@ -532,6 +544,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     }
     this.#renderPaper(layers, t)
     this.#syncOverlay(layers)
+    this.#syncRuler(layers)
     if (!this.#fitIfPending())
       this.#applyViewport(false)
   }
@@ -855,6 +868,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       const scale = zoom / PX_PER_MM
       layers.world.style.transform = `translate(${x}px, ${y}px) scale(${scale})`
       layers.overlay.viewport = this.#viewport
+      layers.ruler.viewport = this.#viewport
       this.style.setProperty('--xh-print-designer-zoom', String(scale))
     }
     if (notify)
@@ -926,14 +940,17 @@ export class XhPrintDesigner extends XhReactiveElement {
     const viewport = createAuthoredElement(doc, 'div', { 'data-part': 'viewport', 'tabindex': 0, 'role': 'region' }, [world, overlay])
     const menuContent = createAuthoredElement(doc, 'div', { 'data-xh-part': 'content' })
     const trigger = createAuthoredElement(doc, 'div', { 'data-xh-part': 'trigger', 'data-print-canvas': '' }, [viewport])
-    const menu = createAuthoredElement(doc, 'xh-context-menu', { size: 'sm' }, [
+    const menu = createAuthoredElement(doc, 'xh-context-menu', { 'size': 'sm', 'data-print-canvas-menu': '' }, [
       createAuthoredElement(doc, 'div', { 'data-xh-part': 'root', 'data-print-canvas-root': '' }, [trigger, createAuthoredElement(doc, 'div', { 'data-xh-part': 'positioner' }, [menuContent])]),
     ])
     menu.addEventListener('select', this.#onMenuSelect)
     this.#fillMenu(menuContent, 'blank')
     const preview = createAuthoredElement(doc, 'div', { 'data-part': 'preview', 'hidden': true })
-    const rulers = createAuthoredElement(doc, 'div', { 'data-part': 'rulers', 'hidden': true })
-    const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [rulers, menu, preview])
+    const ruler = createAuthoredElement(doc, 'xh-designer-ruler', { 'unit-size': 1 }) as XhDesignerRulerElement
+    ruler.viewport = this.#viewport
+    ruler.snap = (_axis, value) => this.#snapValue(value)
+    ruler.addEventListener('guides-change', this.#onGuidesChange)
+    const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [ruler, menu, preview])
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, pages, workspace]) as XhDesignerFrameElement
     frame.regions = FRAME_REGIONS
     this.append(frame)
@@ -950,7 +967,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, toolbar, toolbarRoot, items, pages, workspace, menu, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
+    this.#layers = { frame, toolbar, toolbarRoot, items, pages, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
     return this.#layers
   }
 
@@ -1349,6 +1366,37 @@ export class XhPrintDesigner extends XhReactiveElement {
       preview.locale = this.locale
     if (this.timeZone !== undefined)
       preview.timeZone = this.timeZone
+  }
+
+  // —— 内部：标尺与参考线 ——
+
+  /** 标尺显示时画布放进标尺框，不显示时直接放在工作区；预览态两者都收起。 */
+  #placeCanvas(layers: Layers, preview: boolean): void {
+    const shown = parseDesignerPanels(this.panels)
+    const rulers = !preview && (shown === undefined || shown.has('rulers'))
+    if (rulers && !layers.ruler.contains(layers.menu))
+      layers.ruler.append(layers.menu)
+    else if (!rulers && layers.ruler.contains(layers.menu))
+      layers.workspace.insertBefore(layers.menu, layers.preview)
+    layers.ruler.hidden = !rulers
+    layers.menu.hidden = preview
+  }
+
+  /** 标尺上的参考线取当前页面模板，选中元素的范围画成淡底。 */
+  #syncRuler(layers: Layers): void {
+    const selected = new Set(this.#editor.selection.elements)
+    layers.ruler.readonly = this.readonly
+    layers.ruler.guides = this.#editor.page.guides ?? NO_GUIDES
+    layers.ruler.highlight = unionRects(this.#editor.visibleElements().filter(item => selected.has(item.element.id)).map(item => elementRect(item.element)))
+  }
+
+  /** 参考线写回页面模板；全部删掉时去掉 guides。 */
+  readonly #onGuidesChange = (event: Event): void => {
+    if (this.readonly)
+      return
+    const { guides } = (event as DesignerRulerEventMap['guides-change']).detail
+    const value = guides.x.length === 0 && guides.y.length === 0 ? undefined : { x: [...guides.x], y: [...guides.y] }
+    this.#editor.execute([{ type: 'updatePage', pageId: this.#editor.activePageId, changes: [{ path: ['guides'], value }] }])
   }
 
   // —— 内部：变换覆盖层 ——
@@ -1943,6 +1991,7 @@ export function definePrintDesigner(): void {
   definePrintPreview()
   defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
   defineDesignerShellElement('xh-designer-transform', XhDesignerTransformElement)
+  defineDesignerShellElement('xh-designer-ruler', XhDesignerRulerElement)
   registerElement(PRINT_DESIGNER_TAG, XhPrintDesigner)
 }
 

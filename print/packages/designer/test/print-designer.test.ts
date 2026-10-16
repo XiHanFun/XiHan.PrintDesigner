@@ -150,6 +150,24 @@ describe('<xh-print-designer>', () => {
     expect(overlay().readonly).toBe(true)
   })
 
+  it('标尺：参考线经 guides-change 写回页面模板、可撤销，选中范围画在标尺上；panels 不含 rulers 时画布不进标尺框', async () => {
+    const ruler = designer.querySelector('xh-designer-ruler')!
+    const guides = (x: number[]): CustomEvent => new CustomEvent('guides-change', { detail: { guides: { x, y: [] }, change: { type: x.length > 0 ? 'add' : 'remove', axis: 'x', index: 0 } } })
+    expect([ruler.contains(viewport()), ruler.guides]).toEqual([true, { x: [], y: [] }])
+    ruler.dispatchEvent(guides([20]))
+    expect(designer.schema.pages[0]!.guides).toEqual({ x: [20], y: [] })
+    designer.select({ elements: ['a'] })
+    await designer.updateComplete
+    expect([ruler.guides, ruler.highlight]).toEqual([{ x: [20], y: [] }, { x: 10, y: 30, width: 40, height: 10 }])
+    ruler.dispatchEvent(guides([]))
+    expect(designer.schema.pages[0]!.guides).toBeUndefined()
+    designer.undo()
+    expect(designer.schema.pages[0]!.guides).toEqual({ x: [20], y: [] })
+    designer.panels = 'toolbar pages'
+    await designer.updateComplete
+    expect([ruler.hidden, ruler.contains(viewport()), viewport().isConnected]).toEqual([true, false, true])
+  })
+
   it('复制写入系统剪贴板，粘贴换新 id；别的内容粘进来时忽略', () => {
     designer.select({ elements: ['a'] })
     const copied = clipboardData()
