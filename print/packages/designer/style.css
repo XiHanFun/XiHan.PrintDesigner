@@ -97,9 +97,21 @@ xh-print-designer [data-part='margins'],
 xh-print-designer [data-part='band'],
 xh-print-designer [data-part='selection'],
 xh-print-designer [data-part='table-edit'],
-xh-print-designer [data-part='table-part'] {
+xh-print-designer [data-part='table-part'],
+xh-print-designer [data-part='design-overflow'],
+xh-print-designer [data-part='design-bound'] {
   position: absolute;
   box-sizing: border-box;
+}
+
+/* 跨页元素在画布上超出设计高度的部分盖一层半透明的纸色，设计高度的边界画虚线。 */
+xh-print-designer [data-part='design-overflow'] {
+  background: var(--xh-color-neutral-0);
+  opacity: var(--xh-state-disabled-opacity);
+}
+
+xh-print-designer [data-part='design-bound'] {
+  border-block-start: calc(var(--xh-stroke-thick) / var(--xh-print-designer-zoom)) dashed var(--xh-border-strong);
 }
 
 xh-print-designer [data-part='margins'] {
