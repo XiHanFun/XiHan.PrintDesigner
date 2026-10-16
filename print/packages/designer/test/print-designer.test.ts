@@ -397,6 +397,29 @@ describe('<xh-print-designer>', () => {
     expect(target().descriptors.find(descriptor => descriptor.path.join('.') === 'format')!.control.kind).toBe('text')
   })
 
+  it('表格的列与表尾行列成条目，点一下进入表格编辑态并选中该部位；宿主给了编辑器时用宿主的', async () => {
+    const panel = designer.querySelector('xh-designer-properties')!
+    designer.select({ elements: ['t'] })
+    await designer.updateComplete
+    await panel.updateComplete
+    const list = panel.querySelector('[data-path="columns"] [data-part="part-list"]')!
+    const table = designer.schema.pages[0]!.elements[1] as { columns: { id: string }[] }
+    expect(list.querySelectorAll('[data-part="part-item"]')).toHaveLength(table.columns.length)
+    list.querySelectorAll<HTMLButtonElement>('[data-part="part-item"] button')[1]!.click()
+    expect(designer.getSelection().tablePart).toEqual({ kind: 'column', elementId: 't', columnId: table.columns[1]!.id })
+    await designer.updateComplete
+    expect(designer.querySelectorAll('[data-part="column-handle"]').length).toBeGreaterThan(0)
+
+    key('Escape')
+    const host = (): { element: HTMLElement } => ({ element: document.createElement('output') })
+    designer.editors = { byControl: { tableColumns: host } }
+    designer.select({ elements: ['t'] })
+    await designer.updateComplete
+    await panel.updateComplete
+    expect(panel.querySelector('[data-path="columns"] output')).not.toBeNull()
+    expect(panel.querySelector('[data-path="footerRows"] [data-part="part-list"]')).not.toBeNull()
+  })
+
   it('属性面板：表格编辑态下编辑选中的部位，修改写回整张表格', async () => {
     const panel = designer.querySelector('xh-designer-properties')!
     designer.select({ elements: ['t'] })
