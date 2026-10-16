@@ -4,7 +4,8 @@
  */
 
 // 属性面板的英文缺省文案：分组名、属性名、选项名与单位。属性名的键是 formatJsonPath(path)，
-// 「对象种类:路径」覆盖同一路径在该种类上的名字；选项名的键是选项值，「路径=选项值」覆盖该属性上的名字。
+// 「对象种类:路径」覆盖同一路径在该种类上的名字，复合属性拆开后的分项用「复合种类/分项」作键；
+// 选项名的键是选项值，「路径=选项值」覆盖该属性上的名字。
 
 import type { PrintDesignerTranslations } from '@xihan-print/runtime'
 
@@ -115,6 +116,27 @@ export const PROPERTY_NAMES: PrintDesignerTranslations['propertyNames'] = {
   'table-column:width': 'Column width',
   'table-header:height': 'Row height',
   'table-footer-row:height': 'Row height',
+  'stroke/width': 'Width',
+  'stroke/style': 'Style',
+  'stroke/color': 'Color',
+  'edges/top': 'Top',
+  'edges/right': 'Right',
+  'edges/bottom': 'Bottom',
+  'edges/left': 'Left',
+  'borderSides/top': 'Top border',
+  'borderSides/right': 'Right border',
+  'borderSides/bottom': 'Bottom border',
+  'borderSides/left': 'Left border',
+  'cellStyle/fontFamily': 'Font',
+  'cellStyle/fontSize': 'Font size',
+  'cellStyle/bold': 'Bold',
+  'cellStyle/italic': 'Italic',
+  'cellStyle/color': 'Text color',
+  'cellStyle/background': 'Background',
+  'cellStyle/align': 'Horizontal align',
+  'cellStyle/verticalAlign': 'Vertical align',
+  'cellStyle/padding': 'Side padding',
+  'cellStyle/lineHeight': 'Line height',
 }
 
 export const PROPERTY_OPTION_NAMES: PrintDesignerTranslations['propertyOptions'] = {
@@ -152,6 +174,10 @@ export const PROPERTY_OPTION_NAMES: PrintDesignerTranslations['propertyOptions']
   'matrixCode': '2D code',
   'everyPage': 'Every page',
   'lastPage': 'Last page only',
+  'solid': 'Solid',
+  'dashed': 'Dashed',
+  'dotted': 'Dotted',
+  'double': 'Double',
 }
 
 export const UNIT_NAMES: PrintDesignerTranslations['units'] = {

@@ -256,6 +256,41 @@ describe('<xh-print-designer>', () => {
     expect(panel.errors).toContainEqual({ target: { kind: 'text', id: 'a' }, path: ['width'], message: 'Must be at least 0' })
   })
 
+  it('复合属性拆开：页边距拆成四边，可选的线与边框各边前面有开关，开时写入缺省值、关时删掉', async () => {
+    const panel = designer.querySelector('xh-designer-properties')!
+    const target = (): { kind: string, id: string, value: unknown, descriptors: readonly { path: readonly (string | number)[] }[] } => panel.targets![0]!
+    const paths = (): string[] => target().descriptors.map(descriptor => descriptor.path.join('.'))
+    const change = (path: (string | number)[], value: unknown): void => {
+      const { kind, id } = target()
+      panel.dispatchEvent(new CustomEvent('property-change', { detail: { path, value, targets: [{ kind, id }], merge: 'm' } }))
+    }
+    const label = (path: string): string => panel.labelOf!(target().descriptors.find(descriptor => descriptor.path.join('.') === path)! as never)
+    expect(paths()).toEqual(expect.arrayContaining(['margins.top', 'margins.right', 'margins.bottom', 'margins.left']))
+    expect(label('margins.left')).toBe('Margins · Left')
+    change(['margins', 'left'], 15)
+    expect(designer.schema.pages[0]!.margins.left).toBe(15)
+
+    designer.execute([{ type: 'addElement', container: { pageId: 'p', region: 'body' }, element: registry.createElement('rect', { id: 'r', x: 100, y: 100 }) }])
+    designer.select({ elements: ['r'] })
+    await designer.updateComplete
+    expect(paths()).toEqual(expect.arrayContaining(['$view.present:stroke', 'stroke.width', 'stroke.style', 'stroke.color']))
+    expect([label('$view.present:stroke'), label('stroke.width')]).toEqual(['Stroke', 'Stroke · Width'])
+    const hadStroke = (target().value as { $view: Record<string, boolean> }).$view['present:stroke']
+    change(['$view', 'present:stroke'], !hadStroke)
+    expect((designer.schema.pages[0]!.elements.at(-1) as { stroke?: unknown }).stroke).toEqual(hadStroke ? undefined : { width: 0.2, style: 'solid', color: '#000000' })
+
+    designer.select({ elements: ['a'] })
+    await designer.updateComplete
+    expect(label('box.border.top.width')).toBe('Top border · Width')
+    change(['$view', 'present:box.border.top'], true)
+    expect((designer.schema.pages[0]!.elements[0] as { box?: unknown }).box).toEqual({ border: { top: { width: 0.2, style: 'solid', color: '#000000' } } })
+    await designer.updateComplete
+    expect((target().value as { $view: Record<string, boolean> }).$view).toMatchObject({ 'present:box.border.top': true, 'present:box.border.left': false })
+    change(['box', 'border', 'top', 'width'], 0.5)
+    change(['$view', 'present:box.border.top'], false)
+    expect((designer.schema.pages[0]!.elements[0] as { box?: { border?: unknown } }).box!.border).toEqual({})
+  })
+
   it('属性面板：表格编辑态下编辑选中的部位，修改写回整张表格', async () => {
     const panel = designer.querySelector('xh-designer-properties')!
     designer.select({ elements: ['t'] })

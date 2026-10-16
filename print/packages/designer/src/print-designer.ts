@@ -58,6 +58,7 @@ import type { PointerSession } from '@xihan-ui/pointer'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { PrintClipboard, PrintSelection, PrintTablePart } from './editor'
+import type { ExpandedDescriptor } from './property-expand'
 import type { PropertySubject } from './property-targets'
 import type { TableCommand } from './table-edit'
 import {
@@ -238,6 +239,7 @@ const DEFAULT_TRANSLATIONS: PrintDesignerTranslations = {
   issue: defaultIssueText,
   propertyGroups: PROPERTY_GROUP_NAMES,
   propertyNames: PROPERTY_NAMES,
+  propertyPart: (parent, part) => `${parent} · ${part}`,
   propertyOptions: PROPERTY_OPTION_NAMES,
   units: UNIT_NAMES,
   pageSettings: 'Page settings',
@@ -1520,17 +1522,17 @@ export class XhPrintDesigner extends XhReactiveElement {
   /** 按选择换编辑对象；分组、属性名、选项与单位的文案只在对象种类或文案变化时重新交给面板。 */
   #syncProperties(layers: Layers, t: PrintDesignerTranslations): void {
     const panel = layers.properties
-    const subjects = propertySubjects(this.#editor, this.#tableEdit)
+    const editors = this.editors
+    const subjects = propertySubjects(this.#editor, this.#tableEdit, (kind, descriptor) => editors !== undefined && resolvePropertyEditor(editors, kind, descriptor) !== undefined)
     this.#subjects = subjects
     const kind = subjects.length > 0 && subjects.every(subject => subject.kind === subjects[0]!.kind) ? subjects[0]!.kind : ''
-    const editors = this.editors
     const usable = (descriptor: DesignerPropertyDescriptor): boolean =>
       BUILTIN_CONTROLS.has(descriptor.control.kind) || (editors !== undefined && resolvePropertyEditor(editors, kind, descriptor) !== undefined)
     panel.targets = subjects.map(subject => ({ kind: subject.kind, id: subject.id, value: subject.value, descriptors: subject.descriptors.filter(usable) }))
     panel.errors = this.#propertyErrors(subjects, t)
     panel.heading = this.#propertyHeading(subjects, t)
     panel.readonly = this.readonly
-    const inputs = [kind, editors, t.propertyGroups, t.propertyNames, t.propertyOptions, t.units]
+    const inputs = [kind, editors, t.propertyGroups, t.propertyNames, t.propertyPart, t.propertyOptions, t.units]
     if (inputs.length === this.#panelInputs.length && inputs.every((input, index) => input === this.#panelInputs[index]))
       return
     this.#panelInputs = inputs
@@ -1538,8 +1540,14 @@ export class XhPrintDesigner extends XhReactiveElement {
     panel.groupOrder = kind === 'page' ? PAGE_PROPERTY_GROUPS : PROPERTY_GROUPS
     panel.groupLabel = group => t.propertyGroups[group as PropertyGroup] ?? group
     panel.labelOf = (descriptor) => {
+      const name = (key: string): string | undefined => t.propertyNames[`${kind}:${key}`] ?? t.propertyNames[key]
       const key = formatJsonPath(descriptor.path)
-      return t.propertyNames[`${kind}:${key}`] ?? t.propertyNames[key] ?? descriptor.label ?? key
+      const { labelKey, labelParent } = descriptor as ExpandedDescriptor
+      const own = name(key)
+      if (own !== undefined || labelKey === undefined)
+        return own ?? descriptor.label ?? key
+      const part = name(labelKey) ?? labelKey
+      return labelParent === undefined ? part : t.propertyPart(name(labelParent) ?? labelParent, part)
     }
     panel.optionLabel = (descriptor, option) => {
       const value = String(option.value)
