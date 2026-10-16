@@ -3,6 +3,8 @@
   <!-- Windows 上的实现：WebView2 渲染、winspool、注册表自启、单实例 -->
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- winspool 等 Win32 调用经 LibraryImport 生成，需要 unsafe -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

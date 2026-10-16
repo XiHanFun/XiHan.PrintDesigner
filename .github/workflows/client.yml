@@ -31,6 +31,20 @@ jobs:
       - run: dotnet restore XiHan.PrintClient.slnx
       - name: Build
         run: dotnet build XiHan.PrintClient.slnx -c Release --no-restore
+      # 原始通道的集成测试：装一台通用文本打印机，端口指向文件，测试核对写出的字节
+      - name: Install test printer
+        shell: pwsh
+        run: |
+          if ((Get-Service Spooler).Status -ne 'Running') {
+            Set-Service Spooler -StartupType Manual
+            Start-Service Spooler
+          }
+          $output = Join-Path $env:RUNNER_TEMP 'xihan-print-raw.prn'
+          Add-PrinterDriver -Name 'Generic / Text Only'
+          Add-PrinterPort -Name $output
+          Add-Printer -Name 'XiHan Print Test' -DriverName 'Generic / Text Only' -PortName $output
+          "XIHAN_PRINT_TEST_PRINTER=XiHan Print Test" >> $env:GITHUB_ENV
+          "XIHAN_PRINT_TEST_OUTPUT=$output" >> $env:GITHUB_ENV
       # dotnet test 由 global.json 的 test.runner 驱动 Microsoft.Testing.Platform
       - name: Test
         run: dotnet test --solution XiHan.PrintClient.slnx -c Release --no-build
