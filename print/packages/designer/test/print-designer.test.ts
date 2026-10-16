@@ -372,6 +372,31 @@ describe('<xh-print-designer>', () => {
     expect(find('content.field').control.options!.map(option => option.value)).toEqual(['qty'])
   })
 
+  it('二维码纠错级别按码制显示下拉或数字，换码制时去掉级别；页码格式是一行文本', async () => {
+    const panel = designer.querySelector('xh-designer-properties')!
+    interface Target { kind: string, id: string, descriptors: readonly { path: readonly (string | number)[], control: { kind: string, min?: number, max?: number, options?: readonly { value: unknown }[] }, visibleWhen?: unknown }[] }
+    const target = (): Target => panel.targets![0]! as unknown as Target
+    designer.execute([
+      { type: 'addElement', container: { pageId: 'p', region: 'body' }, element: registry.createElement('matrixCode', { id: 'q', x: 120, y: 120, overrides: { format: 'qr', level: 'H' } }) },
+      { type: 'addElement', container: { pageId: 'p', region: 'body' }, element: registry.createElement('pageNumber', { id: 'n', x: 120, y: 200 }) },
+    ])
+    designer.select({ elements: ['q'] })
+    await designer.updateComplete
+    const levels = target().descriptors.filter(descriptor => descriptor.path.join('.') === 'level')
+    expect(levels.map(descriptor => [descriptor.control.kind, descriptor.visibleWhen])).toEqual([
+      ['select', { path: ['format'], equals: 'qr' }],
+      ['number', { path: ['format'], equals: 'pdf417' }],
+      ['number', { path: ['format'], equals: 'aztec' }],
+    ])
+    expect([levels[0]!.control.options!.map(option => option.value), levels[2]!.control.min, levels[2]!.control.max]).toEqual([['L', 'M', 'Q', 'H'], 5, 95])
+    panel.dispatchEvent(new CustomEvent('property-change', { detail: { path: ['format'], value: 'pdf417', targets: [{ kind: 'matrixCode', id: 'q' }], merge: 'm' } }))
+    const code = designer.schema.pages[0]!.elements.find(element => element.id === 'q')!
+    expect([(code as { format: string }).format, 'level' in code]).toEqual(['pdf417', false])
+    designer.select({ elements: ['n'] })
+    await designer.updateComplete
+    expect(target().descriptors.find(descriptor => descriptor.path.join('.') === 'format')!.control.kind).toBe('text')
+  })
+
   it('属性面板：表格编辑态下编辑选中的部位，修改写回整张表格', async () => {
     const panel = designer.querySelector('xh-designer-properties')!
     designer.select({ elements: ['t'] })
