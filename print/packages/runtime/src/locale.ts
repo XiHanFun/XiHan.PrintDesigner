@@ -3,10 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 打印产品的中文文案，预览与设计器共用：与 UI 的语言包一起交给 mergeXhConfig，再经 setXhConfig 或 <xh-config> 生效。
+// 打印产品的中文文案，预览与设计器共用，含设计器零件的中文：与 UI 的语言包一起交给 mergeXhConfig，再经 setXhConfig 或 <xh-config> 生效。
 
 import type { XhConfig } from '@xihan-ui/web-components'
 import type { PrintDesignerTranslations } from './translations'
+import { designerShellZhCN } from '@xihan-ui/designer-shell/locale'
 
 const REGION_NAMES = { header: '页眉', body: '正文', footer: '页脚' } as const
 
@@ -91,6 +92,7 @@ const designer: PrintDesignerTranslations = {
 /** 打印预览与设计器的中文文案。 */
 export const printZhCN: XhConfig = {
   translations: {
+    ...designerShellZhCN.translations,
     'xh-print-preview': {
       label: '打印预览',
       sheetLabel: (position: number, count: number) => `第 ${position} 页，共 ${count} 页`,

@@ -15,6 +15,7 @@ import { defineXhElements } from '@xihan-ui/web-components/define'
 import { zhCN } from '@xihan-ui/web-components/locale'
 import { createSamples } from './samples'
 import '@xihan-ui/styles/index.css'
+import '@xihan-ui/designer-shell/style.css'
 import '@xihan-print/runtime/style.css'
 import '@xihan-print/designer/style.css'
 

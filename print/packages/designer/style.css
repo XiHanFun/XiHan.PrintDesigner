@@ -21,14 +21,22 @@ xh-print-designer {
   border-radius: var(--xh-radius-md);
 }
 
-xh-print-designer > [data-part='toolbar'] {
+xh-print-designer > [data-part='frame'] {
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+xh-print-designer [data-part='toolbar'] {
   flex: none;
   min-inline-size: 0;
   padding: var(--xh-space-1) var(--xh-space-2);
-  border-block-end: var(--xh-stroke-thin) solid var(--xh-border-subtle);
 }
 
-xh-print-designer > [data-part='workspace'] {
+xh-print-designer [data-region='toolbar'] + [data-region='pages'] {
+  border-block-start: var(--xh-stroke-thin) solid var(--xh-border-subtle);
+}
+
+xh-print-designer [data-part='workspace'] {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
@@ -42,7 +50,6 @@ xh-print-designer [data-part='pages'] {
   gap: var(--xh-space-2);
   align-items: center;
   padding: var(--xh-space-1) var(--xh-space-2);
-  border-block-end: var(--xh-stroke-thin) solid var(--xh-border-subtle);
 }
 
 xh-print-designer [data-print-canvas],

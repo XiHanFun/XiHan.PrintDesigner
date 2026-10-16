@@ -61,6 +61,7 @@
     "@xihan-print/core": "workspace:^",
     "@xihan-ui/core": "catalog:",
     "@xihan-ui/designer-kit": "catalog:",
+    "@xihan-ui/designer-shell": "catalog:",
     "@xihan-ui/expression": "catalog:",
     "@xihan-ui/headless": "catalog:",
     "@xihan-ui/viz": "catalog:",

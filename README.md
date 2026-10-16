@@ -67,7 +67,7 @@ Development preview (paginated preview, browser printing and the designer on sam
 
 ```bash
 # XiHan.UI/ui
-pnpm --filter "@xihan-ui/web-components..." --filter "@xihan-ui/designer-kit..." --filter "@xihan-ui/expression..." --filter "@xihan-ui/styles..." build
+pnpm --filter "@xihan-ui/web-components..." --filter "@xihan-ui/designer-kit..." --filter "@xihan-ui/designer-shell..." --filter "@xihan-ui/expression..." --filter "@xihan-ui/styles..." build
 # XiHan.PrintDesigner/print
 pnpm dev
 ```
