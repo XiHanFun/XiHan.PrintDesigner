@@ -85,7 +85,7 @@ export interface MovePageOperation {
 }
 
 /**
- * 修改页面设置：名称、纸张、方向、边距、页码规则、水印、宿主附加数据，
+ * 修改页面设置：名称、纸张、方向、边距、页码规则、水印、参考线、宿主附加数据，
  * 以及页眉页脚的 `singleSheet` 和已有带区的 `height`。
  */
 export interface UpdatePageOperation {

@@ -371,6 +371,7 @@ describe('页面', () => {
         { path: ['header', 'singleSheet'], value: 'last' },
         { path: ['footer', 'last', 'height'], value: 30 },
         { path: ['meta', 'templateCode'], value: 'stock-out' },
+        { path: ['guides'], value: { x: [10], y: [] } },
       ],
     })
     const page = result.document.pages[0]!
@@ -382,6 +383,7 @@ describe('页面', () => {
     expect(page.footer.last!.height).toBe(30)
     expect(page.footer.last!.elements).toBe(doc.pages[0]!.footer.last!.elements)
     expect(page.meta).toEqual({ templateCode: 'stock-out' })
+    expect(page.guides).toEqual({ x: [10], y: [] })
   })
 
   it.each([
