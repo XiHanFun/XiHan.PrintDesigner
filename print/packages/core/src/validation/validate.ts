@@ -273,6 +273,16 @@ function validateWatermark(value: unknown, path: Path, sink: IssueSink): void {
   ])
 }
 
+function validateGuides(value: unknown, path: Path, sink: IssueSink): void {
+  const positions = (item: unknown, itemPath: Path): void => {
+    readArray(sink, item, itemPath)?.forEach((position, index) => readNumber(sink, position, [...itemPath, index], { min: 0 }))
+  }
+  readFields(sink, value, path, [
+    field('x', true, positions),
+    field('y', true, positions),
+  ])
+}
+
 function descriptorTree(context: DocumentContext, prototype: AnyElementPrototype): DescriptorNode {
   let tree = context.trees.get(prototype)
   if (tree === undefined) {
@@ -365,6 +375,7 @@ function validatePage(value: unknown, path: Path, context: DocumentContext): voi
     field('elements', true, (item, itemPath) => readArray(sink, item, itemPath)),
     field('numbering', true, (item, itemPath) => validateNumbering(item, itemPath, sink)),
     field('watermark', false, (item, itemPath) => validateWatermark(item, itemPath, sink)),
+    field('guides', false, (item, itemPath) => validateGuides(item, itemPath, sink)),
     field('meta', false, (item, itemPath) => readObject(sink, item, itemPath)),
   ])
   if (page === undefined)

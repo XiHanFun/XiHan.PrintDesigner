@@ -71,6 +71,14 @@ export interface Watermark {
   gapY: number
 }
 
+/** 参考线：设计时对位用，不参与分页也不打印；坐标相对纸张左上角（按页面方向换算后的纸张），单位 mm。 */
+export interface PageGuides {
+  /** 竖线的横坐标。 */
+  x: number[]
+  /** 横线的纵坐标。 */
+  y: number[]
+}
+
 /**
  * 页面模板：一份页面模板按数据量排出一张或多张输出页。
  * 页眉位于上边距之下，页脚位于下边距之上，两者之间为正文区。
@@ -89,6 +97,7 @@ export interface PrintPage {
   elements: PrintElement[]
   numbering: PageNumbering
   watermark?: Watermark
+  guides?: PageGuides
   meta?: JsonObject
 }
 
