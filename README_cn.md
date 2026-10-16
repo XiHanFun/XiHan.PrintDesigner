@@ -39,7 +39,7 @@ XiHan.PrintDesigner 是一款框架无关的打印设计器，以原生 Web Comp
 - **零第三方依赖** - 运行时不引入任何第三方包
 - **模板即数据** - 模板只是 JSON，不含也不执行任何代码，导入模板不会带来脚本注入
 - **数据由使用方掌控** - 组件不发网络请求，数据、存储与权限都经回调交给使用方
-- **配套打印客户端** - 本地打印客户端负责静默打印、指定打印机与原始指令打印，与设计器在同一仓库维护（规划中）
+- **配套打印客户端** - 本地打印客户端负责静默打印、指定打印机、原始指令打印与导出 PDF，与设计器在同一仓库维护
 
 ## 包结构
 
@@ -50,6 +50,20 @@ XiHan.PrintDesigner 是一款框架无关的打印设计器，以原生 Web Comp
 | `@xihan-print/designer` | 设计器：可视化打印模板设计器 |
 
 依赖方向为 `designer → runtime → core`。业务页面只需要 runtime，设计器只在需要编辑模板的地方加载。
+
+## 打印客户端
+
+`client/` 是打印客户端：Windows 托盘程序，只监听 127.0.0.1，每个网站首次连接时询问用户一次，打印任务在不跑页面脚本、不联网的沙箱里渲染。业务页面经 `@xihan-print/runtime/client` 连接它：
+
+```ts
+import { createPrintClient, printWithFallback } from '@xihan-print/runtime/client'
+
+const client = createPrintClient()
+// 经客户端静默打印；只在客户端没有运行时退回浏览器的打印对话框
+await printWithFallback(client, schema, data, { printer: '厨房' })
+```
+
+`<xh-print-preview>` 与 `<xh-print-designer>` 的 `printClient` 属性接同一个客户端。业务系统要用 HTTPS 提供（`http://localhost` 除外）：Chromium 系浏览器在网站第一次访问本机应用前会询问一次。
 
 ## 本地开发
 

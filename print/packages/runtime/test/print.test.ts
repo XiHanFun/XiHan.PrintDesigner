@@ -6,9 +6,11 @@
 // @vitest-environment jsdom
 
 import type { XhPrintPreview } from '../src'
+import type { JobStatus, PrintClient, PrintClientDocumentOptions } from '../src/client'
 import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { definePrintPreview, PRINT_PREVIEW_TAG, printDocument, PrintRuntimeError } from '../src'
+import { PrintClientError, printWithFallback } from '../src/client'
 import { printZhCN } from '../src/locale'
 import { createFakeMeasurer, documentOf, pageOf, registry, textElement } from './fixtures'
 
@@ -67,6 +69,26 @@ async function mount(setup: (preview: XhPrintPreview) => void): Promise<XhPrintP
   mounted.push(preview)
   await preview.updateComplete
   return preview
+}
+
+interface StubClient extends PrintClient {
+  readonly calls: Array<{ readonly sheets: number, readonly options: PrintClientDocumentOptions }>
+}
+
+/** 只实现打印的假客户端：每次打印的结果由 finish 给出。 */
+function stubClient(finish: () => Promise<JobStatus>): StubClient {
+  const calls: StubClient['calls'] = []
+  const job = (sheets: number, options: PrintClientDocumentOptions = {}) => {
+    calls.push({ sheets, options })
+    const done = finish()
+    done.catch(() => undefined)
+    return { id: 'j', status: undefined, done, onStatus: () => () => undefined, cancel: async () => false }
+  }
+  return {
+    calls,
+    printSheets: (result, options) => job(result.sheets.length, options),
+    printDocument: (_schema, _data, options) => job(1, options),
+  } as Partial<StubClient> as StubClient
 }
 
 function sheetsOf(preview: Element): HTMLElement[] {
@@ -156,9 +178,58 @@ describe('<xh-print-preview>', () => {
     expect(document.querySelector('iframe')).toBeNull()
   })
 
+  it('给了 printClient 时交给客户端静默打印，带上打印选项，不弹浏览器打印', async () => {
+    const client = stubClient(async () => ({ jobId: 'j', state: 'completed', sheets: 1 }))
+    const preview = await mount((element) => {
+      element.measurer = createFakeMeasurer()
+      element.schema = documentOf(pageOf('p', [textElement('t', '正文')]))
+      element.printClient = client
+    })
+    const outcome = await preview.print({ title: '出库单', printer: 'Office', copies: 2 })
+    expect(outcome).toMatchObject({ sheets: 1, via: 'client' })
+    expect(printed).toEqual([])
+    expect(client.calls).toHaveLength(1)
+    expect(client.calls[0]!.options).toMatchObject({ printer: 'Office', copies: 2, document })
+    expect(client.calls[0]!.options).not.toHaveProperty('title')
+    expect(client.calls[0]!.sheets).toBe(1)
+  })
+
+  it('连不上客户端时退回浏览器打印，其它错误照常抛出', async () => {
+    const preview = await mount((element) => {
+      element.measurer = createFakeMeasurer()
+      element.schema = documentOf(pageOf('p', [textElement('t', '正文')]))
+    })
+    preview.printClient = stubClient(async () => Promise.reject(new PrintClientError('CLIENT_UNAVAILABLE')))
+    expect(await preview.print({ title: '出库单' })).toMatchObject({ sheets: 1, via: 'browser' })
+    expect(printed).toHaveLength(1)
+    expect(printed[0]!.title).toBe('出库单')
+
+    preview.printClient = stubClient(async () => Promise.reject(new PrintClientError('PRINTER_OFFLINE')))
+    await expect(preview.print()).rejects.toMatchObject({ code: 'PRINTER_OFFLINE' })
+    expect(printed).toHaveLength(1)
+  })
+
   it('没有模板时 print() 抛 schema.missing', async () => {
     const preview = await mount(() => {})
     await expect(preview.print()).rejects.toMatchObject({ code: 'schema.missing' })
+  })
+})
+
+describe('printWithFallback', () => {
+  const schema = (): ReturnType<typeof documentOf> => documentOf(pageOf('p', [textElement('t', '正文')]))
+
+  it('客户端打成时不弹浏览器打印', async () => {
+    const outcome = await printWithFallback(stubClient(async () => ({ jobId: 'j', state: 'completed', sheets: 1 })), schema(), {}, { measurer: createFakeMeasurer() })
+    expect(outcome).toEqual({ via: 'client', sheets: 1 })
+    expect(printed).toEqual([])
+  })
+
+  it('协议主版本不对时退回浏览器打印，拒绝授权时不退回', async () => {
+    const outcome = await printWithFallback(stubClient(async () => Promise.reject(new PrintClientError('PROTOCOL_UNSUPPORTED'))), schema(), {}, { measurer: createFakeMeasurer(), title: '回退' })
+    expect(outcome).toEqual({ via: 'browser', sheets: 1 })
+    expect(printed[0]!.title).toBe('回退')
+    await expect(printWithFallback(stubClient(async () => Promise.reject(new PrintClientError('CONSENT_DENIED'))), schema(), {}, { measurer: createFakeMeasurer() })).rejects.toMatchObject({ code: 'CONSENT_DENIED' })
+    expect(printed).toHaveLength(1)
   })
 })
 
@@ -166,7 +237,7 @@ describe('printDocument', () => {
   it('纸张尺寸不同的输出页分到各自的具名 @page，页边距为 0', async () => {
     const schema = documentOf(pageOf('a', []), pageOf('b', [], { id: 'b', paper: 'A5' }))
     const outcome = await printDocument(schema, {}, { measurer: createFakeMeasurer(), title: '两页' })
-    expect(outcome).toEqual({ sheets: 2, diagnostics: [] })
+    expect(outcome).toEqual({ sheets: 2, diagnostics: [], via: 'browser' })
     expect(printed[0]!.sheets).toBe(2)
     expect(printed[0]!.css).toContain('@page xh-print-210x297 { size: 210mm 297mm; margin: 0; }')
     expect(printed[0]!.css).toContain('@page xh-print-148x210 { size: 148mm 210mm; margin: 0; }')

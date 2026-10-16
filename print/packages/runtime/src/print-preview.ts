@@ -9,6 +9,8 @@ import type { ElementRegistry, IssueParams, PaginationDiagnostic, PaginationResu
 import type { ExpressionEngine } from '@xihan-ui/expression'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
+import type { PrintClient } from './client/client'
+import type { ClientPrintOptions } from './client/protocol'
 import type { PrintRuntimeErrorCode } from './options'
 import type { PrintOutcome, PrintSheetsOptions } from './print'
 import type { PrintPreviewTranslations } from './translations'
@@ -16,6 +18,7 @@ import { paginate, PrintLayoutError } from '@xihan-print/core'
 import { createExpressionEngine } from '@xihan-ui/expression'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
+import { shouldFallBack } from './client/errors'
 import { PrintRuntimeError, resolvePaginateOptions } from './options'
 import { printSheets } from './print'
 import { renderSheets } from './render/sheets'
@@ -55,6 +58,9 @@ function errorDetail(error: unknown): PaginationErrorDetail | undefined {
   return undefined
 }
 
+/** print() 的选项：浏览器打印时的标题，以及交给本地打印客户端的打印选项。 */
+export interface PrintPreviewPrintOptions extends Pick<PrintSheetsOptions, 'title'>, ClientPrintOptions {}
+
 export class XhPrintPreview extends XhReactiveElement {
   static override properties = {
     schema: { attribute: false },
@@ -67,6 +73,7 @@ export class XhPrintPreview extends XhReactiveElement {
     locale: { type: String },
     timeZone: { type: String, attribute: 'time-zone' },
     zoom: { type: Number },
+    printClient: { attribute: false },
   }
 
   /** 打印模板。 */
@@ -89,6 +96,8 @@ export class XhPrintPreview extends XhReactiveElement {
   declare timeZone: string | undefined
   /** 显示缩放倍数，缺省 1；写在宿主的 --xh-print-zoom 上，由 style.css 作用到输出页，只影响预览、不影响打印。 */
   declare zoom: number | undefined
+  /** 本地打印客户端（@xihan-print/runtime/client 的 createPrintClient）：给了时 print() 先交给它静默打印，连不上客户端才退回浏览器打印。 */
+  declare printClient: PrintClient | undefined
 
   readonly #config = new XhConfigController(this)
   #root: HTMLDivElement | undefined
@@ -140,14 +149,28 @@ export class XhPrintPreview extends XhReactiveElement {
     return this.#result
   }
 
-  /** 打印当前模板：按当前属性重新分页后送去打印，只在预览中显示的元素不打印。没有模板或分页失败时抛错。 */
-  async print(options: Pick<PrintSheetsOptions, 'title'> = {}): Promise<PrintOutcome> {
+  /**
+   * 打印当前模板：按当前属性重新分页后送去打印，只在预览中显示的元素不打印。没有模板或分页失败时抛错。
+   * 给了 printClient 时先交给本地打印客户端，等到交给打印池；只在连不上客户端时退回浏览器打印，其它错误照常抛出。
+   */
+  async print(options: PrintPreviewPrintOptions = {}): Promise<PrintOutcome> {
     const result = this.#compute()
-    const sheetsOptions: PrintSheetsOptions = options.title === undefined
+    const { title, ...clientOptions } = options
+    if (this.printClient !== undefined) {
+      try {
+        const status = await this.printClient.printSheets(result, { ...clientOptions, document: this.ownerDocument }).done
+        return { sheets: status.sheets ?? result.sheets.length, diagnostics: result.diagnostics, via: 'client' }
+      }
+      catch (error) {
+        if (!shouldFallBack(error))
+          throw error
+      }
+    }
+    const sheetsOptions: PrintSheetsOptions = title === undefined
       ? { document: this.ownerDocument }
-      : { document: this.ownerDocument, title: options.title }
+      : { document: this.ownerDocument, title }
     await printSheets(result, sheetsOptions)
-    return { sheets: result.sheets.length, diagnostics: result.diagnostics }
+    return { sheets: result.sheets.length, diagnostics: result.diagnostics, via: 'browser' }
   }
 
   #compute(): PaginationResult {

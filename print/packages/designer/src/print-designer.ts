@@ -30,7 +30,8 @@ import type {
   ValidationIssue,
   ValueFormatter,
 } from '@xihan-print/core'
-import type { PrintDesignerTranslations, PrintOutcome } from '@xihan-print/runtime'
+import type { PrintDesignerTranslations, PrintOutcome, PrintPreviewPrintOptions } from '@xihan-print/runtime'
+import type { PrintClient } from '@xihan-print/runtime/client'
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { AlignMode, DataField, DistributeAxis, ExecuteOptions, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
@@ -430,6 +431,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     snap: { attribute: false },
     panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     editors: { attribute: false },
+    printClient: { attribute: false },
   }
 
   /** 预览分页用的数据。 */
@@ -446,6 +448,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   declare formatter: ValueFormatter | undefined
   /** 文字度量器；缺省用所在文档的 Canvas 度量器。 */
   declare measurer: TextMeasurer | undefined
+  /** 本地打印客户端：给了时打印先交给它静默打印，连不上客户端才退回浏览器打印。 */
+  declare printClient: PrintClient | undefined
   declare locale: string | undefined
   declare timeZone: string | undefined
   /** 元素自己的文案，压在全局配置之上。 */
@@ -772,7 +776,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   /** 按当前模板与 data 打印，等同 <xh-print-preview> 的 print。 */
-  async print(options: { readonly title?: string } = {}): Promise<PrintOutcome> {
+  async print(options: PrintPreviewPrintOptions = {}): Promise<PrintOutcome> {
     const preview = this.#ensurePreview()
     this.#syncPreview(preview)
     return preview.print(options)
@@ -1461,6 +1465,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       preview.locale = this.locale
     if (this.timeZone !== undefined)
       preview.timeZone = this.timeZone
+    preview.printClient = this.printClient
   }
 
   /** 新元素按缺省尺寸、以 center 为中心、左上角吸附网格后的外框；类型未登记时为 undefined。 */
