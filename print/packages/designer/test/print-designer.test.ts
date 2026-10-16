@@ -127,6 +127,21 @@ describe('<xh-print-designer>', () => {
     expect(designer.querySelectorAll('[data-part="column-handle"]')).toHaveLength(0)
   })
 
+  it('表格画得比设计高度高时，超出部分盖半透明层并画出设计高度的边界；点在超出区域里命中下面的元素', async () => {
+    const page = createPage({ id: 'p' })
+    const table = registry.createElement('table', { id: 't', x: 10, y: 60, overrides: { height: 20, dataField: 'items' } })
+    table.footerRows = [{ id: 'sum', placement: 'lastPage', height: 10, style: table.body.style, cells: [] }]
+    page.elements = [table, registry.createElement('text', { id: 'remark', x: 10, y: 82, overrides: { width: 60, height: 8 } })]
+    designer.schema = createDocument({ pages: [page] })
+    await designer.updateComplete
+    const overflow = designer.querySelector<HTMLElement>('[data-part="design-overflow"]')!
+    expect([overflow.style.top, overflow.style.height]).toEqual(['80mm', '5mm'])
+    expect(overflow.previousElementSibling!.getAttribute('data-element-id')).toBe('t')
+    expect(designer.querySelector<HTMLElement>('[data-part="design-bound"]')!.style.top).toBe('80mm')
+    at(viewport(), 'pointerdown', 20, 84)
+    expect(designer.getSelection()).toEqual({ elements: ['remark'] })
+  })
+
   it('页面页签与带区变体：新增页面切过去，变体菜单列出现有与可新增的变体', async () => {
     const add = designer.querySelector<HTMLButtonElement>('[data-part="pages"] button[value="add-page"]')!
     add.click()

@@ -106,6 +106,8 @@ const FIT_PADDING = 32
 const PAN_STEP = 48
 /** 微移的大步长，mm。 */
 const NUDGE_LARGE_STEP = 10
+/** 长度比较的容差，mm。 */
+const DESIGN_EPSILON = 1e-6
 
 const DEFAULT_TRANSLATIONS: PrintDesignerTranslations = {
   label: 'Print designer',
@@ -1152,16 +1154,23 @@ export class XhPrintDesigner extends XhReactiveElement {
     const layout = this.#layout
     const selected = new Set(this.#editor.selection.elements)
     const boxes: LayoutBox[] = layout === undefined ? [] : [...layout.header, ...layout.body, ...layout.footer]
-    layers.elements.replaceChildren(...boxes.map((box) => {
+    const designHeights = new Map(this.#editor.visibleElements().map(item => [item.element.id, item.element.height]))
+    const overflows: Rect[] = []
+    layers.elements.replaceChildren(...boxes.flatMap((box) => {
       const node = renderBox(doc, box)
       node.toggleAttribute('data-selected', selected.has(box.elementId))
       node.setAttribute('aria-label', t.elementLabel(t.elements[box.elementType] ?? box.elementType, box.elementId))
-      return node
+      const designHeight = designHeights.get(box.elementId)
+      if (box.region !== 'body' || designHeight === undefined || box.height <= designHeight + DESIGN_EPSILON)
+        return [node]
+      const overflow = { x: box.x, y: box.y + designHeight, width: box.width, height: box.height - designHeight }
+      overflows.push(overflow)
+      return [node, frame('design-overflow', overflow)]
     }))
     const watermark = layout?.watermark === undefined ? undefined : renderWatermark(doc, layout.watermark)
     layers.watermark.replaceChildren(...(watermark === undefined ? [] : [watermark]))
 
-    const decorations: HTMLElement[] = []
+    const decorations: HTMLElement[] = overflows.map(rect => frame('design-bound', { x: rect.x, y: rect.y, width: rect.width, height: 0 }))
     for (const item of this.#editor.visibleElements()) {
       if (!selected.has(item.element.id))
         continue
