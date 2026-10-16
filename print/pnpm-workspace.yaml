@@ -16,6 +16,7 @@ catalog:
   '@xihan-ui/designer-kit': ^5.0.0
   '@xihan-ui/expression': ^5.0.0
   '@xihan-ui/headless': ^5.0.0
+  '@xihan-ui/pointer': ^5.0.0
   '@xihan-ui/styles': ^5.0.0
   '@xihan-ui/viz': ^5.0.0
   '@xihan-ui/web-components': ^5.0.0
@@ -37,6 +38,7 @@ overrides:
   '@xihan-ui/designer-kit': 'link:../../XiHan.UI/ui/packages/features/designer-kit'
   '@xihan-ui/expression': 'link:../../XiHan.UI/ui/packages/features/expression'
   '@xihan-ui/headless': 'link:../../XiHan.UI/ui/packages/engine/headless'
+  '@xihan-ui/pointer': 'link:../../XiHan.UI/ui/packages/engine/pointer'
   '@xihan-ui/styles': 'link:../../XiHan.UI/ui/packages/design/styles'
   '@xihan-ui/viz': 'link:../../XiHan.UI/ui/packages/engine/viz'
   '@xihan-ui/web-components': 'link:../../XiHan.UI/ui/packages/adapters/web-components'

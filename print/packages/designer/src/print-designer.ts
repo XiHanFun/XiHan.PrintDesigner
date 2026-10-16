@@ -1,0 +1,1742 @@
+/*
+ * Copyright (c) 2021-Present XiHanFun and contributors.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+// <xh-print-designer>：打印模板设计器。画布按纸张显示一张页面模板（页眉、正文、页脚三区），元素用 runtime 的渲染代码画；
+// 点选与 Shift / Ctrl 追加选择，拖空白或按住中键平移，Ctrl / ⌘ + 滚轮缩放；页眉页脚可切换变体、拖边界改高度；
+// 双击表格进入表格编辑态；键盘撤销重做、删除、微移、层级与系统剪贴板；可切到 <xh-print-preview> 预览与打印。
+// 物料面板、属性面板、问题列表、标尺与参考线、变换覆盖层由 @xihan-ui/designer-shell 提供，这里只留接入点。
+
+import type {
+  DesignLayout,
+  ElementRegion,
+  ElementRegistry,
+  LayoutBox,
+  PageBandKey,
+  PrintDocument,
+  PrintElement,
+  PrintOperation,
+  ReorderTarget,
+  TableElement,
+  TableLayoutBox,
+  ValidationIssue,
+  ValueFormatter,
+} from '@xihan-print/core'
+import type { PrintDesignerTranslations, PrintOutcome } from '@xihan-print/runtime'
+import type { JsonValue } from '@xihan-ui/core/json'
+import type { AlignMode, DataField, DistributeAxis, ExecuteOptions, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
+import type { ExpressionEngine } from '@xihan-ui/expression'
+import type { PointerSession } from '@xihan-ui/pointer'
+import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
+import type { PropertyValues } from '@xihan-ui/web-components/authoring'
+import type { PrintClipboard, PrintSelection, PrintTablePart } from './editor'
+import type { TableCommand } from './table-edit'
+import {
+  createDocument,
+  createPage,
+  findElement,
+  getBandRect,
+  getBodyRect,
+  getContentRect,
+  getPaperSize,
+  layoutDesign,
+  PAGE_BAND_KEYS,
+  planResizeTableColumn,
+  validateDocument,
+} from '@xihan-print/core'
+import { definePrintPreview, PRINT_PREVIEW_TAG, renderBox, renderWatermark } from '@xihan-print/runtime'
+import {
+  centerOn,
+  clipboardMimeType,
+  decodeClipboard,
+  encodeClipboard,
+  fitRect,
+  hitTest,
+  nudgeDelta,
+  panBy,
+  revealRect,
+  screenToWorld,
+  snapToGrid,
+  wheelZoomFactor,
+  zoomBy,
+} from '@xihan-ui/designer-kit'
+import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
+import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
+import { createCanvasMeasurer } from '@xihan-ui/viz'
+import { createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
+import { el, setText } from './dom'
+import { createPrintEditor, elementRect } from './editor'
+import { columnBoundaries, planTableCommand, TABLE_COMMANDS, tablePartAt } from './table-edit'
+
+/** 设计器的标签名。 */
+export const PRINT_DESIGNER_TAG = 'xh-print-designer'
+
+/** 设计态或预览态。 */
+export type PrintDesignerMode = 'design' | 'preview'
+
+/** schema-change 的种类：执行操作、撤销、重做，或宿主装载了新模板。 */
+export type PrintSchemaChangeKind = 'execute' | 'undo' | 'redo' | 'load'
+
+/** 设计器派发的事件；x / y 为浏览器视口坐标。 */
+export interface PrintDesignerEventMap {
+  'schema-change': CustomEvent<{ schema: PrintDocument, operations: readonly PrintOperation[], kind: PrintSchemaChangeKind }>
+  'selection-change': CustomEvent<PrintSelection>
+  'dirty-change': CustomEvent<{ dirty: boolean }>
+  'issues-change': CustomEvent<{ issues: readonly ValidationIssue[] }>
+  'viewport-change': CustomEvent<{ viewport: Viewport }>
+  'save': CustomEvent<Record<string, never>>
+  'element-dblclick': CustomEvent<{ id: string }>
+  'element-contextmenu': CustomEvent<{ id: string, x: number, y: number }>
+  'blank-contextmenu': CustomEvent<{ x: number, y: number }>
+  'page-change': CustomEvent<{ pageId: string }>
+  'mode-change': CustomEvent<{ mode: PrintDesignerMode }>
+}
+
+/** 剪贴板载荷的结构版本。 */
+const CLIPBOARD_VERSION = 1
+const CLIPBOARD_PRODUCT = 'print'
+/** CSS 像素与毫米之比。 */
+const PX_PER_MM = 96 / 25.4
+/** 显示倍数的上下限，1 为实际尺寸。 */
+const ZOOM_LIMITS = { min: 0.1 * PX_PER_MM, max: 8 * PX_PER_MM }
+const ZOOM_STEP = 1.2
+/** 视口适配时纸张四周留白，屏幕像素。 */
+const FIT_PADDING = 32
+/** 方向键平移视口的距离，屏幕像素。 */
+const PAN_STEP = 48
+/** 微移的大步长，mm。 */
+const NUDGE_LARGE_STEP = 10
+
+const DEFAULT_TRANSLATIONS: PrintDesignerTranslations = {
+  label: 'Print designer',
+  canvas: 'Canvas',
+  toolbar: 'Designer actions',
+  undo: 'Undo',
+  redo: 'Redo',
+  cut: 'Cut',
+  copy: 'Copy',
+  paste: 'Paste',
+  duplicate: 'Duplicate',
+  delete: 'Delete',
+  selectAll: 'Select all',
+  alignLeft: 'Align left',
+  alignCenter: 'Align centers horizontally',
+  alignRight: 'Align right',
+  alignTop: 'Align top',
+  alignMiddle: 'Align centers vertically',
+  alignBottom: 'Align bottom',
+  distributeHorizontal: 'Distribute horizontally',
+  distributeVertical: 'Distribute vertically',
+  bringToFront: 'Bring to front',
+  bringForward: 'Bring forward',
+  sendBackward: 'Send backward',
+  sendToBack: 'Send to back',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
+  zoomToFit: 'Zoom to fit',
+  zoomToActual: 'Actual size',
+  grid: 'Grid',
+  snap: 'Snap',
+  design: 'Design',
+  preview: 'Preview',
+  print: 'Print',
+  pages: 'Page templates',
+  addPage: 'Add page',
+  removePage: 'Remove page',
+  movePageLeft: 'Move page left',
+  movePageRight: 'Move page right',
+  pageTitle: position => `Page ${position}`,
+  regions: { header: 'Header', body: 'Body', footer: 'Footer' },
+  bandVariants: { default: 'Default', first: 'First page', last: 'Last page', odd: 'Odd pages', even: 'Even pages' },
+  bandVariant: region => `${region === 'header' ? 'Header' : 'Footer'} variant`,
+  addBandVariant: 'Add variant',
+  removeBandVariant: 'Remove variant',
+  resizeBand: region => `Resize ${region}`,
+  elements: {
+    text: 'Text',
+    longText: 'Long text',
+    table: 'Table',
+    image: 'Image',
+    line: 'Line',
+    rect: 'Rectangle',
+    ellipse: 'Ellipse',
+    barCode: 'Barcode',
+    matrixCode: '2D code',
+    pageNumber: 'Page number',
+  },
+  elementLabel: (type, name) => `${type} ${name}`,
+  tableParts: { column: 'Column', header: 'Header', body: 'Body', footerRow: 'Footer row', footerCell: 'Footer cell' },
+  editTable: 'Edit table',
+  exitTableEdit: 'Exit table editing',
+  insertColumnLeft: 'Insert column left',
+  insertColumnRight: 'Insert column right',
+  removeColumn: 'Remove column',
+  moveColumnLeft: 'Move column left',
+  moveColumnRight: 'Move column right',
+  insertFooterRowAbove: 'Insert footer row above',
+  insertFooterRowBelow: 'Insert footer row below',
+  removeFooterRow: 'Remove footer row',
+  mergeCellRight: 'Merge with right cell',
+  splitCell: 'Split cell',
+  resizeColumn: title => `Resize column ${title}`,
+  newColumnTitle: position => `Column ${position}`,
+  palette: 'Elements',
+  properties: 'Properties',
+  issues: 'Issues',
+}
+
+type StringKey = { [K in keyof PrintDesignerTranslations]: PrintDesignerTranslations[K] extends string ? K : never }[keyof PrintDesignerTranslations]
+
+/** 工具栏与右键菜单共用的命令。 */
+type Command
+  = | 'undo' | 'redo' | 'cut' | 'copy' | 'paste' | 'duplicate' | 'delete' | 'select-all'
+    | 'align-left' | 'align-center' | 'align-right' | 'align-top' | 'align-middle' | 'align-bottom'
+    | 'distribute-horizontal' | 'distribute-vertical'
+    | 'bring-to-front' | 'bring-forward' | 'send-backward' | 'send-to-back'
+    | 'zoom-out' | 'zoom-in' | 'zoom-to-fit' | 'zoom-to-actual' | 'grid' | 'snap'
+    | 'design' | 'preview' | 'print' | 'edit-table' | 'exit-table-edit'
+    | 'add-page' | 'remove-page' | 'move-page-left' | 'move-page-right'
+    | TableCommand
+
+const ALIGN: Readonly<Record<string, AlignMode>> = {
+  'align-left': 'left',
+  'align-center': 'center-vertical',
+  'align-right': 'right',
+  'align-top': 'top',
+  'align-middle': 'center-horizontal',
+  'align-bottom': 'bottom',
+}
+
+const REORDER: Readonly<Record<string, ReorderTarget>> = {
+  'bring-to-front': 'front',
+  'bring-forward': 'forward',
+  'send-backward': 'backward',
+  'send-to-back': 'back',
+}
+
+const LABELS: Readonly<Record<Command, StringKey>> = {
+  'undo': 'undo',
+  'redo': 'redo',
+  'cut': 'cut',
+  'copy': 'copy',
+  'paste': 'paste',
+  'duplicate': 'duplicate',
+  'delete': 'delete',
+  'select-all': 'selectAll',
+  'align-left': 'alignLeft',
+  'align-center': 'alignCenter',
+  'align-right': 'alignRight',
+  'align-top': 'alignTop',
+  'align-middle': 'alignMiddle',
+  'align-bottom': 'alignBottom',
+  'distribute-horizontal': 'distributeHorizontal',
+  'distribute-vertical': 'distributeVertical',
+  'bring-to-front': 'bringToFront',
+  'bring-forward': 'bringForward',
+  'send-backward': 'sendBackward',
+  'send-to-back': 'sendToBack',
+  'zoom-out': 'zoomOut',
+  'zoom-in': 'zoomIn',
+  'zoom-to-fit': 'zoomToFit',
+  'zoom-to-actual': 'zoomToActual',
+  'grid': 'grid',
+  'snap': 'snap',
+  'design': 'design',
+  'preview': 'preview',
+  'print': 'print',
+  'edit-table': 'editTable',
+  'exit-table-edit': 'exitTableEdit',
+  'add-page': 'addPage',
+  'remove-page': 'removePage',
+  'move-page-left': 'movePageLeft',
+  'move-page-right': 'movePageRight',
+  'insert-column-left': 'insertColumnLeft',
+  'insert-column-right': 'insertColumnRight',
+  'remove-column': 'removeColumn',
+  'move-column-left': 'moveColumnLeft',
+  'move-column-right': 'moveColumnRight',
+  'insert-footer-row-above': 'insertFooterRowAbove',
+  'insert-footer-row-below': 'insertFooterRowBelow',
+  'remove-footer-row': 'removeFooterRow',
+  'merge-cell-right': 'mergeCellRight',
+  'split-cell': 'splitCell',
+}
+
+const TOOLBAR_GROUPS: readonly (readonly Command[])[] = [
+  ['undo', 'redo'],
+  ['cut', 'copy', 'paste', 'duplicate', 'delete'],
+  ['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom', 'distribute-horizontal', 'distribute-vertical'],
+  ['bring-to-front', 'bring-forward', 'send-backward', 'send-to-back'],
+  ['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual', 'grid', 'snap'],
+  ['design', 'preview', 'print'],
+]
+
+const PAGE_COMMANDS: readonly Command[] = ['add-page', 'remove-page', 'move-page-left', 'move-page-right']
+
+interface Layers {
+  readonly toolbar: HTMLElement
+  readonly toolbarRoot: HTMLElement
+  readonly items: Map<Command, HTMLButtonElement>
+  readonly pages: HTMLElement
+  readonly workspace: HTMLElement
+  readonly menu: HTMLElement
+  readonly menuContent: HTMLElement
+  readonly viewport: HTMLElement
+  readonly world: HTMLElement
+  readonly paper: HTMLElement
+  readonly frames: HTMLElement
+  readonly elements: HTMLElement
+  readonly watermark: HTMLElement
+  readonly decorations: HTMLElement
+  readonly bandMenus: HTMLElement
+  readonly preview: HTMLElement
+}
+
+interface Gesture {
+  readonly session: PointerSession
+  active: boolean
+  readonly cancel: () => void
+}
+
+function isCommand(value: string): value is Command {
+  return Object.hasOwn(LABELS, value)
+}
+
+function rectStyle(element: HTMLElement, rect: Rect): void {
+  element.style.left = `${rect.x}mm`
+  element.style.top = `${rect.y}mm`
+  element.style.width = `${rect.width}mm`
+  element.style.height = `${rect.height}mm`
+  element.style.transform = rect.rotation ? `rotate(${rect.rotation}deg)` : ''
+}
+
+export class XhPrintDesigner extends XhReactiveElement {
+  static override properties = {
+    data: { attribute: false },
+    sampleData: { attribute: false },
+    fields: { attribute: false },
+    registry: { attribute: false },
+    expressionEngine: { attribute: false },
+    formatter: { attribute: false },
+    measurer: { attribute: false },
+    locale: { type: String },
+    timeZone: { type: String, attribute: 'time-zone' },
+    translations: { attribute: false },
+    readonly: { type: Boolean },
+    mode: { type: String },
+    grid: { attribute: false },
+    snap: { attribute: false },
+    panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
+  }
+
+  /** 预览分页用的数据。 */
+  declare data: unknown
+  /** 示例数据：给出时画布按它显示实际值，不给时字段显示 {path} 占位。 */
+  declare sampleData: unknown
+  /** 可绑定的字段树，供属性面板的字段选择器。 */
+  declare fields: readonly DataField[] | undefined
+  /** 元素类型登记表，缺省为内置元素的登记表。 */
+  declare registry: ElementRegistry | undefined
+  /** 受限表达式引擎；缺省为 @xihan-ui/expression 的 createExpressionEngine()。 */
+  declare expressionEngine: ExpressionEngine | undefined
+  /** 值格式化器；缺省为 @xihan-ui/expression 的 formatValue。 */
+  declare formatter: ValueFormatter | undefined
+  /** 文字度量器；缺省用所在文档的 Canvas 度量器。 */
+  declare measurer: TextMeasurer | undefined
+  declare locale: string | undefined
+  declare timeZone: string | undefined
+  /** 元素自己的文案，压在全局配置之上。 */
+  declare translations: Partial<PrintDesignerTranslations> | undefined
+  /** 只读：可以选择、浏览与预览，不能修改。 */
+  declare readonly: boolean
+  /** 设计态或预览态，缺省 design；同名 attribute。 */
+  declare mode: PrintDesignerMode
+  /** 吸附网格边长，mm，缺省 1；false 不吸附网格。 */
+  declare grid: number | false
+  /** 吸附其它元素、页边距、区边界与参考线并显示对齐线，缺省 true。 */
+  declare snap: boolean
+  /** 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。 */
+  declare panels: string | undefined
+
+  readonly #config = new XhConfigController(this)
+  readonly #editor = createPrintEditor({ document: createDocument() })
+  #layers: Layers | undefined
+  /** 内部视口：世界坐标为纸张坐标（mm），zoom 为每毫米的屏幕像素。 */
+  #viewport: Viewport = { x: 0, y: 0, zoom: PX_PER_MM }
+  #autoFit = true
+  #fitPending = true
+  #layout: DesignLayout | undefined
+  #layoutStale = true
+  #canvasMeasurer: CanvasMeasurer | null | undefined
+  #defaultEngine: ExpressionEngine | undefined
+  #tableEdit: string | undefined
+  #gesture: Gesture | undefined
+  #dirty = false
+  #issues: ValidationIssue[] = []
+  #issuesScheduled = false
+  #transactionOperations: PrintOperation[] = []
+  #resizeObserver: ResizeObserver | undefined
+  #lastMode: PrintDesignerMode = 'design'
+  #lastGrid = 1
+
+  constructor() {
+    super()
+    this.readonly = false
+    this.mode = 'design'
+    this.grid = 1
+    this.snap = true
+    this.#editor.subscribe((change) => {
+      if (change.kind === 'selection') {
+        if (this.#tableEdit !== undefined && !(change.selection.elements.length === 1 && change.selection.elements[0] === this.#tableEdit))
+          this.#tableEdit = undefined
+        this.requestUpdate()
+        emitEvent(this, 'selection-change', change.selection)
+        return
+      }
+      if (change.kind === 'page') {
+        this.#tableEdit = undefined
+        this.#layoutStale = true
+        this.#startAutoFit()
+        this.requestUpdate()
+        emitEvent(this, 'page-change', { pageId: change.pageId })
+        return
+      }
+      if (change.kind === 'bands') {
+        this.#layoutStale = true
+        this.requestUpdate()
+        return
+      }
+      if (change.cause === 'save') {
+        this.#syncDirty()
+        return
+      }
+      this.#layoutStale = true
+      this.requestUpdate()
+      this.#onDocumentChange(change.cause, change.operations)
+    })
+  }
+
+  /** 打印模板。赋值即装载：清空历史与选择，重新自动适配（赋回当前这一份不重新装载）；读取时得到当前模板。 */
+  get schema(): PrintDocument {
+    return this.#editor.document
+  }
+
+  set schema(value: PrintDocument) {
+    if (value === this.#editor.document)
+      return
+    this.#tableEdit = undefined
+    this.#editor.load(value)
+    this.#startAutoFit()
+  }
+
+  /** 当前页面模板的标识；赋值切换页面模板。 */
+  get activePageId(): string {
+    return this.#editor.activePageId
+  }
+
+  set activePageId(value: string) {
+    this.#editor.setActivePage(value)
+  }
+
+  get canUndo(): boolean {
+    return this.#editor.history.canUndo
+  }
+
+  get canRedo(): boolean {
+    return this.#editor.history.canRedo
+  }
+
+  /** 有未保存的修改。 */
+  get dirty(): boolean {
+    return this.#editor.history.dirty
+  }
+
+  override connectedCallback(): void {
+    super.connectedCallback()
+    const layers = this.#ensureLayers()
+    if (typeof ResizeObserver !== 'undefined') {
+      this.#resizeObserver ??= new ResizeObserver(() => this.#onResize())
+      this.#resizeObserver.observe(layers.viewport)
+    }
+  }
+
+  override disconnectedCallback(): void {
+    super.disconnectedCallback()
+    this.#resizeObserver?.disconnect()
+    this.#cancelGesture()
+  }
+
+  protected override update(changed: PropertyValues): void {
+    super.update(changed)
+    const layers = this.#ensureLayers()
+    const t = this.#translations()
+    if (changed.has('registry'))
+      this.#editor.setRegistry(this.#registry())
+    if (['sampleData', 'registry', 'expressionEngine', 'formatter', 'measurer', 'locale', 'timeZone'].some(name => changed.has(name)))
+      this.#layoutStale = true
+    if (changed.has('registry') || changed.has('expressionEngine'))
+      this.#scheduleIssues()
+    this.toggleAttribute('data-readonly', this.readonly)
+    this.dataset.mode = this.mode
+    if (this.mode !== this.#lastMode) {
+      this.#lastMode = this.mode
+      emitEvent(this, 'mode-change', { mode: this.mode })
+    }
+    this.#renderToolbar(layers, t)
+    this.#renderPages(layers, t)
+    layers.viewport.setAttribute('aria-label', t.canvas)
+    const preview = this.mode === 'preview'
+    layers.menu.hidden = preview
+    layers.preview.hidden = !preview
+    if (preview) {
+      this.#syncPreview(this.#ensurePreview())
+      return
+    }
+    if (this.#layoutStale) {
+      this.#layout = this.#computeLayout()
+      this.#layoutStale = false
+    }
+    this.#renderPaper(layers, t)
+    if (!this.#fitIfPending())
+      this.#applyViewport(false)
+  }
+
+  /** 执行一组操作并记为一步撤销；返回新的模板。 */
+  execute(operations: readonly PrintOperation[], options?: ExecuteOptions): PrintDocument {
+    return this.#editor.execute(operations, options)
+  }
+
+  undo(): boolean {
+    return this.#editor.undo()
+  }
+
+  redo(): boolean {
+    return this.#editor.redo()
+  }
+
+  /** 把当前状态记为已保存。 */
+  markSaved(): void {
+    this.#editor.history.markSaved()
+  }
+
+  /** 新建元素并选中：at 是元素中心的纸张坐标（mm），缺省放在视口中央；位置吸附网格，region 缺省按落点所在区决定。 */
+  addElement(type: string, at?: Point, options: { readonly region?: ElementRegion } = {}): PrintElement {
+    const prototype = this.#editor.registry.get(type)
+    if (prototype === undefined)
+      throw new Error(`[print-designer] element type "${type}" is not registered`)
+    const center = at ?? this.#viewportCenter()
+    const size = prototype.defaults as { width: number, height: number }
+    const x = this.#snapValue(center.x - size.width / 2)
+    const y = this.#snapValue(center.y - size.height / 2)
+    return this.#editor.addElement(type, { x, y, region: options.region ?? this.#regionAt(center) })
+  }
+
+  select(selection: Partial<PrintSelection>): void {
+    this.#editor.select(selection)
+  }
+
+  getSelection(): PrintSelection {
+    return this.#editor.selection
+  }
+
+  deleteSelection(): boolean {
+    return !this.readonly && this.#editor.deleteSelection()
+  }
+
+  copy(): PrintClipboard | undefined {
+    return this.#editor.copy()
+  }
+
+  cut(): PrintClipboard | undefined {
+    return this.readonly ? undefined : this.#editor.cut()
+  }
+
+  paste(clipboard?: PrintClipboard): PrintSelection {
+    return this.readonly ? this.#editor.selection : this.#editor.paste(clipboard)
+  }
+
+  duplicate(): PrintSelection {
+    return this.readonly ? this.#editor.selection : this.#editor.duplicate()
+  }
+
+  align(mode: AlignMode): void {
+    if (!this.readonly)
+      this.#editor.align(mode)
+  }
+
+  distribute(axis: DistributeAxis): void {
+    if (!this.readonly)
+      this.#editor.distribute(axis)
+  }
+
+  /** 调整选中元素的层级。 */
+  reorder(target: ReorderTarget): void {
+    if (!this.readonly)
+      this.#editor.reorder(target)
+  }
+
+  /** 按当前登记表与表达式引擎校验模板。 */
+  validate(): ValidationIssue[] {
+    return validateDocument(this.#editor.document, { registry: this.#editor.registry, expressionEngine: this.#engine() }).issues
+  }
+
+  /** 视口：屏幕坐标 = 纸张坐标（mm）× zoom × 96 / 25.4 + (x, y)；zoom 为 1 时是实际尺寸。 */
+  getViewport(): Viewport {
+    const { x, y, zoom } = this.#viewport
+    return { x, y, zoom: zoom / PX_PER_MM }
+  }
+
+  /** 设置视口；此后尺寸变化不再自动适配。 */
+  setViewport(viewport: Viewport): void {
+    this.#stopAutoFit()
+    this.#moveTo({ x: viewport.x, y: viewport.y, zoom: viewport.zoom * PX_PER_MM })
+  }
+
+  /** 让整张纸落在视口中央，不放大到实际尺寸以上；此后尺寸变化时重新适配，直到设置视口或在画布上操作。 */
+  zoomToFit(): void {
+    this.#startAutoFit()
+    this.#fitIfPending()
+  }
+
+  zoomIn(): void {
+    this.#zoomAtCenter(ZOOM_STEP)
+  }
+
+  zoomOut(): void {
+    this.#zoomAtCenter(1 / ZOOM_STEP)
+  }
+
+  /** 实际尺寸，纸张居中。 */
+  zoomToActual(): void {
+    const size = this.#size()
+    if (!size)
+      return
+    const paper = getPaperSize(this.#editor.page)
+    this.#stopAutoFit()
+    this.#moveTo(centerOn({ x: 0, y: 0, zoom: PX_PER_MM }, { x: paper.width / 2, y: paper.height / 2 }, size))
+  }
+
+  /** 切到元素所在的页面模板与带区变体，并把元素居中。 */
+  scrollToElement(id: string): void {
+    const rect = this.#bringIntoView(id)
+    const size = this.#size()
+    if (rect && size) {
+      this.#stopAutoFit()
+      this.#moveTo(centerOn(this.#viewport, { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }, size))
+    }
+  }
+
+  /** 切到元素所在的页面模板与带区变体；元素没整个落在视口内时把它居中。 */
+  revealElement(id: string): void {
+    const rect = this.#bringIntoView(id)
+    const size = this.#size()
+    if (!rect || !size)
+      return
+    const next = revealRect(this.#viewport, rect, size, FIT_PADDING)
+    if (next !== this.#viewport) {
+      this.#stopAutoFit()
+      this.#moveTo(next)
+    }
+  }
+
+  /** 浏览器视口坐标换成纸张坐标（mm）。 */
+  clientToWorld(clientX: number, clientY: number): Point {
+    const box = this.#ensureLayers().viewport.getBoundingClientRect()
+    return screenToWorld(this.#viewport, { x: clientX - box.left, y: clientY - box.top })
+  }
+
+  /** 按当前模板与 data 打印，等同 <xh-print-preview> 的 print。 */
+  async print(options: { readonly title?: string } = {}): Promise<PrintOutcome> {
+    const preview = this.#ensurePreview()
+    this.#syncPreview(preview)
+    return preview.print(options)
+  }
+
+  // —— 内部：模型与布局 ——
+
+  #registry(): ElementRegistry {
+    return this.registry ?? this.#editor.registry
+  }
+
+  #engine(): ExpressionEngine {
+    if (this.expressionEngine)
+      return this.expressionEngine
+    this.#defaultEngine ??= createExpressionEngine()
+    return this.#defaultEngine
+  }
+
+  #measurerOrUndefined(): TextMeasurer | undefined {
+    if (this.measurer)
+      return this.measurer
+    if (this.#canvasMeasurer === undefined)
+      this.#canvasMeasurer = createCanvasMeasurer(this.ownerDocument)
+    return this.#canvasMeasurer ?? undefined
+  }
+
+  #computeLayout(): DesignLayout | undefined {
+    const measurer = this.#measurerOrUndefined()
+    if (measurer === undefined)
+      return undefined
+    const page = this.#editor.page
+    return layoutDesign(page, {
+      measurer,
+      expressionEngine: this.#engine(),
+      formatter: this.formatter ?? formatValue,
+      ...(this.locale === undefined ? {} : { locale: this.locale }),
+      ...(this.timeZone === undefined ? {} : { timeZone: this.timeZone }),
+      ...(this.sampleData === undefined ? {} : { sampleData: this.sampleData }),
+      bands: this.#editor.bands,
+      pageIndex: Math.max(0, this.#editor.document.pages.indexOf(page)),
+    })
+  }
+
+  #onDocumentChange(cause: string, operations: readonly PrintOperation[]): void {
+    this.#scheduleIssues()
+    this.#syncDirty()
+    if (cause === 'execute' && this.#editor.history.inTransaction) {
+      this.#transactionOperations.push(...operations)
+      return
+    }
+    if (cause === 'rollback') {
+      this.#transactionOperations = []
+      return
+    }
+    if (cause === 'commit') {
+      const collected = this.#transactionOperations
+      this.#transactionOperations = []
+      if (collected.length > 0)
+        this.#emitSchemaChange(collected, 'execute')
+    }
+    else if (cause === 'reset') {
+      this.#emitSchemaChange([], 'load')
+    }
+    else if (cause === 'execute' || cause === 'undo' || cause === 'redo') {
+      this.#emitSchemaChange(operations, cause)
+    }
+  }
+
+  #emitSchemaChange(operations: readonly PrintOperation[], kind: PrintSchemaChangeKind): void {
+    emitEvent(this, 'schema-change', { schema: this.#editor.document, operations, kind })
+  }
+
+  #syncDirty(): void {
+    const dirty = this.#editor.history.dirty
+    if (dirty === this.#dirty)
+      return
+    this.#dirty = dirty
+    emitEvent(this, 'dirty-change', { dirty })
+  }
+
+  #scheduleIssues(): void {
+    if (this.#issuesScheduled)
+      return
+    this.#issuesScheduled = true
+    queueMicrotask(() => {
+      this.#issuesScheduled = false
+      this.#issues = this.validate()
+      emitEvent(this, 'issues-change', { issues: this.#issues })
+    })
+  }
+
+  #translations(): PrintDesignerTranslations {
+    return this.#config.translations<PrintDesignerTranslations>(PRINT_DESIGNER_TAG, DEFAULT_TRANSLATIONS, this.translations)
+  }
+
+  #snapValue(value: number): number {
+    return this.grid === false || !(this.grid > 0) ? value : snapToGrid(value, this.grid)
+  }
+
+  /** 纸张坐标落在哪个区：页眉、页脚带区之内为页眉、页脚，其余为正文。 */
+  #regionAt(point: Point): ElementRegion {
+    const page = this.#editor.page
+    const bands = this.#editor.bands
+    const header = getBandRect(page, 'header', page.header[bands.header] ?? page.header.default)
+    const footer = getBandRect(page, 'footer', page.footer[bands.footer] ?? page.footer.default)
+    if (point.y < header.y + header.height)
+      return 'header'
+    if (point.y >= footer.y)
+      return 'footer'
+    return 'body'
+  }
+
+  /** 切到元素所在的页面模板与带区变体，返回它的外框；元素不存在时为 undefined。 */
+  #bringIntoView(id: string): Rect | undefined {
+    const found = findElement(this.#editor.document, id)
+    if (found === undefined)
+      return undefined
+    if (found.page.id !== this.#editor.activePageId)
+      this.#editor.setActivePage(found.page.id)
+    if (found.container.region !== 'body')
+      this.#editor.setBandVariant(found.container.region, found.container.band)
+    return elementRect(found.element)
+  }
+
+  // —— 内部：视口 ——
+
+  #startAutoFit(): void {
+    this.#autoFit = true
+    this.#fitPending = true
+  }
+
+  #stopAutoFit(): void {
+    this.#autoFit = false
+    this.#fitPending = false
+  }
+
+  #onResize(): void {
+    if (!this.#autoFit)
+      return
+    this.#fitPending = true
+    this.#fitIfPending()
+  }
+
+  #fitIfPending(): boolean {
+    const size = this.#size()
+    if (!this.#fitPending || !size || this.mode === 'preview')
+      return false
+    this.#fitPending = false
+    const paper = getPaperSize(this.#editor.page)
+    this.#moveTo(fitRect({ x: 0, y: 0, width: paper.width, height: paper.height }, size, { padding: FIT_PADDING, maxZoom: PX_PER_MM, limits: ZOOM_LIMITS }))
+    return true
+  }
+
+  #moveTo(viewport: Viewport): void {
+    this.#viewport = viewport
+    this.#applyViewport(true)
+  }
+
+  #applyViewport(notify: boolean): void {
+    const layers = this.#layers
+    if (layers) {
+      const { x, y, zoom } = this.#viewport
+      const scale = zoom / PX_PER_MM
+      layers.world.style.transform = `translate(${x}px, ${y}px) scale(${scale})`
+      this.style.setProperty('--xh-print-designer-zoom', String(scale))
+    }
+    if (notify)
+      emitEvent(this, 'viewport-change', { viewport: this.getViewport() })
+  }
+
+  #size(): { width: number, height: number } | undefined {
+    const viewport = this.#layers?.viewport
+    if (!viewport || viewport.clientWidth === 0 || viewport.clientHeight === 0)
+      return undefined
+    return { width: viewport.clientWidth, height: viewport.clientHeight }
+  }
+
+  #viewportCenter(): Point {
+    const size = this.#size()
+    if (size)
+      return screenToWorld(this.#viewport, { x: size.width / 2, y: size.height / 2 })
+    const paper = getPaperSize(this.#editor.page)
+    return { x: paper.width / 2, y: paper.height / 2 }
+  }
+
+  #zoomAtCenter(factor: number): void {
+    const size = this.#size()
+    if (!size)
+      return
+    this.#stopAutoFit()
+    this.#moveTo(zoomBy(this.#viewport, factor, { x: size.width / 2, y: size.height / 2 }, ZOOM_LIMITS))
+  }
+
+  // —— 内部：渲染 ——
+
+  #ensureLayers(): Layers {
+    if (this.#layers?.toolbar.parentElement === this)
+      return this.#layers
+    const doc = this.ownerDocument
+    const items = new Map<Command, HTMLButtonElement>()
+    const groups: HTMLElement[] = []
+    TOOLBAR_GROUPS.forEach((group, index) => {
+      if (index > 0)
+        groups.push(el(doc, 'div', { 'data-xh-part': 'separator' }))
+      groups.push(el(doc, 'div', { 'data-xh-part': 'group' }, group.map((command) => {
+        const item = el(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': command })
+        items.set(command, item)
+        return item
+      })))
+    })
+    groups.push(el(doc, 'button', { 'data-xh-part': 'overflow-trigger', 'type': 'button' }))
+    const toolbarRoot = el(doc, 'div', { 'data-xh-part': 'root' }, groups)
+    const toolbar = createGeneratedElement(doc, 'div')
+    toolbar.dataset.part = 'toolbar'
+    toolbar.append(el(doc, 'xh-toolbar', { size: 'sm' }, [toolbarRoot]))
+    toolbarRoot.addEventListener('click', this.#onCommandClick)
+
+    const pages = createGeneratedElement(doc, 'div')
+    pages.dataset.part = 'pages'
+
+    const paper = el(doc, 'div', { 'data-part': 'paper' })
+    const frames = el(doc, 'div', { 'data-part': 'frames' })
+    const elements = el(doc, 'div', { 'data-part': 'elements' })
+    const watermark = el(doc, 'div', { 'data-part': 'watermark-layer' })
+    const decorations = el(doc, 'div', { 'data-part': 'decorations' })
+    const bandMenus = el(doc, 'div', { 'data-part': 'band-menus' })
+    paper.append(frames, elements, watermark, decorations, bandMenus)
+    const world = el(doc, 'div', { 'data-part': 'world' }, [paper])
+    const viewport = el(doc, 'div', { 'data-part': 'viewport', 'tabindex': 0, 'role': 'region' }, [world])
+    // 变换覆盖层与标尺由 @xihan-ui/designer-shell 提供，接入前留空
+    const overlay = el(doc, 'div', { 'data-part': 'overlay', 'hidden': true })
+    const menuContent = el(doc, 'div', { 'data-xh-part': 'content' })
+    const trigger = el(doc, 'div', { 'data-xh-part': 'trigger', 'data-print-canvas': '' }, [viewport, overlay])
+    const menu = el(doc, 'xh-context-menu', { size: 'sm' }, [
+      el(doc, 'div', { 'data-xh-part': 'root', 'data-print-canvas-root': '' }, [trigger, el(doc, 'div', { 'data-xh-part': 'positioner' }, [menuContent])]),
+    ])
+    menu.addEventListener('select', this.#onMenuSelect)
+    this.#fillMenu(menuContent, 'blank')
+    const preview = createGeneratedElement(doc, 'div')
+    preview.dataset.part = 'preview'
+    preview.hidden = true
+    const rulers = el(doc, 'div', { 'data-part': 'rulers', 'hidden': true })
+    const workspace = createGeneratedElement(doc, 'div')
+    workspace.dataset.part = 'workspace'
+    workspace.append(pages, rulers, menu, preview)
+    // 物料面板、属性面板与问题列表由 @xihan-ui/designer-shell 提供，接入前留空
+    const slot = (name: string): HTMLElement => {
+      const node = createGeneratedElement(doc, 'div')
+      node.dataset.part = name
+      node.hidden = true
+      return node
+    }
+    this.append(toolbar, slot('palette'), workspace, slot('properties'), slot('issues'))
+
+    viewport.addEventListener('pointerdown', this.#onPointerDown)
+    viewport.addEventListener('dblclick', this.#onDoubleClick)
+    viewport.addEventListener('contextmenu', this.#onContextMenu)
+    viewport.addEventListener('wheel', this.#onWheel, { passive: false })
+    this.addEventListener('keydown', this.#onKeyDown)
+    this.addEventListener('copy', this.#onCopy)
+    this.addEventListener('cut', this.#onCut)
+    this.addEventListener('paste', this.#onPaste)
+    this.#layers = { toolbar, toolbarRoot, items, pages, workspace, menu, menuContent, viewport, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
+    return this.#layers
+  }
+
+  #commandEnabled(command: Command): boolean {
+    const editable = !this.readonly && this.mode === 'design'
+    const selected = this.#editor.selection.elements.length
+    switch (command) {
+      case 'undo':
+        return editable && this.#editor.history.canUndo
+      case 'redo':
+        return editable && this.#editor.history.canRedo
+      case 'copy':
+        return selected > 0
+      case 'cut':
+      case 'duplicate':
+      case 'delete':
+      case 'bring-to-front':
+      case 'bring-forward':
+      case 'send-backward':
+      case 'send-to-back':
+        return editable && selected > 0
+      case 'paste':
+        return editable
+      case 'select-all':
+        return this.mode === 'design'
+      case 'align-left':
+      case 'align-center':
+      case 'align-right':
+      case 'align-top':
+      case 'align-middle':
+      case 'align-bottom':
+        return editable && selected >= 2
+      case 'distribute-horizontal':
+      case 'distribute-vertical':
+        return editable && selected >= 3
+      case 'zoom-out':
+      case 'zoom-in':
+      case 'zoom-to-fit':
+      case 'zoom-to-actual':
+      case 'grid':
+      case 'snap':
+        return this.mode === 'design'
+      case 'design':
+      case 'preview':
+      case 'print':
+        return true
+      case 'edit-table':
+        return editable && this.#selectedTable() !== undefined && this.#tableEdit === undefined
+      case 'exit-table-edit':
+        return this.#tableEdit !== undefined
+      case 'add-page':
+        return editable
+      case 'remove-page':
+        return editable && this.#editor.document.pages.length > 1
+      case 'move-page-left':
+        return editable && this.#editor.document.pages.findIndex(page => page.id === this.#editor.activePageId) > 0
+      case 'move-page-right': {
+        const pages = this.#editor.document.pages
+        return editable && pages.findIndex(page => page.id === this.#editor.activePageId) < pages.length - 1
+      }
+      default: {
+        const table = this.#editTable()
+        if (!editable || table === undefined)
+          return false
+        const planned = planTableCommand(table, this.#editor.selection.tablePart, command, this.#translations())
+        return planned !== undefined && planned.plan.ok
+      }
+    }
+  }
+
+  #run(command: Command): void {
+    if (!this.#commandEnabled(command))
+      return
+    const pages = this.#editor.document.pages
+    const pageIndex = pages.findIndex(page => page.id === this.#editor.activePageId)
+    switch (command) {
+      case 'undo':
+        this.undo()
+        return
+      case 'redo':
+        this.redo()
+        return
+      case 'cut':
+        this.cut()
+        return
+      case 'copy':
+        this.copy()
+        return
+      case 'paste':
+        this.paste()
+        return
+      case 'duplicate':
+        this.duplicate()
+        return
+      case 'delete':
+        this.deleteSelection()
+        return
+      case 'select-all':
+        this.#editor.selectAll()
+        return
+      case 'distribute-horizontal':
+        this.distribute('horizontal')
+        return
+      case 'distribute-vertical':
+        this.distribute('vertical')
+        return
+      case 'zoom-out':
+        this.zoomOut()
+        return
+      case 'zoom-in':
+        this.zoomIn()
+        return
+      case 'zoom-to-fit':
+        this.zoomToFit()
+        return
+      case 'zoom-to-actual':
+        this.zoomToActual()
+        return
+      case 'grid':
+        if (this.grid !== false)
+          this.#lastGrid = this.grid
+        this.grid = this.grid === false ? this.#lastGrid : false
+        return
+      case 'snap':
+        this.snap = !this.snap
+        return
+      case 'design':
+      case 'preview':
+        this.mode = command
+        return
+      case 'print':
+        void this.print().catch(() => undefined)
+        return
+      case 'edit-table':
+        this.#enterTableEdit(this.#selectedTable()!.id)
+        return
+      case 'exit-table-edit':
+        this.#exitTableEdit()
+        return
+      case 'add-page':
+        this.#editor.addPage(pageIndex + 1)
+        return
+      case 'remove-page':
+        this.#editor.removePage(this.#editor.activePageId)
+        return
+      case 'move-page-left':
+        this.#editor.movePage(this.#editor.activePageId, pageIndex - 1)
+        return
+      case 'move-page-right':
+        this.#editor.movePage(this.#editor.activePageId, pageIndex + 1)
+        return
+    }
+    if (Object.hasOwn(ALIGN, command)) {
+      this.align(ALIGN[command]!)
+      return
+    }
+    if (Object.hasOwn(REORDER, command)) {
+      this.reorder(REORDER[command]!)
+      return
+    }
+    const table = this.#editTable()
+    if (table === undefined)
+      return
+    const planned = planTableCommand(table, this.#editor.selection.tablePart, command as TableCommand, this.#translations())
+    if (planned !== undefined && this.#editor.applyTablePlan(table.id, planned.plan) && planned.part !== undefined)
+      this.#editor.select({ elements: [table.id], tablePart: planned.part })
+  }
+
+  #renderToolbar(layers: Layers, t: PrintDesignerTranslations): void {
+    layers.toolbarRoot.setAttribute('aria-label', t.toolbar)
+    for (const [command, item] of layers.items) {
+      setText(item, t[LABELS[command]])
+      const disabled = !this.#commandEnabled(command)
+      if (item.disabled !== disabled)
+        item.disabled = disabled
+      const pressed = command === 'grid' ? this.grid !== false : command === 'snap' ? this.snap : command === 'design' || command === 'preview' ? this.mode === command : undefined
+      if (pressed === undefined)
+        item.removeAttribute('aria-pressed')
+      else
+        item.setAttribute('aria-pressed', String(pressed))
+    }
+  }
+
+  #renderPages(layers: Layers, t: PrintDesignerTranslations): void {
+    const doc = this.ownerDocument
+    const pages = this.#editor.document.pages
+    const active = this.#editor.activePageId
+    const titles = pages.map((page, index) => page.name ?? t.pageTitle(index + 1))
+    const signature = JSON.stringify([pages.map(page => page.id), titles, active, this.readonly, this.mode, t.pages, PAGE_COMMANDS.map(command => [t[LABELS[command]], this.#commandEnabled(command)])])
+    if (layers.pages.dataset.signature === signature)
+      return
+    layers.pages.dataset.signature = signature
+    const tabs = el(doc, 'xh-toggle-group', { 'value': active, 'disallow-empty': true, 'size': 'sm' }, [
+      el(doc, 'div', { 'data-xh-part': 'root', 'aria-label': t.pages }, pages.map((page, index) =>
+        el(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': page.id }, [titles[index]!]),
+      )),
+    ])
+    tabs.addEventListener('value-change', (event) => {
+      const { value } = (event as CustomEvent<{ value: string | string[] | null }>).detail
+      if (typeof value === 'string' && value !== this.#editor.activePageId)
+        this.#editor.setActivePage(value)
+    })
+    const actions = el(doc, 'xh-toolbar', { size: 'sm' }, [
+      el(doc, 'div', { 'data-xh-part': 'root', 'aria-label': t.pages }, [
+        el(doc, 'div', { 'data-xh-part': 'group' }, PAGE_COMMANDS.map(command =>
+          el(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': command, 'disabled': !this.#commandEnabled(command) }, [t[LABELS[command]]]),
+        )),
+      ]),
+    ])
+    actions.addEventListener('click', this.#onCommandClick)
+    layers.pages.replaceChildren(tabs, actions)
+  }
+
+  #renderPaper(layers: Layers, t: PrintDesignerTranslations): void {
+    const doc = this.ownerDocument
+    const page = this.#editor.page
+    const bands = this.#editor.bands
+    const paper = getPaperSize(page)
+    layers.paper.style.width = `${paper.width}mm`
+    layers.paper.style.height = `${paper.height}mm`
+    const header = page.header[bands.header] ?? page.header.default
+    const footer = page.footer[bands.footer] ?? page.footer.default
+    const headerRect = getBandRect(page, 'header', header)
+    const footerRect = getBandRect(page, 'footer', footer)
+    const bodyRect = getBodyRect(page, header, footer)
+    const content = getContentRect(page)
+
+    const frame = (part: string, rect: Rect, region?: ElementRegion): HTMLElement => {
+      const node = el(doc, 'div', { 'data-part': part, 'data-region': region })
+      rectStyle(node, rect)
+      return node
+    }
+    layers.frames.replaceChildren(
+      frame('margins', content),
+      frame('band', headerRect, 'header'),
+      frame('band', bodyRect, 'body'),
+      frame('band', footerRect, 'footer'),
+    )
+
+    const layout = this.#layout
+    const selected = new Set(this.#editor.selection.elements)
+    const boxes: LayoutBox[] = layout === undefined ? [] : [...layout.header, ...layout.body, ...layout.footer]
+    layers.elements.replaceChildren(...boxes.map((box) => {
+      const node = renderBox(doc, box)
+      node.toggleAttribute('data-selected', selected.has(box.elementId))
+      node.setAttribute('aria-label', t.elementLabel(t.elements[box.elementType] ?? box.elementType, box.elementId))
+      return node
+    }))
+    const watermark = layout?.watermark === undefined ? undefined : renderWatermark(doc, layout.watermark)
+    layers.watermark.replaceChildren(...(watermark === undefined ? [] : [watermark]))
+
+    const decorations: HTMLElement[] = []
+    for (const item of this.#editor.visibleElements()) {
+      if (!selected.has(item.element.id))
+        continue
+      decorations.push(frame('selection', elementRect(item.element)))
+    }
+    if (!this.readonly) {
+      for (const region of ['header', 'footer'] as const) {
+        const rect = region === 'header' ? headerRect : footerRect
+        const y = region === 'header' ? rect.y + rect.height : rect.y
+        const handle = el(doc, 'div', { 'data-part': 'band-handle', 'data-region': region, 'role': 'separator', 'aria-orientation': 'horizontal', 'aria-label': t.resizeBand(region) })
+        handle.style.left = `${content.x}mm`
+        handle.style.width = `${content.width}mm`
+        handle.style.top = `${y}mm`
+        decorations.push(handle)
+      }
+    }
+    decorations.push(...this.#tableDecorations(t))
+    layers.decorations.replaceChildren(...decorations)
+    this.#renderBandMenus(layers, t, headerRect, footerRect)
+  }
+
+  #renderBandMenus(layers: Layers, t: PrintDesignerTranslations, headerRect: Rect, footerRect: Rect): void {
+    const doc = this.ownerDocument
+    const page = this.#editor.page
+    const bands = this.#editor.bands
+    const signature = JSON.stringify([page.id, bands, PAGE_BAND_KEYS.map(key => [page.header[key] !== undefined, page.footer[key] !== undefined]), headerRect, footerRect, this.readonly, t.regions, t.bandVariants])
+    if (layers.bandMenus.dataset.signature === signature)
+      return
+    layers.bandMenus.dataset.signature = signature
+    layers.bandMenus.replaceChildren(...(['header', 'footer'] as const).map((region) => {
+      const current = bands[region]
+      const set = page[region]
+      const items: HTMLElement[] = PAGE_BAND_KEYS.map((key) => {
+        const exists = set[key] !== undefined
+        const value = exists ? `show:${key}` : `add:${key}`
+        const text = exists ? t.bandVariants[key] : `${t.addBandVariant} · ${t.bandVariants[key]}`
+        return el(doc, 'div', { 'data-xh-part': 'item', value, 'aria-disabled': !exists && this.readonly ? 'true' : undefined, 'aria-current': key === current ? 'true' : undefined }, [
+          el(doc, 'span', { 'data-xh-part': 'item-text' }, [text]),
+        ])
+      })
+      if (current !== 'default' && !this.readonly) {
+        items.push(el(doc, 'div', { 'data-xh-part': 'separator' }))
+        items.push(el(doc, 'div', { 'data-xh-part': 'item', 'value': 'remove' }, [el(doc, 'span', { 'data-xh-part': 'item-text' }, [t.removeBandVariant])]))
+      }
+      const rect = region === 'header' ? headerRect : footerRect
+      const menu = el(doc, 'xh-menu', { 'size': 'sm', 'data-part': 'band-menu', 'data-region': region }, [
+        el(doc, 'button', { 'data-xh-part': 'trigger', 'type': 'button', 'aria-label': t.bandVariant(region) }, [`${t.regions[region]} · ${t.bandVariants[current]}`]),
+        el(doc, 'div', { 'data-xh-part': 'positioner' }, [el(doc, 'div', { 'data-xh-part': 'content' }, items)]),
+      ])
+      menu.style.top = `${rect.y}mm`
+      menu.addEventListener('select', (event) => {
+        const { value } = (event as CustomEvent<{ value: string }>).detail
+        const [action, key] = value.split(':') as [string, PageBandKey | undefined]
+        if (action === 'show' && key !== undefined)
+          this.#editor.setBandVariant(region, key)
+        else if (action === 'add' && key !== undefined && key !== 'default' && !this.readonly)
+          this.#editor.addBand(region, key)
+        else if (action === 'remove' && current !== 'default' && !this.readonly)
+          this.#editor.removeBand(region, current)
+      })
+      return menu
+    }))
+  }
+
+  #tableDecorations(t: PrintDesignerTranslations): HTMLElement[] {
+    const table = this.#editTable()
+    const box = this.#tableBox()
+    if (table === undefined || box === undefined)
+      return []
+    const doc = this.ownerDocument
+    const result: HTMLElement[] = []
+    const outline = el(doc, 'div', { 'data-part': 'table-edit' })
+    rectStyle(outline, { x: box.x, y: box.y, width: box.width, height: box.height })
+    result.push(outline)
+    const part = this.#editor.selection.tablePart
+    const highlight = part === undefined ? undefined : this.#partRect(table, box, part)
+    if (highlight !== undefined) {
+      const node = el(doc, 'div', { 'data-part': 'table-part' })
+      rectStyle(node, highlight)
+      result.push(node)
+    }
+    if (!this.readonly) {
+      for (const { column, x } of columnBoundaries(table)) {
+        const handle = el(doc, 'div', { 'data-part': 'column-handle', 'data-column-id': column.id, 'role': 'separator', 'aria-orientation': 'vertical', 'aria-label': t.resizeColumn(column.title) })
+        handle.style.left = `${x}mm`
+        handle.style.top = `${box.y}mm`
+        handle.style.height = `${box.height}mm`
+        result.push(handle)
+      }
+    }
+    return result
+  }
+
+  #partRect(table: TableElement, box: TableLayoutBox, part: PrintTablePart): Rect | undefined {
+    const rows = box.rows
+    const span = (selected: typeof rows): Rect | undefined => {
+      if (selected.length === 0)
+        return undefined
+      const top = selected[0]!.y
+      const last = selected.at(-1)!
+      return { x: box.x, y: top, width: box.width, height: last.y + last.height - top }
+    }
+    switch (part.kind) {
+      case 'column': {
+        const bounds = columnBoundaries(table).find(item => item.column.id === part.columnId)
+        return bounds === undefined ? undefined : { x: bounds.x - bounds.column.width, y: box.y, width: bounds.column.width, height: box.height }
+      }
+      case 'header':
+        return span(rows.filter(row => row.role === 'header'))
+      case 'body':
+        return span(rows.filter(row => row.role === 'body' || row.role === 'filler'))
+      case 'footerRow':
+        return span(rows.filter(row => row.footerRowId === part.rowId))
+      case 'footerCell': {
+        const row = rows.find(item => item.footerRowId === part.rowId)
+        const cell = row?.cells.find(item => item.columnId === part.columnId)
+        return row === undefined || cell === undefined ? undefined : { x: cell.x, y: row.y, width: cell.width, height: row.height }
+      }
+    }
+  }
+
+  #ensurePreview(): HTMLElementTagNameMap['xh-print-preview'] {
+    const layers = this.#ensureLayers()
+    definePrintPreview()
+    let preview = layers.preview.querySelector(PRINT_PREVIEW_TAG)
+    if (preview === null) {
+      preview = this.ownerDocument.createElement(PRINT_PREVIEW_TAG)
+      layers.preview.append(preview)
+    }
+    return preview
+  }
+
+  #syncPreview(preview: HTMLElementTagNameMap['xh-print-preview']): void {
+    preview.schema = this.#editor.document
+    preview.data = this.data
+    preview.registry = this.#editor.registry
+    preview.expressionEngine = this.#engine()
+    preview.formatter = this.formatter ?? formatValue
+    if (this.measurer !== undefined)
+      preview.measurer = this.measurer
+    if (this.locale !== undefined)
+      preview.locale = this.locale
+    if (this.timeZone !== undefined)
+      preview.timeZone = this.timeZone
+  }
+
+  // —— 内部：表格编辑态 ——
+
+  #selectedTable(): TableElement | undefined {
+    const ids = this.#editor.selection.elements
+    if (ids.length !== 1)
+      return undefined
+    const found = this.#editor.visibleElements().find(item => item.element.id === ids[0])
+    return found?.element.type === 'table' ? found.element : undefined
+  }
+
+  #editTable(): TableElement | undefined {
+    if (this.#tableEdit === undefined)
+      return undefined
+    const table = this.#selectedTable()
+    return table?.id === this.#tableEdit ? table : undefined
+  }
+
+  #tableBox(): TableLayoutBox | undefined {
+    const id = this.#tableEdit
+    const box = id === undefined ? undefined : this.#layout?.body.find(item => item.elementId === id)
+    return box?.kind === 'table' ? box : undefined
+  }
+
+  #enterTableEdit(id: string): void {
+    this.#tableEdit = id
+    this.#editor.select({ elements: [id], tablePart: { kind: 'body', elementId: id } })
+    this.requestUpdate()
+  }
+
+  #exitTableEdit(): void {
+    const id = this.#tableEdit
+    this.#tableEdit = undefined
+    if (id !== undefined)
+      this.#editor.select({ elements: [id] })
+    this.requestUpdate()
+  }
+
+  // —— 内部：指针、键盘、剪贴板 ——
+
+  #track(event: PointerEvent, handlers: { readonly onActivate?: () => void, readonly onMove: (dx: number, dy: number) => void, readonly onEnd: (active: boolean) => void, readonly onCancel?: () => void }): void {
+    const start = { x: event.clientX, y: event.clientY }
+    const gesture: Gesture = {
+      active: false,
+      cancel: () => handlers.onCancel?.(),
+      session: createPointerSession({
+        doc: resolveSessionDoc(this),
+        pointerId: event.pointerId,
+        onMove: ({ point }) => {
+          const dx = point.clientX - start.x
+          const dy = point.clientY - start.y
+          if (!gesture.active) {
+            if (!shouldActivate({ x: dx, y: dy }))
+              return
+            gesture.active = true
+            handlers.onActivate?.()
+          }
+          handlers.onMove(dx, dy)
+        },
+        onEnd: () => {
+          gesture.session.dispose()
+          if (this.#gesture === gesture)
+            this.#gesture = undefined
+          handlers.onEnd(gesture.active)
+        },
+      }),
+    }
+    this.#gesture = gesture
+  }
+
+  #cancelGesture(): void {
+    const gesture = this.#gesture
+    if (!gesture)
+      return
+    gesture.session.dispose()
+    this.#gesture = undefined
+    gesture.cancel()
+    if (this.#editor.history.inTransaction)
+      this.#editor.history.rollback()
+    this.requestUpdate()
+  }
+
+  #pan(event: PointerEvent): void {
+    const origin = this.#viewport
+    this.#stopAutoFit()
+    this.#track(event, {
+      onMove: (dx, dy) => this.#moveTo(panBy(origin, dx, dy)),
+      onEnd: () => undefined,
+      onCancel: () => this.#moveTo(origin),
+    })
+  }
+
+  #dragBand(event: PointerEvent, region: 'header' | 'footer'): void {
+    const page = this.#editor.page
+    const key = this.#editor.bands[region]
+    const startHeight = (page[region][key] ?? page[region].default).height
+    const zoom = this.#viewport.zoom
+    this.#track(event, {
+      onActivate: () => this.#editor.history.begin(),
+      onMove: (_dx, dy) => {
+        const delta = (region === 'header' ? dy : -dy) / zoom
+        this.#editor.setBandHeight(region, key, Math.max(0, this.#snapValue(startHeight + delta)))
+      },
+      onEnd: (active) => {
+        if (active && this.#editor.history.inTransaction)
+          this.#editor.history.commit()
+      },
+    })
+  }
+
+  #dragColumn(event: PointerEvent, columnId: string): void {
+    const table = this.#editTable()
+    const column = table?.columns.find(item => item.id === columnId)
+    if (table === undefined || column === undefined)
+      return
+    const last = table.columns.at(-1)?.id === columnId
+    const zoom = this.#viewport.zoom
+    this.#track(event, {
+      onActivate: () => this.#editor.history.begin(),
+      onMove: (dx) => {
+        const width = this.#snapValue(column.width + dx / zoom)
+        this.#editor.applyTablePlan(table.id, planResizeTableColumn(table, columnId, width, last ? 'resize' : 'keep'))
+      },
+      onEnd: (active) => {
+        if (active && this.#editor.history.inTransaction)
+          this.#editor.history.commit()
+      },
+    })
+  }
+
+  /** 纸张坐标上的最上层可见元素。 */
+  #elementAt(point: Point): PrintElement | undefined {
+    const elements = this.#editor.visibleElements().map(item => item.element)
+    const index = hitTest(point, elements.map(elementRect))
+    return index < 0 ? undefined : elements[index]
+  }
+
+  readonly #onPointerDown = (event: PointerEvent): void => {
+    if (this.#gesture || this.mode !== 'design')
+      return
+    this.#layers?.viewport.focus({ preventScroll: true })
+    if (event.button === 1) {
+      event.preventDefault()
+      this.#pan(event)
+      return
+    }
+    if (event.button !== 0)
+      return
+    const target = event.target instanceof Element ? event.target : undefined
+    if (target?.closest('[data-part="band-menu"]'))
+      return
+    const bandHandle = target?.closest<HTMLElement>('[data-part="band-handle"]')
+    if (bandHandle && !this.readonly) {
+      this.#stopAutoFit()
+      this.#dragBand(event, bandHandle.dataset.region as 'header' | 'footer')
+      return
+    }
+    const columnHandle = target?.closest<HTMLElement>('[data-part="column-handle"]')
+    if (columnHandle && !this.readonly) {
+      this.#stopAutoFit()
+      this.#dragColumn(event, columnHandle.dataset.columnId!)
+      return
+    }
+    const point = this.clientToWorld(event.clientX, event.clientY)
+    const tableBox = this.#tableBox()
+    if (tableBox !== undefined) {
+      const part = tablePartAt(tableBox, point)
+      if (part !== undefined) {
+        this.#editor.select({ elements: [tableBox.elementId], tablePart: part })
+        return
+      }
+    }
+    const hit = this.#elementAt(point)
+    const additive = event.shiftKey || event.ctrlKey || event.metaKey
+    if (hit !== undefined) {
+      this.#editor.select({ elements: [hit.id] }, additive ? 'toggle' : 'replace')
+      return
+    }
+    if (!additive)
+      this.#editor.clearSelection()
+    this.#pan(event)
+  }
+
+  readonly #onDoubleClick = (event: MouseEvent): void => {
+    if (this.mode !== 'design')
+      return
+    const point = this.clientToWorld(event.clientX, event.clientY)
+    const tableBox = this.#tableBox()
+    if (tableBox !== undefined) {
+      const part = tablePartAt(tableBox, point)
+      if (part?.kind === 'column')
+        this.#editor.select({ elements: [tableBox.elementId], tablePart: { kind: 'header', elementId: tableBox.elementId } })
+      return
+    }
+    const hit = this.#elementAt(point)
+    if (hit === undefined)
+      return
+    if (hit.type === 'table' && !this.readonly)
+      this.#enterTableEdit(hit.id)
+    emitEvent(this, 'element-dblclick', { id: hit.id })
+  }
+
+  readonly #onContextMenu = (event: MouseEvent): void => {
+    if (this.mode !== 'design')
+      return
+    const point = this.clientToWorld(event.clientX, event.clientY)
+    const position = { x: event.clientX, y: event.clientY }
+    const tableBox = this.#tableBox()
+    const part = tableBox === undefined ? undefined : tablePartAt(tableBox, point)
+    if (tableBox !== undefined && part !== undefined) {
+      this.#editor.select({ elements: [tableBox.elementId], tablePart: part })
+      this.#prepareMenu('table')
+      return
+    }
+    const hit = this.#elementAt(point)
+    if (hit !== undefined && !this.#editor.selection.elements.includes(hit.id))
+      this.#editor.select({ elements: [hit.id] })
+    const proceed = hit !== undefined
+      ? emitEvent(this, 'element-contextmenu', { id: hit.id, ...position }, { cancelable: true })
+      : emitEvent(this, 'blank-contextmenu', position, { cancelable: true })
+    if (!proceed) {
+      event.preventDefault()
+      event.stopPropagation()
+      return
+    }
+    this.#prepareMenu(hit === undefined ? 'blank' : 'element')
+  }
+
+  #prepareMenu(subject: 'blank' | 'element' | 'table'): void {
+    this.#fillMenu(this.#ensureLayers().menuContent, subject)
+  }
+
+  #fillMenu(content: HTMLElement, subject: 'blank' | 'element' | 'table'): void {
+    const t = this.#translations()
+    const doc = this.ownerDocument
+    const separator = '|'
+    const tableEntries: (Command | typeof separator)[] = this.#selectedTable() ? ['edit-table', separator] : []
+    const entries: (Command | typeof separator)[] = subject === 'table'
+      ? [...TABLE_COMMANDS.slice(0, 5), separator, ...TABLE_COMMANDS.slice(5), separator, 'exit-table-edit']
+      : subject === 'element'
+        ? [...tableEntries, 'cut', 'copy', 'duplicate', 'delete', separator, 'bring-to-front', 'bring-forward', 'send-backward', 'send-to-back']
+        : ['paste', 'select-all', separator, 'zoom-to-fit']
+    content.replaceChildren(...entries.map(entry => entry === separator
+      ? el(doc, 'div', { 'data-xh-part': 'separator' })
+      : el(doc, 'div', { 'data-xh-part': 'item', 'value': entry, 'aria-disabled': this.#commandEnabled(entry) ? undefined : 'true' }, [
+          el(doc, 'span', { 'data-xh-part': 'item-text' }, [t[LABELS[entry]]]),
+        ])))
+  }
+
+  readonly #onMenuSelect = (event: Event): void => {
+    const { value } = (event as CustomEvent<{ value: string }>).detail
+    if (isCommand(value))
+      this.#run(value)
+  }
+
+  readonly #onCommandClick = (event: MouseEvent): void => {
+    const item = (event.target as Element | null)?.closest<HTMLButtonElement>('button[value]')
+    if (!item || item.disabled || !isCommand(item.value))
+      return
+    this.#run(item.value)
+  }
+
+  readonly #onWheel = (event: WheelEvent): void => {
+    if (this.mode !== 'design')
+      return
+    event.preventDefault()
+    this.#stopAutoFit()
+    if (event.ctrlKey || event.metaKey) {
+      const box = this.#layers!.viewport.getBoundingClientRect()
+      this.#moveTo(zoomBy(this.#viewport, wheelZoomFactor(event.deltaY, event.deltaMode), { x: event.clientX - box.left, y: event.clientY - box.top }, ZOOM_LIMITS))
+      return
+    }
+    const size = this.#size()
+    const pixels = wheelPixels(event, size === undefined ? {} : { page: size.height })
+    this.#moveTo(panBy(this.#viewport, -pixels.x, -pixels.y))
+  }
+
+  readonly #onKeyDown = (event: KeyboardEvent): void => {
+    if (event.defaultPrevented || this.mode !== 'design')
+      return
+    const target = event.target instanceof Element ? event.target : undefined
+    if (target && target !== this.#layers?.viewport && target.closest('input, textarea, select, [contenteditable]'))
+      return
+    if (event.key === 'Escape') {
+      if (this.#gesture)
+        this.#cancelGesture()
+      else if (this.#tableEdit !== undefined)
+        this.#exitTableEdit()
+      else
+        this.#editor.clearSelection()
+      event.preventDefault()
+      return
+    }
+    if (this.#gesture)
+      return
+    const command = event.ctrlKey || event.metaKey
+    if (command && !event.altKey ? this.#onCommandKey(event) : !command && !event.altKey && this.#onPlainKey(event))
+      event.preventDefault()
+  }
+
+  #onCommandKey(event: KeyboardEvent): boolean {
+    const key = event.key.toLowerCase()
+    const shortcuts: Readonly<Record<string, Command>> = {
+      'a': 'select-all',
+      'd': 'duplicate',
+      'y': 'redo',
+      ']': event.shiftKey ? 'bring-to-front' : 'bring-forward',
+      '[': event.shiftKey ? 'send-to-back' : 'send-backward',
+    }
+    if (key === 's') {
+      emitEvent(this, 'save', {})
+      return true
+    }
+    if (key === 'z') {
+      this.#run(event.shiftKey ? 'redo' : 'undo')
+      return true
+    }
+    const shortcut = shortcuts[key]
+    if (shortcut === undefined)
+      return false
+    this.#run(shortcut)
+    return true
+  }
+
+  #onPlainKey(event: KeyboardEvent): boolean {
+    switch (event.key) {
+      case 'Delete':
+      case 'Backspace':
+        return this.deleteSelection()
+      case '+':
+      case '=':
+        this.zoomIn()
+        return true
+      case '-':
+        this.zoomOut()
+        return true
+      case '0':
+        this.zoomToFit()
+        return true
+      case 'Enter': {
+        const table = this.#selectedTable()
+        if (table === undefined || this.readonly || this.#tableEdit !== undefined)
+          return false
+        this.#enterTableEdit(table.id)
+        return true
+      }
+    }
+    const step = this.grid === false || !(this.grid > 0) ? 1 : this.grid
+    const delta = nudgeDelta(event.key, { large: event.shiftKey, step, largeStep: NUDGE_LARGE_STEP })
+    if (!delta)
+      return false
+    const ids = this.#editor.selection.elements
+    if (ids.length > 0 && !this.readonly && this.#tableEdit === undefined) {
+      this.#editor.moveElements(ids, delta.dx, delta.dy, { merge: 'nudge' })
+      return true
+    }
+    this.#stopAutoFit()
+    this.#moveTo(panBy(this.#viewport, -Math.sign(delta.dx) * PAN_STEP, -Math.sign(delta.dy) * PAN_STEP))
+    return true
+  }
+
+  #clipboardText(): string | undefined {
+    const clipboard = this.#editor.copy()
+    return clipboard === undefined ? undefined : encodeClipboard(CLIPBOARD_PRODUCT, CLIPBOARD_VERSION, clipboard as unknown as JsonValue)
+  }
+
+  #writeClipboard(event: ClipboardEvent): boolean {
+    if (this.mode !== 'design' || !this.#ownsClipboardEvent(event))
+      return false
+    const text = this.#clipboardText()
+    if (text === undefined || event.clipboardData === null)
+      return false
+    event.clipboardData.setData(clipboardMimeType(CLIPBOARD_PRODUCT), text)
+    event.clipboardData.setData('text/plain', text)
+    event.preventDefault()
+    return true
+  }
+
+  #ownsClipboardEvent(event: ClipboardEvent): boolean {
+    const target = event.target instanceof Element ? event.target : undefined
+    return target === undefined || target === this.#layers?.viewport || !target.closest('input, textarea, select, [contenteditable]')
+  }
+
+  readonly #onCopy = (event: ClipboardEvent): void => {
+    this.#writeClipboard(event)
+  }
+
+  readonly #onCut = (event: ClipboardEvent): void => {
+    if (!this.readonly && this.#writeClipboard(event))
+      this.#editor.deleteSelection()
+  }
+
+  readonly #onPaste = (event: ClipboardEvent): void => {
+    if (this.readonly || this.mode !== 'design' || !this.#ownsClipboardEvent(event) || event.clipboardData === null)
+      return
+    const text = event.clipboardData.getData(clipboardMimeType(CLIPBOARD_PRODUCT)) || event.clipboardData.getData('text/plain')
+    const result = decodeClipboard(text, CLIPBOARD_PRODUCT)
+    if (!result.ok || result.version !== CLIPBOARD_VERSION)
+      return
+    const clipboard = this.#readClipboard(result.payload)
+    if (clipboard === undefined)
+      return
+    event.preventDefault()
+    this.#editor.paste(clipboard)
+  }
+
+  /** 校验粘贴进来的载荷：元素放进一张临时页面按当前登记表校验，有 error 级问题时不粘贴。 */
+  #readClipboard(payload: unknown): PrintClipboard | undefined {
+    if (typeof payload !== 'object' || payload === null)
+      return undefined
+    const { elements, region } = payload as { elements?: unknown, region?: unknown }
+    if (!Array.isArray(elements) || elements.length === 0 || (region !== 'body' && region !== 'header' && region !== 'footer'))
+      return undefined
+    const current = this.#editor.page
+    const page = createPage({ id: '__clipboard', paper: current.paper, orientation: current.orientation, margins: current.margins })
+    page.elements = elements as PrintElement[]
+    const report = validateDocument(createDocument({ pages: [page] }), { registry: this.#editor.registry })
+    return report.valid ? { elements: elements as PrintElement[], region } : undefined
+  }
+}
+
+/** 注册 <xh-print-designer>；重复调用不报错。 */
+export function definePrintDesigner(): void {
+  definePrintPreview()
+  registerElement(PRINT_DESIGNER_TAG, XhPrintDesigner)
+}
+
+declare global {
+  interface HTMLElementTagNameMap {
+    'xh-print-designer': XhPrintDesigner
+  }
+}

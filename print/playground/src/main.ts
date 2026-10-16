@@ -3,9 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 开发预览页：注册 UI 元素与打印预览，装上示例模板并接好模板切换、缩放、打印与语言包开关。
+// 开发预览页：注册 UI 元素、打印预览与设计器，装上示例模板并接好模板切换、缩放、打印、语言包与示例数据开关。
 
+import type { PrintDesignerEventMap } from '@xihan-print/designer'
 import type { PrintPreviewEventMap } from '@xihan-print/runtime'
+import { definePrintDesigner } from '@xihan-print/designer'
 import { definePrintPreview } from '@xihan-print/runtime'
 import { printZhCN } from '@xihan-print/runtime/locale'
 import { mergeXhConfig, setXhConfig } from '@xihan-ui/web-components'
@@ -14,15 +16,20 @@ import { zhCN } from '@xihan-ui/web-components/locale'
 import { createSamples } from './samples'
 import '@xihan-ui/styles/index.css'
 import '@xihan-print/runtime/style.css'
+import '@xihan-print/designer/style.css'
 
 defineXhElements()
 definePrintPreview()
+definePrintDesigner()
 
 const ZOOM_STEPS = [0.5, 0.67, 0.75, 0.9, 1, 1.25, 1.5, 2]
 
 const samples = createSamples()
 const preview = document.querySelector('xh-print-preview')!
 const status = document.querySelector<HTMLElement>('#status')!
+const designer = document.querySelector('xh-print-designer')!
+const log = document.querySelector<HTMLElement>('#log')!
+let sampleData = false
 let current = samples[0]!
 let zoomIndex = ZOOM_STEPS.indexOf(1)
 let outcome = ''
@@ -55,7 +62,41 @@ function show(id: string): void {
   current = samples.find(sample => sample.id === id) ?? current
   preview.schema = current.schema
   preview.data = current.data
+  designer.schema = current.schema
+  designer.data = current.data
+  designer.sampleData = sampleData ? current.data : undefined
 }
+
+function write(line: string): void {
+  log.textContent = `${line}
+${log.textContent ?? ''}`.slice(0, 4000)
+}
+
+function onDesigner<K extends keyof PrintDesignerEventMap>(type: K, listener: (event: PrintDesignerEventMap[K]) => void): void {
+  designer.addEventListener(type, event => listener(event as PrintDesignerEventMap[K]))
+}
+
+onDesigner('schema-change', (event) => {
+  const { kind, operations } = event.detail
+  write(`schema-change ${kind} ${operations.map(operation => operation.type).join(', ')}`)
+  if (kind !== 'load') {
+    preview.schema = event.detail.schema
+  }
+})
+onDesigner('selection-change', event => write(`selection-change ${JSON.stringify(event.detail)}`))
+onDesigner('page-change', event => write(`page-change ${event.detail.pageId}`))
+onDesigner('mode-change', event => write(`mode-change ${event.detail.mode}`))
+onDesigner('dirty-change', event => write(`dirty-change ${event.detail.dirty}`))
+onDesigner('issues-change', event => write(`issues-change ${event.detail.issues.map(issue => issue.code).join(', ') || '无问题'}`))
+onDesigner('save', () => {
+  designer.markSaved()
+  write('save')
+})
+
+document.querySelector('#sample-data')!.addEventListener('checked-change', (event) => {
+  sampleData = (event as CustomEvent<{ checked: boolean }>).detail.checked
+  designer.sampleData = sampleData ? current.data : undefined
+})
 
 function zoom(index: number): void {
   zoomIndex = Math.min(Math.max(index, 0), ZOOM_STEPS.length - 1)

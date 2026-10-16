@@ -1,0 +1,182 @@
+/*
+ * Copyright (c) 2021-Present XiHanFun and contributors.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+/* <xh-print-designer> 的版式：只消费 @xihan-ui 设计令牌。纸张内的元素颜色与尺寸来自模板，渲染时写在内联样式里；
+   画布上的线宽与把手按 --xh-print-designer-zoom 反向缩放，屏幕上的粗细不随缩放变化。 */
+
+xh-print-designer {
+  --xh-print-designer-zoom: 1;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: hidden;
+  contain: inline-size;
+  background: var(--xh-bg-page);
+  color: var(--xh-fg-default);
+  border: var(--xh-stroke-thin) solid var(--xh-border-default);
+  border-radius: var(--xh-radius-md);
+}
+
+xh-print-designer > [data-part='toolbar'] {
+  flex: none;
+  min-inline-size: 0;
+  padding: var(--xh-space-1) var(--xh-space-2);
+  border-block-end: var(--xh-stroke-thin) solid var(--xh-border-subtle);
+}
+
+xh-print-designer > [data-part='workspace'] {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-block-size: 0;
+}
+
+xh-print-designer [data-part='pages'] {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--xh-space-2);
+  align-items: center;
+  padding: var(--xh-space-1) var(--xh-space-2);
+  border-block-end: var(--xh-stroke-thin) solid var(--xh-border-subtle);
+}
+
+xh-print-designer [data-print-canvas],
+xh-print-designer [data-print-canvas-root],
+xh-print-designer [data-part='workspace'] > xh-context-menu {
+  display: flex;
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+xh-print-designer [data-part='workspace'] > xh-context-menu[hidden] {
+  display: none;
+}
+
+xh-print-designer [data-part='viewport'] {
+  position: relative;
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: hidden;
+  background: var(--xh-bg-canvas);
+  outline: none;
+  touch-action: none;
+}
+
+xh-print-designer [data-part='viewport']:focus-visible {
+  box-shadow: inset 0 0 0 var(--xh-stroke-thick) var(--xh-border-control-focus);
+}
+
+xh-print-designer [data-part='world'] {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  transform-origin: 0 0;
+}
+
+xh-print-designer [data-part='paper'] {
+  position: relative;
+  background: var(--xh-color-neutral-0);
+  box-shadow: var(--xh-elevation-raised);
+}
+
+xh-print-designer [data-part='frames'],
+xh-print-designer [data-part='elements'],
+xh-print-designer [data-part='watermark-layer'],
+xh-print-designer [data-part='decorations'] {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+xh-print-designer [data-part='margins'],
+xh-print-designer [data-part='band'],
+xh-print-designer [data-part='selection'],
+xh-print-designer [data-part='table-edit'],
+xh-print-designer [data-part='table-part'] {
+  position: absolute;
+  box-sizing: border-box;
+}
+
+xh-print-designer [data-part='margins'] {
+  border: calc(var(--xh-stroke-thin) / var(--xh-print-designer-zoom)) dashed var(--xh-border-default);
+}
+
+xh-print-designer [data-part='band'][data-region='header'],
+xh-print-designer [data-part='band'][data-region='footer'] {
+  background: var(--xh-bg-subtle);
+}
+
+xh-print-designer [data-part='selection'] {
+  outline: calc(var(--xh-stroke-thick) / var(--xh-print-designer-zoom)) solid var(--xh-border-control-focus);
+}
+
+xh-print-designer [data-part='table-edit'] {
+  outline: calc(var(--xh-stroke-thick) / var(--xh-print-designer-zoom)) dashed var(--xh-border-control-focus);
+}
+
+xh-print-designer [data-part='table-part'] {
+  outline: calc(var(--xh-stroke-strong) / var(--xh-print-designer-zoom)) solid var(--xh-border-control-focus);
+}
+
+xh-print-designer [data-part='band-handle'],
+xh-print-designer [data-part='column-handle'] {
+  position: absolute;
+  pointer-events: auto;
+}
+
+xh-print-designer [data-part='band-handle'] {
+  block-size: calc(var(--xh-space-2) / var(--xh-print-designer-zoom));
+  translate: 0 -50%;
+  cursor: ns-resize;
+}
+
+xh-print-designer [data-part='column-handle'] {
+  inline-size: calc(var(--xh-space-2) / var(--xh-print-designer-zoom));
+  translate: -50% 0;
+  cursor: col-resize;
+}
+
+xh-print-designer [data-part='band-handle']:hover,
+xh-print-designer [data-part='column-handle']:hover {
+  background: var(--xh-bg-brand-subtle);
+}
+
+xh-print-designer[data-readonly] [data-part='band-handle'],
+xh-print-designer[data-readonly] [data-part='column-handle'] {
+  display: none;
+}
+
+xh-print-designer [data-part='band-menus'] {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 100%;
+}
+
+xh-print-designer [data-part='band-menu'] {
+  position: absolute;
+  inset-inline-end: 0;
+  white-space: nowrap;
+  font-size: var(--xh-font-size-xs);
+  scale: calc(1 / var(--xh-print-designer-zoom));
+  transform-origin: top right;
+  translate: calc(-1 * var(--xh-space-2) / var(--xh-print-designer-zoom)) 0;
+}
+
+xh-print-designer [data-part='preview'] {
+  display: flex;
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+xh-print-designer [data-part='preview'][hidden] {
+  display: none;
+}
+
+xh-print-designer [data-part='preview'] > xh-print-preview {
+  flex: 1 1 auto;
+}

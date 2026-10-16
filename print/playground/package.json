@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@xihan-print/core": "workspace:^",
+    "@xihan-print/designer": "workspace:^",
     "@xihan-print/runtime": "workspace:^",
     "@xihan-ui/styles": "catalog:",
     "@xihan-ui/web-components": "catalog:"
