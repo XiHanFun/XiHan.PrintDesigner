@@ -11,6 +11,7 @@ import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { PrintRuntimeErrorCode } from './options'
 import type { PrintOutcome, PrintSheetsOptions } from './print'
+import type { PrintPreviewTranslations } from './translations'
 import { paginate, PrintLayoutError } from '@xihan-print/core'
 import { createExpressionEngine } from '@xihan-ui/expression'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
@@ -21,14 +22,6 @@ import { renderSheets } from './render/sheets'
 
 /** 预览元素的标签名。 */
 export const PRINT_PREVIEW_TAG = 'xh-print-preview'
-
-/** 预览元素的文案。 */
-export interface PrintPreviewTranslations {
-  /** 预览区域的可访问名。 */
-  readonly label: string
-  /** 一张输出页的可访问名；position 从 1 开始，count 为输出页总数。 */
-  readonly sheetLabel: (position: number, count: number) => string
-}
 
 /** 分页失败的原因：core 的 PrintLayoutError 或运行时的 PrintRuntimeError。 */
 export interface PaginationErrorDetail {
@@ -237,11 +230,5 @@ export function definePrintPreview(): void {
 declare global {
   interface HTMLElementTagNameMap {
     'xh-print-preview': XhPrintPreview
-  }
-}
-
-declare module '@xihan-ui/web-components' {
-  interface XhTranslationOverrides {
-    'xh-print-preview'?: Partial<PrintPreviewTranslations>
   }
 }
