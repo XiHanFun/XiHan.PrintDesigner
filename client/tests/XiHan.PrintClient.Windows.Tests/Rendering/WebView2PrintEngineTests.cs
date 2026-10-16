@@ -78,6 +78,15 @@ public sealed partial class WebView2PrintEngineTests(RenderFixture fixture) : IC
     }
 
     [Fact]
+    public async Task RendersTheSelfTestPage()
+    {
+        var client = new ClientInfo { Version = "0.1.0", Os = "windows", Arch = "x64", Renderer = fixture.Engine.Version };
+        var document = SelfTestDocument.Create(client, "Office", 100, 50, DateTimeOffset.Now);
+
+        Assert.Equal(["100x50"], PageSizes(await fixture.Engine.ExportPdfAsync(document, new PrintOptions(), Token)));
+    }
+
+    [Fact]
     public async Task ExportsOnlyTheSelectedPages()
     {
         var pdf = await fixture.Engine.ExportPdfAsync(Document([A4, A4, A5, A4Landscape]), new PrintOptions { PageRanges = "2-3" }, Token);
