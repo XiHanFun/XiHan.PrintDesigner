@@ -64,10 +64,6 @@ xh-print-designer [data-print-canvas-menu] {
   min-block-size: 0;
 }
 
-xh-print-designer [data-print-canvas-menu] {
-  block-size: 100%;
-}
-
 xh-print-designer [data-print-canvas-menu][hidden] {
   display: none;
 }
