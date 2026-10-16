@@ -39,7 +39,7 @@ XiHan.PrintDesigner is a framework-agnostic print designer delivered as native W
 - **No third-party runtime dependencies** - nothing third-party ships at runtime
 - **Templates are data** - a template is plain JSON that neither contains nor runs code, so importing one cannot inject scripts
 - **The host owns the data** - components make no network requests; data, storage and permissions are handed to the host through callbacks
-- **Companion print client** - a local print client for silent printing, printer selection and raw command printing, maintained in this repository (planned)
+- **Companion print client** - a local print client for silent printing, printer selection, raw command printing and PDF export, maintained in this repository
 
 ## Packages
 
@@ -50,6 +50,20 @@ XiHan.PrintDesigner is a framework-agnostic print designer delivered as native W
 | `@xihan-print/designer` | Designer: visual print template designer |
 
 Dependencies point `designer → runtime → core`. Business pages only need the runtime; the designer is loaded only where templates are edited.
+
+## Print client
+
+`client/` holds the print client: a Windows tray app that only listens on 127.0.0.1, asks the user once per website, and renders print jobs in a sandbox that runs no page scripts and loads nothing from the network. Business pages reach it through `@xihan-print/runtime/client`:
+
+```ts
+import { createPrintClient, printWithFallback } from '@xihan-print/runtime/client'
+
+const client = createPrintClient()
+// Prints silently through the client; falls back to the browser print dialog only when the client is not running
+await printWithFallback(client, schema, data, { printer: 'Kitchen' })
+```
+
+`<xh-print-preview>` and `<xh-print-designer>` take the same client through their `printClient` property. Business systems must be served over HTTPS (or `http://localhost`): Chromium-based browsers ask once before a site may reach apps on the local machine.
 
 ## Development
 

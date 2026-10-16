@@ -4,14 +4,13 @@
  */
 
 import type { PaginationDiagnostic, PaginationResult, PrintDocument } from '@xihan-print/core'
-import type { Size } from '@xihan-ui/designer-kit'
 import type { PrintRenderOptions } from './options'
 import { paginate } from '@xihan-print/core'
 import { createExpressionEngine } from '@xihan-ui/expression'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { resolvePaginateOptions } from './options'
-import { mm } from './render/css'
-import { renderSheets, sheetPageName } from './render/sheets'
+import { pageRules, PRINT_CSS } from './render/page'
+import { renderSheets } from './render/sheets'
 
 /** 等样式表、图片与字体就绪的上限，超时即照常打印。 */
 const RESOURCE_TIMEOUT = 10_000
@@ -19,10 +18,6 @@ const RESOURCE_TIMEOUT = 10_000
 const AFTERPRINT_TIMEOUT = 60_000
 
 const BLANK_DOCUMENT = '<!doctype html><html><head><meta charset="utf-8"></head><body></body></html>'
-
-const PRINT_CSS = `html, body { margin: 0; padding: 0; background: none; }
-[data-part="sheet"] { break-after: page; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-[data-part="sheet"]:last-child { break-after: auto; }`
 
 /** printSheets 的选项。 */
 export interface PrintSheetsOptions {
@@ -39,17 +34,8 @@ export interface PrintOptions extends PrintRenderOptions, PrintSheetsOptions {}
 export interface PrintOutcome {
   readonly sheets: number
   readonly diagnostics: readonly PaginationDiagnostic[]
-}
-
-/** 每种纸张尺寸一条具名 @page 规则，页边距为 0：边距已排进输出页。 */
-function pageRules(result: PaginationResult): string {
-  const sizes = new Map<string, Size>()
-  for (const sheet of result.sheets)
-    sizes.set(sheetPageName(sheet.size), sheet.size)
-  const rules = ['@page { margin: 0; }']
-  for (const [name, size] of sizes)
-    rules.push(`@page ${name} { size: ${mm(size.width)} ${mm(size.height)}; margin: 0; }`)
-  return rules.join('\n')
+  /** 送去打印的途径：client 为本地打印客户端，browser 为浏览器的打印对话框。 */
+  readonly via?: 'client' | 'browser'
 }
 
 function withTimeout(task: Promise<unknown>, ms: number): Promise<void> {
@@ -180,5 +166,5 @@ export async function printDocument(schema: PrintDocument, data: unknown, option
     expressionEngine: () => createExpressionEngine(),
   }))
   await printSheets(result, options)
-  return { sheets: result.sheets.length, diagnostics: result.diagnostics }
+  return { sheets: result.sheets.length, diagnostics: result.diagnostics, via: 'browser' }
 }
