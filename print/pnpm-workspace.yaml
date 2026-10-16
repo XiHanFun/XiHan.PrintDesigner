@@ -4,6 +4,7 @@ trustPolicy: no-downgrade
 
 packages:
   - 'packages/*'
+  - playground
 
 allowBuilds:
   esbuild: true
@@ -15,6 +16,7 @@ catalog:
   '@xihan-ui/designer-kit': ^5.0.0
   '@xihan-ui/expression': ^5.0.0
   '@xihan-ui/headless': ^5.0.0
+  '@xihan-ui/styles': ^5.0.0
   '@xihan-ui/viz': ^5.0.0
   '@xihan-ui/web-components': ^5.0.0
   # 开发依赖
@@ -25,6 +27,7 @@ catalog:
   oxlint: ^1.88.0
   tsdown: ~0.22.0
   typescript: ^6.0.3
+  vite: ^8.3.4
   vitest: ^4.1.11
 
 # 开发期临时：@xihan-ui/* 改指同级 XiHan.UI 源码（与 BasicApp 联调方式相同）。
@@ -34,5 +37,6 @@ overrides:
   '@xihan-ui/designer-kit': 'link:../../XiHan.UI/ui/packages/features/designer-kit'
   '@xihan-ui/expression': 'link:../../XiHan.UI/ui/packages/features/expression'
   '@xihan-ui/headless': 'link:../../XiHan.UI/ui/packages/engine/headless'
+  '@xihan-ui/styles': 'link:../../XiHan.UI/ui/packages/design/styles'
   '@xihan-ui/viz': 'link:../../XiHan.UI/ui/packages/engine/viz'
   '@xihan-ui/web-components': 'link:../../XiHan.UI/ui/packages/adapters/web-components'

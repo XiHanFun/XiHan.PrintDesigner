@@ -1,0 +1,20 @@
+{
+  "name": "@xihan-print/playground",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "description": "XiHan Print Designer 的开发预览页：示例模板的分页预览与浏览器打印，不发布。",
+  "scripts": {
+    "dev": "vite",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@xihan-print/core": "workspace:^",
+    "@xihan-print/runtime": "workspace:^",
+    "@xihan-ui/styles": "catalog:",
+    "@xihan-ui/web-components": "catalog:"
+  },
+  "devDependencies": {
+    "vite": "catalog:"
+  }
+}

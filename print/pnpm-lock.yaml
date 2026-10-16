@@ -27,6 +27,9 @@ catalogs:
     typescript:
       specifier: ^6.0.3
       version: 6.0.3
+    vite:
+      specifier: ^8.3.4
+      version: 8.3.4
     vitest:
       specifier: ^4.1.11
       version: 4.1.11
@@ -36,6 +39,7 @@ overrides:
   '@xihan-ui/designer-kit': link:../../XiHan.UI/ui/packages/features/designer-kit
   '@xihan-ui/expression': link:../../XiHan.UI/ui/packages/features/expression
   '@xihan-ui/headless': link:../../XiHan.UI/ui/packages/engine/headless
+  '@xihan-ui/styles': link:../../XiHan.UI/ui/packages/design/styles
   '@xihan-ui/viz': link:../../XiHan.UI/ui/packages/engine/viz
   '@xihan-ui/web-components': link:../../XiHan.UI/ui/packages/adapters/web-components
 
@@ -119,6 +123,25 @@ importers:
       jsdom:
         specifier: 'catalog:'
         version: 27.4.0
+
+  playground:
+    dependencies:
+      '@xihan-print/core':
+        specifier: workspace:^
+        version: link:../packages/core
+      '@xihan-print/runtime':
+        specifier: workspace:^
+        version: link:../packages/runtime
+      '@xihan-ui/styles':
+        specifier: link:../../../XiHan.UI/ui/packages/design/styles
+        version: link:../../../XiHan.UI/ui/packages/design/styles
+      '@xihan-ui/web-components':
+        specifier: link:../../../XiHan.UI/ui/packages/adapters/web-components
+        version: link:../../../XiHan.UI/ui/packages/adapters/web-components
+    devDependencies:
+      vite:
+        specifier: 'catalog:'
+        version: 8.3.4(@types/node@24.19.2)(yaml@2.9.1)
 
 packages:
 
