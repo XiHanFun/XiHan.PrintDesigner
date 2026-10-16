@@ -101,6 +101,8 @@ export interface PrintDesignerTranslations {
   readonly resizeColumn: (title: string) => string
   /** 新插入的列的标题，position 从 1 开始。 */
   readonly newColumnTitle: (position: number) => string
+  /** 拖动元素时显示的尺寸，入参是格式化后的宽与高（mm）。 */
+  readonly measure: (width: string, height: string) => string
   /** 物料面板的标题。 */
   readonly palette: string
   /** 属性面板的标题。 */

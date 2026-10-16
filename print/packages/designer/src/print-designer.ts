@@ -4,7 +4,8 @@
  */
 
 // <xh-print-designer>：打印模板设计器。画布按纸张显示一张页面模板（页眉、正文、页脚三区），元素用 runtime 的渲染代码画；
-// 点选与 Shift / Ctrl 追加选择，拖空白或按住中键平移，Ctrl / ⌘ + 滚轮缩放；页眉页脚可切换变体、拖边界改高度；
+// 点选与 Shift / Ctrl 追加选择，拖动元素移动，控制柄缩放与旋转，拖空白框选，按住空格或中键拖动平移，Ctrl / ⌘ + 滚轮缩放；
+// 页眉页脚可切换变体、拖边界改高度；
 // 双击表格进入表格编辑态；键盘撤销重做、删除、微移、层级与系统剪贴板；可切到 <xh-print-preview> 预览与打印。
 // 整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区。
 
@@ -26,7 +27,7 @@ import type {
 import type { PrintDesignerTranslations, PrintOutcome } from '@xihan-print/runtime'
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { AlignMode, DataField, DistributeAxis, ExecuteOptions, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
-import type { DesignerFrameRegion } from '@xihan-ui/designer-shell'
+import type { DesignerFrameRegion, DesignerSnapOptions, DesignerTransformEventMap, DesignerTransformItem, PanRequestDetail } from '@xihan-ui/designer-shell'
 import type { ExpressionEngine } from '@xihan-ui/expression'
 import type { PointerSession } from '@xihan-ui/pointer'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
@@ -58,11 +59,12 @@ import {
   panBy,
   revealRect,
   screenToWorld,
+  selectInMarquee,
   snapToGrid,
   wheelZoomFactor,
   zoomBy,
 } from '@xihan-ui/designer-kit'
-import { defineDesignerShellElement, parseDesignerPanels, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
+import { defineDesignerShellElement, parseDesignerPanels, XhDesignerFrameElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
@@ -184,6 +186,7 @@ const DEFAULT_TRANSLATIONS: PrintDesignerTranslations = {
   splitCell: 'Split cell',
   resizeColumn: title => `Resize column ${title}`,
   newColumnTitle: position => `Column ${position}`,
+  measure: (width, height) => `${width} × ${height} mm`,
   palette: 'Elements',
   properties: 'Properties',
   issues: 'Issues',
@@ -294,6 +297,7 @@ interface Layers {
   readonly menu: HTMLElement
   readonly menuContent: HTMLElement
   readonly viewport: HTMLElement
+  readonly overlay: XhDesignerTransformElement
   readonly world: HTMLElement
   readonly paper: HTMLElement
   readonly frames: HTMLElement
@@ -308,6 +312,20 @@ interface Gesture {
   readonly session: PointerSession
   active: boolean
   readonly cancel: () => void
+}
+
+/** 元素能被拖动的控制柄：水平、竖直的直线只给两端。 */
+function resizeHandles(element: PrintElement): DesignerTransformItem['handles'] {
+  if (element.type !== 'line')
+    return true
+  if (element.direction === 'horizontal')
+    return ['w', 'e']
+  return element.direction === 'vertical' ? ['n', 's'] : true
+}
+
+/** 角度落到 [0, 360)。 */
+function normalizeAngle(degrees: number): number {
+  return ((degrees % 360) + 360) % 360
 }
 
 function isCommand(value: string): value is Command {
@@ -390,6 +408,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   #resizeObserver: ResizeObserver | undefined
   #lastMode: PrintDesignerMode = 'design'
   #lastGrid = 1
+  #spacePan = false
+  #hoverId: string | undefined
 
   constructor() {
     super()
@@ -476,6 +496,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     super.disconnectedCallback()
     this.#resizeObserver?.disconnect()
     this.#cancelGesture()
+    this.#layers?.overlay.cancel()
   }
 
   protected override update(changed: PropertyValues): void {
@@ -510,6 +531,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       this.#layoutStale = false
     }
     this.#renderPaper(layers, t)
+    this.#syncOverlay(layers)
     if (!this.#fitIfPending())
       this.#applyViewport(false)
   }
@@ -832,6 +854,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       const { x, y, zoom } = this.#viewport
       const scale = zoom / PX_PER_MM
       layers.world.style.transform = `translate(${x}px, ${y}px) scale(${scale})`
+      layers.overlay.viewport = this.#viewport
       this.style.setProperty('--xh-print-designer-zoom', String(scale))
     }
     if (notify)
@@ -893,11 +916,16 @@ export class XhPrintDesigner extends XhReactiveElement {
     const bandMenus = createAuthoredElement(doc, 'div', { 'data-part': 'band-menus' })
     paper.append(frames, elements, watermark, decorations, bandMenus)
     const world = createAuthoredElement(doc, 'div', { 'data-part': 'world' }, [paper])
-    const viewport = createAuthoredElement(doc, 'div', { 'data-part': 'viewport', 'tabindex': 0, 'role': 'region' }, [world])
-    // 变换覆盖层与标尺由 @xihan-ui/designer-shell 提供，接入前留空
-    const overlay = createAuthoredElement(doc, 'div', { 'data-part': 'overlay', 'hidden': true })
+    const overlay = createAuthoredElement(doc, 'xh-designer-transform', { 'data-part': 'overlay' }) as XhDesignerTransformElement
+    overlay.viewport = this.#viewport
+    overlay.getSnap = () => this.#snapOptions()
+    overlay.formatMeasure = rect => this.#translations().measure(this.#formatMm(rect.width), this.#formatMm(rect.height))
+    overlay.addEventListener('transform', this.#onTransform)
+    overlay.addEventListener('marquee', this.#onMarquee)
+    overlay.addEventListener('pan-request', this.#onPanRequest)
+    const viewport = createAuthoredElement(doc, 'div', { 'data-part': 'viewport', 'tabindex': 0, 'role': 'region' }, [world, overlay])
     const menuContent = createAuthoredElement(doc, 'div', { 'data-xh-part': 'content' })
-    const trigger = createAuthoredElement(doc, 'div', { 'data-xh-part': 'trigger', 'data-print-canvas': '' }, [viewport, overlay])
+    const trigger = createAuthoredElement(doc, 'div', { 'data-xh-part': 'trigger', 'data-print-canvas': '' }, [viewport])
     const menu = createAuthoredElement(doc, 'xh-context-menu', { size: 'sm' }, [
       createAuthoredElement(doc, 'div', { 'data-xh-part': 'root', 'data-print-canvas-root': '' }, [trigger, createAuthoredElement(doc, 'div', { 'data-xh-part': 'positioner' }, [menuContent])]),
     ])
@@ -914,11 +942,15 @@ export class XhPrintDesigner extends XhReactiveElement {
     viewport.addEventListener('dblclick', this.#onDoubleClick)
     viewport.addEventListener('contextmenu', this.#onContextMenu)
     viewport.addEventListener('wheel', this.#onWheel, { passive: false })
+    viewport.addEventListener('pointermove', this.#onHover)
+    viewport.addEventListener('pointerleave', this.#onHoverEnd)
     this.addEventListener('keydown', this.#onKeyDown)
+    this.addEventListener('keyup', this.#onKeyUp)
+    this.addEventListener('focusout', this.#onFocusOut)
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, toolbar, toolbarRoot, items, pages, workspace, menu, menuContent, viewport, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
+    this.#layers = { frame, toolbar, toolbarRoot, items, pages, workspace, menu, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
     return this.#layers
   }
 
@@ -1178,11 +1210,6 @@ export class XhPrintDesigner extends XhReactiveElement {
     layers.watermark.replaceChildren(...(watermark === undefined ? [] : [watermark]))
 
     const decorations: HTMLElement[] = overflows.map(rect => frame('design-bound', { x: rect.x, y: rect.y, width: rect.width, height: 0 }))
-    for (const item of this.#editor.visibleElements()) {
-      if (!selected.has(item.element.id))
-        continue
-      decorations.push(frame('selection', elementRect(item.element)))
-    }
     if (!this.readonly) {
       for (const region of ['header', 'footer'] as const) {
         const rect = region === 'header' ? headerRect : footerRect
@@ -1322,6 +1349,146 @@ export class XhPrintDesigner extends XhReactiveElement {
       preview.locale = this.locale
     if (this.timeZone !== undefined)
       preview.timeZone = this.timeZone
+  }
+
+  // —— 内部：变换覆盖层 ——
+
+  #formatMm(value: number): string {
+    return new Intl.NumberFormat(this.locale, { maximumFractionDigits: 1 }).format(value)
+  }
+
+  /** 覆盖层上的选中项：表格编辑态与预览态下没有；锁定的元素不能缩放与旋转。 */
+  #overlayItems(): DesignerTransformItem[] {
+    if (this.#tableEdit !== undefined || this.mode !== 'design')
+      return []
+    const selected = new Set(this.#editor.selection.elements)
+    return this.#editor.visibleElements().filter(item => selected.has(item.element.id)).map(({ element }) => {
+      const prototype = this.#editor.registry.get(element.type)
+      return {
+        id: element.id,
+        rect: elementRect(element),
+        handles: element.locked === true ? false : resizeHandles(element),
+        rotatable: element.locked !== true && 'rotation' in element,
+        keepAspect: element.type === 'matrixCode',
+        ...(prototype === undefined ? {} : { minSize: prototype.minSize }),
+      }
+    })
+  }
+
+  #syncOverlay(layers: Layers): void {
+    layers.overlay.readonly = this.readonly
+    layers.overlay.items = this.#overlayItems()
+  }
+
+  /** 吸附选项：其它元素、页边距、各区边界与参考线；关掉吸附时只吸网格。 */
+  #snapOptions(): DesignerSnapOptions | undefined {
+    const grid = this.grid === false || !(this.grid > 0) ? undefined : this.grid
+    if (!this.snap)
+      return grid === undefined ? undefined : { targets: [], grid }
+    const page = this.#editor.page
+    const bands = this.#editor.bands
+    const header = page.header[bands.header] ?? page.header.default
+    const footer = page.footer[bands.footer] ?? page.footer.default
+    const selected = new Set(this.#editor.selection.elements)
+    const targets = [
+      ...this.#editor.visibleElements().filter(item => !selected.has(item.element.id)).map(item => elementRect(item.element)),
+      getContentRect(page),
+      getBandRect(page, 'header', header),
+      getBodyRect(page, header, footer),
+      getBandRect(page, 'footer', footer),
+    ]
+    return {
+      targets,
+      ...(page.guides === undefined ? {} : { lines: { x: page.guides.x, y: page.guides.y } }),
+      ...(grid === undefined ? {} : { grid }),
+    }
+  }
+
+  /** 在选中元素上按下：同步覆盖层的选中项后交给它移动；只读或有锁定的元素时不动。 */
+  #startMove(event: PointerEvent): void {
+    const layers = this.#ensureLayers()
+    this.#syncOverlay(layers)
+    const selected = new Set(this.#editor.selection.elements)
+    if (this.readonly || this.#editor.visibleElements().some(item => selected.has(item.element.id) && item.element.locked === true))
+      return
+    layers.overlay.startMove(event)
+  }
+
+  /** 把覆盖层算出的矩形换成编辑操作。 */
+  #transformOperations(kind: DesignerTransformEventMap['transform']['detail']['kind'], rects: ReadonlyMap<string, Rect>): PrintOperation[] {
+    const elements = new Map(this.#editor.visibleElements().map(item => [item.element.id, item.element]))
+    const entries = [...rects].filter(([id]) => elements.has(id))
+    if (kind === 'move') {
+      const first = entries[0]
+      if (first === undefined)
+        return []
+      const origin = elements.get(first[0])!
+      return [{ type: 'moveElements', ids: entries.map(([id]) => id), dx: first[1].x - origin.x, dy: first[1].y - origin.y }]
+    }
+    if (kind === 'resize')
+      return entries.map(([id, rect]) => ({ type: 'resizeElement', id, bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } }))
+    return entries.map(([id, rect]) => ({ type: 'updateElement', id, changes: [{ path: ['rotation'], value: normalizeAngle(rect.rotation ?? 0) }] }))
+  }
+
+  /** 拖动中每帧回滚到手势开始时再执行一次，画布按新矩形重排；松手提交为一步撤销，Alt 拖动时改为复制到新位置。 */
+  readonly #onTransform = (event: Event): void => {
+    const { phase, kind, rects, copy } = (event as DesignerTransformEventMap['transform']).detail
+    const history = this.#editor.history
+    if (phase === 'start') {
+      this.#stopAutoFit()
+      history.begin()
+      return
+    }
+    if (!history.inTransaction)
+      return
+    history.rollback()
+    if (phase === 'cancel')
+      return
+    history.begin()
+    if (phase === 'end' && copy === true && kind === 'move') {
+      const operations = this.#transformOperations(kind, rects)
+      const move = operations[0]
+      const duplicated = this.#editor.duplicate({ offset: 0 })
+      if (move?.type === 'moveElements')
+        this.#editor.moveElements(duplicated.elements, move.dx, move.dy)
+    }
+    else {
+      this.#editor.execute(this.#transformOperations(kind, rects))
+    }
+    if (phase === 'end')
+      history.commit()
+  }
+
+  readonly #onMarquee = (event: Event): void => {
+    const { phase, rect, mode, additive } = (event as DesignerTransformEventMap['marquee']).detail
+    if (phase !== 'end')
+      return
+    const visible = this.#editor.visibleElements()
+    const ids = selectInMarquee(rect, visible.map(item => elementRect(item.element)), mode).map(index => visible[index]!.element.id)
+    this.#editor.select({ elements: ids }, additive ? 'add' : 'replace')
+  }
+
+  readonly #onPanRequest = (event: Event): void => {
+    const { dx, dy } = (event as CustomEvent<PanRequestDetail>).detail
+    this.#stopAutoFit()
+    this.#moveTo(panBy(this.#viewport, -dx, -dy))
+  }
+
+  readonly #onHover = (event: PointerEvent): void => {
+    if (this.mode !== 'design' || event.buttons !== 0 || this.#tableEdit !== undefined)
+      return
+    const hit = this.#elementAt(this.clientToWorld(event.clientX, event.clientY))
+    if (hit?.id === this.#hoverId)
+      return
+    this.#hoverId = hit?.id
+    this.#ensureLayers().overlay.hover = hit === undefined ? undefined : elementRect(hit)
+  }
+
+  readonly #onHoverEnd = (): void => {
+    if (this.#hoverId === undefined)
+      return
+    this.#hoverId = undefined
+    this.#ensureLayers().overlay.hover = undefined
   }
 
   // —— 内部：表格编辑态 ——
@@ -1464,7 +1631,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (this.#gesture || this.mode !== 'design')
       return
     this.#layers?.viewport.focus({ preventScroll: true })
-    if (event.button === 1) {
+    if (event.button === 1 || (event.button === 0 && this.#spacePan)) {
       event.preventDefault()
       this.#pan(event)
       return
@@ -1497,13 +1664,19 @@ export class XhPrintDesigner extends XhReactiveElement {
     }
     const hit = this.#elementAt(point)
     const additive = event.shiftKey || event.ctrlKey || event.metaKey
+    if (hit !== undefined && additive) {
+      this.#editor.select({ elements: [hit.id] }, 'toggle')
+      return
+    }
     if (hit !== undefined) {
-      this.#editor.select({ elements: [hit.id] }, additive ? 'toggle' : 'replace')
+      if (!this.#editor.selection.elements.includes(hit.id))
+        this.#editor.select({ elements: [hit.id] })
+      this.#startMove(event)
       return
     }
     if (!additive)
       this.#editor.clearSelection()
-    this.#pan(event)
+    this.#ensureLayers().overlay.startMarquee(event, { additive })
   }
 
   readonly #onDoubleClick = (event: MouseEvent): void => {
@@ -1662,6 +1835,12 @@ export class XhPrintDesigner extends XhReactiveElement {
       case '0':
         this.zoomToFit()
         return true
+      case ' ':
+        if (event.target !== this.#layers?.viewport)
+          return false
+        if (!event.repeat)
+          this.#setSpacePan(true)
+        return true
       case 'Enter': {
         const table = this.#selectedTable()
         if (table === undefined || this.readonly || this.#tableEdit !== undefined)
@@ -1682,6 +1861,21 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#stopAutoFit()
     this.#moveTo(panBy(this.#viewport, -Math.sign(delta.dx) * PAN_STEP, -Math.sign(delta.dy) * PAN_STEP))
     return true
+  }
+
+  #setSpacePan(value: boolean): void {
+    this.#spacePan = value
+    this.toggleAttribute('data-space-pan', value)
+  }
+
+  readonly #onKeyUp = (event: KeyboardEvent): void => {
+    if (event.key === ' ' && this.#spacePan)
+      this.#setSpacePan(false)
+  }
+
+  readonly #onFocusOut = (): void => {
+    if (this.#spacePan)
+      this.#setSpacePan(false)
   }
 
   #clipboardText(): string | undefined {
@@ -1748,6 +1942,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 export function definePrintDesigner(): void {
   definePrintPreview()
   defineDesignerShellElement('xh-designer-frame', XhDesignerFrameElement)
+  defineDesignerShellElement('xh-designer-transform', XhDesignerTransformElement)
   registerElement(PRINT_DESIGNER_TAG, XhPrintDesigner)
 }
 

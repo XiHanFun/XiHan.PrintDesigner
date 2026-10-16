@@ -84,6 +84,7 @@ const designer: PrintDesignerTranslations = {
   splitCell: '拆分单元格',
   resizeColumn: title => `调整「${title}」列宽`,
   newColumnTitle: position => `列 ${position}`,
+  measure: (width, height) => `${width} × ${height} mm`,
   palette: '物料',
   properties: '属性',
   issues: '问题',

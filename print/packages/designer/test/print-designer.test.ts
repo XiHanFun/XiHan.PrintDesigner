@@ -6,6 +6,8 @@
 // @vitest-environment jsdom
 
 import type { PrintDocument } from '@xihan-print/core'
+import type { Rect } from '@xihan-ui/designer-kit'
+import type { DesignerGesturePhase, DesignerTransformKind, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import type { TextMeasurer } from '@xihan-ui/viz'
 import type { XhPrintDesigner } from '../src'
 import { createDocument, createElementRegistry, createPage } from '@xihan-print/core'
@@ -64,6 +66,14 @@ function viewport(): HTMLElement {
   return designer.querySelector<HTMLElement>('[data-part="viewport"]')!
 }
 
+function overlay(): XhDesignerTransformElement {
+  return designer.querySelector('xh-designer-transform')!
+}
+
+function transform(phase: DesignerGesturePhase, kind: DesignerTransformKind, rects: Record<string, Rect>, copy?: boolean): void {
+  overlay().dispatchEvent(new CustomEvent('transform', { detail: { phase, kind, rects: new Map(Object.entries(rects)), guides: [], ...(copy === undefined ? {} : { copy }) } }))
+}
+
 function key(name: string, init: KeyboardEventInit = {}): void {
   viewport().dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true, ...init }))
 }
@@ -83,7 +93,7 @@ describe('<xh-print-designer>', () => {
     at(viewport(), 'pointerdown', 20, 35)
     expect(designer.getSelection()).toEqual({ elements: ['a'] })
     await designer.updateComplete
-    expect(designer.querySelectorAll('[data-part="selection"]')).toHaveLength(1)
+    expect(overlay().items).toEqual([expect.objectContaining({ id: 'a', rect: { x: 10, y: 30, width: 40, height: 10 }, handles: true, rotatable: true })])
     key('ArrowRight')
     key('ArrowDown', { shiftKey: true })
     expect(designer.schema.pages[0]!.elements[0]).toMatchObject({ x: 11, y: 40 })
@@ -95,6 +105,49 @@ describe('<xh-print-designer>', () => {
     expect(designer.dirty).toBe(true)
     key('s', { ctrlKey: true })
     expect(events.at(-1)).toBe('save')
+  })
+
+  it('变换覆盖层：拖动中按新矩形重排、松手记一步撤销，取消时还原；缩放、旋转与 Alt 复制', async () => {
+    designer.select({ elements: ['a'] })
+    await designer.updateComplete
+    expect(overlay().viewport).toEqual({ x: 0, y: 0, zoom: PX_PER_MM })
+    transform('start', 'move', { a: { x: 10, y: 30, width: 40, height: 10 } })
+    transform('move', 'move', { a: { x: 12, y: 33, width: 40, height: 10 } })
+    transform('move', 'move', { a: { x: 15, y: 35, width: 40, height: 10 } })
+    expect(designer.schema.pages[0]!.elements[0]).toMatchObject({ x: 15, y: 35 })
+    transform('end', 'move', { a: { x: 15, y: 35, width: 40, height: 10 } })
+    expect(events.filter(event => event.startsWith('schema-change'))).toEqual(['schema-change:load', 'schema-change:execute'])
+    designer.undo()
+    expect(designer.schema.pages[0]!.elements[0]).toMatchObject({ x: 10, y: 30 })
+
+    transform('start', 'resize', { a: { x: 10, y: 30, width: 40, height: 10 } })
+    transform('move', 'resize', { a: { x: 10, y: 30, width: 50, height: 12 } })
+    transform('cancel', 'resize', { a: { x: 10, y: 30, width: 40, height: 10 } })
+    expect(designer.schema.pages[0]!.elements[0]).toMatchObject({ width: 40, height: 10 })
+
+    transform('start', 'rotate', { a: { x: 10, y: 30, width: 40, height: 10 } })
+    transform('end', 'rotate', { a: { x: 10, y: 30, width: 40, height: 10, rotation: -90 } })
+    expect(designer.schema.pages[0]!.elements[0]).toMatchObject({ rotation: 270 })
+
+    transform('start', 'move', { a: { x: 10, y: 30, width: 40, height: 10 } })
+    transform('end', 'move', { a: { x: 10, y: 50, width: 40, height: 10 } }, true)
+    expect(designer.schema.pages[0]!.elements.map(element => [element.id, element.y])).toEqual([['a', 30], ['t', 60], ['text-1', 50]])
+    expect(designer.getSelection().elements).toEqual(['text-1'])
+  })
+
+  it('框选按方向选中元素，Shift 追加；表格编辑态与只读时覆盖层没有可变换的选中项', async () => {
+    overlay().dispatchEvent(new CustomEvent('marquee', { detail: { phase: 'end', rect: { x: 5, y: 25, width: 50, height: 20 }, mode: 'contain', additive: false } }))
+    expect(designer.getSelection().elements).toEqual(['a'])
+    overlay().dispatchEvent(new CustomEvent('marquee', { detail: { phase: 'end', rect: { x: 0, y: 55, width: 20, height: 10 }, mode: 'intersect', additive: true } }))
+    expect(designer.getSelection().elements).toEqual(['a', 't'])
+    designer.select({ elements: ['t'] })
+    key('Enter')
+    await designer.updateComplete
+    expect(overlay().items).toEqual([])
+    key('Escape')
+    designer.readonly = true
+    await designer.updateComplete
+    expect(overlay().readonly).toBe(true)
   })
 
   it('复制写入系统剪贴板，粘贴换新 id；别的内容粘进来时忽略', () => {
