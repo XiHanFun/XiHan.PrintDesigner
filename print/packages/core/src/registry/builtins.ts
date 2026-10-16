@@ -20,6 +20,7 @@ import type {
 } from '../schema/elements'
 import type { CellStyle, TableColumn } from '../schema/table'
 import type { AnyElementPrototype, ElementPrototype } from './types'
+import { nestProperties } from '@xihan-ui/designer-kit/properties'
 import { NUMERAL_STYLES } from '@xihan-ui/expression'
 import { BAR_CODE_FORMATS, MATRIX_CODE_FORMATS } from '@xihan-ui/headless'
 import {
@@ -35,7 +36,7 @@ import {
   validateTableRules,
 } from '../validation/element-rules'
 import { tableBodyProperties, tableHeaderProperties } from './part-properties'
-import { behaviorProperties, boxProperties, choices, layoutProperties, nestProperties, property, textStyleProperties } from './properties'
+import { behaviorProperties, boxProperties, choices, layoutProperties, property, textStyleProperties } from './properties'
 
 function defaultTextStyle(overrides: Partial<TextStyle> = {}): TextStyle {
   return {

@@ -6,7 +6,7 @@
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { AnyElementPrototype, PropertyDescriptor, TableElement, ValidationIssue } from '../src'
 import { findJsonViolation, getJsonAt } from '@xihan-ui/core/json'
-import { checkProperties, isPropertyVisible } from '@xihan-ui/designer-kit/properties'
+import { checkProperties, isPropertyVisible, nestProperties } from '@xihan-ui/designer-kit/properties'
 import { BAR_CODE_FORMATS, MATRIX_CODE_FORMATS } from '@xihan-ui/headless'
 import { describe, expect, it } from 'vitest'
 import {
@@ -14,7 +14,6 @@ import {
   createElementRegistry,
   createPage,
   ELEMENT_CATEGORIES,
-  nestProperties,
   PAGE_PROPERTY_GROUPS,
   pageProperties,
   PRINT_ELEMENT_TYPES,
@@ -261,13 +260,5 @@ describe('页面与表格部位的属性描述', () => {
     expect(issuesFor(tableFooterRowProperties(), row)).toEqual([])
     const cell = { columnId: column.id, colSpan: 2, content: { kind: 'aggregate', fn: 'sum', scope: 'all' } }
     expect(issuesFor(tableFooterCellProperties(), cell)).toEqual(['table.aggregateFieldMissing@content'])
-  })
-
-  it('nestProperties 给路径与显示条件里的路径加前缀', () => {
-    const nested = nestProperties(['a'], [
-      { path: ['b'], group: 'table', control: { kind: 'boolean' }, present: true, visibleWhen: { all: [{ path: ['c'], equals: 1 }, { not: { path: ['d'], filled: true } }] } },
-    ])
-    expect(nested[0]!.path).toEqual(['a', 'b'])
-    expect(nested[0]!.visibleWhen).toEqual({ all: [{ path: ['a', 'c'], equals: 1 }, { not: { path: ['a', 'd'], filled: true } }] })
   })
 })
