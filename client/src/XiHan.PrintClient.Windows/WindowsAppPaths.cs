@@ -35,6 +35,7 @@ public sealed class WindowsAppPaths : IAppPaths
         SettingsDirectory = Path.Combine(roaming, Vendor, Product);
         LogDirectory = Path.Combine(local, Vendor, Product, "logs");
         RendererDataDirectory = Path.Combine(local, Vendor, Product, "webview");
+        UpdateDirectory = Path.Combine(local, Vendor, Product, "updates");
         PolicyFile = Path.Combine(machine, Vendor, Product, "policy.json");
     }
 
@@ -46,6 +47,9 @@ public sealed class WindowsAppPaths : IAppPaths
 
     /// <inheritdoc />
     public string RendererDataDirectory { get; }
+
+    /// <inheritdoc />
+    public string UpdateDirectory { get; }
 
     /// <inheritdoc />
     public string PolicyFile { get; }

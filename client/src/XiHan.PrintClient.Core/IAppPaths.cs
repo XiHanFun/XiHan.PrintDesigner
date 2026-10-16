@@ -24,6 +24,11 @@ public interface IAppPaths
     string RendererDataDirectory { get; }
 
     /// <summary>
+    /// 下载的更新安装包所在的目录
+    /// </summary>
+    string UpdateDirectory { get; }
+
+    /// <summary>
     /// 管理员下发的策略文件，不存在即没有策略
     /// </summary>
     string PolicyFile { get; }

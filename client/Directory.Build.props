@@ -16,5 +16,8 @@
     <Company>XiHanFun</Company>
     <Product>曦寒打印客户端</Product>
     <Copyright>Copyright (c) 2021-Present XiHanFun and contributors.</Copyright>
+
+    <!-- 自动更新只安装这个发布者签名的安装包，填签名证书上的 CN 或 O；为空时只提示新版、不自动安装 -->
+    <XiHanUpdatePublisher></XiHanUpdatePublisher>
   </PropertyGroup>
 </Project>

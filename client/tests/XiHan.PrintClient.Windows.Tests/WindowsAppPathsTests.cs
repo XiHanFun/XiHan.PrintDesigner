@@ -13,6 +13,7 @@ public sealed class WindowsAppPathsTests
         Assert.Equal(@"C:\roaming\XiHanFun\PrintClient", paths.SettingsDirectory);
         Assert.Equal(@"C:\local\XiHanFun\PrintClient\logs", paths.LogDirectory);
         Assert.Equal(@"C:\local\XiHanFun\PrintClient\webview", paths.RendererDataDirectory);
+        Assert.Equal(@"C:\local\XiHanFun\PrintClient\updates", paths.UpdateDirectory);
         Assert.Equal(@"C:\machine\XiHanFun\PrintClient\policy.json", paths.PolicyFile);
     }
 }
