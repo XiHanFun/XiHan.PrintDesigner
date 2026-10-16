@@ -143,6 +143,17 @@ const PROPERTY_NAMES: Readonly<Record<string, string>> = {
   'cellStyle/verticalAlign': '垂直对齐',
   'cellStyle/padding': '左右内边距',
   'cellStyle/lineHeight': '行高',
+  'paper/preset': '规格',
+  'paper/width': '宽',
+  'paper/height': '高',
+  'watermark/text': '文字',
+  'watermark/fontFamily': '字体',
+  'watermark/fontSize': '字号',
+  'watermark/color': '颜色',
+  'watermark/opacity': '不透明度',
+  'watermark/rotation': '旋转',
+  'watermark/gapX': '横向间距',
+  'watermark/gapY': '纵向间距',
 }
 
 const PROPERTY_OPTIONS: Readonly<Record<string, string>> = {
@@ -184,6 +195,7 @@ const PROPERTY_OPTIONS: Readonly<Record<string, string>> = {
   'dashed': '虚线',
   'dotted': '点线',
   'double': '双线',
+  'custom': '自定义',
 }
 
 /** 校验问题与分页诊断的中文说明；不认识的问题码原样返回。 */

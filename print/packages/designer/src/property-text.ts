@@ -137,6 +137,17 @@ export const PROPERTY_NAMES: PrintDesignerTranslations['propertyNames'] = {
   'cellStyle/verticalAlign': 'Vertical align',
   'cellStyle/padding': 'Side padding',
   'cellStyle/lineHeight': 'Line height',
+  'paper/preset': 'Size',
+  'paper/width': 'Width',
+  'paper/height': 'Height',
+  'watermark/text': 'Text',
+  'watermark/fontFamily': 'Font',
+  'watermark/fontSize': 'Font size',
+  'watermark/color': 'Color',
+  'watermark/opacity': 'Opacity',
+  'watermark/rotation': 'Rotation',
+  'watermark/gapX': 'Horizontal spacing',
+  'watermark/gapY': 'Vertical spacing',
 }
 
 export const PROPERTY_OPTION_NAMES: PrintDesignerTranslations['propertyOptions'] = {
@@ -178,6 +189,7 @@ export const PROPERTY_OPTION_NAMES: PrintDesignerTranslations['propertyOptions']
   'dashed': 'Dashed',
   'dotted': 'Dotted',
   'double': 'Double',
+  'custom': 'Custom',
 }
 
 export const UNIT_NAMES: PrintDesignerTranslations['units'] = {
