@@ -80,6 +80,7 @@ public sealed class JobQueue : IAsyncDisposable
             }
             position = lane.Active.Count;
             lane.Active.Add(job);
+            job.CreatedAt = _time.GetUtcNow();
             _jobs[job.Id] = job;
         }
         _log.Write(LogLevel.Information, $"受理任务 {job.Id}：{job.Kind} {job.Printer ?? "pdf"}，来源 {job.Session.Origin}");
@@ -123,6 +124,15 @@ public sealed class JobQueue : IAsyncDisposable
         else if (state == JobState.Started)
             await job.Cancellation.CancelAsync().ConfigureAwait(false);
         return state == JobState.Queued;
+    }
+
+    /// <summary>
+    /// 最近受理的若干个任务，新的在前
+    /// </summary>
+    public IReadOnlyList<JobRecord> Recent(int count)
+    {
+        lock (_gate)
+            return [.. _jobs.Values.OrderByDescending(job => job.CreatedAt).Take(count).Select(job => job.Record())];
     }
 
     /// <summary>
