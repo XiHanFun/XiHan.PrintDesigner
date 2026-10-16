@@ -5,7 +5,8 @@
 
 // <xh-print-designer>：打印模板设计器。画布按纸张显示一张页面模板（页眉、正文、页脚三区），元素用 runtime 的渲染代码画；
 // 点选与 Shift / Ctrl 追加选择，拖动元素移动，控制柄缩放与旋转，拖空白框选，按住空格或中键拖动平移，Ctrl / ⌘ + 滚轮缩放；
-// 画布外有毫米标尺，从标尺拖出的参考线存进页面模板；下方问题列表点选即定位；页眉页脚可切换变体、拖边界改高度；
+// 画布外有毫米标尺，从标尺拖出的参考线存进页面模板；右侧属性面板编辑选中元素、表格部位或页面设置，
+// 下方问题列表点选即定位；页眉页脚可切换变体、拖边界改高度；
 // 双击表格进入表格编辑态；键盘撤销重做、删除、微移、层级与系统剪贴板；可切到 <xh-print-preview> 预览与打印。
 // 整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区。
 
@@ -20,6 +21,8 @@ import type {
   PrintElement,
   PrintElementType,
   PrintOperation,
+  PropertyGroup,
+  PropertyUnit,
   ReorderTarget,
   TableElement,
   TableLayoutBox,
@@ -29,6 +32,7 @@ import type {
 import type { PrintDesignerTranslations, PrintOutcome } from '@xihan-print/runtime'
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { AlignMode, DataField, DistributeAxis, ExecuteOptions, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
+import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
 import type {
   DesignerFrameRegion,
   DesignerGuides,
@@ -37,6 +41,10 @@ import type {
   DesignerPaletteDragPayload,
   DesignerPaletteEventMap,
   DesignerPaletteGroup,
+  DesignerPropertiesEventMap,
+  DesignerPropertyDescriptor,
+  DesignerPropertyEditor,
+  DesignerPropertyError,
   DesignerRulerEventMap,
   DesignerSnapOptions,
   DesignerTransformEventMap,
@@ -49,6 +57,7 @@ import type { PointerSession } from '@xihan-ui/pointer'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { PrintClipboard, PrintSelection, PrintTablePart } from './editor'
+import type { PropertySubject } from './property-targets'
 import type { TableCommand } from './table-edit'
 import {
   createDocument,
@@ -60,10 +69,13 @@ import {
   getPaperSize,
   layoutDesign,
   PAGE_BAND_KEYS,
+  PAGE_PROPERTY_GROUPS,
   planResizeTableColumn,
+  PROPERTY_GROUPS,
   validateDocument,
 } from '@xihan-print/core'
 import { definePrintPreview, PRINT_PREVIEW_TAG, renderBox, renderWatermark } from '@xihan-print/runtime'
+import { formatJsonPath } from '@xihan-ui/core/json'
 import {
   centerOn,
   clipboardMimeType,
@@ -81,6 +93,7 @@ import {
   wheelZoomFactor,
   zoomBy,
 } from '@xihan-ui/designer-kit'
+import { resolvePropertyEditor } from '@xihan-ui/designer-kit/properties'
 import {
   defineDesignerShellElement,
   parseDesignerPanels,
@@ -88,6 +101,7 @@ import {
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
   XhDesignerPaletteElement,
+  XhDesignerPropertiesElement,
   XhDesignerRulerElement,
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
@@ -97,6 +111,8 @@ import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, setText, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { createPrintEditor, elementRect } from './editor'
 import { defaultIssueText } from './issue-text'
+import { propertySubjects, TABLE_PART_KINDS } from './property-targets'
+import { PROPERTY_GROUP_NAMES, PROPERTY_NAMES, PROPERTY_OPTION_NAMES, UNIT_NAMES } from './property-text'
 import { columnBoundaries, planTableCommand, TABLE_COMMANDS, tablePartAt } from './table-edit'
 
 /** 设计器的标签名。 */
@@ -219,6 +235,12 @@ const DEFAULT_TRANSLATIONS: PrintDesignerTranslations = {
   properties: 'Properties',
   issues: 'Issues',
   issue: defaultIssueText,
+  propertyGroups: PROPERTY_GROUP_NAMES,
+  propertyNames: PROPERTY_NAMES,
+  propertyOptions: PROPERTY_OPTION_NAMES,
+  units: UNIT_NAMES,
+  pageSettings: 'Page settings',
+  selectedCount: count => `${count} elements selected`,
 }
 
 type StringKey = { [K in keyof PrintDesignerTranslations]: PrintDesignerTranslations[K] extends string ? K : never }[keyof PrintDesignerTranslations]
@@ -311,6 +333,9 @@ const PAGE_COMMANDS: readonly Command[] = ['add-page', 'remove-page', 'move-page
 
 const NO_GUIDES: DesignerGuides = { x: [], y: [] }
 
+/** 属性面板自带编辑器的编辑方式。 */
+const BUILTIN_CONTROLS: ReadonlySet<string> = new Set(['text', 'number', 'boolean', 'select', 'tags', 'color', 'json'])
+
 /** 外框的命名区：上方是工具栏与页面模板页签，左侧物料，中间画布；label 是分隔条名称里的区名。 */
 function frameRegions(t: PrintDesignerTranslations): DesignerFrameRegion[] {
   return [
@@ -318,6 +343,7 @@ function frameRegions(t: PrintDesignerTranslations): DesignerFrameRegion[] {
     { name: 'pages', position: 'top' },
     { name: 'palette', position: 'start', size: 16, label: t.palette },
     { name: 'canvas', position: 'center' },
+    { name: 'properties', position: 'end', size: 22, label: t.properties },
     { name: 'issues', position: 'bottom', size: 22, label: t.issues },
   ]
 }
@@ -330,6 +356,7 @@ interface Layers {
   readonly frame: XhDesignerFrameElement
   readonly palette: XhDesignerPaletteElement
   readonly issues: XhDesignerIssuesElement
+  readonly properties: XhDesignerPropertiesElement
   readonly toolbar: HTMLElement
   readonly toolbarRoot: HTMLElement
   readonly items: Map<Command, HTMLButtonElement>
@@ -399,6 +426,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     grid: { attribute: false },
     snap: { attribute: false },
     panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
+    editors: { attribute: false },
   }
 
   /** 预览分页用的数据。 */
@@ -429,6 +457,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   declare snap: boolean
   /** 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。 */
   declare panels: string | undefined
+  /** 宿主的属性编辑器，压在内建编辑器之上；打印的复合编辑方式只在这里查得到编辑器时才在属性面板里显示。 */
+  declare editors: PropertyEditorTable<DesignerPropertyEditor> | undefined
 
   readonly #config = new XhConfigController(this)
   readonly #editor = createPrintEditor({ document: createDocument() })
@@ -454,6 +484,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   #regions: { readonly key: string, readonly regions: readonly DesignerFrameRegion[] } | undefined
   #paletteKey = ''
   #listed: { readonly issues: readonly ValidationIssue[], readonly key: string } | undefined
+  #subjects: PropertySubject[] = []
+  #panelInputs: readonly unknown[] = []
   #unregisterDrop: (() => void) | undefined
   #hoverId: string | undefined
 
@@ -572,6 +604,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#syncFrameRegions(layers, t)
     this.#syncPalette(layers, t)
     this.#syncIssues(layers, t)
+    this.#syncProperties(layers, t)
     this.#renderToolbar(layers, t)
     this.#renderPages(layers, t)
     layers.viewport.setAttribute('aria-label', t.canvas)
@@ -1001,13 +1034,16 @@ export class XhPrintDesigner extends XhReactiveElement {
     const issues = createAuthoredElement(doc, 'xh-designer-issues', { 'slot': 'issues', 'data-part': 'issues' }) as XhDesignerIssuesElement
     issues.addEventListener('issue-activate', this.#onIssueActivate)
     issues.addEventListener('issue-hover', this.#onIssueHover)
+    const properties = createAuthoredElement(doc, 'xh-designer-properties', { 'slot': 'properties', 'data-part': 'properties', 'collapsible': true, 'toggle-limit': 4 }) as XhDesignerPropertiesElement
+    properties.addEventListener('property-change', this.#onPropertyChange)
+    properties.addEventListener('property-commit', this.#onPropertyCommit)
     const preview = createAuthoredElement(doc, 'div', { 'data-part': 'preview', 'hidden': true })
     const ruler = createAuthoredElement(doc, 'xh-designer-ruler', { 'unit-size': 1 }) as XhDesignerRulerElement
     ruler.viewport = this.#viewport
     ruler.snap = (_axis, value) => this.#snapValue(value)
     ruler.addEventListener('guides-change', this.#onGuidesChange)
     const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [ruler, menu, preview])
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, pages, palette, workspace, issues]) as XhDesignerFrameElement
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, pages, palette, workspace, properties, issues]) as XhDesignerFrameElement
     this.append(frame)
 
     viewport.addEventListener('pointerdown', this.#onPointerDown)
@@ -1022,7 +1058,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, palette, issues, toolbar, toolbarRoot, items, pages, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
+    this.#layers = { frame, palette, issues, properties, toolbar, toolbarRoot, items, pages, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
     return this.#layers
   }
 
@@ -1476,6 +1512,90 @@ export class XhPrintDesigner extends XhReactiveElement {
   #setOverlayHover(rect: Rect | undefined): void {
     this.#hoverId = undefined
     this.#ensureLayers().overlay.hover = rect
+  }
+
+  // —— 内部：属性面板 ——
+
+  /** 按选择换编辑对象；分组、属性名、选项与单位的文案只在对象种类或文案变化时重新交给面板。 */
+  #syncProperties(layers: Layers, t: PrintDesignerTranslations): void {
+    const panel = layers.properties
+    const subjects = propertySubjects(this.#editor, this.#tableEdit)
+    this.#subjects = subjects
+    const kind = subjects.length > 0 && subjects.every(subject => subject.kind === subjects[0]!.kind) ? subjects[0]!.kind : ''
+    const editors = this.editors
+    const usable = (descriptor: DesignerPropertyDescriptor): boolean =>
+      BUILTIN_CONTROLS.has(descriptor.control.kind) || (editors !== undefined && resolvePropertyEditor(editors, kind, descriptor) !== undefined)
+    panel.targets = subjects.map(subject => ({ kind: subject.kind, id: subject.id, value: subject.value, descriptors: subject.descriptors.filter(usable) }))
+    panel.errors = this.#propertyErrors(subjects, t)
+    panel.heading = this.#propertyHeading(subjects, t)
+    panel.readonly = this.readonly
+    const inputs = [kind, editors, t.propertyGroups, t.propertyNames, t.propertyOptions, t.units]
+    if (inputs.length === this.#panelInputs.length && inputs.every((input, index) => input === this.#panelInputs[index]))
+      return
+    this.#panelInputs = inputs
+    panel.editors = editors
+    panel.groupOrder = kind === 'page' ? PAGE_PROPERTY_GROUPS : PROPERTY_GROUPS
+    panel.groupLabel = group => t.propertyGroups[group as PropertyGroup] ?? group
+    panel.labelOf = (descriptor) => {
+      const key = formatJsonPath(descriptor.path)
+      return t.propertyNames[`${kind}:${key}`] ?? t.propertyNames[key] ?? descriptor.label ?? key
+    }
+    panel.optionLabel = (descriptor, option) => {
+      const value = String(option.value)
+      return t.propertyOptions[`${formatJsonPath(descriptor.path)}=${value}`] ?? t.propertyOptions[value] ?? option.label ?? value
+    }
+    panel.unitLabel = unit => t.units[unit as PropertyUnit] ?? unit
+  }
+
+  /** 落在编辑对象内的校验问题，路径换成相对对象；页面设置不收元素上的问题。 */
+  #propertyErrors(subjects: readonly PropertySubject[], t: PrintDesignerTranslations): DesignerPropertyError[] {
+    const errors: DesignerPropertyError[] = []
+    for (const subject of subjects) {
+      for (const issue of this.#issues) {
+        if (subject.kind === 'page' && issue.target?.kind === 'element')
+          continue
+        if (issue.path.length <= subject.path.length || !subject.path.every((segment, index) => issue.path[index] === segment))
+          continue
+        errors.push({ target: { kind: subject.kind, id: subject.id }, path: issue.path.slice(subject.path.length), message: t.issue(issue) })
+      }
+    }
+    return errors
+  }
+
+  /** 面板标题下的一行：页面设置、元素名、「表格 · 部位」或选中的个数。 */
+  #propertyHeading(subjects: readonly PropertySubject[], t: PrintDesignerTranslations): string | undefined {
+    const first = subjects[0]
+    if (first === undefined)
+      return undefined
+    if (first.kind === 'page')
+      return t.pageSettings
+    if (subjects.length > 1)
+      return t.selectedCount(subjects.length)
+    const elementId = this.#tableEdit !== undefined && Object.values(TABLE_PART_KINDS).includes(first.kind) ? this.#tableEdit : first.id
+    const element = findElement(this.#editor.document, elementId)?.element
+    if (element === undefined)
+      return undefined
+    const label = t.elementLabel(t.elements[element.type as PrintElementType] ?? element.type, element.name ?? element.id)
+    const part = this.#editor.selection.tablePart
+    return elementId === first.id || part === undefined ? label : `${label} · ${t.tableParts[part.kind]}`
+  }
+
+  /** 面板上的一处修改：对每个对象各写一份，按面板给的合并键并成一步撤销，直到封口。 */
+  readonly #onPropertyChange = (event: Event): void => {
+    const { path, value, targets, merge } = (event as DesignerPropertiesEventMap['property-change']).detail
+    if (this.readonly)
+      return
+    const subjects = new Map(this.#subjects.map(subject => [subject.id, subject]))
+    const operations = targets.flatMap((target) => {
+      const subject = subjects.get(target.id)
+      return subject === undefined ? [] : [subject.write(path, value)]
+    })
+    if (operations.length > 0)
+      this.#editor.execute(operations, { merge, mergeWithin: Number.POSITIVE_INFINITY })
+  }
+
+  readonly #onPropertyCommit = (): void => {
+    this.#editor.seal()
   }
 
   // —— 内部：问题列表 ——
@@ -2162,6 +2282,7 @@ export function definePrintDesigner(): void {
   defineDesignerShellElement('xh-designer-ruler', XhDesignerRulerElement)
   defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)
   defineDesignerShellElement('xh-designer-issues', XhDesignerIssuesElement)
+  defineDesignerShellElement('xh-designer-properties', XhDesignerPropertiesElement)
   registerElement(PRINT_DESIGNER_TAG, XhPrintDesigner)
 }
 

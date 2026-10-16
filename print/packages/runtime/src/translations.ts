@@ -5,7 +5,7 @@
 
 // 打印产品各元素的文案键：预览与设计器的文案类型集中在这里，并补进 UI 的 XhTranslationOverrides。
 
-import type { ElementCategory, ElementRegion, PageBandKey, PrintElementType } from '@xihan-print/core'
+import type { ElementCategory, ElementRegion, PageBandKey, PrintElementType, PropertyGroup, PropertyUnit } from '@xihan-print/core'
 import type { SchemaIssue } from '@xihan-ui/designer-kit/schema'
 
 /** 预览元素的文案。 */
@@ -114,6 +114,18 @@ export interface PrintDesignerTranslations {
   readonly issues: string
   /** 校验问题与分页诊断的说明，按问题码与参数生成。 */
   readonly issue: (issue: SchemaIssue) => string
+  /** 属性分组的名称。 */
+  readonly propertyGroups: Readonly<Record<PropertyGroup, string>>
+  /** 属性名：键为 formatJsonPath(path)；「对象种类:路径」覆盖同一路径在该种类上的名字，对象种类是 page、元素种类或 table-column 等表格部位。 */
+  readonly propertyNames: Readonly<Record<string, string>>
+  /** select 选项名：键为选项值；「路径=选项值」覆盖该属性上的名字。 */
+  readonly propertyOptions: Readonly<Record<string, string>>
+  /** 数值属性的单位。 */
+  readonly units: Readonly<Record<PropertyUnit, string>>
+  /** 属性面板在没有选中时编辑页面设置，标题下的一行。 */
+  readonly pageSettings: string
+  /** 属性面板在选中多个元素时标题下的一行。 */
+  readonly selectedCount: (count: number) => string
 }
 
 declare module '@xihan-ui/web-components' {

@@ -207,6 +207,45 @@ describe('<xh-print-designer>', () => {
     expect(zh.issue({ code: 'out-of-range', path: [], params: { min: 0, max: 360 } })).toBe('应不小于 0、不大于 360')
   })
 
+  it('属性面板：没选中时编辑页面设置，选中元素时编辑元素，连续输入并成一步撤销；校验问题落到字段上', async () => {
+    const panel = designer.querySelector('xh-designer-properties')!
+    const change = (path: (string | number)[], value: unknown, kind: string, id: string): void => {
+      panel.dispatchEvent(new CustomEvent('property-change', { detail: { path, value, targets: [{ kind, id }], merge: `prop:${id}:${path.join('.')}` } }))
+    }
+    expect(panel.closest('[data-region="properties"]')).not.toBeNull()
+    expect([panel.targets!.map(target => target.kind), panel.heading]).toEqual([['page'], 'Page settings'])
+    expect(panel.targets![0]!.descriptors.map(descriptor => descriptor.control.kind)).not.toContain('paper')
+    designer.select({ elements: ['a'] })
+    await designer.updateComplete
+    expect([panel.targets!.map(target => [target.kind, target.id]), panel.heading]).toEqual([[['text', 'a']], 'Text a'])
+    const fontSize = panel.targets![0]!.descriptors.find(descriptor => descriptor.path.join('.') === 'style.fontSize')!
+    expect([panel.labelOf!(fontSize), panel.unitLabel!('pt'), panel.groupLabel!('text')]).toEqual(['Font size', 'pt', 'Text'])
+    change(['x'], 12, 'text', 'a')
+    change(['x'], 15, 'text', 'a')
+    panel.dispatchEvent(new CustomEvent('property-commit', { detail: { path: ['x'] } }))
+    expect(designer.schema.pages[0]!.elements[0]).toMatchObject({ x: 15 })
+    designer.undo()
+    expect(designer.schema.pages[0]!.elements[0]).toMatchObject({ x: 10 })
+    change(['width'], -1, 'text', 'a')
+    await Promise.resolve()
+    await designer.updateComplete
+    expect(panel.errors).toContainEqual({ target: { kind: 'text', id: 'a' }, path: ['width'], message: 'Must be at least 0' })
+  })
+
+  it('属性面板：表格编辑态下编辑选中的部位，修改写回整张表格', async () => {
+    const panel = designer.querySelector('xh-designer-properties')!
+    designer.select({ elements: ['t'] })
+    key('Enter')
+    designer.select({ elements: ['t'], tablePart: { kind: 'header', elementId: 't' } })
+    await designer.updateComplete
+    expect([panel.targets!.map(target => target.kind), panel.heading]).toEqual([['table-header'], 'Table t · Header'])
+    const id = panel.targets![0]!.id
+    const height = panel.targets![0]!.descriptors.find(descriptor => descriptor.path.join('.') === 'height')!
+    expect(panel.labelOf!(height)).toBe('Row height')
+    panel.dispatchEvent(new CustomEvent('property-change', { detail: { path: ['height'], value: 9, targets: [{ kind: 'table-header', id }], merge: 'm' } }))
+    expect((designer.schema.pages[0]!.elements[1] as { header: { height: number } }).header.height).toBe(9)
+  })
+
   it('复制写入系统剪贴板，粘贴换新 id；别的内容粘进来时忽略', () => {
     designer.select({ elements: ['a'] })
     const copied = clipboardData()
