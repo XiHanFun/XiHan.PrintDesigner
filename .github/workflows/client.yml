@@ -48,3 +48,28 @@ jobs:
       # dotnet test 由 global.json 的 test.runner 驱动 Microsoft.Testing.Platform
       - name: Test
         run: dotnet test --solution XiHan.PrintClient.slnx -c Release --no-build
+
+  package:
+    name: 安装包
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: client/global.json
+      - name: Install Inno Setup
+        shell: pwsh
+        run: if (-not (Get-Command iscc -ErrorAction SilentlyContinue) -and -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
+      # 分支构建不签名；签名与发布走 client-release.yml
+      - name: Package
+        shell: pwsh
+        run: ./installer/build.ps1
+      - uses: actions/upload-artifact@v7
+        with:
+          name: xihan-print-client
+          path: |
+            client/installer/output/*.exe
+            client/installer/output/*.sha256
+          if-no-files-found: error

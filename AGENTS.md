@@ -31,7 +31,8 @@ XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components
 │  ├─ src/XiHan.PrintClient.Core/      # net10.0，平台无关：协议、会话、来源授权、任务队列与各平台接口
 │  ├─ src/XiHan.PrintClient.Windows/   # net10.0-windows：WebView2 渲染、winspool、注册表自启、单实例
 │  ├─ src/XiHan.PrintClient/           # WinForms 托盘程序，产物 XiHanPrint.exe
-│  └─ tests/                           # xunit.v3，dotnet test 走 Microsoft.Testing.Platform
+│  ├─ tests/                           # xunit.v3，dotnet test 走 Microsoft.Testing.Platform
+│  └─ installer/                       # Inno Setup 安装脚本与打包脚本 build.ps1
 └─ print/                           # pnpm monorepo 根
    ├─ packages/
    │  ├─ core/                    # @xihan-print/core：模型层，纯 TS，不碰 DOM
@@ -100,12 +101,15 @@ pnpm dev
 | --- | --- |
 | 构建 | `dotnet build XiHan.PrintClient.slnx -c Release` |
 | 测试 | `dotnet test --solution XiHan.PrintClient.slnx -c Release --no-build` |
+| 安装包 | `pwsh installer/build.ps1`（自包含发布 x64 与 arm64，再用 Inno Setup 6 编译；`-PublishOnly` 只发布） |
 
 - SDK 版本以 `client/global.json` 为准，与 XiHan.Framework 一致；包版本集中在 `Directory.Packages.props`。
 - 运行时 NuGet 依赖只有 `Microsoft.Web.WebView2`；新增任何运行时依赖前先征得维护者同意，能用 .NET 自带库或 Windows API 自写的就自写。
 - Core 不引用任何 Windows 专属 API，平台相关的实现放在平台项目里，经 Core 的接口接入。
 - 代码风格照 XiHan.Framework：文件头两行版权注释，文件级命名空间，公开成员写中文 XML 注释，注释只写做什么。
 - 原始通道的集成测试要一台端口指向文件的「Generic / Text Only」打印机，经环境变量 `XIHAN_PRINT_TEST_PRINTER`、`XIHAN_PRINT_TEST_OUTPUT` 告知；没配置时跳过。CI 里由 `client.yml` 自动装，本机要跑时以管理员身份照那一步装。
+- 安装包按当前用户装到 `%LocalAppData%ProgramsXiHanFunPrintClient`，不要管理员权限；打进 WebView2 Evergreen 引导程序（内网可用 `-WebView2Installer` 换成离线安装包）。分支 CI 出未签名的安装包；推 `client-v<版本>` 标签时 `client-release.yml` 签名（仓库密钥 `CLIENT_SIGNING_CERT`、`CLIENT_SIGNING_PASSWORD`，没有就不签）并建草稿 Release，发布草稿后把附件里的 `update.json` 提交到 main 的 `client/update.json`，客户端的自动更新才看得到新版。
+- 自动更新只安装 `Directory.Build.props` 里 `XiHanUpdatePublisher` 这个发布者签名的安装包，为空时只提示新版、不自动安装。
 - 提交前跑构建、测试与 `git diff --check`。
 
 ## 分支与 worktree

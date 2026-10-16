@@ -1,0 +1,59 @@
+name: Client Release
+
+# 推 client-v<版本> 标签时编译、签名安装包，建一个草稿 Release；发布草稿与更新 main 上的 client/update.json 由维护者手动完成
+on:
+  push:
+    tags: ['client-v*']
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: client
+
+jobs:
+  release:
+    name: 发布安装包
+    runs-on: windows-latest
+    timeout-minutes: 40
+    env:
+      SIGNING_CERT: ${{ secrets.CLIENT_SIGNING_CERT }}
+      SIGNING_PASSWORD: ${{ secrets.CLIENT_SIGNING_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: client/global.json
+      - name: Check version
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content Directory.Build.props -Raw)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
+          if ("client-v$version" -ne $env:GITHUB_REF_NAME) { throw "标签 $env:GITHUB_REF_NAME 与 Directory.Build.props 的版本 $version 不一致" }
+          "CLIENT_VERSION=$version" >> $env:GITHUB_ENV
+      - run: dotnet build XiHan.PrintClient.slnx -c Release
+      - run: dotnet test --solution XiHan.PrintClient.slnx -c Release --no-build
+      - name: Install Inno Setup
+        shell: pwsh
+        run: if (-not (Get-Command iscc -ErrorAction SilentlyContinue) -and -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
+      # 仓库密钥里有证书时才签名；没有时照常出未签名的安装包，客户端的自动更新不会安装它
+      - name: Prepare signing
+        if: env.SIGNING_CERT != ''
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'client-signing.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:SIGNING_CERT))
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Sort-Object FullName | Select-Object -Last 1
+          "SIGN_COMMAND=`"$($signtool.FullName)`" sign /f `"$pfx`" /p $env:SIGNING_PASSWORD /fd sha256 /tr http://timestamp.digicert.com /td sha256 `$f" >> $env:GITHUB_ENV
+      - name: Package
+        shell: pwsh
+        run: ./installer/build.ps1 -SignCommand "$env:SIGN_COMMAND" -ReleaseBaseUrl "https://github.com/${{ github.repository }}/releases/download/$env:GITHUB_REF_NAME"
+      - name: Draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create $env:GITHUB_REF_NAME --draft --title "曦寒打印客户端 $env:CLIENT_VERSION" --notes "安装包与 update.json 见附件；发布后把 update.json 提交到 main 的 client/update.json。" (Get-ChildItem installer/output -File | ForEach-Object FullName)
+      - name: Remove signing certificate
+        if: always() && env.SIGNING_CERT != ''
+        shell: pwsh
+        run: Remove-Item -Force (Join-Path $env:RUNNER_TEMP 'client-signing.pfx') -ErrorAction SilentlyContinue

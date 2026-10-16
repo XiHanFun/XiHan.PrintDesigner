@@ -9,6 +9,15 @@
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
 
+  <!-- 发布：自包含、ReadyToRun、不裁剪，不带 XML 文档 -->
+  <PropertyGroup>
+    <SelfContained Condition="'$(RuntimeIdentifier)' != ''">true</SelfContained>
+    <PublishReadyToRun Condition="'$(RuntimeIdentifier)' != ''">true</PublishReadyToRun>
+    <PublishDocumentationFile>false</PublishDocumentationFile>
+    <PublishReferencesDocumentationFiles>false</PublishReferencesDocumentationFiles>
+    <AllowedReferenceRelatedFileExtensions>.pdb</AllowedReferenceRelatedFileExtensions>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\XiHan.PrintClient.Core\XiHan.PrintClient.Core.csproj" />
     <ProjectReference Include="..\XiHan.PrintClient.Windows\XiHan.PrintClient.Windows.csproj" />
