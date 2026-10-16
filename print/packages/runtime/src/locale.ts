@@ -154,6 +154,15 @@ const PROPERTY_NAMES: Readonly<Record<string, string>> = {
   'watermark/rotation': '旋转',
   'watermark/gapX': '横向间距',
   'watermark/gapY': '纵向间距',
+  'content/text': '文字',
+  'content/field': '字段',
+  'content/emptyText': '空值时显示',
+  'content/template': '模板',
+  'content/expression': '表达式',
+  'content/format': '格式（JSON）',
+  'content/url': '地址',
+  'content/fn': '汇总方式',
+  'content/scope': '汇总范围',
 }
 
 const PROPERTY_OPTIONS: Readonly<Record<string, string>> = {
@@ -196,6 +205,20 @@ const PROPERTY_OPTIONS: Readonly<Record<string, string>> = {
   'dotted': '点线',
   'double': '双线',
   'custom': '自定义',
+  'static': '固定文字',
+  'field': '字段',
+  'template': '模板',
+  'expression': '表达式',
+  'rowNumber': '序号',
+  'aggregate': '汇总',
+  'sum': '求和',
+  'avg': '平均',
+  'count': '计数',
+  'min': '最小',
+  'max': '最大',
+  'page': '本页',
+  'cumulative': '累计到本页',
+  'all': '全部',
 }
 
 /** 校验问题与分页诊断的中文说明；不认识的问题码原样返回。 */

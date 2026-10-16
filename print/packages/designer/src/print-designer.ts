@@ -1523,7 +1523,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   #syncProperties(layers: Layers, t: PrintDesignerTranslations): void {
     const panel = layers.properties
     const editors = this.editors
-    const subjects = propertySubjects(this.#editor, this.#tableEdit, (kind, descriptor) => editors !== undefined && resolvePropertyEditor(editors, kind, descriptor) !== undefined)
+    const subjects = propertySubjects(this.#editor, this.#tableEdit, (kind, descriptor) => editors !== undefined && resolvePropertyEditor(editors, kind, descriptor) !== undefined, this.fields)
     this.#subjects = subjects
     const kind = subjects.length > 0 && subjects.every(subject => subject.kind === subjects[0]!.kind) ? subjects[0]!.kind : ''
     const usable = (descriptor: DesignerPropertyDescriptor): boolean =>
@@ -1532,7 +1532,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     panel.errors = this.#propertyErrors(subjects, t)
     panel.heading = this.#propertyHeading(subjects, t)
     panel.readonly = this.readonly
-    const inputs = [kind, editors, t.propertyGroups, t.propertyNames, t.propertyPart, t.propertyOptions, t.units]
+    const inputs = [kind, editors, this.fields, t.propertyGroups, t.propertyNames, t.propertyPart, t.propertyOptions, t.units]
     if (inputs.length === this.#panelInputs.length && inputs.every((input, index) => input === this.#panelInputs[index]))
       return
     this.#panelInputs = inputs
@@ -1551,7 +1551,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     }
     panel.optionLabel = (descriptor, option) => {
       const value = String(option.value)
-      return t.propertyOptions[`${formatJsonPath(descriptor.path)}=${value}`] ?? t.propertyOptions[value] ?? option.label ?? value
+      return option.label ?? t.propertyOptions[`${formatJsonPath(descriptor.path)}=${value}`] ?? t.propertyOptions[value] ?? value
     }
     panel.unitLabel = unit => t.units[unit as PropertyUnit] ?? unit
   }

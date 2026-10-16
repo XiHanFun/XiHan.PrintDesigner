@@ -148,6 +148,15 @@ export const PROPERTY_NAMES: PrintDesignerTranslations['propertyNames'] = {
   'watermark/rotation': 'Rotation',
   'watermark/gapX': 'Horizontal spacing',
   'watermark/gapY': 'Vertical spacing',
+  'content/text': 'Text',
+  'content/field': 'Field',
+  'content/emptyText': 'Text when empty',
+  'content/template': 'Template',
+  'content/expression': 'Expression',
+  'content/format': 'Format (JSON)',
+  'content/url': 'URL',
+  'content/fn': 'Summary',
+  'content/scope': 'Summary range',
 }
 
 export const PROPERTY_OPTION_NAMES: PrintDesignerTranslations['propertyOptions'] = {
@@ -190,6 +199,20 @@ export const PROPERTY_OPTION_NAMES: PrintDesignerTranslations['propertyOptions']
   'dotted': 'Dotted',
   'double': 'Double',
   'custom': 'Custom',
+  'static': 'Fixed text',
+  'field': 'Field',
+  'template': 'Template',
+  'expression': 'Expression',
+  'rowNumber': 'Row number',
+  'aggregate': 'Summary',
+  'sum': 'Sum',
+  'avg': 'Average',
+  'count': 'Count',
+  'min': 'Minimum',
+  'max': 'Maximum',
+  'page': 'This page',
+  'cumulative': 'Up to this page',
+  'all': 'All',
 }
 
 export const UNIT_NAMES: PrintDesignerTranslations['units'] = {
