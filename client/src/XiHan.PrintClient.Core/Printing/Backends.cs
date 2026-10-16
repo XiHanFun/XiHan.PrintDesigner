@@ -89,3 +89,17 @@ public sealed class PrintFailure : Exception
     /// </summary>
     public ProtocolError ToError() => new(Code, Message, Details);
 }
+
+/// <summary>
+/// 用户在系统打印对话框里取消了打印，任务记为已取消
+/// </summary>
+public sealed class PrintCancelledByUser : Exception
+{
+    /// <summary>
+    /// 创建
+    /// </summary>
+    public PrintCancelledByUser()
+        : base("用户取消了打印")
+    {
+    }
+}

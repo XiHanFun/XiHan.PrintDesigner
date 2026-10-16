@@ -213,6 +213,10 @@ public sealed class JobQueue : IAsyncDisposable
         {
             state = JobState.Cancelled;
         }
+        catch (PrintCancelledByUser)
+        {
+            state = JobState.Cancelled;
+        }
         catch (OperationCanceledException) when (!_stopping.IsCancellationRequested)
         {
             var code = job.Kind == JobKind.Pdf ? PrintErrorCodes.PdfFailed : PrintErrorCodes.SpoolFailed;
