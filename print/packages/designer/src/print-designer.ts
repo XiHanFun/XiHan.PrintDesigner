@@ -64,8 +64,7 @@ import {
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
-import { createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
-import { el, setText } from './dom'
+import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, setText, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { createPrintEditor, elementRect } from './editor'
 import { columnBoundaries, planTableCommand, TABLE_COMMANDS, tablePartAt } from './table-edit'
 
@@ -851,45 +850,45 @@ export class XhPrintDesigner extends XhReactiveElement {
     const groups: HTMLElement[] = []
     TOOLBAR_GROUPS.forEach((group, index) => {
       if (index > 0)
-        groups.push(el(doc, 'div', { 'data-xh-part': 'separator' }))
-      groups.push(el(doc, 'div', { 'data-xh-part': 'group' }, group.map((command) => {
-        const item = el(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': command })
+        groups.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'separator' }))
+      groups.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'group' }, group.map((command) => {
+        const item = createAuthoredElement(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': command })
         items.set(command, item)
         return item
       })))
     })
-    groups.push(el(doc, 'button', { 'data-xh-part': 'overflow-trigger', 'type': 'button' }))
-    const toolbarRoot = el(doc, 'div', { 'data-xh-part': 'root' }, groups)
+    groups.push(createAuthoredElement(doc, 'button', { 'data-xh-part': 'overflow-trigger', 'type': 'button' }))
+    const toolbarRoot = createAuthoredElement(doc, 'div', { 'data-xh-part': 'root' }, groups)
     const toolbar = createGeneratedElement(doc, 'div')
     toolbar.dataset.part = 'toolbar'
-    toolbar.append(el(doc, 'xh-toolbar', { size: 'sm' }, [toolbarRoot]))
+    toolbar.append(createAuthoredElement(doc, 'xh-toolbar', { size: 'sm' }, [toolbarRoot]))
     toolbarRoot.addEventListener('click', this.#onCommandClick)
 
     const pages = createGeneratedElement(doc, 'div')
     pages.dataset.part = 'pages'
 
-    const paper = el(doc, 'div', { 'data-part': 'paper' })
-    const frames = el(doc, 'div', { 'data-part': 'frames' })
-    const elements = el(doc, 'div', { 'data-part': 'elements' })
-    const watermark = el(doc, 'div', { 'data-part': 'watermark-layer' })
-    const decorations = el(doc, 'div', { 'data-part': 'decorations' })
-    const bandMenus = el(doc, 'div', { 'data-part': 'band-menus' })
+    const paper = createAuthoredElement(doc, 'div', { 'data-part': 'paper' })
+    const frames = createAuthoredElement(doc, 'div', { 'data-part': 'frames' })
+    const elements = createAuthoredElement(doc, 'div', { 'data-part': 'elements' })
+    const watermark = createAuthoredElement(doc, 'div', { 'data-part': 'watermark-layer' })
+    const decorations = createAuthoredElement(doc, 'div', { 'data-part': 'decorations' })
+    const bandMenus = createAuthoredElement(doc, 'div', { 'data-part': 'band-menus' })
     paper.append(frames, elements, watermark, decorations, bandMenus)
-    const world = el(doc, 'div', { 'data-part': 'world' }, [paper])
-    const viewport = el(doc, 'div', { 'data-part': 'viewport', 'tabindex': 0, 'role': 'region' }, [world])
+    const world = createAuthoredElement(doc, 'div', { 'data-part': 'world' }, [paper])
+    const viewport = createAuthoredElement(doc, 'div', { 'data-part': 'viewport', 'tabindex': 0, 'role': 'region' }, [world])
     // 变换覆盖层与标尺由 @xihan-ui/designer-shell 提供，接入前留空
-    const overlay = el(doc, 'div', { 'data-part': 'overlay', 'hidden': true })
-    const menuContent = el(doc, 'div', { 'data-xh-part': 'content' })
-    const trigger = el(doc, 'div', { 'data-xh-part': 'trigger', 'data-print-canvas': '' }, [viewport, overlay])
-    const menu = el(doc, 'xh-context-menu', { size: 'sm' }, [
-      el(doc, 'div', { 'data-xh-part': 'root', 'data-print-canvas-root': '' }, [trigger, el(doc, 'div', { 'data-xh-part': 'positioner' }, [menuContent])]),
+    const overlay = createAuthoredElement(doc, 'div', { 'data-part': 'overlay', 'hidden': true })
+    const menuContent = createAuthoredElement(doc, 'div', { 'data-xh-part': 'content' })
+    const trigger = createAuthoredElement(doc, 'div', { 'data-xh-part': 'trigger', 'data-print-canvas': '' }, [viewport, overlay])
+    const menu = createAuthoredElement(doc, 'xh-context-menu', { size: 'sm' }, [
+      createAuthoredElement(doc, 'div', { 'data-xh-part': 'root', 'data-print-canvas-root': '' }, [trigger, createAuthoredElement(doc, 'div', { 'data-xh-part': 'positioner' }, [menuContent])]),
     ])
     menu.addEventListener('select', this.#onMenuSelect)
     this.#fillMenu(menuContent, 'blank')
     const preview = createGeneratedElement(doc, 'div')
     preview.dataset.part = 'preview'
     preview.hidden = true
-    const rulers = el(doc, 'div', { 'data-part': 'rulers', 'hidden': true })
+    const rulers = createAuthoredElement(doc, 'div', { 'data-part': 'rulers', 'hidden': true })
     const workspace = createGeneratedElement(doc, 'div')
     workspace.dataset.part = 'workspace'
     workspace.append(pages, rulers, menu, preview)
@@ -1103,9 +1102,9 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (layers.pages.dataset.signature === signature)
       return
     layers.pages.dataset.signature = signature
-    const tabs = el(doc, 'xh-toggle-group', { 'value': active, 'disallow-empty': true, 'size': 'sm' }, [
-      el(doc, 'div', { 'data-xh-part': 'root', 'aria-label': t.pages }, pages.map((page, index) =>
-        el(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': page.id }, [titles[index]!]),
+    const tabs = createAuthoredElement(doc, 'xh-toggle-group', { 'value': active, 'disallow-empty': true, 'size': 'sm' }, [
+      createAuthoredElement(doc, 'div', { 'data-xh-part': 'root', 'aria-label': t.pages }, pages.map((page, index) =>
+        createAuthoredElement(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': page.id }, [titles[index]!]),
       )),
     ])
     tabs.addEventListener('value-change', (event) => {
@@ -1113,10 +1112,10 @@ export class XhPrintDesigner extends XhReactiveElement {
       if (typeof value === 'string' && value !== this.#editor.activePageId)
         this.#editor.setActivePage(value)
     })
-    const actions = el(doc, 'xh-toolbar', { size: 'sm' }, [
-      el(doc, 'div', { 'data-xh-part': 'root', 'aria-label': t.pages }, [
-        el(doc, 'div', { 'data-xh-part': 'group' }, PAGE_COMMANDS.map(command =>
-          el(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': command, 'disabled': !this.#commandEnabled(command) }, [t[LABELS[command]]]),
+    const actions = createAuthoredElement(doc, 'xh-toolbar', { size: 'sm' }, [
+      createAuthoredElement(doc, 'div', { 'data-xh-part': 'root', 'aria-label': t.pages }, [
+        createAuthoredElement(doc, 'div', { 'data-xh-part': 'group' }, PAGE_COMMANDS.map(command =>
+          createAuthoredElement(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': command, 'disabled': !this.#commandEnabled(command) }, [t[LABELS[command]]]),
         )),
       ]),
     ])
@@ -1139,7 +1138,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const content = getContentRect(page)
 
     const frame = (part: string, rect: Rect, region?: ElementRegion): HTMLElement => {
-      const node = el(doc, 'div', { 'data-part': part, 'data-region': region })
+      const node = createAuthoredElement(doc, 'div', { 'data-part': part, 'data-region': region })
       rectStyle(node, rect)
       return node
     }
@@ -1172,7 +1171,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       for (const region of ['header', 'footer'] as const) {
         const rect = region === 'header' ? headerRect : footerRect
         const y = region === 'header' ? rect.y + rect.height : rect.y
-        const handle = el(doc, 'div', { 'data-part': 'band-handle', 'data-region': region, 'role': 'separator', 'aria-orientation': 'horizontal', 'aria-label': t.resizeBand(region) })
+        const handle = createAuthoredElement(doc, 'div', { 'data-part': 'band-handle', 'data-region': region, 'role': 'separator', 'aria-orientation': 'horizontal', 'aria-label': t.resizeBand(region) })
         handle.style.left = `${content.x}mm`
         handle.style.width = `${content.width}mm`
         handle.style.top = `${y}mm`
@@ -1199,18 +1198,18 @@ export class XhPrintDesigner extends XhReactiveElement {
         const exists = set[key] !== undefined
         const value = exists ? `show:${key}` : `add:${key}`
         const text = exists ? t.bandVariants[key] : `${t.addBandVariant} · ${t.bandVariants[key]}`
-        return el(doc, 'div', { 'data-xh-part': 'item', value, 'aria-disabled': !exists && this.readonly ? 'true' : undefined, 'aria-current': key === current ? 'true' : undefined }, [
-          el(doc, 'span', { 'data-xh-part': 'item-text' }, [text]),
+        return createAuthoredElement(doc, 'div', { 'data-xh-part': 'item', value, 'aria-disabled': !exists && this.readonly ? 'true' : undefined, 'aria-current': key === current ? 'true' : undefined }, [
+          createAuthoredElement(doc, 'span', { 'data-xh-part': 'item-text' }, [text]),
         ])
       })
       if (current !== 'default' && !this.readonly) {
-        items.push(el(doc, 'div', { 'data-xh-part': 'separator' }))
-        items.push(el(doc, 'div', { 'data-xh-part': 'item', 'value': 'remove' }, [el(doc, 'span', { 'data-xh-part': 'item-text' }, [t.removeBandVariant])]))
+        items.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'separator' }))
+        items.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'item', 'value': 'remove' }, [createAuthoredElement(doc, 'span', { 'data-xh-part': 'item-text' }, [t.removeBandVariant])]))
       }
       const rect = region === 'header' ? headerRect : footerRect
-      const menu = el(doc, 'xh-menu', { 'size': 'sm', 'data-part': 'band-menu', 'data-region': region }, [
-        el(doc, 'button', { 'data-xh-part': 'trigger', 'type': 'button', 'aria-label': t.bandVariant(region) }, [`${t.regions[region]} · ${t.bandVariants[current]}`]),
-        el(doc, 'div', { 'data-xh-part': 'positioner' }, [el(doc, 'div', { 'data-xh-part': 'content' }, items)]),
+      const menu = createAuthoredElement(doc, 'xh-menu', { 'size': 'sm', 'data-part': 'band-menu', 'data-region': region }, [
+        createAuthoredElement(doc, 'button', { 'data-xh-part': 'trigger', 'type': 'button', 'aria-label': t.bandVariant(region) }, [`${t.regions[region]} · ${t.bandVariants[current]}`]),
+        createAuthoredElement(doc, 'div', { 'data-xh-part': 'positioner' }, [createAuthoredElement(doc, 'div', { 'data-xh-part': 'content' }, items)]),
       ])
       menu.style.top = `${rect.y}mm`
       menu.addEventListener('select', (event) => {
@@ -1234,19 +1233,19 @@ export class XhPrintDesigner extends XhReactiveElement {
       return []
     const doc = this.ownerDocument
     const result: HTMLElement[] = []
-    const outline = el(doc, 'div', { 'data-part': 'table-edit' })
+    const outline = createAuthoredElement(doc, 'div', { 'data-part': 'table-edit' })
     rectStyle(outline, { x: box.x, y: box.y, width: box.width, height: box.height })
     result.push(outline)
     const part = this.#editor.selection.tablePart
     const highlight = part === undefined ? undefined : this.#partRect(table, box, part)
     if (highlight !== undefined) {
-      const node = el(doc, 'div', { 'data-part': 'table-part' })
+      const node = createAuthoredElement(doc, 'div', { 'data-part': 'table-part' })
       rectStyle(node, highlight)
       result.push(node)
     }
     if (!this.readonly) {
       for (const { column, x } of columnBoundaries(table)) {
-        const handle = el(doc, 'div', { 'data-part': 'column-handle', 'data-column-id': column.id, 'role': 'separator', 'aria-orientation': 'vertical', 'aria-label': t.resizeColumn(column.title) })
+        const handle = createAuthoredElement(doc, 'div', { 'data-part': 'column-handle', 'data-column-id': column.id, 'role': 'separator', 'aria-orientation': 'vertical', 'aria-label': t.resizeColumn(column.title) })
         handle.style.left = `${x}mm`
         handle.style.top = `${box.y}mm`
         handle.style.height = `${box.height}mm`
@@ -1551,9 +1550,9 @@ export class XhPrintDesigner extends XhReactiveElement {
         ? [...tableEntries, 'cut', 'copy', 'duplicate', 'delete', separator, 'bring-to-front', 'bring-forward', 'send-backward', 'send-to-back']
         : ['paste', 'select-all', separator, 'zoom-to-fit']
     content.replaceChildren(...entries.map(entry => entry === separator
-      ? el(doc, 'div', { 'data-xh-part': 'separator' })
-      : el(doc, 'div', { 'data-xh-part': 'item', 'value': entry, 'aria-disabled': this.#commandEnabled(entry) ? undefined : 'true' }, [
-          el(doc, 'span', { 'data-xh-part': 'item-text' }, [t[LABELS[entry]]]),
+      ? createAuthoredElement(doc, 'div', { 'data-xh-part': 'separator' })
+      : createAuthoredElement(doc, 'div', { 'data-xh-part': 'item', 'value': entry, 'aria-disabled': this.#commandEnabled(entry) ? undefined : 'true' }, [
+          createAuthoredElement(doc, 'span', { 'data-xh-part': 'item-text' }, [t[LABELS[entry]]]),
         ])))
   }
 
