@@ -460,7 +460,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   declare snap: boolean
   /** 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。 */
   declare panels: string | undefined
-  /** 宿主的属性编辑器，压在内建编辑器之上；打印的复合编辑方式只在这里查得到编辑器时才在属性面板里显示。 */
+  /** 宿主的属性编辑器，压在内建编辑器与设计器自带的编辑器之上；给了编辑器的复合属性不再拆开，原样交给宿主的编辑器。 */
   declare editors: PropertyEditorTable<DesignerPropertyEditor> | undefined
 
   readonly #config = new XhConfigController(this)
