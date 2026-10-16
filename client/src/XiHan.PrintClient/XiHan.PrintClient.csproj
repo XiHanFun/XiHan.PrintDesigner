@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- 托盘程序：组装 Core 与 Windows 两层，提供托盘、授权窗口与设置窗口 -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>XiHanPrint</AssemblyName>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\XiHan.PrintClient.Core\XiHan.PrintClient.Core.csproj" />
+    <ProjectReference Include="..\XiHan.PrintClient.Windows\XiHan.PrintClient.Windows.csproj" />
+  </ItemGroup>
+
+</Project>

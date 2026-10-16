@@ -1,0 +1,11 @@
+<Project>
+  <!-- 中央包版本：运行时只依赖 WebView2 SDK，其余为测试用 -->
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.11.0" />
+    <PackageVersion Include="xunit.v3" Version="4.0.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+  </ItemGroup>
+</Project>

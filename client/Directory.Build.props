@@ -1,0 +1,20 @@
+<Project>
+  <!-- 所有项目共用的属性 -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <!-- 公开类型与成员都要写 XML 注释 -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- NuGet 高危与严重漏洞直接中断构建 -->
+    <WarningsAsErrors>$(WarningsAsErrors);NU1903;NU1904</WarningsAsErrors>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <IsPackable>false</IsPackable>
+
+    <Version>0.1.0</Version>
+    <Company>XiHanFun</Company>
+    <Product>曦寒打印客户端</Product>
+    <Copyright>Copyright (c) 2021-Present XiHanFun and contributors.</Copyright>
+  </PropertyGroup>
+</Project>
