@@ -7,7 +7,7 @@ import type { EngineCompileResult, ExpressionEngine, FormatSpec } from '@xihan-u
 import type { MapFormat } from '../src'
 import { evaluateSource } from '@xihan-ui/expression'
 import { describe, expect, it } from 'vitest'
-import { getFieldValue, toDisplayText } from '../src/data'
+import { getFieldValue } from '../src/data'
 import { evaluateExpression, formatValue, isEmptyValue, mapValue } from '../src/layout/content'
 
 describe('值格式', () => {
@@ -103,16 +103,5 @@ describe('取值', () => {
     expect(getFieldValue(data, 'customer.toString')).toBeUndefined()
     expect(getFieldValue(data, 'a..b')).toBeUndefined()
     expect(getFieldValue('text', 'length')).toBeUndefined()
-  })
-
-  it('显示文本', () => {
-    expect(toDisplayText(null)).toEqual({ text: '', scalar: true })
-    expect(toDisplayText(1.5)).toEqual({ text: '1.5', scalar: true })
-    expect(toDisplayText(Number.NaN)).toEqual({ text: '', scalar: true })
-    expect(toDisplayText(false)).toEqual({ text: 'false', scalar: true })
-    expect(toDisplayText(12n)).toEqual({ text: '12', scalar: true })
-    expect(toDisplayText(new Date(Date.UTC(2026, 9, 16)))).toEqual({ text: '2026-10-16T00:00:00.000Z', scalar: true })
-    expect(toDisplayText({ a: 1 })).toEqual({ text: '', scalar: false })
-    expect(toDisplayText([1])).toEqual({ text: '', scalar: false })
   })
 })

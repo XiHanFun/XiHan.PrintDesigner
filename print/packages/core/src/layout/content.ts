@@ -8,8 +8,8 @@ import type { MapFormat, TextContent, ValueFormat } from '../schema/common'
 import type { DiagnosticScope, LayoutContext } from './context'
 import type { PaginationDiagnosticCode } from './types'
 import { isPlainObject } from '@xihan-ui/core/json'
-import { fillTextTemplate } from '@xihan-ui/core/template'
-import { getFieldValue, toDisplayText } from '../data'
+import { displayText, fillTextTemplate } from '@xihan-ui/core/template'
+import { getFieldValue } from '../data'
 
 /** 取值或格式化未完成的原因：未提供格式化器、格式化器报错、未提供表达式接入点、表达式编译或求值失败、结果不是标量。 */
 export type ValueProblem
@@ -62,7 +62,7 @@ export function isEmptyValue(value: unknown): boolean {
 
 /** 值映射：按显示文本查表，未命中时用 `fallback`，没有 `fallback` 时显示原值。 */
 export function mapValue(value: unknown, format: MapFormat): string {
-  const display = toDisplayText(value).text
+  const display = displayText(value) ?? ''
   const entry = format.entries.find(item => item.value === display)
   return entry?.text ?? format.fallback ?? display
 }
@@ -83,8 +83,8 @@ export function evaluateExpression(
   const result = evaluate(source, variables)
   if (!result.ok)
     return { text: '', problem: 'expressionFailed', issue: result.issue }
-  const display = toDisplayText(result.value)
-  return display.scalar ? { text: display.text, value: result.value } : { text: '', problem: 'notScalar' }
+  const display = displayText(result.value)
+  return display !== undefined ? { text: display, value: result.value } : { text: '', problem: 'notScalar' }
 }
 
 /**
@@ -99,14 +99,14 @@ export function formatValue(value: unknown, format: ValueFormat, options: ValueO
   if (format.kind === 'map')
     return { text: mapValue(value, format) }
   if (options.formatter === undefined)
-    return { text: toDisplayText(value).text, problem: 'formatterUnavailable' }
+    return { text: displayText(value) ?? '', problem: 'formatterUnavailable' }
   try {
     return { text: options.formatter(value, format) }
   }
   catch (error) {
     if (!(error instanceof TypeError))
       throw error
-    return { text: toDisplayText(value).text, problem: 'formatFailed', reason: error.message }
+    return { text: displayText(value) ?? '', problem: 'formatFailed', reason: error.message }
   }
 }
 
@@ -120,10 +120,10 @@ export function valueText(
 ): string {
   let text: string
   if (format === undefined) {
-    const display = toDisplayText(value)
-    if (!display.scalar)
+    const display = displayText(value)
+    if (display === undefined)
       context.report('data.notScalar', scope)
-    text = display.text
+    text = display ?? ''
   }
   else {
     text = reportValueResult(context, scope, formatValue(value, format, context))

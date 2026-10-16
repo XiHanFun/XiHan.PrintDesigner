@@ -20,27 +20,3 @@ export function getFieldValue(data: unknown, path: string): unknown {
   }
   return getJsonAt(data as JsonValue | undefined, segments)
 }
-
-/** 数据值转显示文本的结果；`scalar` 为 false 表示值是对象或数组，文本为空。 */
-export interface DisplayText {
-  text: string
-  scalar: boolean
-}
-
-/** 把数据值转成显示文本：null 与 undefined 为空，字符串原样，有限数字、布尔与 bigint 转字符串，日期转 ISO 字符串。 */
-export function toDisplayText(value: unknown): DisplayText {
-  if (value === null || value === undefined)
-    return { text: '', scalar: true }
-  switch (typeof value) {
-    case 'string':
-      return { text: value, scalar: true }
-    case 'number':
-      return { text: Number.isFinite(value) ? String(value) : '', scalar: true }
-    case 'boolean':
-    case 'bigint':
-      return { text: String(value), scalar: true }
-  }
-  if (value instanceof Date)
-    return { text: Number.isNaN(value.getTime()) ? '' : value.toISOString(), scalar: true }
-  return { text: '', scalar: false }
-}
