@@ -489,6 +489,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   #listed: { readonly issues: readonly ValidationIssue[], readonly key: string } | undefined
   #subjects: PropertySubject[] = []
   #panelInputs: readonly unknown[] = []
+  #editorTable: { readonly host: PropertyEditorTable<DesignerPropertyEditor> | undefined, readonly table: PropertyEditorTable<DesignerPropertyEditor> } | undefined
   #unregisterDrop: (() => void) | undefined
   #hoverId: string | undefined
 
@@ -1522,12 +1523,12 @@ export class XhPrintDesigner extends XhReactiveElement {
   /** 按选择换编辑对象；分组、属性名、选项与单位的文案只在对象种类或文案变化时重新交给面板。 */
   #syncProperties(layers: Layers, t: PrintDesignerTranslations): void {
     const panel = layers.properties
-    const editors = this.editors
-    const subjects = propertySubjects(this.#editor, this.#tableEdit, (kind, descriptor) => editors !== undefined && resolvePropertyEditor(editors, kind, descriptor) !== undefined, this.fields)
+    const editors = this.#propertyEditors()
+    const subjects = propertySubjects(this.#editor, this.#tableEdit, (kind, descriptor) => resolvePropertyEditor(editors, kind, descriptor) !== undefined, this.fields)
     this.#subjects = subjects
     const kind = subjects.length > 0 && subjects.every(subject => subject.kind === subjects[0]!.kind) ? subjects[0]!.kind : ''
     const usable = (descriptor: DesignerPropertyDescriptor): boolean =>
-      BUILTIN_CONTROLS.has(descriptor.control.kind) || (editors !== undefined && resolvePropertyEditor(editors, kind, descriptor) !== undefined)
+      BUILTIN_CONTROLS.has(descriptor.control.kind) || resolvePropertyEditor(editors, kind, descriptor) !== undefined
     panel.targets = subjects.map(subject => ({ kind: subject.kind, id: subject.id, value: subject.value, descriptors: subject.descriptors.filter(usable) }))
     panel.errors = this.#propertyErrors(subjects, t)
     panel.heading = this.#propertyHeading(subjects, t)
@@ -1601,6 +1602,59 @@ export class XhPrintDesigner extends XhReactiveElement {
     })
     if (operations.length > 0)
       this.#editor.execute(operations, { merge, mergeWithin: Number.POSITIVE_INFINITY })
+  }
+
+  /** 交给面板的编辑器：设计器自带表格列与表尾行的条目编辑器，宿主的 editors 压在上面。 */
+  #propertyEditors(): PropertyEditorTable<DesignerPropertyEditor> {
+    const host = this.editors
+    if (this.#editorTable !== undefined && this.#editorTable.host === host)
+      return this.#editorTable.table
+    const own: Readonly<Record<string, DesignerPropertyEditor>> = {
+      tableColumns: this.#partList('column'),
+      tableFooterRows: this.#partList('footerRow'),
+    }
+    const table: PropertyEditorTable<DesignerPropertyEditor> = {
+      byControl: { ...own, ...host?.byControl },
+      ...(host?.byPath === undefined ? {} : { byPath: host.byPath }),
+      ...(host?.byTarget === undefined ? {} : { byTarget: host.byTarget }),
+    }
+    this.#editorTable = { host, table }
+    return table
+  }
+
+  /** 表格的列或表尾行列成条目，点一下进入表格编辑态并选中该部位。 */
+  #partList(kind: 'column' | 'footerRow'): DesignerPropertyEditor {
+    return (initial) => {
+      const doc = this.ownerDocument
+      const list = createAuthoredElement(doc, 'div', { 'data-part': 'part-list', 'role': 'group' })
+      const render = (context: typeof initial): void => {
+        const tableId = context.target.length === 1 ? context.target[0]!.id : undefined
+        const items = Array.isArray(context.value) ? context.value as readonly { id?: unknown, title?: unknown }[] : []
+        const t = this.#translations()
+        list.replaceChildren(...items.map((item, index) => {
+          const id = String(item.id)
+          const title = typeof item.title === 'string' && item.title !== '' ? item.title : undefined
+          const text = kind === 'column' ? title ?? t.newColumnTitle(index + 1) : `${t.tableParts.footerRow} ${index + 1}`
+          const button = createAuthoredElement(doc, 'xh-button', { 'variant': 'ghost', 'size': 'sm', 'full-width': true, 'data-part': 'part-item' }, [
+            createAuthoredElement(doc, 'button', { 'data-xh-part': 'root', 'type': 'button', 'disabled': tableId === undefined }, [text]),
+          ])
+          button.addEventListener('click', () => {
+            if (tableId !== undefined)
+              this.#selectTablePart(tableId, kind === 'column' ? { kind, elementId: tableId, columnId: id } : { kind, elementId: tableId, rowId: id })
+          })
+          return button
+        }))
+      }
+      render(initial)
+      return { element: list, update: render }
+    }
+  }
+
+  /** 进入表格编辑态并选中部位。 */
+  #selectTablePart(tableId: string, part: PrintTablePart): void {
+    this.#tableEdit = tableId
+    this.#editor.select({ elements: [tableId], tablePart: part })
+    this.requestUpdate()
   }
 
   readonly #onPropertyCommit = (): void => {

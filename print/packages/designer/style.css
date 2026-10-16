@@ -193,6 +193,12 @@ xh-print-designer [data-part='band-menu'] {
   translate: calc(-1 * var(--xh-space-2) / var(--xh-print-designer-zoom)) 0;
 }
 
+xh-print-designer [data-part='part-list'] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xh-space-1);
+}
+
 xh-print-designer [data-part='preview'] {
   display: flex;
   flex: 1 1 auto;
