@@ -4,6 +4,7 @@
  */
 
 import type { Rect, Size } from '@xihan-ui/designer-kit'
+import type { IssueSeverity, SchemaIssue, SchemaIssueTarget } from '@xihan-ui/designer-kit/schema'
 import type { ExpressionEngine, FormatOptions, FormatSpec } from '@xihan-ui/expression'
 import type { TextMeasurer } from '@xihan-ui/viz'
 import type { ElementRegistry } from '../registry/registry'
@@ -235,28 +236,42 @@ export interface LayoutSheet {
   watermark?: LayoutWatermark
 }
 
-/** 分页诊断码。 */
-export type PaginationDiagnosticCode
-  = | 'data.notArray'
-    | 'data.notScalar'
-    | 'format.unavailable'
-    | 'format.failed'
-    | 'expression.unavailable'
-    | 'expression.failed'
-    | 'image.unsafeSource'
-    | 'barCode.invalidValue'
-    | 'matrixCode.invalidValue'
-    | 'text.overflow'
-    | 'table.rowOverflow'
-    | 'element.overflow'
-    | 'layout.sheetLimit'
+/**
+ * 全部分页诊断码及其固定的严重程度：error 为按模板该画的内容没有画出或输出页被截断，
+ * warning 为内容画出了但与设计有出入。与校验问题同名的诊断码严重程度相同。
+ */
+export const PAGINATION_DIAGNOSTIC_SEVERITIES = {
+  'data.notArray': 'warning',
+  'data.notScalar': 'warning',
+  'format.unavailable': 'warning',
+  'format.failed': 'warning',
+  'expression.unavailable': 'warning',
+  'expression.failed': 'error',
+  'image.unsafeSource': 'error',
+  'barCode.invalidValue': 'error',
+  'matrixCode.invalidValue': 'error',
+  'text.overflow': 'warning',
+  'table.rowOverflow': 'warning',
+  'element.overflow': 'warning',
+  'layout.sheetLimit': 'error',
+} as const satisfies Record<string, IssueSeverity>
 
-/** 分页诊断：只含诊断码、定位与参数，不含文案；同一元素的同一问题只报告一次。 */
-export interface PaginationDiagnostic {
-  code: PaginationDiagnosticCode
-  pageId: string
-  elementId?: string
-  params?: IssueParams
+/** 分页诊断码。 */
+export type PaginationDiagnosticCode = keyof typeof PAGINATION_DIAGNOSTIC_SEVERITIES
+
+/** 分页诊断所在的页面（kind 为 page）或元素（kind 为 element）。 */
+export interface PaginationDiagnosticTarget extends SchemaIssueTarget {
+  readonly kind: 'page' | 'element'
+}
+
+/**
+ * 分页诊断：与校验问题同形的 @xihan-ui/designer-kit/schema 的 SchemaIssue，不含文案，严重程度与 target 总是给出。
+ * path 从文档根算起，指到出问题的元素或页面；行下标、列标识、限额等与数据相关的信息在 params 里。
+ * 同一位置的同一问题只报告一次。
+ */
+export type PaginationDiagnostic = SchemaIssue<PaginationDiagnosticCode> & {
+  readonly severity: IssueSeverity
+  readonly target: PaginationDiagnosticTarget
 }
 
 /** 分页结果。 */

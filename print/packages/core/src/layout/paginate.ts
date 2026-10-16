@@ -9,7 +9,7 @@ import type { PageNumberElement, PrintElement } from '../schema/elements'
 import type { PageBandKey } from '../schema/options'
 import type { IssueParams } from '../validation/issues'
 import type { BodyItem } from './body'
-import type { DiagnosticScope, LayoutContext } from './context'
+import type { DiagnosticScope, LayoutContext, PendingDiagnostic } from './context'
 import type { BodyGeometry } from './placement'
 import type {
   LayoutBox,
@@ -20,15 +20,16 @@ import type {
   PaginationResult,
   TextLayoutBox,
 } from './types'
+import { withSeverity } from '@xihan-ui/designer-kit/schema'
 import { getBandRect, getBodyRect, getPaperSize, resolvePageBandKey } from '../geometry'
 import { validateDocument } from '../validation/validate'
 import { layoutBody } from './body'
 import { fillPageNumber, layoutFixedElement, pageNumberBox } from './boxes'
 import { templateText } from './content'
-import { createLayoutContext } from './context'
+import { createLayoutContext, elementScope, pageScope } from './context'
 import { prepareLongText } from './long-text'
 import { prepareTable } from './table'
-import { PrintLayoutError } from './types'
+import { PAGINATION_DIAGNOSTIC_SEVERITIES, PrintLayoutError } from './types'
 
 /** 输出页总数上限的缺省值。 */
 export const DEFAULT_MAX_SHEETS = 1000
@@ -44,7 +45,14 @@ interface SheetInfo {
 interface PageNumberFixup {
   box: TextLayoutBox
   element: PageNumberElement
+  scope: DiagnosticScope
   sheet: LayoutSheet
+}
+
+interface ElementBox {
+  box: LayoutBox
+  element: PrintElement
+  scope: DiagnosticScope
 }
 
 interface PageLayout {
@@ -59,13 +67,13 @@ function isPageNumber(element: PrintElement): element is PageNumberElement {
 function prepareBodyItem(element: PrintElement, index: number, context: LayoutContext, scope: DiagnosticScope): BodyItem {
   switch (element.type) {
     case 'table':
-      return { kind: 'table', element, index, prepared: prepareTable(element, context, scope) }
+      return { kind: 'table', element, index, scope, prepared: prepareTable(element, context, scope) }
     case 'longText':
-      return { kind: 'longText', element, index, prepared: prepareLongText(element, context, scope) }
+      return { kind: 'longText', element, index, scope, prepared: prepareLongText(element, context, scope) }
     case 'pageNumber':
-      return { kind: 'fixed', element, index, box: pageNumberBox(element, 'body') }
+      return { kind: 'fixed', element, index, scope, box: pageNumberBox(element, 'body') }
     default:
-      return { kind: 'fixed', element, index, box: layoutFixedElement(element, 'body', context, scope) }
+      return { kind: 'fixed', element, index, scope, box: layoutFixedElement(element, 'body', context, scope) }
   }
 }
 
@@ -81,25 +89,25 @@ function bufferedContext(context: LayoutContext): { context: LayoutContext, comm
   }
 }
 
-function layoutPage(page: PrintPage, firstNumber: number, limit: number, context: LayoutContext): PageLayout {
+function layoutPage(page: PrintPage, pageIndex: number, firstNumber: number, limit: number, context: LayoutContext): PageLayout {
   const paper = getPaperSize(page)
-  const elementsById = new Map(page.elements.map(element => [element.id, element]))
   const items = page.elements.map((element, index) =>
-    prepareBodyItem(element, index, context, { pageId: page.id, elementId: element.id }),
+    prepareBodyItem(element, index, context, elementScope(['pages', pageIndex, 'elements'], index, element)),
   )
+  const itemsById = new Map(items.map(item => [item.element.id, item]))
 
-  const bandBoxes = new Map<string, { box: LayoutBox, element: PrintElement }[]>()
-  const boxesOfBand = (region: 'header' | 'footer', key: PageBandKey, band: PageBand): { box: LayoutBox, element: PrintElement }[] => {
+  const bandBoxes = new Map<string, ElementBox[]>()
+  const boxesOfBand = (region: 'header' | 'footer', key: PageBandKey, band: PageBand): ElementBox[] => {
     const cacheKey = `${region}:${key}`
     let boxes = bandBoxes.get(cacheKey)
     if (boxes === undefined) {
-      boxes = band.elements.flatMap<{ box: LayoutBox, element: PrintElement }>((element) => {
-        const scope = { pageId: page.id, elementId: element.id }
+      boxes = band.elements.flatMap<ElementBox>((element, index) => {
+        const scope = elementScope(['pages', pageIndex, region, key, 'elements'], index, element)
         if (isPageNumber(element))
-          return [{ box: pageNumberBox(element, region), element }]
+          return [{ box: pageNumberBox(element, region), element, scope }]
         if (element.type === 'table' || element.type === 'longText')
           return []
-        return [{ box: layoutFixedElement(element, region, context, scope), element }]
+        return [{ box: layoutFixedElement(element, region, context, scope), element, scope }]
       })
       bandBoxes.set(cacheKey, boxes)
     }
@@ -122,7 +130,7 @@ function layoutPage(page: PrintPage, firstNumber: number, limit: number, context
   for (;;) {
     const geometry: BodyGeometry = { bodyRect: sheet => sheetInfo(sheet, assumedLast).body, limit }
     const attempt = bufferedContext(context)
-    pass = layoutBody(items, geometry, attempt.context, page.id)
+    pass = layoutBody(items, geometry, attempt.context)
     commit = attempt.commit
     const used = pass.sheetCount
     if (used === assumedLast + 1 || pass.truncated) {
@@ -139,7 +147,7 @@ function layoutPage(page: PrintPage, firstNumber: number, limit: number, context
 
   const watermark = page.watermark === undefined
     ? undefined
-    : { ...page.watermark, text: templateText(page.watermark.text, context.data, context, { pageId: page.id }) }
+    : { ...page.watermark, text: templateText(page.watermark.text, context.data, context, pageScope(pageIndex, page)) }
   const fixups: PageNumberFixup[] = []
   const sheets: LayoutSheet[] = []
   for (let index = 0; index < sheetCount; index++) {
@@ -160,20 +168,22 @@ function layoutPage(page: PrintPage, firstNumber: number, limit: number, context
     if (watermark !== undefined)
       sheet.watermark = watermark
 
-    const collect = (box: LayoutBox, element: PrintElement): void => {
+    const collect = ({ box, element, scope }: ElementBox): void => {
       const copy = { ...box }
       sheet.boxes.push(copy)
       if (isPageNumber(element) && copy.kind === 'text')
-        fixups.push({ box: copy, element, sheet })
+        fixups.push({ box: copy, element, scope, sheet })
     }
-    for (const { box, element } of boxesOfBand('header', info.headerKey, info.header))
-      collect(box, element)
+    for (const placed of boxesOfBand('header', info.headerKey, info.header))
+      collect(placed)
     for (const placed of pass.boxes) {
-      if (placed.sheet === index)
-        collect(placed.box, elementsById.get(placed.box.elementId) as PrintElement)
+      if (placed.sheet !== index)
+        continue
+      const item = itemsById.get(placed.box.elementId) as BodyItem
+      collect({ box: placed.box, element: item.element, scope: item.scope })
     }
-    for (const { box, element } of boxesOfBand('footer', info.footerKey, info.footer))
-      collect(box, element)
+    for (const placed of boxesOfBand('footer', info.footerKey, info.footer))
+      collect(placed)
     sheets.push(sheet)
   }
   return { sheets, fixups }
@@ -207,7 +217,7 @@ export function paginate(document: PrintDocument, data: unknown, options: Pagina
     throw new PrintLayoutError('document.invalid', { errors: errors.length }, errors)
   }
 
-  const diagnostics: PaginationDiagnostic[] = []
+  const diagnostics: PendingDiagnostic[] = []
   const contextOptions: Parameters<typeof createLayoutContext>[2] = {}
   if (options.expressionEngine !== undefined)
     contextOptions.expressionEngine = options.expressionEngine
@@ -225,15 +235,15 @@ export function paginate(document: PrintDocument, data: unknown, options: Pagina
   const fixups: PageNumberFixup[] = []
   const runs: LayoutSheet[][] = []
   let lastNumber: number | undefined
-  for (const page of document.pages) {
+  for (const [pageIndex, page] of document.pages.entries()) {
     const budget = maxSheets - sheets.length
     if (budget <= 0) {
-      context.report('layout.sheetLimit', { pageId: page.id }, { limit: maxSheets })
+      context.report('layout.sheetLimit', pageScope(pageIndex, page), { limit: maxSheets })
       break
     }
     const continues = page.numbering.continuous && lastNumber !== undefined
     const firstNumber = continues ? (lastNumber as number) + 1 : page.numbering.start
-    const layout = layoutPage(page, firstNumber, budget, context)
+    const layout = layoutPage(page, pageIndex, firstNumber, budget, context)
     if (!continues || runs.length === 0)
       runs.push([])
     runs.at(-1)?.push(...layout.sheets)
@@ -246,8 +256,8 @@ export function paginate(document: PrintDocument, data: unknown, options: Pagina
     for (const sheet of run)
       sheet.totalPages = run.length
   }
-  for (const { box, element, sheet } of fixups)
-    fillPageNumber(box, element, { current: sheet.pageNumber, total: sheet.totalPages }, context, { pageId: sheet.pageId, elementId: element.id })
+  for (const { box, element, scope, sheet } of fixups)
+    fillPageNumber(box, element, { current: sheet.pageNumber, total: sheet.totalPages }, context, scope)
 
-  return { sheets, diagnostics }
+  return { sheets, diagnostics: withSeverity(diagnostics, PAGINATION_DIAGNOSTIC_SEVERITIES) as PaginationDiagnostic[] }
 }
