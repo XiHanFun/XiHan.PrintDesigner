@@ -105,6 +105,7 @@ pnpm dev
 - 运行时 NuGet 依赖只有 `Microsoft.Web.WebView2`；新增任何运行时依赖前先征得维护者同意，能用 .NET 自带库或 Windows API 自写的就自写。
 - Core 不引用任何 Windows 专属 API，平台相关的实现放在平台项目里，经 Core 的接口接入。
 - 代码风格照 XiHan.Framework：文件头两行版权注释，文件级命名空间，公开成员写中文 XML 注释，注释只写做什么。
+- 原始通道的集成测试要一台端口指向文件的「Generic / Text Only」打印机，经环境变量 `XIHAN_PRINT_TEST_PRINTER`、`XIHAN_PRINT_TEST_OUTPUT` 告知；没配置时跳过。CI 里由 `client.yml` 自动装，本机要跑时以管理员身份照那一步装。
 - 提交前跑构建、测试与 `git diff --check`。
 
 ## 分支与 worktree
