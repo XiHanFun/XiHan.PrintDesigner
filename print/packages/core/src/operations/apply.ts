@@ -48,7 +48,7 @@ function copy<T>(value: T): T {
   return cloneJson(value as unknown as JsonValue) as unknown as T
 }
 
-const PAGE_SETTING_KEYS: readonly string[] = ['name', 'paper', 'orientation', 'margins', 'numbering', 'watermark', 'meta']
+const PAGE_SETTING_KEYS: readonly string[] = ['name', 'paper', 'orientation', 'margins', 'numbering', 'watermark', 'guides', 'meta']
 
 function unchanged(document: PrintDocument): OperationResult {
   return { document, inverse: [] }
