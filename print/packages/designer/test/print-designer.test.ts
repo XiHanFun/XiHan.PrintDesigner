@@ -291,6 +291,35 @@ describe('<xh-print-designer>', () => {
     expect((designer.schema.pages[0]!.elements[0] as { box?: { border?: unknown } }).box!.border).toEqual({})
   })
 
+  it('纸张：选预设整体写入，改宽高时去掉预设，选自定义只去掉预设；水印前面有开关，分项按「水印 · 分项」命名', async () => {
+    const panel = designer.querySelector('xh-designer-properties')!
+    const target = (): { kind: string, id: string, value: unknown, descriptors: readonly { path: readonly (string | number)[] }[] } => panel.targets![0]!
+    const change = (path: (string | number)[], value: unknown): void => {
+      const { kind, id } = target()
+      panel.dispatchEvent(new CustomEvent('property-change', { detail: { path, value, targets: [{ kind, id }], merge: `m${path.join('.')}` } }))
+    }
+    const view = (): Record<string, unknown> => (target().value as { $view: Record<string, unknown> }).$view
+    const label = (path: string): string => panel.labelOf!(target().descriptors.find(descriptor => descriptor.path.join('.') === path)! as never)
+    expect([view()['paper:paper'], label('$view.paper:paper'), label('paper.width')]).toEqual(['A4', 'Paper · Size', 'Paper · Width'])
+    change(['$view', 'paper:paper'], 'A5')
+    expect(designer.schema.pages[0]!.paper).toEqual({ preset: 'A5', width: 148, height: 210 })
+    change(['paper', 'width'], 150)
+    expect(designer.schema.pages[0]!.paper).toEqual({ width: 150, height: 210 })
+    await designer.updateComplete
+    expect(view()['paper:paper']).toBe('custom')
+    change(['$view', 'paper:paper'], 'A4')
+    change(['$view', 'paper:paper'], 'custom')
+    expect(designer.schema.pages[0]!.paper).toEqual({ width: 210, height: 297 })
+
+    expect(view()['present:watermark']).toBe(false)
+    change(['$view', 'present:watermark'], true)
+    expect(designer.schema.pages[0]!.watermark).toMatchObject({ text: '', opacity: 0.1 })
+    await designer.updateComplete
+    expect(label('watermark.opacity')).toBe('Watermark · Opacity')
+    change(['watermark', 'text'], '样稿')
+    expect(designer.schema.pages[0]!.watermark!.text).toBe('样稿')
+  })
+
   it('属性面板：表格编辑态下编辑选中的部位，修改写回整张表格', async () => {
     const panel = designer.querySelector('xh-designer-properties')!
     designer.select({ elements: ['t'] })
