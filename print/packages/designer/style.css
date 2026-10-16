@@ -74,6 +74,10 @@ xh-print-designer [data-part='viewport'] {
   touch-action: none;
 }
 
+xh-print-designer[data-space-pan] [data-part='viewport'] {
+  cursor: grab;
+}
+
 xh-print-designer [data-part='viewport']:focus-visible {
   box-shadow: inset 0 0 0 var(--xh-stroke-thick) var(--xh-border-control-focus);
 }
@@ -102,7 +106,6 @@ xh-print-designer [data-part='decorations'] {
 
 xh-print-designer [data-part='margins'],
 xh-print-designer [data-part='band'],
-xh-print-designer [data-part='selection'],
 xh-print-designer [data-part='table-edit'],
 xh-print-designer [data-part='table-part'],
 xh-print-designer [data-part='design-overflow'],
@@ -128,10 +131,6 @@ xh-print-designer [data-part='margins'] {
 xh-print-designer [data-part='band'][data-region='header'],
 xh-print-designer [data-part='band'][data-region='footer'] {
   background: var(--xh-bg-subtle);
-}
-
-xh-print-designer [data-part='selection'] {
-  outline: calc(var(--xh-stroke-thick) / var(--xh-print-designer-zoom)) solid var(--xh-border-control-focus);
 }
 
 xh-print-designer [data-part='table-edit'] {
