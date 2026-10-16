@@ -15,15 +15,15 @@ import type { PageBandKey, PageOrientation } from '../schema/options'
 import type { ElementRegion } from '../traverse'
 import type { IssueSink, ValidationIssue, ValidationReport } from './issues'
 import { findJsonViolation, isPlainObject } from '@xihan-ui/core/json'
-import { expandRect, isPaperPresetName, PAPER_PRESET_NAMES, PAPER_PRESETS, rectContains } from '@xihan-ui/designer-kit'
+import { expandRect, rectContains } from '@xihan-ui/designer-kit'
 import { readArray, readBoolean, readNumber, readObject, readOneOf, readString } from '@xihan-ui/designer-kit/schema'
 import { getBandRect, getBodyRect, getContentRect, getElementRect, getPaperSize } from '../geometry'
 import { createElementRegistry } from '../registry/registry'
 import { PRINT_SCHEMA_VERSION } from '../schema/document'
 import { PAGE_ORIENTATIONS, SINGLE_SHEET_PREFERENCES } from '../schema/options'
 import { PAGE_BAND_KEYS } from '../traverse'
-import { field, readColor, readFields, readTextTemplate } from './checks'
-import { validateControlValue, validateEdges } from './controls'
+import { field, readFields } from './checks'
+import { validateControlValue, validateEdges, validatePaper, validateWatermark } from './controls'
 import { LENGTH_TOLERANCE } from './element-rules'
 import { createIssueSink } from './issues'
 
@@ -212,25 +212,6 @@ function findBandsOverflow(
   return undefined
 }
 
-function validatePaper(value: unknown, path: Path, sink: IssueSink): void {
-  const size = (item: unknown, itemPath: Path): void => {
-    readNumber(sink, item, itemPath, { exclusiveMin: 0 })
-  }
-  const paper = readFields(sink, value, path, [
-    field('preset', false, (item, itemPath) => readOneOf(sink, item, itemPath, PAPER_PRESET_NAMES)),
-    field('width', true, size),
-    field('height', true, size),
-  ])
-  if (paper === undefined || !isPaperPresetName(paper.preset))
-    return
-  const expected = PAPER_PRESETS[paper.preset]
-  const matches = isFiniteNumber(paper.width) && isFiniteNumber(paper.height)
-    && Math.abs(paper.width - expected.width) <= LENGTH_TOLERANCE
-    && Math.abs(paper.height - expected.height) <= LENGTH_TOLERANCE
-  if (!matches)
-    sink.report('page.presetMismatch', path, { params: { preset: paper.preset } })
-}
-
 function validateBand(value: unknown, path: Path, sink: IssueSink): void {
   readFields(sink, value, path, [
     field('height', true, (item, itemPath) => readNumber(sink, item, itemPath, { min: 0 })),
@@ -250,26 +231,6 @@ function validateNumbering(value: unknown, path: Path, sink: IssueSink): void {
   readFields(sink, value, path, [
     field('continuous', true, (item, itemPath) => readBoolean(sink, item, itemPath)),
     field('start', true, (item, itemPath) => readNumber(sink, item, itemPath, { min: 0, integer: true })),
-  ])
-}
-
-function validateWatermark(value: unknown, path: Path, sink: IssueSink): void {
-  const gap = (item: unknown, itemPath: Path): void => {
-    readNumber(sink, item, itemPath, { min: 0 })
-  }
-  readFields(sink, value, path, [
-    field('text', true, (item, itemPath) => {
-      const text = readTextTemplate(sink, item, itemPath)
-      if (text !== undefined && text.trim().length === 0)
-        sink.report('watermark.emptyText', itemPath)
-    }),
-    field('fontFamily', false, (item, itemPath) => readString(sink, item, itemPath)),
-    field('fontSize', true, (item, itemPath) => readNumber(sink, item, itemPath, { exclusiveMin: 0, max: 500 })),
-    field('color', true, (item, itemPath) => readColor(sink, item, itemPath)),
-    field('opacity', true, (item, itemPath) => readNumber(sink, item, itemPath, { min: 0, max: 1 })),
-    field('rotation', true, (item, itemPath) => readNumber(sink, item, itemPath, { min: -360, max: 360 })),
-    field('gapX', true, gap),
-    field('gapY', true, gap),
   ])
 }
 

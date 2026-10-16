@@ -36,6 +36,25 @@ export function property(
   }
 }
 
+function nestCondition(prefix: JsonPath, condition: PropertyCondition): PropertyCondition {
+  if ('all' in condition)
+    return { all: condition.all.map(item => nestCondition(prefix, item)) }
+  if ('any' in condition)
+    return { any: condition.any.map(item => nestCondition(prefix, item)) }
+  if ('not' in condition)
+    return { not: nestCondition(prefix, condition.not) }
+  return { ...condition, path: [...prefix, ...condition.path] }
+}
+
+/** 把相对某个子对象的属性描述换成相对上级对象：路径与显示条件里的路径都接在 prefix 之后。 */
+export function nestProperties(prefix: JsonPath, descriptors: readonly PropertyDescriptor[]): PropertyDescriptor[] {
+  return descriptors.map(descriptor => ({
+    ...descriptor,
+    path: [...prefix, ...descriptor.path],
+    ...(descriptor.visibleWhen === undefined ? {} : { visibleWhen: nestCondition(prefix, descriptor.visibleWhen) }),
+  }))
+}
+
 /** 坐标、宽高与可选的旋转角度。 */
 export function layoutProperties(options: { rotation: boolean }): PropertyDescriptor[] {
   const descriptors = [
