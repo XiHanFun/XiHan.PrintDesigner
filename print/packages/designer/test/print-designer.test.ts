@@ -137,6 +137,30 @@ describe('<xh-print-designer>', () => {
     expect(designer.getSelection().elements).toEqual(['text-1'])
   })
 
+  it('跨区拖动：元素中心落进页眉即改放到页眉当前带区，记一步撤销；表格这类跨页元素留在正文；Alt 复制同样改区', async () => {
+    const document = sample()
+    document.pages[0]!.header.default.height = 20
+    designer.schema = document
+    await designer.updateComplete
+    const ids = (): [string[], string[]] => [designer.schema.pages[0]!.header.default.elements.map(element => element.id), designer.schema.pages[0]!.elements.map(element => element.id)]
+    designer.select({ elements: ['a'] })
+    transform('start', 'move', { a: { x: 10, y: 30, width: 40, height: 10 } })
+    transform('move', 'move', { a: { x: 10, y: 12, width: 40, height: 10 } })
+    expect(ids()).toEqual([['a'], ['t']])
+    transform('end', 'move', { a: { x: 10, y: 12, width: 40, height: 10 } })
+    expect(designer.schema.pages[0]!.header.default.elements[0]).toMatchObject({ id: 'a', y: 12 })
+    expect(designer.getSelection().elements).toEqual(['a'])
+    designer.undo()
+    expect(ids()).toEqual([[], ['a', 't']])
+    transform('start', 'move', { t: { x: 10, y: 60, width: 190, height: 20 } })
+    transform('end', 'move', { t: { x: 10, y: 12, width: 190, height: 20 } })
+    expect(ids()).toEqual([[], ['a', 't']])
+    expect(designer.schema.pages[0]!.elements[1]).toMatchObject({ id: 't', y: 12 })
+    transform('start', 'move', { a: { x: 10, y: 30, width: 40, height: 10 } })
+    transform('end', 'move', { a: { x: 10, y: 12, width: 40, height: 10 } }, true)
+    expect(ids()).toEqual([['text-1'], ['a', 't']])
+  })
+
   it('框选按方向选中元素，Shift 追加；表格编辑态与只读时覆盖层没有可变换的选中项', async () => {
     overlay().dispatchEvent(new CustomEvent('marquee', { detail: { phase: 'end', rect: { x: 5, y: 25, width: 50, height: 20 }, mode: 'contain', additive: false } }))
     expect(designer.getSelection().elements).toEqual(['a'])
