@@ -8,6 +8,8 @@
 export * from './factory'
 export * from './geometry'
 export { MIN_SHRINK_FONT_SIZE, SHRINK_FONT_STEP } from './layout/boxes'
+export { DESIGN_FILLER_ROWS, DESIGN_SAMPLE_ROWS, layoutDesign } from './layout/design'
+export type { DesignLayout, DesignLayoutOptions } from './layout/design'
 export { DEFAULT_MAX_SHEETS, paginate } from './layout/paginate'
 export { DEFAULT_FONT_FAMILY } from './layout/text-measure'
 export * from './layout/types'
