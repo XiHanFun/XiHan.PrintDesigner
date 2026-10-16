@@ -192,6 +192,12 @@ public sealed class PrintRequestHandlerTests : IAsyncLifetime
         await AcceptedAsync(peer, "f2");
         await EventAsync(peer, "job.started", "f2");
         Assert.Equal(PrintErrorCodes.Internal, (string?)(await EventAsync(peer, "job.failed", "f2"))["error"]!["code"]);
+
+        var recent = _queue.Recent(5);
+        Assert.Equal(["f2", "f1"], recent.Select(job => job.Id));
+        Assert.Equal(("https://erp.example.com", JobKind.Html, "Label", JobState.Failed, PrintErrorCodes.Internal), (recent[0].Origin, recent[0].Kind, recent[0].Printer, recent[0].State, recent[0].ErrorCode));
+        Assert.NotNull(recent[0].FinishedAt);
+        Assert.True(recent[0].FinishedAt >= recent[0].CreatedAt);
     }
 
     [Fact]

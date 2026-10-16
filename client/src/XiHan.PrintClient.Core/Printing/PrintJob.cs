@@ -87,6 +87,11 @@ public sealed class PrintJob
     public long? Bytes { get; internal set; }
 
     /// <summary>
+    /// 受理的时间
+    /// </summary>
+    public DateTimeOffset CreatedAt { get; internal set; }
+
+    /// <summary>
     /// 结束的时间
     /// </summary>
     public DateTimeOffset? FinishedAt { get; internal set; }
@@ -143,5 +148,25 @@ public sealed class PrintJob
         Error = Error,
     };
 
+    /// <summary>
+    /// 供诊断用的元数据，不含文档与指令内容
+    /// </summary>
+    public JobRecord Record() => new(Id, Session.Origin, Kind, Printer, State, Error?.Code, Sheets, Bytes, CreatedAt, FinishedAt);
+
     private static string LaneOf(string printer) => "printer:" + printer.ToUpperInvariant();
 }
+
+/// <summary>
+/// 一个任务的元数据
+/// </summary>
+/// <param name="Id">任务标识</param>
+/// <param name="Origin">来源</param>
+/// <param name="Kind">种类</param>
+/// <param name="Printer">打印机；导出 PDF 时为 null</param>
+/// <param name="State">状态</param>
+/// <param name="ErrorCode">失败时的错误码</param>
+/// <param name="Sheets">输出页数</param>
+/// <param name="Bytes">写出或导出的字节数</param>
+/// <param name="CreatedAt">受理时间</param>
+/// <param name="FinishedAt">结束时间</param>
+public sealed record JobRecord(string Id, string Origin, JobKind Kind, string? Printer, JobState State, string? ErrorCode, int? Sheets, long? Bytes, DateTimeOffset CreatedAt, DateTimeOffset? FinishedAt);
