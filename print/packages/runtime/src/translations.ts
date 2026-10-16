@@ -6,6 +6,7 @@
 // 打印产品各元素的文案键：预览与设计器的文案类型集中在这里，并补进 UI 的 XhTranslationOverrides。
 
 import type { ElementCategory, ElementRegion, PageBandKey, PrintElementType } from '@xihan-print/core'
+import type { SchemaIssue } from '@xihan-ui/designer-kit/schema'
 
 /** 预览元素的文案。 */
 export interface PrintPreviewTranslations {
@@ -111,6 +112,8 @@ export interface PrintDesignerTranslations {
   readonly properties: string
   /** 问题列表的标题。 */
   readonly issues: string
+  /** 校验问题与分页诊断的说明，按问题码与参数生成。 */
+  readonly issue: (issue: SchemaIssue) => string
 }
 
 declare module '@xihan-ui/web-components' {
