@@ -5,7 +5,7 @@
 
 // <xh-print-designer>：打印模板设计器。画布按纸张显示一张页面模板（页眉、正文、页脚三区），元素用 runtime 的渲染代码画；
 // 点选与 Shift / Ctrl 追加选择，拖动元素移动，控制柄缩放与旋转，拖空白框选，按住空格或中键拖动平移，Ctrl / ⌘ + 滚轮缩放；
-// 画布外有毫米标尺，从标尺拖出的参考线存进页面模板；页眉页脚可切换变体、拖边界改高度；
+// 画布外有毫米标尺，从标尺拖出的参考线存进页面模板；下方问题列表点选即定位；页眉页脚可切换变体、拖边界改高度；
 // 双击表格进入表格编辑态；键盘撤销重做、删除、微移、层级与系统剪贴板；可切到 <xh-print-preview> 预览与打印。
 // 整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区。
 
@@ -32,6 +32,8 @@ import type { AlignMode, DataField, DistributeAxis, ExecuteOptions, Point, Rect,
 import type {
   DesignerFrameRegion,
   DesignerGuides,
+  DesignerIssueItem,
+  DesignerIssuesEventMap,
   DesignerPaletteDragPayload,
   DesignerPaletteEventMap,
   DesignerPaletteGroup,
@@ -84,6 +86,7 @@ import {
   parseDesignerPanels,
   registerDropTarget,
   XhDesignerFrameElement,
+  XhDesignerIssuesElement,
   XhDesignerPaletteElement,
   XhDesignerRulerElement,
   XhDesignerTransformElement,
@@ -93,6 +96,7 @@ import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } 
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, setText, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { createPrintEditor, elementRect } from './editor'
+import { defaultIssueText } from './issue-text'
 import { columnBoundaries, planTableCommand, TABLE_COMMANDS, tablePartAt } from './table-edit'
 
 /** 设计器的标签名。 */
@@ -214,6 +218,7 @@ const DEFAULT_TRANSLATIONS: PrintDesignerTranslations = {
   palette: 'Elements',
   properties: 'Properties',
   issues: 'Issues',
+  issue: defaultIssueText,
 }
 
 type StringKey = { [K in keyof PrintDesignerTranslations]: PrintDesignerTranslations[K] extends string ? K : never }[keyof PrintDesignerTranslations]
@@ -313,6 +318,7 @@ function frameRegions(t: PrintDesignerTranslations): DesignerFrameRegion[] {
     { name: 'pages', position: 'top' },
     { name: 'palette', position: 'start', size: 16, label: t.palette },
     { name: 'canvas', position: 'center' },
+    { name: 'issues', position: 'bottom', size: 22, label: t.issues },
   ]
 }
 
@@ -323,6 +329,7 @@ function isPaletteDrag(payload: unknown): payload is DesignerPaletteDragPayload 
 interface Layers {
   readonly frame: XhDesignerFrameElement
   readonly palette: XhDesignerPaletteElement
+  readonly issues: XhDesignerIssuesElement
   readonly toolbar: HTMLElement
   readonly toolbarRoot: HTMLElement
   readonly items: Map<Command, HTMLButtonElement>
@@ -446,6 +453,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   #spacePan = false
   #regions: { readonly key: string, readonly regions: readonly DesignerFrameRegion[] } | undefined
   #paletteKey = ''
+  #listed: { readonly issues: readonly ValidationIssue[], readonly key: string } | undefined
   #unregisterDrop: (() => void) | undefined
   #hoverId: string | undefined
 
@@ -531,7 +539,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#unregisterDrop ??= registerDropTarget<unknown>(layers.viewport, {
       over: (point, payload) => this.#dropOver(point, payload),
       drop: (point, payload) => this.#drop(point, payload),
-      leave: () => this.#showDropPreview(undefined),
+      leave: () => this.#setOverlayHover(undefined),
     })
   }
 
@@ -563,6 +571,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     layers.frame.panels = this.#framePanels()
     this.#syncFrameRegions(layers, t)
     this.#syncPalette(layers, t)
+    this.#syncIssues(layers, t)
     this.#renderToolbar(layers, t)
     this.#renderPages(layers, t)
     layers.viewport.setAttribute('aria-label', t.canvas)
@@ -814,6 +823,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     queueMicrotask(() => {
       this.#issuesScheduled = false
       this.#issues = this.validate()
+      this.requestUpdate()
       emitEvent(this, 'issues-change', { issues: this.#issues })
     })
   }
@@ -988,13 +998,16 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#fillMenu(menuContent, 'blank')
     const palette = createAuthoredElement(doc, 'xh-designer-palette', { 'slot': 'palette', 'data-part': 'palette', 'collapsible': true }) as XhDesignerPaletteElement
     palette.addEventListener('item-activate', this.#onPaletteActivate)
+    const issues = createAuthoredElement(doc, 'xh-designer-issues', { 'slot': 'issues', 'data-part': 'issues' }) as XhDesignerIssuesElement
+    issues.addEventListener('issue-activate', this.#onIssueActivate)
+    issues.addEventListener('issue-hover', this.#onIssueHover)
     const preview = createAuthoredElement(doc, 'div', { 'data-part': 'preview', 'hidden': true })
     const ruler = createAuthoredElement(doc, 'xh-designer-ruler', { 'unit-size': 1 }) as XhDesignerRulerElement
     ruler.viewport = this.#viewport
     ruler.snap = (_axis, value) => this.#snapValue(value)
     ruler.addEventListener('guides-change', this.#onGuidesChange)
     const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [ruler, menu, preview])
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, pages, palette, workspace]) as XhDesignerFrameElement
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, pages, palette, workspace, issues]) as XhDesignerFrameElement
     this.append(frame)
 
     viewport.addEventListener('pointerdown', this.#onPointerDown)
@@ -1009,7 +1022,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, palette, toolbar, toolbarRoot, items, pages, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
+    this.#layers = { frame, palette, issues, toolbar, toolbarRoot, items, pages, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
     return this.#layers
   }
 
@@ -1446,12 +1459,12 @@ export class XhPrintDesigner extends XhReactiveElement {
     const placed = !this.readonly && this.mode === 'design' && isPaletteDrag(payload)
       ? this.#placement(payload.id, this.clientToWorld(point.x, point.y))
       : undefined
-    this.#showDropPreview(placed)
+    this.#setOverlayHover(placed)
     return placed === undefined ? { accept: false } : { accept: true, ghost: 'hide' }
   }
 
   #drop(point: Point, payload: unknown): void {
-    this.#showDropPreview(undefined)
+    this.#setOverlayHover(undefined)
     if (!isPaletteDrag(payload) || this.readonly || this.mode !== 'design' || !this.#editor.registry.has(payload.id))
       return
     this.#stopAutoFit()
@@ -1459,10 +1472,63 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#layers?.viewport.focus({ preventScroll: true })
   }
 
-  /** 落点框借用覆盖层的悬停框。 */
-  #showDropPreview(rect: Rect | undefined): void {
+  /** 覆盖层的悬停框，也用来画拖放落点与问题所在的元素。 */
+  #setOverlayHover(rect: Rect | undefined): void {
     this.#hoverId = undefined
     this.#ensureLayers().overlay.hover = rect
+  }
+
+  // —— 内部：问题列表 ——
+
+  #syncIssues(layers: Layers, t: PrintDesignerTranslations): void {
+    layers.issues.readonly = this.readonly
+    const document = this.#editor.document
+    const key = JSON.stringify([document.pages.map(page => [page.id, page.name]), t.pageTitle(1), t.elements])
+    if (this.#listed?.issues === this.#issues && this.#listed.key === key && layers.issues.items !== undefined)
+      return
+    this.#listed = { issues: this.#issues, key }
+    layers.issues.items = this.#issues.map((issue): DesignerIssueItem => {
+      const subject = this.#issueSubject(issue, t)
+      return { issue, message: t.issue(issue), ...(subject === undefined ? {} : { subject }) }
+    })
+  }
+
+  /** 问题所在对象的名字：页面名，或「页面 · 元素」。 */
+  #issueSubject(issue: ValidationIssue, t: PrintDesignerTranslations): string | undefined {
+    const target = issue.target
+    if (target === undefined)
+      return undefined
+    const pages = this.#editor.document.pages
+    const pageName = (index: number): string => pages[index]?.name ?? t.pageTitle(index + 1)
+    if (target.kind === 'page') {
+      const index = pages.findIndex(page => page.id === target.id)
+      return index < 0 ? target.id : pageName(index)
+    }
+    const found = target.kind === 'element' ? findElement(this.#editor.document, target.id) : undefined
+    if (found === undefined)
+      return target.id
+    const type = found.element.type
+    return `${pageName(pages.indexOf(found.page))} · ${t.elementLabel(t.elements[type as PrintElementType] ?? type, found.element.name ?? found.element.id)}`
+  }
+
+  /** 点选问题：切到所在页面模板；落在元素上时选中元素并移进视口。 */
+  readonly #onIssueActivate = (event: Event): void => {
+    const target = (event as DesignerIssuesEventMap['issue-activate']).detail.issue.target
+    if (target?.kind === 'page' && this.#editor.document.pages.some(page => page.id === target.id)) {
+      this.#editor.setActivePage(target.id)
+      return
+    }
+    if (target?.kind !== 'element' || findElement(this.#editor.document, target.id) === undefined)
+      return
+    this.revealElement(target.id)
+    this.#editor.select({ elements: [target.id] })
+  }
+
+  /** 指针在问题上时，画布上框出所在元素。 */
+  readonly #onIssueHover = (event: Event): void => {
+    const target = (event as DesignerIssuesEventMap['issue-hover']).detail.issue?.target
+    const item = target?.kind === 'element' ? this.#editor.visibleElements().find(visible => visible.element.id === target.id) : undefined
+    this.#setOverlayHover(item === undefined ? undefined : elementRect(item.element))
   }
 
   /** 侧边面板里的按键与剪贴板事件归面板自己。 */
@@ -2095,6 +2161,7 @@ export function definePrintDesigner(): void {
   defineDesignerShellElement('xh-designer-transform', XhDesignerTransformElement)
   defineDesignerShellElement('xh-designer-ruler', XhDesignerRulerElement)
   defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)
+  defineDesignerShellElement('xh-designer-issues', XhDesignerIssuesElement)
   registerElement(PRINT_DESIGNER_TAG, XhPrintDesigner)
 }
 

@@ -6,11 +6,13 @@
 // @vitest-environment jsdom
 
 import type { PrintDocument } from '@xihan-print/core'
+import type { PrintDesignerTranslations } from '@xihan-print/runtime'
 import type { Rect } from '@xihan-ui/designer-kit'
 import type { DesignerGesturePhase, DesignerTransformKind, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import type { TextMeasurer } from '@xihan-ui/viz'
 import type { XhPrintDesigner } from '../src'
 import { createDocument, createElementRegistry, createPage } from '@xihan-print/core'
+import { printZhCN } from '@xihan-print/runtime/locale'
 import { CLIPBOARD_FORMAT, clipboardMimeType } from '@xihan-ui/designer-kit'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { definePrintDesigner } from '../src'
@@ -183,6 +185,26 @@ describe('<xh-print-designer>', () => {
     expect(palette.readonly).toBe(true)
     palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'rect', payload: undefined } }))
     expect(designer.schema.pages[0]!.elements).toHaveLength(3)
+  })
+
+  it('问题列表：校验问题配上文案与所在对象，点选即选中元素，悬停时框出元素；中文语言包带问题文案', async () => {
+    designer.execute([{ type: 'moveElements', ids: ['a'], dx: 200, dy: 0 }])
+    await Promise.resolve()
+    await designer.updateComplete
+    const list = designer.querySelector('xh-designer-issues')!
+    expect(list.closest('[data-region="issues"]')).not.toBeNull()
+    const item = list.items!.find(entry => entry.issue.code === 'element.outsidePaper')!
+    expect([item.message, item.subject]).toEqual(['Extends beyond the paper', 'Page 1 · Text a'])
+    designer.select({ elements: [] })
+    list.dispatchEvent(new CustomEvent('issue-activate', { detail: { issue: item.issue, index: 0 } }))
+    expect(designer.getSelection().elements).toEqual(['a'])
+    list.dispatchEvent(new CustomEvent('issue-hover', { detail: { issue: item.issue } }))
+    expect(overlay().hover).toEqual({ x: 210, y: 30, width: 40, height: 10 })
+    list.dispatchEvent(new CustomEvent('issue-hover', { detail: { issue: undefined } }))
+    expect(overlay().hover).toBeUndefined()
+    const zh = printZhCN.translations!['xh-print-designer'] as PrintDesignerTranslations
+    expect(zh.issue(item.issue)).toBe('超出纸张')
+    expect(zh.issue({ code: 'out-of-range', path: [], params: { min: 0, max: 360 } })).toBe('应不小于 0、不大于 360')
   })
 
   it('复制写入系统剪贴板，粘贴换新 id；别的内容粘进来时忽略', () => {
