@@ -65,6 +65,8 @@ export const VALIDATION_ISSUE_SEVERITIES = {
   'matrixCode.notSquare': 'warning',
   'pageNumber.noToken': 'warning',
   'pageNumber.unknownToken': 'warning',
+  'richText.invalidDocument': 'error',
+  'richText.empty': 'warning',
 } as const satisfies Record<string, IssueSeverity>
 
 /** 问题码。 */

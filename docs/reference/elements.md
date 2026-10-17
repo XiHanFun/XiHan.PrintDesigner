@@ -69,6 +69,35 @@
 | `locked` | 锁定 | 布尔 | 可省 | — |
 | `previewOnly` | 只在预览中显示 | 布尔 | 可省 | — |
 
+### 富文本 `richText` {#richtext}
+
+随内容纵向延展、可跨页续排，只能放在正文区 · 最小 5 × 3 mm · 新建时 120 × 20 mm · 类型 [RichTextElement](./schema#richtextelement)。
+
+| 属性 | 名称 | 取值 | 必有 | 新建时 |
+| --- | --- | --- | --- | --- |
+| `x` | X | 数值（mm） | 是 | — |
+| `y` | Y | 数值（mm） | 是 | — |
+| `width` | 宽 | 数值（mm），≥ 0 | 是 | `120` |
+| `height` | 高 | 数值（mm），≥ 0 | 是 | `20` |
+| `content` | 内容 | [富文本内容](./schema#richtextcontent) | 是 | … |
+| `style.fontFamily` | 字体 | 文本 | 可省 | — |
+| `style.fontSize` | 字号 | 数值（pt），> 0，≤ 500 | 是 | `10.5` |
+| `style.bold` | 粗体 | 布尔 | 是 | `false` |
+| `style.italic` | 斜体 | 布尔 | 是 | `false` |
+| `style.underline` | 下划线 | 布尔 | 是 | `false` |
+| `style.lineThrough` | 删除线 | 布尔 | 是 | `false` |
+| `style.color` | 文字颜色 | [颜色](./schema#color) | 是 | `"#000000"` |
+| `style.align` | 水平对齐 | `left` 左、`center` 居中、`right` 右、`justify` 两端对齐 | 是 | `"left"` |
+| `style.verticalAlign` | 垂直对齐 | `top` 上、`middle` 居中、`bottom` 下 | 是 | `"top"` |
+| `style.lineHeight` | 行高 | 数值（倍），> 0，≤ 10 | 是 | `1.5` |
+| `style.letterSpacing` | 字间距 | 数值（pt），≥ -10，≤ 100 | 是 | `0` |
+| `box.background` | 背景 | [颜色](./schema#color) | 可省 | — |
+| `box.border` | 边框 | [四边边框](./schema#bordersides) | 可省 | — |
+| `box.padding` | 内边距 | [四边距离](./schema#edges) | 可省 | — |
+| `name` | 名称 | 文本 | 可省 | — |
+| `locked` | 锁定 | 布尔 | 可省 | — |
+| `previewOnly` | 只在预览中显示 | 布尔 | 可省 | — |
+
 ### 页码 `pageNumber` {#pagenumber}
 
 固定尺寸，可放在页眉、正文与页脚 · 最小 1 × 1 mm · 新建时 30 × 6 mm · 类型 [PageNumberElement](./schema#pagenumberelement)。

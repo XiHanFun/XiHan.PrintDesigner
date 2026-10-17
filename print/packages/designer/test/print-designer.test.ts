@@ -205,7 +205,7 @@ describe('<xh-print-designer>', () => {
     const palette = designer.querySelector('xh-designer-palette')!
     expect(palette.closest('[data-region="palette"]')).not.toBeNull()
     expect(palette.groups!.map(group => group.id)).toEqual(['text', 'media', 'data', 'shape', 'code'])
-    expect(palette.groups![0]!.items.map(item => [item.id, item.label])).toEqual([['text', 'Text'], ['longText', 'Long text'], ['pageNumber', 'Page number']])
+    expect(palette.groups![0]!.items.map(item => [item.id, item.label])).toEqual([['text', 'Text'], ['longText', 'Long text'], ['richText', 'Rich text'], ['pageNumber', 'Page number']])
     palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'rect', payload: undefined } }))
     const added = designer.schema.pages[0]!.elements.at(-1)!
     expect([added.type, designer.getSelection().elements]).toEqual(['rect', [added.id]])
@@ -357,6 +357,28 @@ describe('<xh-print-designer>', () => {
     designer.select({ elements: ['t'], tablePart: { kind: 'column', elementId: 't', columnId: table.columns[0]!.id } })
     await designer.updateComplete
     expect(find('content.field').control.options!.map(option => option.value)).toEqual(['qty'])
+  })
+
+  it('富文本：画布按设计态排出的行画出，字段显示 {path} 占位；面板只切来源，字段来源再选字段与内容格式', async () => {
+    const page = createPage({ id: 'p' })
+    page.elements = [registry.createElement('richText', { id: 'r', x: 10, y: 30, overrides: { content: { kind: 'field', field: 'notice.body', source: 'html' } } })]
+    designer.schema = createDocument({ pages: [page] })
+    await designer.updateComplete
+    const box = designer.querySelector<HTMLElement>('[data-element-id="r"]')!
+    expect(box.dataset.kind).toBe('richText')
+    expect(box.textContent).toBe('{notice.body}')
+
+    const panel = designer.querySelector('xh-designer-properties')!
+    interface Target { kind: string, id: string, descriptors: readonly { path: readonly (string | number)[], control: { kind: string, options?: readonly { value: unknown }[] } }[] }
+    const target = (): Target => panel.targets![0]! as unknown as Target
+    designer.select({ elements: ['r'] })
+    await designer.updateComplete
+    const contentPaths = target().descriptors.map(descriptor => descriptor.path.join('.')).filter(path => path.startsWith('content'))
+    expect(contentPaths).toEqual(['content.kind', 'content.field', 'content.source'])
+    const options = (path: string): unknown[] => target().descriptors.find(descriptor => descriptor.path.join('.') === path)!.control.options!.map(option => option.value)
+    expect([options('content.kind'), options('content.source')]).toEqual([['static', 'field'], ['html', 'document']])
+    panel.dispatchEvent(new CustomEvent('property-change', { detail: { path: ['content', 'kind'], value: 'static', targets: [{ kind: 'element', id: 'r' }] } }))
+    expect(designer.schema.pages[0]!.elements[0]).toMatchObject({ content: { kind: 'static', document: { blocks: [{ type: 'paragraph', runs: [] }] } } })
   })
 
   it('二维码纠错级别按码制显示下拉或数字，换码制时去掉级别；页码格式是一行文本', async () => {

@@ -155,6 +155,7 @@ export const PROPERTY_NAMES: PrintDesignerTranslations['propertyNames'] = {
   'content/expression': 'Expression',
   'content/format': 'Format (JSON)',
   'content/url': 'URL',
+  'content/source': 'Content format',
   'content/fn': 'Summary',
   'content/scope': 'Summary range',
 }
@@ -200,6 +201,8 @@ export const PROPERTY_OPTION_NAMES: PrintDesignerTranslations['propertyOptions']
   'double': 'Double',
   'custom': 'Custom',
   'static': 'Fixed text',
+  'html': 'HTML',
+  'document': 'Rich text document',
   'field': 'Field',
   'template': 'Template',
   'expression': 'Expression',

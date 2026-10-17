@@ -362,11 +362,11 @@ function noticePage(): PrintPage {
       y: 74,
       overrides: { width: 90, height: 14, content: { kind: 'template', template: '{{dept}}\n{{date}}' }, wrap: true, style: textStyle({ fontSize: 12, align: 'right', verticalAlign: 'top', lineHeight: 1.6 }) },
     }),
-    registry.createElement('longText', {
+    registry.createElement('richText', {
       id: 'notice-appendix',
       x: 10,
       y: 92,
-      overrides: { width: 190, height: 20, content: { kind: 'field', field: 'appendix' }, style: textStyle({ fontSize: 11, lineHeight: 2, verticalAlign: 'top' }) },
+      overrides: { width: 190, height: 20, content: { kind: 'field', field: 'appendix', source: 'html' }, style: textStyle({ fontSize: 11, lineHeight: 1.8, verticalAlign: 'top' }) },
     }),
   ]
   return page
@@ -392,7 +392,7 @@ const NOTICE_CHECKLIST = [
 ]
 
 function noticeData(): unknown {
-  const checklist = NOTICE_CHECKLIST.map((item, index) => `□ ${index + 1}. ${item}`)
+  const checklist = NOTICE_CHECKLIST.map(item => `<li>${item}</li>`).join('')
   return {
     org: '曦寒示例科技有限公司',
     title: '关于开展年度信息安全自查工作的通知',
@@ -400,7 +400,13 @@ function noticeData(): unknown {
     no: '信发〔2026〕17 号',
     date: '2026 年 10 月 16 日',
     body: ['各部门：', '为落实年度信息安全工作安排，及时发现并消除安全隐患，现就开展自查工作通知如下。', ...NOTICE_SECTIONS, '特此通知。'].join('\n'),
-    appendix: ['附件：自查清单', ...checklist].join('\n'),
+    appendix: [
+      '<h3>附件：自查清单</h3>',
+      '<p>逐项核对后在纸面勾选，<strong>未完成的项</strong>写进整改清单，并注明<span style="color:#c0392b">完成时限</span>。</p>',
+      `<ol>${checklist}</ol>`,
+      '<hr>',
+      '<p style="text-align:right"><em>信息中心 安全组</em></p>',
+    ].join(''),
   }
 }
 

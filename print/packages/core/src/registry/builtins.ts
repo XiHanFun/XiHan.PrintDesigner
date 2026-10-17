@@ -15,6 +15,7 @@ import type {
   MatrixCodeElement,
   PageNumberElement,
   RectElement,
+  RichTextElement,
   TableElement,
   TextElement,
 } from '../schema/elements'
@@ -32,6 +33,7 @@ import {
   validateBarCodeRules,
   validateLineRules,
   validateMatrixCodeRules,
+  validateRichTextRules,
   validateShapeRules,
   validateTableRules,
 } from '../validation/element-rules'
@@ -155,11 +157,36 @@ function longTextPrototype(): ElementPrototype<LongTextElement> {
   }
 }
 
+function richTextPrototype(): ElementPrototype<RichTextElement> {
+  return {
+    type: 'richText',
+    category: 'text',
+    order: 3,
+    flow: true,
+    minSize: { width: 5, height: 3 },
+    defaults: {
+      type: 'richText',
+      width: 120,
+      height: 20,
+      content: { kind: 'static', document: { blocks: [{ type: 'paragraph', runs: [] }] } },
+      style: defaultTextStyle({ lineHeight: 1.5 }),
+    },
+    properties: [
+      ...layoutProperties({ rotation: false }),
+      property(['content'], 'content', { kind: 'richTextContent' }),
+      ...textStyleProperties(),
+      ...boxProperties(),
+      ...behaviorProperties(),
+    ],
+    validate: validateRichTextRules,
+  }
+}
+
 function pageNumberPrototype(): ElementPrototype<PageNumberElement> {
   return {
     type: 'pageNumber',
     category: 'text',
-    order: 3,
+    order: 4,
     flow: false,
     minSize: { width: 1, height: 1 },
     defaults: {
@@ -397,6 +424,7 @@ export function createBuiltinElementPrototypes(): AnyElementPrototype[] {
   return [
     textPrototype(),
     longTextPrototype(),
+    richTextPrototype(),
     pageNumberPrototype(),
     imagePrototype(),
     tablePrototype(),

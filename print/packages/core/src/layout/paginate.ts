@@ -28,6 +28,7 @@ import { fillPageNumber, layoutFixedElement, pageNumberBox } from './boxes'
 import { templateText } from './content'
 import { createLayoutContext, elementScope, pageScope } from './context'
 import { prepareLongText } from './long-text'
+import { prepareRichText } from './rich-text'
 import { prepareTable } from './table'
 import { PAGINATION_DIAGNOSTIC_SEVERITIES, PrintLayoutError } from './types'
 
@@ -70,6 +71,8 @@ function prepareBodyItem(element: PrintElement, index: number, context: LayoutCo
       return { kind: 'table', element, index, scope, prepared: prepareTable(element, context, scope) }
     case 'longText':
       return { kind: 'longText', element, index, scope, prepared: prepareLongText(element, context, scope) }
+    case 'richText':
+      return { kind: 'richText', element, index, scope, prepared: prepareRichText(element, context, scope) }
     case 'pageNumber':
       return { kind: 'fixed', element, index, scope, box: pageNumberBox(element, 'body') }
     default:
@@ -105,7 +108,7 @@ function layoutPage(page: PrintPage, pageIndex: number, firstNumber: number, lim
         const scope = elementScope(['pages', pageIndex, region, key, 'elements'], index, element)
         if (isPageNumber(element))
           return [{ box: pageNumberBox(element, region), element, scope }]
-        if (element.type === 'table' || element.type === 'longText')
+        if (element.type === 'table' || element.type === 'longText' || element.type === 'richText')
           return []
         return [{ box: layoutFixedElement(element, region, context, scope), element, scope }]
       })

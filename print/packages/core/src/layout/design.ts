@@ -7,6 +7,7 @@
 // 不给示例数据时，字段显示为 {path} 占位，表达式显示为 =源码，汇总显示为 函数(字段)，按字段取地址的图片留空，表格示意若干行。
 
 import type { JsonObject, JsonValue } from '@xihan-ui/core/json'
+import type { RichBlock } from '@xihan-ui/core/rich-text'
 import type { PrintPage } from '../schema/document'
 import type { PrintElement, TableElement } from '../schema/elements'
 import type { PageBandKey } from '../schema/options'
@@ -22,6 +23,7 @@ import { fillPageNumber, layoutFixedElement, pageNumberBox } from './boxes'
 import { templateText } from './content'
 import { createLayoutContext, elementScope, pageScope } from './context'
 import { placeLongText, prepareLongText } from './long-text'
+import { placeRichText, prepareRichText } from './rich-text'
 import { placeTable, prepareTable } from './table'
 import { PAGINATION_DIAGNOSTIC_SEVERITIES, PrintLayoutError } from './types'
 
@@ -88,6 +90,17 @@ function contentPaths(content: { kind: string, field?: string, template?: string
   return []
 }
 
+/** 富文本块里行内字段的路径。 */
+function richFieldPaths(blocks: readonly RichBlock[]): string[] {
+  return blocks.flatMap((block) => {
+    if (block.type === 'list')
+      return block.items.flatMap(item => richFieldPaths(item.blocks))
+    if (block.type === 'divider')
+      return []
+    return block.runs.flatMap(run => run.type === 'field' ? [run.field] : [])
+  })
+}
+
 /** 元素在根数据上引用的路径，表格的行内字段除外。 */
 function rootPaths(element: PrintElement): string[] {
   switch (element.type) {
@@ -98,6 +111,8 @@ function rootPaths(element: PrintElement): string[] {
       return contentPaths(element.content)
     case 'image':
       return element.source.kind === 'field' ? [element.source.field] : []
+    case 'richText':
+      return element.content.kind === 'static' ? richFieldPaths(element.content.document.blocks) : []
     case 'table':
       return element.footerRows.flatMap(row => row.cells.flatMap(cell => cell.content.kind === 'aggregate' ? [] : contentPaths(cell.content)))
     default:
@@ -148,7 +163,10 @@ function designFooterCell(cell: TableFooterCell): TableFooterCell {
   return cell
 }
 
-/** 把元素换成设计态用的形状：不给示例数据时表达式与汇总换成源码文字、图片不按字段取地址；表格的补空行改为示意固定行数。 */
+/**
+ * 把元素换成设计态用的形状：不给示例数据时表达式与汇总换成源码文字、图片不按字段取地址、富文本字段显示 {path} 占位；
+ * 表格的补空行改为示意固定行数。
+ */
 function designElement(element: PrintElement, placeholders: boolean, rows: number): PrintElement {
   if (element.type === 'table') {
     const table: TableElement = { ...element }
@@ -164,6 +182,10 @@ function designElement(element: PrintElement, placeholders: boolean, rows: numbe
   }
   if (placeholders && element.type === 'image' && element.source.kind === 'field')
     return { ...element, source: { kind: 'static', url: '' } }
+  if (placeholders && element.type === 'richText' && element.content.kind === 'field') {
+    const text = placeholder(element.content.field)
+    return { ...element, content: { kind: 'static', document: { blocks: [{ type: 'paragraph', runs: [{ type: 'text', text }] }] } } }
+  }
   if (placeholders && 'content' in element && element.content.kind === 'expression')
     return { ...element, content: { kind: 'static', text: `=${element.content.expression}` } } as PrintElement
   return element
@@ -197,6 +219,8 @@ function layoutElement(element: PrintElement, region: ElementRegion, context: La
     }
     case 'longText':
       return region === 'body' ? placeLongText(prepareLongText(element, context, scope), { sheet: 0, y: element.y }, designGeometry(element), context, scope).boxes[0]?.box : undefined
+    case 'richText':
+      return region === 'body' ? placeRichText(prepareRichText(element, context, scope), { sheet: 0, y: element.y }, designGeometry(element), context, scope).boxes[0]?.box : undefined
     case 'table':
       return region === 'body' ? placeTable(prepareTable(element, context, scope), { sheet: 0, y: element.y }, designGeometry(element), context, scope).boxes[0]?.box : undefined
     default:
@@ -206,7 +230,7 @@ function layoutElement(element: PrintElement, region: ElementRegion, context: La
 
 /**
  * 按设计坐标排出页面模板的每个元素，页眉页脚取 options.bands 指定的变体。跨页元素不分页：
- * 长文本按内容撑高，表格排表头、示意行、补空行与全部表尾行，高度都不小于设计高度。
+ * 长文本与富文本按内容撑高，表格排表头、示意行、补空行与全部表尾行，高度都不小于设计高度。
  * 测量或格式化结果不合法时抛 PrintLayoutError；页面模板本身不合法时结果不保证有意义，先用 validateDocument 校验。
  */
 export function layoutDesign(page: PrintPage, options: DesignLayoutOptions): DesignLayout {

@@ -43,6 +43,7 @@ export type PropertyControl
     | NumberControl
     | { kind: 'field', target: 'value' | 'list' }
     | { kind: 'textContent' }
+    | { kind: 'richTextContent' }
     | { kind: 'imageSource' }
     | { kind: 'valueFormat' }
     | { kind: 'stroke' }

@@ -161,6 +161,7 @@ const PROPERTY_NAMES: Readonly<Record<string, string>> = {
   'content/expression': '表达式',
   'content/format': '格式（JSON）',
   'content/url': '地址',
+  'content/source': '内容格式',
   'content/fn': '汇总方式',
   'content/scope': '汇总范围',
 }
@@ -206,6 +207,8 @@ const PROPERTY_OPTIONS: Readonly<Record<string, string>> = {
   'double': '双线',
   'custom': '自定义',
   'static': '固定文字',
+  'html': 'HTML',
+  'document': '富文本文档',
   'field': '字段',
   'template': '模板',
   'expression': '表达式',
@@ -219,6 +222,20 @@ const PROPERTY_OPTIONS: Readonly<Record<string, string>> = {
   'page': '本页',
   'cumulative': '累计到本页',
   'all': '全部',
+}
+
+/** 富文本文档结构问题的说明，键为 @xihan-ui/core/rich-text 的问题码。 */
+const RICH_TEXT_ISSUES: Readonly<Record<string, string>> = {
+  'invalid-document': '不是 { blocks: [...] } 形状的文档',
+  'unknown-block': '里有不认识的块',
+  'unknown-inline': '里有不认识的行内内容',
+  'unknown-mark': '里有不认识的样式',
+  'unknown-key': '里有多余的属性',
+  'missing': '缺少必填项',
+  'invalid-value': '里有无效的取值',
+  'unsafe-link': '的链接地址不允许使用',
+  'conflicting-marks': '同时打开了上标与下标',
+  'list-too-deep': '的列表嵌套超过三层',
 }
 
 /** 校验问题与分页诊断的中文说明；不认识的问题码原样返回。 */
@@ -328,6 +345,10 @@ function issueText(issue: SchemaIssue): string {
       return '二维码宽高不等'
     case 'pageNumber.noToken':
       return '页码格式里没有 {{$page}} 或 {{$pages}}'
+    case 'richText.invalidDocument':
+      return `富文本${RICH_TEXT_ISSUES[text(params.code)] ?? '写法不对'}`
+    case 'richText.empty':
+      return '富文本没有内容'
     case 'pageNumber.unknownToken':
       return `页码格式里有未知的变量 ${text(params.token)}`
     case 'data.notArray':
@@ -346,6 +367,10 @@ function issueText(issue: SchemaIssue): string {
       return params.fontSize === undefined ? '文字超出元素框' : `文字缩到 ${text(params.fontSize)} pt 仍超出元素框`
     case 'table.rowOverflow':
       return `第 ${Number(params.dataIndex) + 1} 行在一页里放不下`
+    case 'richText.droppedContent':
+      return `字段 ${text(params.field)} 的 HTML 里去掉了 ${text(params.names)}`
+    case 'richText.invalidData':
+      return `字段 ${text(params.field)} 不是合规的富文本文档`
     case 'element.overflow':
       return '内容超出元素框'
     case 'layout.sheetLimit':
@@ -404,6 +429,7 @@ const designer: PrintDesignerTranslations = {
   elements: {
     text: '文本',
     longText: '长文本',
+    richText: '富文本',
     table: '表格',
     image: '图片',
     line: '直线',

@@ -26,7 +26,7 @@ export interface TextLines {
 }
 
 /** 换成度量器用的字体：字号由 pt、行高由 mm 换成 CSS 像素。 */
-function fontSpec(font: MeasureFont, lineHeight: number): FontSpec {
+export function fontSpec(font: MeasureFont, lineHeight: number): FontSpec {
   return {
     family: font.fontFamily ?? DEFAULT_FONT_FAMILY,
     size: convertLength(font.fontSize, 'pt', 'px'),

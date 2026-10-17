@@ -48,6 +48,12 @@ export const TEXT_OVERFLOWS = ['clip', 'shrink', 'visible'] as const
 /** 固定尺寸文本的溢出处理：clip 裁切，shrink 缩小字号以容纳，visible 允许溢出显示。 */
 export type TextOverflow = (typeof TEXT_OVERFLOWS)[number]
 
+/** 富文本字段的内容格式取值。 */
+export const RICH_TEXT_SOURCES = ['html', 'document'] as const
+
+/** 富文本字段的内容格式：html 为 HTML 串，按白名单换成文档；document 为富文本文档对象。 */
+export type RichTextSource = (typeof RICH_TEXT_SOURCES)[number]
+
 /** 图片适配方式取值。 */
 export const IMAGE_FITS = ['contain', 'cover', 'fill', 'none'] as const
 
