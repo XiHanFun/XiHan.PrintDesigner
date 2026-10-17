@@ -1,0 +1,109 @@
+/*
+ * Copyright (c) 2021-Present XiHanFun and contributors.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+import type { DefaultTheme } from 'vitepress'
+import { readFile } from 'node:fs/promises'
+import { extname } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { defineXiHanConfig } from '@xihanfun/vitepress-theme/config'
+
+const title = '曦寒打印设计器文档'
+const description = '框架无关的打印设计器，以 Web Components 交付，配套本地打印客户端'
+const keywords = '曦寒,曦寒懿,打印设计器,打印模板,Web Components,静默打印,打印客户端,XiHanFun,XiHan.PrintDesigner'
+
+const sourceRoot = fileURLToPath(new URL('../', import.meta.url))
+
+const guideSidebar: DefaultTheme.SidebarItem[] = [
+  {
+    text: '开始',
+    collapsed: false,
+    items: [
+      { text: '介绍', link: '/introduction' },
+    ],
+  },
+]
+
+// 每个顶部导航板块各自一份侧栏，由路径前缀决定用哪一份；首页是 layout: home，不落任何一份。
+const sidebar: DefaultTheme.Sidebar = {
+  '/': guideSidebar,
+}
+
+const nav: DefaultTheme.NavItem[] = [
+  { text: '指南', link: '/introduction', activeMatch: '^/(introduction|quickstart|guide/.*)$' },
+  {
+    text: '生态',
+    items: [
+      {
+        text: '官方生态',
+        items: [
+          { text: '开发框架', link: 'https://framework.docs.xihanfun.com' },
+          { text: '视图组件', link: 'https://ui.docs.xihanfun.com' },
+          { text: '基础应用', link: 'https://basicapp.docs.xihanfun.com' },
+          { text: '打印设计器', link: '/' },
+        ],
+      },
+    ],
+  },
+  {
+    text: '支持',
+    items: [
+      { text: '公约', link: 'https://docs.xihanfun.com/cosmos/code-of-conduct' },
+      { text: '参与', link: 'https://docs.xihanfun.com/cosmos/contributing' },
+      { text: '赞助', link: 'https://docs.xihanfun.com/cosmos/sponsor' },
+    ],
+  },
+]
+
+/** 取代码文件里 `#region name` 与 `#endregion name` 之间的行，去掉公共缩进。 */
+function region(source: string, name: string): string {
+  const lines = source.split(/\r?\n/)
+  const start = lines.findIndex(line => new RegExp(`#region ${name}\\b`).test(line))
+  const end = lines.findIndex((line, index) => index > start && new RegExp(`#endregion ${name}\\b`).test(line))
+  if (start < 0 || end < 0)
+    throw new Error(`[docs] region ${name} not found`)
+  const picked = lines.slice(start + 1, end)
+  const indent = Math.min(...picked.filter(line => line.trim() !== '').map(line => /^ */.exec(line)![0].length))
+  return picked.map(line => line.slice(indent)).join('\n')
+}
+
+/** 机读正文：`<<< @/路径#片段` 换成代码块，示例舞台去掉。 */
+async function machineReadable(body: string): Promise<string> {
+  const out: string[] = []
+  for (const line of body.split(/\r?\n/)) {
+    const snippet = /^<<< @\/([^\s#]+)(?:#(\S+))?/.exec(line)
+    if (snippet !== null) {
+      const [, path, name] = snippet
+      const source = await readFile(`${sourceRoot}${path}`, 'utf8')
+      const code = name === undefined ? source.trimEnd() : region(source, name)
+      out.push(`\`\`\`${extname(path!).slice(1)}`, code, '```')
+      continue
+    }
+    if (/^<PrintDemo\b.*\/>\s*$/.test(line))
+      continue
+    out.push(line)
+  }
+  return out.join('\n')
+}
+
+export default defineXiHanConfig({
+  title,
+  description,
+  keywords,
+  repo: 'XiHan.PrintDesigner',
+  llms: {
+    title: '曦寒打印设计器',
+    summary:
+      '框架无关的打印设计器：以原生 Web Components 交付，模板是纯 JSON，在浏览器里按数据分页、预览与打印；配套的本地打印客户端负责静默打印、原始指令与导出 PDF。',
+    site: 'https://print.docs.xihanfun.com',
+    sections: [
+      { dir: '.', label: '开始' },
+    ],
+    transform: machineReadable,
+  },
+  themeConfig: {
+    nav,
+    sidebar,
+  },
+})

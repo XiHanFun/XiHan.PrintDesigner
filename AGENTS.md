@@ -33,6 +33,7 @@ XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components
 │  ├─ src/XiHan.PrintClient/           # WinForms 托盘程序，产物 XiHanPrint.exe
 │  ├─ tests/                           # xunit.v3，dotnet test 走 Microsoft.Testing.Platform
 │  └─ installer/                       # Inno Setup 安装脚本与打包脚本 build.ps1
+├─ docs/                            # 产品文档站（VitePress，独立的 pnpm 项目）
 └─ print/                           # pnpm monorepo 根
    ├─ packages/
    │  ├─ core/                    # @xihan-print/core：模型层，纯 TS，不碰 DOM
@@ -41,7 +42,7 @@ XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components
    └─ playground/                 # @xihan-print/playground：开发预览页（private，不发布）
 ```
 
-仓库根没有 package.json，库命令在 `print/` 执行；客户端命令在 `client/` 执行。
+仓库根没有 package.json，库命令在 `print/` 执行，文档站命令在 `docs/` 执行；客户端命令在 `client/` 执行。
 
 ## 常用命令（`print/`）
 
@@ -67,6 +68,22 @@ pnpm dev
 ```
 
 这是开发预览，不是产品：页面只用 UI 的令牌、皮肤与元素，不另写一套样式，也不进任何发布物。
+
+## 文档站（`docs/`）
+
+产品文档站用 VitePress 加组织统一主题 `@xihanfun/vitepress-theme`，做法与 Framework、UI、BasicApp 三站一致。
+
+| 任务 | 命令（在 `docs/`） |
+| --- | --- |
+| 安装 | `pnpm install --frozen-lockfile` |
+| 开发 | `pnpm dev` |
+| 构建 | `pnpm build`（站内死链会让构建失败） |
+| 示例类型检查 | `pnpm typecheck` |
+| Lint | `pnpm lint` |
+
+- 打印三个包经 `link:` 读 `print/packages/*` 的产物，先在 `print/` 构建；`@xihan-ui/*` 与 `print/` 工作区一样经 overrides 读同级 XiHan.UI 的产物，UI 5.0.0 正式发布后删掉那一段。
+- 站点自己的导航、侧栏与示例组件放在 `docs/.vitepress/`，不复制或改写主题已提供的样式。
+- 文档只写已经做完的能力；不写组件数、元素数与依赖的具体版本号，不写预发布阶段的铺垫。
 
 ## 分层与依赖
 
@@ -122,8 +139,8 @@ pnpm dev
 ## Git 与提交
 
 - 保留用户已有和无关改动；不要 reset、checkout 或清理它们。
-- 使用 Conventional Commits：`<type>(<scope>): <中文说明>`，scope 取 `core`、`runtime`、`designer`、`client`、`repo`。
-- 一项完整功能一个提交；改 `print/` 的提交前跑 `pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test`，改 `client/` 的跑构建与测试，都要过 `git diff --check`。
+- 使用 Conventional Commits：`<type>(<scope>): <中文说明>`，scope 取 `core`、`runtime`、`designer`、`client`、`docs`、`repo`。
+- 一项完整功能一个提交；改 `print/` 的提交前跑 `pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test`，改 `client/` 的跑构建与测试，改 `docs/` 的在 `docs/` 跑 `pnpm lint`、`pnpm typecheck`、`pnpm build`，都要过 `git diff --check`。
 - 不推送、不发布、不创建远程 PR，除非用户明确要求。
 
 ## 禁止事项
