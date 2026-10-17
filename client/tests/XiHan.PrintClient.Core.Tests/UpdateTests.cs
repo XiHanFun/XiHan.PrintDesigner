@@ -89,7 +89,7 @@ public sealed class UpdateTests : IDisposable
         _handler.Responses[Gitee] = () => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable);
         _handler.Responses[GitHub] = () => Ok(Manifest());
 
-        var result = await Checker().CheckAsync(TestContext.Current.CancellationToken);
+        var result = await Checker().CheckAsync(UpdateTrigger.Manual, TestContext.Current.CancellationToken);
 
         Assert.Equal(GitHub, result.Source);
         Assert.NotNull(result.Offer);
@@ -103,7 +103,7 @@ public sealed class UpdateTests : IDisposable
     {
         _handler.Responses[Gitee] = () => Ok(Manifest("0.1.0"));
 
-        var result = await Checker().CheckAsync(TestContext.Current.CancellationToken);
+        var result = await Checker().CheckAsync(UpdateTrigger.Manual, TestContext.Current.CancellationToken);
 
         Assert.Equal((null, Gitee), (result.Offer, result.Source));
         Assert.Equal([Gitee], _handler.Requested);
@@ -115,7 +115,7 @@ public sealed class UpdateTests : IDisposable
         _handler.Responses[Gitee] = () => Ok("""{ "version": "9.0.0" }""");
         _handler.Responses[GitHub] = () => Ok(Manifest(arch: "arm64"));
 
-        var result = await Checker().CheckAsync(TestContext.Current.CancellationToken);
+        var result = await Checker().CheckAsync(UpdateTrigger.Manual, TestContext.Current.CancellationToken);
 
         Assert.Equal((null, GitHub), (result.Offer, result.Source));
     }
@@ -123,7 +123,7 @@ public sealed class UpdateTests : IDisposable
     [Fact]
     public async Task ReportsNoSourceWhenNothingAnswers()
     {
-        var result = await Checker().CheckAsync(TestContext.Current.CancellationToken);
+        var result = await Checker().CheckAsync(UpdateTrigger.Manual, TestContext.Current.CancellationToken);
 
         Assert.Equal((null, null), (result.Offer, result.Source));
     }
@@ -134,7 +134,7 @@ public sealed class UpdateTests : IDisposable
         _handler.Responses[Gitee] = () => Ok(Manifest());
         _handler.Responses[Asset] = () => new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Installer) };
         var checker = Checker();
-        var offer = (await checker.CheckAsync(TestContext.Current.CancellationToken)).Offer!;
+        var offer = (await checker.CheckAsync(UpdateTrigger.Manual, TestContext.Current.CancellationToken)).Offer!;
         var reported = new List<long>();
 
         var path = await checker.DownloadAsync(offer, _directory, new SyncProgress(reported.Add), TestContext.Current.CancellationToken);
@@ -153,7 +153,7 @@ public sealed class UpdateTests : IDisposable
         _handler.Responses[Gitee] = () => Ok(Manifest(sha: sha, size: size));
         _handler.Responses[Asset] = () => new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Installer) };
         var checker = Checker();
-        var offer = (await checker.CheckAsync(TestContext.Current.CancellationToken)).Offer!;
+        var offer = (await checker.CheckAsync(UpdateTrigger.Manual, TestContext.Current.CancellationToken)).Offer!;
 
         var failure = await Assert.ThrowsAsync<UpdateFailure>(() => checker.DownloadAsync(offer, _directory, null, TestContext.Current.CancellationToken));
 

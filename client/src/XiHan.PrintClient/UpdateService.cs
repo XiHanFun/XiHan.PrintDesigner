@@ -24,8 +24,8 @@ internal sealed class UpdateService : IDisposable
     private readonly ClientHost _host;
     private readonly HttpClient _http;
     private readonly UpdateChecker _checker;
-    private readonly System.Windows.Forms.Timer _timer = new();
-    private bool _checking;
+    private readonly UpdateScheduler _scheduler;
+    private readonly SynchronizationContext _ui;
 
     public UpdateService(ClientHost host)
     {
@@ -35,7 +35,8 @@ internal sealed class UpdateService : IDisposable
         var manifests = host.Policy.UpdateManifestUrls.Count > 0 ? [.. host.Policy.UpdateManifestUrls.Select(url => new Uri(url))] : UpdateChecker.DefaultManifests;
         SemanticVersion.TryParse(ClientHost.ProductVersion, out var current);
         _checker = new UpdateChecker(_http, manifests, current ?? new SemanticVersion(0, 0, 0, null), host.Info.Arch, host.Log);
-        _timer.Tick += async (_, _) => await ScheduledCheckAsync();
+        _ui = SynchronizationContext.Current ?? new SynchronizationContext();
+        _scheduler = new UpdateScheduler(ScheduledCheckAsync, () => _host.ChecksForUpdates, log: host.Log);
     }
 
     /// <summary>
@@ -58,19 +59,17 @@ internal sealed class UpdateService : IDisposable
     /// </summary>
     public void Start()
     {
-        if (!Allowed)
-            return;
-        _timer.Interval = (int)TimeSpan.FromMinutes(2).TotalMilliseconds;
-        _timer.Start();
+        if (Allowed)
+            _scheduler.Start();
     }
 
     /// <summary>
-    /// 立即检查
+    /// 立即检查，日志里记为手动
     /// </summary>
     public async Task<UpdateCheckResult> CheckAsync()
     {
         using var limit = new CancellationTokenSource(TimeSpan.FromMinutes(1));
-        return await _checker.CheckAsync(limit.Token);
+        return await _checker.CheckAsync(UpdateTrigger.Manual, limit.Token);
     }
 
     /// <summary>
@@ -106,27 +105,15 @@ internal sealed class UpdateService : IDisposable
     /// <inheritdoc />
     public void Dispose()
     {
-        _timer.Dispose();
+        _scheduler.Dispose();
         _http.Dispose();
     }
 
-    private async Task ScheduledCheckAsync()
+    private async Task ScheduledCheckAsync(UpdateTrigger trigger, CancellationToken cancellationToken)
     {
-        _timer.Interval = (int)TimeSpan.FromDays(1).TotalMilliseconds;
-        if (_checking || !_host.ChecksForUpdates)
-            return;
-        _checking = true;
-        try
-        {
-            if ((await CheckAsync()).Offer is { } offer)
-                Found?.Invoke(offer);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-        finally
-        {
-            _checking = false;
-        }
+        using var limit = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        limit.CancelAfter(TimeSpan.FromMinutes(1));
+        if ((await _checker.CheckAsync(trigger, limit.Token).ConfigureAwait(false)).Offer is { } offer)
+            _ui.Post(_ => Found?.Invoke(offer), null);
     }
 }
