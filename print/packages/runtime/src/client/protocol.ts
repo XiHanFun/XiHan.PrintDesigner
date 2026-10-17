@@ -145,7 +145,7 @@ export interface JobStatus {
   readonly error?: ClientErrorPayload
 }
 
-/** 交给客户端的打印选项。 */
+/** 交给客户端的打印选项。纸张不在选项里：每组输出页按模板里的纸张尺寸下发；原始指令的纸张由指令自己决定。 */
 export interface ClientPrintOptions {
   /** 打印机名称，缺省为默认打印机。 */
   readonly printer?: string
