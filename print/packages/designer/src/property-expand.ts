@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 复合属性拆成属性面板自带的编辑方式：线拆成线宽、线型、颜色，边距拆成四边，单元格样式、纸张与水印逐项拆开（四边边框有自带编辑器，不拆）；
+// 复合属性拆成属性面板自带的编辑方式：线拆成线宽、线型、颜色，单元格样式、纸张与水印逐项拆开（四边边框有自带编辑器，四边距离用内建的 sides，都不拆）；
 // 可选的对象前面加一个开关。开关等面板上读不到的值放在编辑对象的 $view 下，写入时再换回模板里的修改；
 // 个别分项改动时要连带改别处（如改纸张宽高时去掉预设），也在写入时换成一组修改。
 // 文本内容、富文本内容、单元格内容与图片来源先选来源种类，再按种类显示对应输入，切换种类时整体换成该种类的缺省对象；
@@ -131,8 +131,6 @@ function strokeParts(base: PropertyDescriptor, path: JsonPath, labelParent: stri
     part(base, [...path, 'color'], { kind: 'color' }, 'stroke/color', when, labelParent),
   ]
 }
-
-const SIDES = ['top', 'right', 'bottom', 'left'] as const
 
 /** 绑定字段：只能选 kinds 里的字段，给了 base 时路径相对它。 */
 function fieldControl(kinds: readonly DataFieldKind[], base?: JsonPath): PropertyControl {
@@ -269,16 +267,6 @@ const EXPANDERS: Readonly<Record<string, Expander>> = {
       presence(descriptor, path, key, defaultStroke),
       { descriptors: strokeParts(descriptor, path, key, { path, filled: true }) },
     )
-  },
-  edges: (descriptor) => {
-    const { path } = descriptor
-    const when: PropertyCondition | undefined = descriptor.present ? undefined : { path, filled: true }
-    const sides: Expansion = {
-      descriptors: SIDES.map(side => part(descriptor, [...path, side], { kind: 'number', unit: 'mm', min: 0, step: 0.1 }, `edges/${side}`, when, formatJsonPath(path))),
-    }
-    if (descriptor.present)
-      return sides
-    return merge(presence(descriptor, path, formatJsonPath(path), () => ({ top: 0, right: 0, bottom: 0, left: 0 })), sides)
   },
   paper: (descriptor) => {
     const { path } = descriptor

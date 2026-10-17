@@ -35,7 +35,7 @@
 | `overflow` | 放不下时 | `clip` 裁掉、`shrink` 缩小字号、`visible` 照常显示 | 是 | `"clip"` |
 | `box.background` | 背景 | [颜色](./schema#color) | 可省 | — |
 | `box.border` | 边框 | [四边边框](./schema#bordersides) | 可省 | — |
-| `box.padding` | 内边距 | [四边距离](./schema#edges) | 可省 | — |
+| `box.padding` | 内边距 | [四边距离](./schema#edges)，每边是数值（mm），≥ 0 | 可省 | — |
 | `name` | 名称 | 文本 | 可省 | — |
 | `locked` | 锁定 | 布尔 | 可省 | — |
 | `previewOnly` | 只在预览中显示 | 布尔 | 可省 | — |
@@ -64,7 +64,7 @@
 | `style.letterSpacing` | 字间距 | 数值（pt），≥ -10，≤ 100 | 是 | `0` |
 | `box.background` | 背景 | [颜色](./schema#color) | 可省 | — |
 | `box.border` | 边框 | [四边边框](./schema#bordersides) | 可省 | — |
-| `box.padding` | 内边距 | [四边距离](./schema#edges) | 可省 | — |
+| `box.padding` | 内边距 | [四边距离](./schema#edges)，每边是数值（mm），≥ 0 | 可省 | — |
 | `name` | 名称 | 文本 | 可省 | — |
 | `locked` | 锁定 | 布尔 | 可省 | — |
 | `previewOnly` | 只在预览中显示 | 布尔 | 可省 | — |
@@ -93,7 +93,7 @@
 | `style.letterSpacing` | 字间距 | 数值（pt），≥ -10，≤ 100 | 是 | `0` |
 | `box.background` | 背景 | [颜色](./schema#color) | 可省 | — |
 | `box.border` | 边框 | [四边边框](./schema#bordersides) | 可省 | — |
-| `box.padding` | 内边距 | [四边距离](./schema#edges) | 可省 | — |
+| `box.padding` | 内边距 | [四边距离](./schema#edges)，每边是数值（mm），≥ 0 | 可省 | — |
 | `name` | 名称 | 文本 | 可省 | — |
 | `locked` | 锁定 | 布尔 | 可省 | — |
 | `previewOnly` | 只在预览中显示 | 布尔 | 可省 | — |
@@ -123,7 +123,7 @@
 | `style.letterSpacing` | 字间距 | 数值（pt），≥ -10，≤ 100 | 是 | `0` |
 | `box.background` | 背景 | [颜色](./schema#color) | 可省 | — |
 | `box.border` | 边框 | [四边边框](./schema#bordersides) | 可省 | — |
-| `box.padding` | 内边距 | [四边距离](./schema#edges) | 可省 | — |
+| `box.padding` | 内边距 | [四边距离](./schema#edges)，每边是数值（mm），≥ 0 | 可省 | — |
 | `name` | 名称 | 文本 | 可省 | — |
 | `locked` | 锁定 | 布尔 | 可省 | — |
 | `previewOnly` | 只在预览中显示 | 布尔 | 可省 | — |
@@ -145,7 +145,7 @@
 | `fit` | 填充方式 | `contain` 完整显示、`cover` 铺满裁切、`fill` 拉伸铺满、`none` 原始大小 | 是 | `"contain"` |
 | `box.background` | 背景 | [颜色](./schema#color) | 可省 | — |
 | `box.border` | 边框 | [四边边框](./schema#bordersides) | 可省 | — |
-| `box.padding` | 内边距 | [四边距离](./schema#edges) | 可省 | — |
+| `box.padding` | 内边距 | [四边距离](./schema#edges)，每边是数值（mm），≥ 0 | 可省 | — |
 | `name` | 名称 | 文本 | 可省 | — |
 | `locked` | 锁定 | 布尔 | 可省 | — |
 | `previewOnly` | 只在预览中显示 | 布尔 | 可省 | — |
@@ -288,7 +288,7 @@
 | `name` | 名称 | 文本 | 可省 | — |
 | `paper` | 纸张 | [纸张](./schema#paperspec) | 是 | — |
 | `orientation` | 方向 | `portrait` 纵向、`landscape` 横向 | 是 | — |
-| `margins` | 页边距 | [四边距离](./schema#edges) | 是 | — |
+| `margins` | 页边距 | [四边距离](./schema#edges)，每边是数值（mm），≥ 0 | 是 | — |
 | `header.default.height` | 页眉高度 | 数值（mm），≥ 0 | 是 | — |
 | `header.first.height` | 首页页眉高度 | 数值（mm），≥ 0；设置了 `header.first` 时显示 | 可省 | — |
 | `header.last.height` | 末页页眉高度 | 数值（mm），≥ 0；设置了 `header.last` 时显示 | 可省 | — |

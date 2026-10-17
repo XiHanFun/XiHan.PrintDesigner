@@ -469,7 +469,6 @@ const COMPOSITE_KINDS = {
   imageSource: '[图片来源](./schema#imagesource)',
   valueFormat: '[值格式](./schema#valueformat)',
   stroke: '[描边](./schema#stroke)',
-  edges: '[四边距离](./schema#edges)',
   borderSides: '[四边边框](./schema#bordersides)',
   cellStyle: '[单元格样式](./schema#cellstyle)',
   tableColumns: '[列](#table-column)的数组',
@@ -512,6 +511,10 @@ function describeControl(control, key) {
         const name = optionName(key, option.value)
         return name === undefined ? code(String(option.value), true) : `${code(String(option.value), true)} ${name}`
       }).join('、')
+    case 'sides': {
+      const unit = UNIT_NAMES[control.unit] ?? control.unit
+      return `[四边距离](./schema#edges)，每边是数值（${unit}）${control.min === undefined ? '' : `，≥ ${control.min}`}`
+    }
     case 'dataField':
       return control.kinds?.length === 1 && control.kinds[0] === 'list' ? '指向数组的字段路径' : '字段路径'
     default:

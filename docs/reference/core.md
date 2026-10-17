@@ -208,6 +208,7 @@
 | `PropertyDescriptor` | 接口 | 可编辑属性描述：@xihan-ui/designer-kit/properties 的 PropertyDescriptor，path 相对元素；分组总是给出，显示条件写在 visibleWhen；required（显示时必须填写）不用，空值由打印自己的规则报告。 |
 | `PropertyGroup` | 类型 | 属性面板分组：元素与表格部位用布局、内容、数据、文字、表格、条码、外观、行为，页面设置用页面、纸张、页眉页脚、页码、水印。 |
 | `PropertyUnit` | 类型 | 数值属性的单位：mm、pt、角度、倍数或个数。 |
+| `SidesControl` | 类型 | 四边距离：designer-kit 的 sides 编辑方式，单位取打印的单位。 |
 
 ### schema/common
 

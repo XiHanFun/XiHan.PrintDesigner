@@ -33,7 +33,7 @@ export function pageProperties(): PropertyDescriptor[] {
     property(['name'], 'page', { kind: 'text' }, { optional: true }),
     property(['paper'], 'paper', { kind: 'paper' }),
     property(['orientation'], 'paper', { kind: 'select', options: choices(PAGE_ORIENTATIONS) }),
-    property(['margins'], 'paper', { kind: 'edges' }),
+    property(['margins'], 'paper', { kind: 'sides', unit: 'mm', min: 0, step: 0.1 }),
     ...bandProperties('header'),
     ...bandProperties('footer'),
     property(['numbering', 'continuous'], 'numbering', { kind: 'boolean' }),

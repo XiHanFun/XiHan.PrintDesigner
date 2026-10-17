@@ -80,6 +80,6 @@ export function boxProperties(): PropertyDescriptor[] {
   return [
     property(['box', 'background'], 'appearance', { kind: 'color' }, { optional: true }),
     property(['box', 'border'], 'appearance', { kind: 'borderSides' }, { optional: true }),
-    property(['box', 'padding'], 'appearance', { kind: 'edges' }, { optional: true }),
+    property(['box', 'padding'], 'appearance', { kind: 'sides', unit: 'mm', min: 0, step: 0.1 }, { optional: true }),
   ]
 }
