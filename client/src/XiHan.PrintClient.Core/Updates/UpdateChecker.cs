@@ -63,10 +63,12 @@ public sealed class UpdateChecker
     public TimeSpan ManifestTimeout { get; init; } = TimeSpan.FromSeconds(15);
 
     /// <summary>
-    /// 取清单并与当前版本比较
+    /// 取清单并与当前版本比较；日志里每一行都带上这次检查的来源（自动 / 手动）
     /// </summary>
-    public async Task<UpdateCheckResult> CheckAsync(CancellationToken cancellationToken)
+    public async Task<UpdateCheckResult> CheckAsync(UpdateTrigger trigger, CancellationToken cancellationToken)
     {
+        var label = trigger == UpdateTrigger.Automatic ? "自动" : "手动";
+        _log.Write(LogLevel.Information, $"检查更新（{label}）");
         foreach (var source in _manifests)
         {
             UpdateManifest? manifest;
@@ -80,24 +82,24 @@ public sealed class UpdateChecker
                 manifest = UpdateManifest.Parse(body, out var problem);
                 if (manifest is null)
                 {
-                    _log.Write(LogLevel.Warning, $"更新清单 {source} 不对：{problem}");
+                    _log.Write(LogLevel.Warning, $"更新清单 {source} 不对（{label}）：{problem}");
                     continue;
                 }
             }
             catch (Exception error) when (error is HttpRequestException or IOException or UpdateFailure || (error is OperationCanceledException && !cancellationToken.IsCancellationRequested))
             {
-                _log.Write(LogLevel.Information, $"取不到更新清单 {source}：{error.Message}");
+                _log.Write(LogLevel.Information, $"取不到更新清单 {source}（{label}）：{error.Message}");
                 continue;
             }
 
             var asset = manifest.AssetFor(_arch);
             if (manifest.Version.IsNewerThan(_current) && asset is not null)
             {
-                _log.Write(LogLevel.Information, $"发现新版本 {manifest.Version}（{source.Host}）");
+                _log.Write(LogLevel.Information, $"发现新版本 {manifest.Version}（{source.Host}，{label}）");
                 return new UpdateCheckResult(new UpdateOffer(manifest, asset), source);
             }
             if (asset is null && manifest.Version.IsNewerThan(_current))
-                _log.Write(LogLevel.Information, $"新版本 {manifest.Version} 没有 {_arch} 的安装包");
+                _log.Write(LogLevel.Information, $"新版本 {manifest.Version} 没有 {_arch} 的安装包（{label}）");
             return new UpdateCheckResult(null, source);
         }
         return new UpdateCheckResult(null, null);
