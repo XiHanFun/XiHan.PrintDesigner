@@ -5,6 +5,8 @@
 
 // 导出 @xihan-print/runtime 的公共接口。元素不在 import 时注册，调用 definePrintPreview() 才注册。
 
+export { createPrintRuntimeModel } from './extensions'
+export type { PrintElementRenderContext, PrintElementRenderer, PrintRuntimeExtension, PrintRuntimeModel } from './extensions'
 export { PrintRuntimeError } from './options'
 export type { PrintRenderOptions, PrintRuntimeErrorCode } from './options'
 export { printDocument, printSheets } from './print'

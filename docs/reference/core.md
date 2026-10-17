@@ -92,9 +92,10 @@
 | --- | --- | --- |
 | `BarCodeLayoutBox` | 接口 | 一维条码布局盒。 |
 | `EllipseLayoutBox` | 接口 | 椭圆布局盒。 |
+| `ExtensionLayoutBox` | 接口 | 扩展元素的布局盒：data 是原型的 layout 给出的数据，交给运行时层同一类型的渲染；类型没登记时为 null。 |
 | `ImageLayoutBox` | 接口 | 图片布局盒。 |
 | `LayoutBand` | 接口 | 输出页选中的页眉或页脚带区。 |
-| `LayoutBox` | 类型 | 布局盒。 |
+| `LayoutBox` | 类型 |  |
 | `LayoutBoxBase` | 接口 | 布局盒共有的字段。 |
 | `LayoutFragment` | 接口 | 跨页续排元素的分段位置。 |
 | `LayoutSheet` | 接口 | 一张输出页。 |
@@ -193,6 +194,18 @@
 | `tableFooterRowProperties` | 函数 | 表尾行的属性描述，路径相对表尾行；单元格另按表尾格编辑。 |
 | `tableHeaderProperties` | 函数 | 表头的属性描述，路径相对表头；表头隐藏时只显示「是否显示」。 |
 
+### registry/properties
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `behaviorProperties` | 函数 | 名称、锁定与只预览不打印。 |
+| `boxProperties` | 函数 | `box` 下的背景、边框与内边距。 |
+| `choices` | 函数 | 一组取值写成 select 编辑方式的选项。 |
+| `layoutProperties` | 函数 | 坐标、宽高与可选的旋转角度。 |
+| `property` | 函数 | 生成一条属性描述，缺省为元素上必须有的属性。 |
+| `PropertyOptions` | 接口 | 属性描述的可选项。 |
+| `textStyleProperties` | 函数 | `style` 下的文本样式。 |
+
 ### registry/registry
 
 | 名称 | 种类 | 说明 |
@@ -206,12 +219,14 @@
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
-| `AnyElementPrototype` | 类型 | 任一内置元素的原型。 |
+| `AnyElementPrototype` | 类型 | 任一元素的原型：内置元素的，或扩展元素的。 |
 | `ELEMENT_CATEGORIES` | 常量 | 物料面板分组取值，按面板中的显示顺序。 |
 | `ElementCategory` | 类型 | 物料面板分组：文字、图片、数据、图形、条码。 |
 | `ElementDefaults` | 类型 | 元素默认值：不含标识与坐标。 |
+| `ElementLayoutContext` | 接口 | 扩展元素排版时拿到的上下文。 |
 | `ElementPrototype` | 接口 | 元素原型：一种元素的默认值、尺寸约束、可编辑属性与专属行为。 |
 | `ElementValidationContext` | 接口 | 元素专属规则的校验上下文。 |
+| `ExtensionElementPrototype` | 接口 | 扩展元素的原型：不跨页，必须给出 layout。 |
 | `NumberControl` | 类型 | 数值属性：designer-kit 的 number 编辑方式，单位取打印的单位。 |
 | `PAGE_PROPERTY_GROUPS` | 常量 | 页面设置的属性分组取值，按面板中的显示顺序。 |
 | `PROPERTY_GROUPS` | 常量 | 元素与表格部位的属性分组取值，按面板中的显示顺序。 |
@@ -268,6 +283,7 @@
 | `BarCodeTextStyle` | 接口 | 条码下方文字的样式。 |
 | `ElementBase` | 接口 | 全部元素共有的字段。 |
 | `EllipseElement` | 接口 | 椭圆，内切于元素框。 |
+| `ExtensionElement` | 接口 | 扩展登记的元素：通用字段之外的属性由扩展的原型定义，取值都是 JSON。 |
 | `ImageElement` | 接口 | 图片。 |
 | `LineElement` | 接口 | 直线，走向由元素框和方向共同决定。 |
 | `LongTextElement` | 接口 | 随内容纵向延展并可跨页续排的长文本。 |

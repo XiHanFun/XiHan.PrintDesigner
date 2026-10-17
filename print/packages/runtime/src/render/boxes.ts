@@ -5,6 +5,7 @@
 
 import type {
   EllipseLayoutBox,
+  ExtensionLayoutBox,
   ImageLayoutBox,
   LayoutBox,
   LineLayoutBox,
@@ -13,6 +14,7 @@ import type {
   TextLayoutBox,
   TextStyle,
 } from '@xihan-print/core'
+import type { PrintElementRenderer } from '../extensions'
 import { DEFAULT_FONT_FAMILY } from '@xihan-print/core'
 import { renderBarCode, renderMatrixCode } from './codes'
 import { applyBoxStyle, borderValue, mm, pt, setStyles } from './css'
@@ -103,8 +105,24 @@ function renderShape(doc: Document, box: RectLayoutBox | EllipseLayoutBox, radiu
   return frame
 }
 
-/** 按布局盒的种类渲染一个元素。 */
-export function renderBox(doc: Document, box: LayoutBox): HTMLElement {
+/** 扩展元素：交给登记的渲染；没给渲染或类型没登记时画成占位，占位里写着元素类型。 */
+function renderExtension(doc: Document, box: ExtensionLayoutBox, renderers: ReadonlyMap<string, PrintElementRenderer>): HTMLDivElement {
+  const frame = boxFrame(doc, box)
+  frame.dataset.elementType = box.elementType
+  const renderer = renderers.get(box.elementType)
+  if (renderer !== undefined && box.data !== null) {
+    frame.append(renderer(box, { document: doc }))
+    return frame
+  }
+  frame.dataset.placeholder = ''
+  frame.textContent = box.elementType
+  return frame
+}
+
+const NO_RENDERERS: ReadonlyMap<string, PrintElementRenderer> = new Map()
+
+/** 按布局盒的种类渲染一个元素；扩展元素按 renderers 里同一类型的渲染。 */
+export function renderBox(doc: Document, box: LayoutBox, renderers: ReadonlyMap<string, PrintElementRenderer> = NO_RENDERERS): HTMLElement {
   switch (box.kind) {
     case 'text':
       return renderText(doc, box)
@@ -134,5 +152,7 @@ export function renderBox(doc: Document, box: LayoutBox): HTMLElement {
     }
     case 'table':
       return renderTable(doc, box)
+    case 'extension':
+      return renderExtension(doc, box, renderers)
   }
 }

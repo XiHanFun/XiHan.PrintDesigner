@@ -3,10 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { JsonPath } from '@xihan-ui/core/json'
+import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
 import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { PropertyControl as KitPropertyControl, PropertyDescriptor as KitPropertyDescriptor } from '@xihan-ui/designer-kit/properties'
-import type { PrintElement, PrintElementOf, PrintElementType } from '../schema/elements'
+import type { ElementBase, ExtensionElement, PrintElement, PrintElementOf, PrintElementType } from '../schema/elements'
 import type { ElementRegion } from '../traverse'
 import type { ExtensionIssueCode, IssueParams, ValidationIssueCode } from '../validation/issues'
 
@@ -75,10 +75,10 @@ export interface PropertyDescriptor extends KitPropertyDescriptor<PropertyContro
 }
 
 /** 元素默认值：不含标识与坐标。 */
-export type ElementDefaults<TElement extends PrintElement> = Omit<TElement, 'id' | 'x' | 'y'>
+export type ElementDefaults<TElement extends ElementBase<string>> = Omit<TElement, 'id' | 'x' | 'y'>
 
 /** 元素原型：一种元素的默认值、尺寸约束、可编辑属性与专属行为。 */
-export interface ElementPrototype<TElement extends PrintElement = PrintElement> {
+export interface ElementPrototype<TElement extends ElementBase<string> = PrintElement> {
   type: TElement['type']
   category: ElementCategory
   /** 在物料面板分组内的顺序，越小越靠前。 */
@@ -93,6 +93,20 @@ export interface ElementPrototype<TElement extends PrintElement = PrintElement> 
   resize?: (element: TElement, bounds: Rect) => TElement
   /** 校验通用属性之外的元素专属规则；只在元素的结构校验没有 error 时调用。 */
   validate?: (element: TElement, context: ElementValidationContext) => void
+  /**
+   * 排版：给出画在元素框里的数据，交给运行时层同一类型的渲染。只有扩展元素用它，内置元素的排版在 core 里；
+   * 返回值要是 JSON，元素框（位置与尺寸）由 core 按元素填好。
+   */
+  layout?: (element: TElement, context: ElementLayoutContext) => JsonValue
+}
+
+/** 扩展元素排版时拿到的上下文。 */
+export interface ElementLayoutContext {
+  /** 绑定的数据；设计态是示例数据或占位数据。 */
+  readonly data: unknown
+  readonly region: ElementRegion
+  /** 按字段路径（formatJsonPath 的写法）读数据里的值，读不到时为 undefined。 */
+  readonly field: (path: string) => unknown
 }
 
 /** 元素专属规则的校验上下文。 */
@@ -105,5 +119,11 @@ export interface ElementValidationContext {
   report: (code: ValidationIssueCode | ExtensionIssueCode, path?: JsonPath, params?: IssueParams) => void
 }
 
-/** 任一内置元素的原型。 */
-export type AnyElementPrototype = { [TType in PrintElementType]: ElementPrototype<PrintElementOf<TType>> }[PrintElementType]
+/** 扩展元素的原型：不跨页，必须给出 layout。 */
+export interface ExtensionElementPrototype extends ElementPrototype<ExtensionElement> {
+  flow: false
+  layout: (element: ExtensionElement, context: ElementLayoutContext) => JsonValue
+}
+
+/** 任一元素的原型：内置元素的，或扩展元素的。 */
+export type AnyElementPrototype = { [TType in PrintElementType]: ElementPrototype<PrintElementOf<TType>> }[PrintElementType] | ExtensionElementPrototype

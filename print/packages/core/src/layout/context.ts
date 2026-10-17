@@ -7,11 +7,14 @@ import type { JsonPath } from '@xihan-ui/core/json'
 import type { SchemaIssue } from '@xihan-ui/designer-kit/schema'
 import type { EngineCompileResult, EngineEvaluation, ExpressionEngine, FormatOptions, FormatSpec, ValueFormatter } from '@xihan-ui/expression'
 import type { TextMeasurer, TextSize } from '@xihan-ui/viz'
+import type { PrintCoreExtension } from '../extensions'
+import type { ElementRegistry } from '../registry/registry'
 import type { PrintPage } from '../schema/document'
 import type { PrintElement } from '../schema/elements'
 import type { IssueParams } from '../validation/issues'
 import type { PaginationDiagnosticCode, PaginationDiagnosticTarget } from './types'
 import { evaluateSource } from '@xihan-ui/expression'
+import { createPrintModel } from '../extensions'
 import { PrintLayoutError } from './types'
 
 /** 长度比较的容差，单位 mm。 */
@@ -46,6 +49,8 @@ export interface LayoutContext {
   report: (code: PaginationDiagnosticCode, scope: DiagnosticScope, params?: IssueParams) => void
   /** 注入的文字度量器，量出的宽度不是非负有限数时抛出 PrintLayoutError。 */
   measurer: TextMeasurer
+  /** 当前扩展合出的元素登记表：扩展元素按它的原型排版。 */
+  elements: ElementRegistry
 }
 
 function isValidSize(result: unknown): result is TextSize {
@@ -74,7 +79,7 @@ function checkedMeasurer(measurer: TextMeasurer): TextMeasurer {
 export function createLayoutContext(
   data: unknown,
   measurer: TextMeasurer,
-  options: { expressionEngine?: ExpressionEngine, formatter?: ValueFormatter, formatOptions?: FormatOptions },
+  options: { expressionEngine?: ExpressionEngine, formatter?: ValueFormatter, formatOptions?: FormatOptions, extensions?: readonly PrintCoreExtension[] },
   diagnostics: PendingDiagnostic[],
 ): LayoutContext {
   const seen = new Set<string>()
@@ -93,6 +98,7 @@ export function createLayoutContext(
       })
     },
     measurer: checkedMeasurer(measurer),
+    elements: createPrintModel(options.extensions).elements,
   }
   const engine = options.expressionEngine
   if (engine !== undefined) {

@@ -5,20 +5,22 @@
 
 // <xh-print-preview>：按数据排出打印模板并逐页显示，可直接打印。属性变化后自动重新分页。
 
-import type { IssueParams, PaginationDiagnostic, PaginationResult, PrintCoreExtension, PrintDocument, PrintLayoutErrorCode, ValidationIssue } from '@xihan-print/core'
+import type { IssueParams, PaginationDiagnostic, PaginationResult, PrintDocument, PrintLayoutErrorCode, ValidationIssue } from '@xihan-print/core'
 import type { ExpressionEngine, ValueFormatter } from '@xihan-ui/expression'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { PrintClient } from './client/client'
 import type { ClientPrintOptions } from './client/protocol'
+import type { PrintRuntimeExtension } from './extensions'
 import type { PrintRuntimeErrorCode } from './options'
 import type { PrintOutcome, PrintSheetsOptions } from './print'
 import type { PrintPreviewTranslations } from './translations'
-import { createPrintModel, paginate, PrintLayoutError } from '@xihan-print/core'
+import { paginate, PrintLayoutError } from '@xihan-print/core'
 import { createExpressionEngine } from '@xihan-ui/expression'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { shouldFallBack } from './client/errors'
+import { createPrintRuntimeModel } from './extensions'
 import { PrintRuntimeError, resolvePaginateOptions } from './options'
 import { printSheets } from './print'
 import { renderSheets } from './render/sheets'
@@ -97,7 +99,7 @@ export class XhPrintPreview extends XhReactiveElement {
   declare printClient: PrintClient | undefined
 
   readonly #config = new XhConfigController(this)
-  #extensions: readonly PrintCoreExtension[] | undefined
+  #extensions: readonly PrintRuntimeExtension[] | undefined
   #root: HTMLDivElement | undefined
   #sheets: HTMLDivElement | undefined
   #result: PaginationResult | undefined
@@ -114,17 +116,17 @@ export class XhPrintPreview extends XhReactiveElement {
   }
 
   /**
-   * 扩展：元素种类、编辑方式与规则，内置扩展自动排在最前。
+   * 扩展：元素种类、渲染、编辑方式与规则，内置扩展自动排在最前。
    * 赋值时当场合并查重，冲突抛 DesignerExtensionError、什么都不变；同一个数组只合并一次，宿主要保持引用稳定。
    */
-  get extensions(): readonly PrintCoreExtension[] | undefined {
+  get extensions(): readonly PrintRuntimeExtension[] | undefined {
     return this.#extensions
   }
 
-  set extensions(value: readonly PrintCoreExtension[] | undefined) {
+  set extensions(value: readonly PrintRuntimeExtension[] | undefined) {
     if (value === this.#extensions)
       return
-    createPrintModel(value)
+    createPrintRuntimeModel(value)
     const old = this.#extensions
     this.#extensions = value
     this.requestUpdate('extensions', old)
@@ -140,6 +142,11 @@ export class XhPrintPreview extends XhReactiveElement {
     super.disconnectedCallback()
     this.#fonts?.removeEventListener('loadingdone', this.#onFontsLoaded)
     this.#fonts = undefined
+  }
+
+  /** 打印时交下去的扩展，与分页用同一份。 */
+  #extensionOptions(): { extensions?: readonly PrintRuntimeExtension[] } {
+    return this.#extensions === undefined ? {} : { extensions: this.#extensions }
   }
 
   /** 最近一次分页的结果；还没分页或分页失败时为 undefined。 */
@@ -173,7 +180,7 @@ export class XhPrintPreview extends XhReactiveElement {
     const { title, ...clientOptions } = options
     if (this.printClient !== undefined) {
       try {
-        const status = await this.printClient.printSheets(result, { ...clientOptions, document: this.ownerDocument }).done
+        const status = await this.printClient.printSheets(result, { ...clientOptions, document: this.ownerDocument, ...this.#extensionOptions() }).done
         return { sheets: status.sheets ?? result.sheets.length, diagnostics: result.diagnostics, via: 'client' }
       }
       catch (error) {
@@ -182,8 +189,8 @@ export class XhPrintPreview extends XhReactiveElement {
       }
     }
     const sheetsOptions: PrintSheetsOptions = title === undefined
-      ? { document: this.ownerDocument }
-      : { document: this.ownerDocument, title }
+      ? { document: this.ownerDocument, ...this.#extensionOptions() }
+      : { document: this.ownerDocument, title, ...this.#extensionOptions() }
     await printSheets(result, sheetsOptions)
     return { sheets: result.sheets.length, diagnostics: result.diagnostics, via: 'browser' }
   }
@@ -215,7 +222,7 @@ export class XhPrintPreview extends XhReactiveElement {
     try {
       const result = this.#compute()
       this.#result = result
-      renderSheets(result, sheets)
+      renderSheets(result, sheets, { renderers: createPrintRuntimeModel(this.#extensions).renderers })
       this.#label()
       emitEvent(this, 'paginated', { sheets: result.sheets.length, diagnostics: result.diagnostics })
     }

@@ -4,7 +4,9 @@
  */
 
 import type { PaginationResult } from '@xihan-print/core'
+import type { PrintRuntimeExtension } from '../extensions'
 import type { ClientDocument, ClientResource, ClientSheetGroup } from './protocol'
+import { createPrintRuntimeModel } from '../extensions'
 import { pageRules, PRINT_CSS } from '../render/page'
 import { renderSheets } from '../render/sheets'
 import { toBase64 } from './base64'
@@ -17,6 +19,8 @@ export interface ClientDocumentOptions {
   readonly document?: Document
   /** 取资源用的 fetch，缺省为全局 fetch。 */
   readonly fetch?: typeof fetch
+  /** 扩展：扩展元素按它们给的渲染画出，与分页用同一份。 */
+  readonly extensions?: readonly PrintRuntimeExtension[]
 }
 
 /** 消息里除文档以外的字段预留的字节数。 */
@@ -169,7 +173,7 @@ export async function buildClientDocument(result: PaginationResult, options: Cli
   const charset = doc.createElement('meta')
   charset.setAttribute('charset', 'utf-8')
   doc.head.prepend(charset)
-  renderSheets(result, doc.body, { previewOnly: false })
+  renderSheets(result, doc.body, { previewOnly: false, renderers: createPrintRuntimeModel(options.extensions).renderers })
 
   const pending: Promise<void>[] = []
   for (const image of Array.from(doc.body.querySelectorAll('img'))) {

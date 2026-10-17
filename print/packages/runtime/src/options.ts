@@ -3,9 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { IssueParams, PaginateOptions, PrintCoreExtension } from '@xihan-print/core'
+import type { IssueParams, PaginateOptions } from '@xihan-print/core'
 import type { ExpressionEngine, ValueFormatter } from '@xihan-ui/expression'
 import type { TextMeasurer } from '@xihan-ui/viz'
+import type { PrintRuntimeExtension } from './extensions'
 import { formatValue } from '@xihan-ui/expression'
 
 /** 分页用到的注入项：预览元素的属性与 printDocument 的选项共用这一组。 */
@@ -22,8 +23,8 @@ export interface PrintRenderOptions {
   readonly timeZone?: string
   /** 输出页总数上限，缺省同 @xihan-print/core 的 paginate。 */
   readonly maxSheets?: number
-  /** 扩展：元素种类、编辑方式与规则，内置扩展自动排在最前。 */
-  readonly extensions?: readonly PrintCoreExtension[]
+  /** 扩展：元素种类、渲染、编辑方式与规则，内置扩展自动排在最前。 */
+  readonly extensions?: readonly PrintRuntimeExtension[]
 }
 
 /** 运行时无法完成分页或打印的原因：拿不到文字度量器、没有给模板。 */

@@ -24,7 +24,7 @@ export interface PrintRuleContext {
  * 运行时层与设计器层的扩展在它之上再加渲染、属性编辑器、命令与面板，core 函数只读这里的字段。
  */
 export interface PrintCoreExtension extends DesignerExtensionCore<PrintDocument, PrintRuleContext> {
-  /** 元素种类，类型名不能与内置的或别的扩展重名。 */
+  /** 元素种类，类型名不能与内置的或别的扩展重名；扩展的元素不跨页，要给出 layout。 */
   readonly elements?: readonly AnyElementPrototype[]
 }
 
@@ -55,13 +55,19 @@ const NO_EXTENSIONS: readonly PrintCoreExtension[] = []
 
 /**
  * 合出打印模型：内置扩展 PRINT_CORE_EXTENSION 在前，extensions 按顺序在后。扩展 id、元素类型、编辑方式等重名时
- * 抛 DesignerExtensionError。同一个数组只合一次：元素把同一份 extensions 交给各个 core 函数时不重复合并。
+ * 抛 DesignerExtensionError；扩展的元素没给 layout 或要跨页时抛 TypeError。同一个数组只合一次：元素把同一份 extensions 交给各个 core 函数时不重复合并。
  */
 export function createPrintModel(extensions: readonly PrintCoreExtension[] = NO_EXTENSIONS): PrintModel {
   const cached = MODELS.get(extensions)
   if (cached)
     return cached
   const list = mergeExtensions([PRINT_CORE_EXTENSION], extensions, PRINT_EXTENSION_SPACES)
+  for (const extension of extensions) {
+    for (const prototype of extension.elements ?? []) {
+      if (prototype.flow || typeof prototype.layout !== 'function')
+        throw new TypeError(`[xh-print] 扩展 ${extension.id} 的元素 ${prototype.type} 要给出 layout，且不能跨页（flow 为 false）`)
+    }
+  }
   const model: PrintModel = {
     extensions: list,
     elements: createElementRegistry(list.flatMap(extension => extension.elements ?? [])),

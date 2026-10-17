@@ -132,6 +132,17 @@ xh-print-designer [data-part='margins'] {
   border: calc(var(--xh-stroke-thin) / var(--xh-print-designer-zoom)) dashed var(--xh-border-default);
 }
 
+/* 扩展元素没给渲染、或扩展被去掉时的占位：虚线框中间写着元素类型 */
+xh-print-designer [data-part='box'][data-placeholder] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: calc(var(--xh-stroke-thin) / var(--xh-print-designer-zoom)) dashed var(--xh-border-strong);
+  color: var(--xh-fg-muted);
+  font-size: calc(var(--xh-font-size-xs) / var(--xh-print-designer-zoom));
+}
+
 xh-print-designer [data-part='band'][data-region='header'],
 xh-print-designer [data-part='band'][data-region='footer'] {
   background: var(--xh-bg-subtle);

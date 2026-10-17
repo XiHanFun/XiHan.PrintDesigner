@@ -4,10 +4,12 @@
  */
 
 import type { PaginationDiagnostic, PaginationResult, PrintDocument } from '@xihan-print/core'
+import type { PrintRuntimeExtension } from './extensions'
 import type { PrintRenderOptions } from './options'
 import { paginate } from '@xihan-print/core'
 import { createExpressionEngine } from '@xihan-ui/expression'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
+import { createPrintRuntimeModel } from './extensions'
 import { resolvePaginateOptions } from './options'
 import { pageRules, PRINT_CSS } from './render/page'
 import { renderSheets } from './render/sheets'
@@ -25,6 +27,8 @@ export interface PrintSheetsOptions {
   readonly document?: Document
   /** 打印文档的标题，即打印对话框与另存 PDF 时的缺省文件名；缺省沿用发起打印的文档标题。 */
   readonly title?: string
+  /** 扩展：扩展元素按它们给的渲染画出，与分页用同一份。 */
+  readonly extensions?: readonly PrintRuntimeExtension[]
 }
 
 /** printDocument 的选项：分页注入项加上打印选项。 */
@@ -146,7 +150,7 @@ export async function printSheets(result: PaginationResult, options: PrintSheets
     const style = doc.createElement('style')
     style.textContent = `${pageRules(result)}\n${PRINT_CSS}`
     doc.head.append(style)
-    renderSheets(result, doc.body, { previewOnly: false })
+    renderSheets(result, doc.body, { previewOnly: false, renderers: createPrintRuntimeModel(options.extensions).renderers })
     await resourcesReady(doc, pending)
     await printWindow(win)
   }
