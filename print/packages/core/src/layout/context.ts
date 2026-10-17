@@ -5,12 +5,12 @@
 
 import type { JsonPath } from '@xihan-ui/core/json'
 import type { SchemaIssue } from '@xihan-ui/designer-kit/schema'
-import type { EngineCompileResult, EngineEvaluation, ExpressionEngine, FormatOptions, FormatSpec } from '@xihan-ui/expression'
+import type { EngineCompileResult, EngineEvaluation, ExpressionEngine, FormatOptions, FormatSpec, ValueFormatter } from '@xihan-ui/expression'
 import type { TextMeasurer, TextSize } from '@xihan-ui/viz'
 import type { PrintPage } from '../schema/document'
 import type { PrintElement } from '../schema/elements'
 import type { IssueParams } from '../validation/issues'
-import type { PaginationDiagnosticCode, PaginationDiagnosticTarget, ValueFormatter } from './types'
+import type { PaginationDiagnosticCode, PaginationDiagnosticTarget } from './types'
 import { evaluateSource } from '@xihan-ui/expression'
 import { PrintLayoutError } from './types'
 

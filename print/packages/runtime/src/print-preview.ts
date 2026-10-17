@@ -5,8 +5,8 @@
 
 // <xh-print-preview>：按数据排出打印模板并逐页显示，可直接打印。属性变化后自动重新分页。
 
-import type { ElementRegistry, IssueParams, PaginationDiagnostic, PaginationResult, PrintDocument, PrintLayoutErrorCode, ValidationIssue, ValueFormatter } from '@xihan-print/core'
-import type { ExpressionEngine } from '@xihan-ui/expression'
+import type { ElementRegistry, IssueParams, PaginationDiagnostic, PaginationResult, PrintDocument, PrintLayoutErrorCode, ValidationIssue } from '@xihan-print/core'
+import type { ExpressionEngine, ValueFormatter } from '@xihan-ui/expression'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { PrintClient } from './client/client'
