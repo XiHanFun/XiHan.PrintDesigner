@@ -367,7 +367,7 @@ const LABELS: Readonly<Record<Command, StringKey>> = {
   'split-cell': 'splitCell',
 }
 
-/** 内置命令的快捷键；+、= 放大与 Backspace 删除这些别名由按键处理直接接住。 */
+/** 内置命令的快捷键；Backspace 删除、Ctrl / ⌘ + Y 重做这些别名由按键处理直接接住。 */
 const SHORTCUTS: Readonly<Partial<Record<Command, readonly string[]>>> = {
   'undo': ['Mod', 'Z'],
   'redo': ['Mod', 'Shift', 'Z'],
@@ -378,6 +378,7 @@ const SHORTCUTS: Readonly<Partial<Record<Command, readonly string[]>>> = {
   'bring-to-front': ['Mod', 'Shift', ']'],
   'send-backward': ['Mod', '['],
   'send-to-back': ['Mod', 'Shift', '['],
+  'zoom-in': ['+'],
   'zoom-out': ['-'],
   'zoom-to-fit': ['0'],
 }
@@ -386,7 +387,7 @@ const SHORTCUTS: Readonly<Partial<Record<Command, readonly string[]>>> = {
 const TOGGLES: ReadonlySet<Command> = new Set<Command>(['grid', 'snap', 'design', 'preview'])
 
 /** 设计器占用的 Ctrl / ⌘ 组合的主键：对应命令此刻不可用时也不交给浏览器。 */
-const RESERVED_COMMAND_KEYS: ReadonlySet<string> = new Set(['z', 'a', 'd', '[', ']'])
+const RESERVED_COMMAND_KEYS: ReadonlySet<string> = new Set(['z', 'a', 'd', '[', ']', '{', '}'])
 
 const NO_GUIDES: DesignerGuides = { x: [], y: [] }
 
@@ -2484,10 +2485,6 @@ export class XhPrintDesigner extends XhReactiveElement {
       case 'Delete':
       case 'Backspace':
         return this.deleteSelection()
-      case '+':
-      case '=':
-        this.zoomIn()
-        return true
       case ' ':
         if (event.target !== this.#layers?.viewport)
           return false

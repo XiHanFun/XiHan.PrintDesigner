@@ -72,7 +72,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | Delete、Backspace | 删除选中的元素 |
 | 方向键 | 选中的元素移动一格（网格边长，不吸附网格时 1 mm）；没有选中时平移视口 |
 | Shift + 方向键 | 选中的元素移动 10 mm |
-| +、=、- | 放大、缩小 |
+| +、- | 放大、缩小 |
 | 0 | 适合窗口 |
 | Enter | 选中表格时进入表格编辑态 |
 | Esc | 取消正在进行的拖动；在表格编辑态里退出；否则取消选择 |

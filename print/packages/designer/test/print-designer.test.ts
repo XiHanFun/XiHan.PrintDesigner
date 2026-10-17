@@ -162,6 +162,19 @@ describe('<xh-print-designer>', () => {
     expect(events.at(-1)).toBe('save')
   })
 
+  it('快捷键：+ 放大（美式键盘上按着 Shift 也算），Ctrl + Shift + ] 按出来是 } 也置于顶层', () => {
+    const press = (name: string, init: KeyboardEventInit): KeyboardEvent => {
+      const event = new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true, ...init })
+      viewport().dispatchEvent(event)
+      return event
+    }
+    expect(press('+', { shiftKey: true, code: 'Equal' }).defaultPrevented).toBe(true)
+    expect(press('+', { code: 'NumpadAdd' }).defaultPrevented).toBe(true)
+    designer.select({ elements: ['a'] })
+    press('}', { ctrlKey: true, shiftKey: true, code: 'BracketRight' })
+    expect(designer.schema.pages[0]!.elements.map(element => element.id)).toEqual(['t', 'a'])
+  })
+
   it('变换覆盖层：拖动中按新矩形重排、松手记一步撤销，取消时还原；缩放、旋转与 Alt 复制', async () => {
     designer.select({ elements: ['a'] })
     await designer.updateComplete
