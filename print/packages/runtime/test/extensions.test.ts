@@ -62,6 +62,34 @@ describe('扩展元素的渲染', () => {
     expect([placeholder.hasAttribute('data-placeholder'), placeholder.textContent]).toEqual([true, 'seal'])
   })
 
+  it('跨页的扩展元素每页一段，渲染收到这一段的块、重复块与分段序号', () => {
+    const rows: ExtensionElementPrototype = {
+      type: 'rows',
+      category: 'data',
+      order: 9,
+      flow: true,
+      minSize: { width: 5, height: 5 },
+      defaults: { type: 'rows', width: 80, height: 20 },
+      properties: [...layoutProperties({ rotation: false }), ...behaviorProperties()],
+      prepare: () => ({ repeat: { height: 10, data: '表头' }, blocks: ['一', '二', '三'].map(data => ({ height: 120, data })) }),
+    }
+    const extension: PrintRuntimeExtension = {
+      id: '@acme/rows',
+      elements: [rows],
+      renderers: {
+        rows: (box, { document }) => {
+          const { repeat, blocks } = box.data as { repeat: string, blocks: string[] }
+          return Object.assign(document.createElement('span'), { textContent: `${repeat}:${blocks.join(',')}:${box.fragment?.index}` })
+        },
+      },
+    }
+    const flowing = { id: 'r', type: 'rows', x: 10, y: 10, width: 80, height: 20 } as unknown as PrintElement
+    const result = paginate(documentOf(pageOf('p', [flowing])), {}, { measurer: createFakeMeasurer(), expressionEngine: createExpressionEngine(), formatter: formatValue, extensions: [extension] })
+    const container = document.createElement('div')
+    renderSheets(result, container, { renderers: createPrintRuntimeModel([extension]).renderers })
+    expect(Array.from(container.querySelectorAll('[data-element-id="r"]'), frame => frame.textContent)).toEqual(['表头:一,二:0', '表头:三:1'])
+  })
+
   it('同一类型的渲染在两个扩展里都给了时抛 DesignerExtensionError', () => {
     const other: PrintRuntimeExtension = { id: '@acme/other', renderers: { seal: () => document.createElement('div') } }
     expect(() => createPrintRuntimeModel([SEALS, other])).toThrow(expect.objectContaining({ code: 'designer.extension-conflict', space: 'element-renderer', key: 'seal' }))

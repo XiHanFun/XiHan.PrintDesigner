@@ -92,7 +92,7 @@
 | --- | --- | --- |
 | `BarCodeLayoutBox` | 接口 | 一维条码布局盒。 |
 | `EllipseLayoutBox` | 接口 | 椭圆布局盒。 |
-| `ExtensionLayoutBox` | 接口 | 扩展元素的布局盒：data 是原型的 layout 给出的数据，交给运行时层同一类型的渲染；类型没登记时为 null。 |
+| `ExtensionLayoutBox` | 接口 | 扩展元素的布局盒，交给运行时层同一类型的渲染；类型没登记时 data 为 null。 |
 | `ImageLayoutBox` | 接口 | 图片布局盒。 |
 | `LayoutBand` | 接口 | 输出页选中的页眉或页脚带区。 |
 | `LayoutBox` | 类型 |  |
@@ -223,10 +223,15 @@
 | `ELEMENT_CATEGORIES` | 常量 | 内置的物料分组，按面板中的显示顺序；扩展自定的分组排在它们之后。 |
 | `ElementCategory` | 类型 | 内置的物料分组：文字、图片、数据、图形、条码。 |
 | `ElementDefaults` | 类型 | 元素默认值：不含标识与坐标。 |
+| `ElementFlowContext` | 接口 | 跨页扩展元素取值时拿到的上下文：在排版上下文之上还能量文字。 |
 | `ElementLayoutContext` | 接口 | 扩展元素排版时拿到的上下文。 |
 | `ElementPrototype` | 接口 | 元素原型：一种元素的默认值、尺寸约束、可编辑属性与专属行为。 |
 | `ElementValidationContext` | 接口 | 元素专属规则的校验上下文。 |
-| `ExtensionElementPrototype` | 接口 | 扩展元素的原型：不跨页，必须给出 layout。 |
+| `ExtensionElementPrototype` | 类型 | 扩展元素的原型：不跨页的给 layout，跨页的给 prepare。 |
+| `ExtensionFlowBlock` | 接口 | 跨页扩展元素的一块：块不拆开，height 是它占的高度（mm），data 交给渲染，要是 JSON。 |
+| `ExtensionFlowContent` | 接口 | 跨页扩展元素排出的内容：blocks 依次排；repeat 给了时排在每一段的开头（如表头），算进每段的高度。 |
+| `FixedExtensionElementPrototype` | 接口 | 不跨页的扩展元素的原型：必须给出 layout。 |
+| `FlowExtensionElementPrototype` | 接口 | 跨页的扩展元素的原型：必须给出 prepare；只能放在正文区。 |
 | `NumberControl` | 类型 | 数值属性：designer-kit 的 number 编辑方式，单位取打印的单位。 |
 | `PAGE_PROPERTY_GROUPS` | 常量 | 页面设置的属性分组取值，按面板中的显示顺序。 |
 | `PROPERTY_GROUPS` | 常量 | 元素与表格部位的属性分组取值，按面板中的显示顺序。 |

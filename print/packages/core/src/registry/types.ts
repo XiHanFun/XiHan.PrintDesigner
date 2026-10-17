@@ -6,6 +6,7 @@
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
 import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { PropertyControl as KitPropertyControl, PropertyDescriptor as KitPropertyDescriptor } from '@xihan-ui/designer-kit/properties'
+import type { TextStyle } from '../schema/common'
 import type { ElementBase, ExtensionElement, PrintElement, PrintElementOf, PrintElementType } from '../schema/elements'
 import type { ElementRegion } from '../traverse'
 import type { ExtensionIssueCode, IssueParams, ValidationIssueCode } from '../validation/issues'
@@ -95,10 +96,15 @@ export interface ElementPrototype<TElement extends ElementBase<string> = PrintEl
   /** 校验通用属性之外的元素专属规则；只在元素的结构校验没有 error 时调用。 */
   validate?: (element: TElement, context: ElementValidationContext) => void
   /**
-   * 排版：给出画在元素框里的数据，交给运行时层同一类型的渲染。只有扩展元素用它，内置元素的排版在 core 里；
+   * 排版：给出画在元素框里的数据，交给运行时层同一类型的渲染。只有不跨页的扩展元素用它，内置元素的排版在 core 里；
    * 返回值要是 JSON，元素框（位置与尺寸）由 core 按元素填好。
    */
   layout?: (element: TElement, context: ElementLayoutContext) => JsonValue
+  /**
+   * 跨页排版的取值：给出按顺序的若干块，core 把它们从元素位置起依次排进正文区、放不下就续到下一页。
+   * 只有跨页的扩展元素用它，内置的长文本、富文本与表格另有排法。
+   */
+  prepare?: (element: TElement, context: ElementFlowContext) => ExtensionFlowContent
 }
 
 /** 扩展元素排版时拿到的上下文。 */
@@ -108,6 +114,24 @@ export interface ElementLayoutContext {
   readonly region: ElementRegion
   /** 按字段路径（formatJsonPath 的写法）读数据里的值，读不到时为 undefined。 */
   readonly field: (path: string) => unknown
+}
+
+/** 跨页扩展元素取值时拿到的上下文：在排版上下文之上还能量文字。 */
+export interface ElementFlowContext extends ElementLayoutContext {
+  /** 按文字样式与可用宽度（mm）折行量一段文字，得到各行文字与总高度（mm）。 */
+  readonly measureText: (text: string, style: TextStyle, width: number) => { readonly lines: readonly string[], readonly height: number }
+}
+
+/** 跨页扩展元素的一块：块不拆开，height 是它占的高度（mm），data 交给渲染，要是 JSON。 */
+export interface ExtensionFlowBlock {
+  readonly height: number
+  readonly data: JsonValue
+}
+
+/** 跨页扩展元素排出的内容：blocks 依次排；repeat 给了时排在每一段的开头（如表头），算进每段的高度。 */
+export interface ExtensionFlowContent {
+  readonly blocks: readonly ExtensionFlowBlock[]
+  readonly repeat?: ExtensionFlowBlock
 }
 
 /** 元素专属规则的校验上下文。 */
@@ -120,11 +144,20 @@ export interface ElementValidationContext {
   report: (code: ValidationIssueCode | ExtensionIssueCode, path?: JsonPath, params?: IssueParams) => void
 }
 
-/** 扩展元素的原型：不跨页，必须给出 layout。 */
-export interface ExtensionElementPrototype extends ElementPrototype<ExtensionElement> {
+/** 不跨页的扩展元素的原型：必须给出 layout。 */
+export interface FixedExtensionElementPrototype extends ElementPrototype<ExtensionElement> {
   flow: false
   layout: (element: ExtensionElement, context: ElementLayoutContext) => JsonValue
 }
+
+/** 跨页的扩展元素的原型：必须给出 prepare；只能放在正文区。 */
+export interface FlowExtensionElementPrototype extends ElementPrototype<ExtensionElement> {
+  flow: true
+  prepare: (element: ExtensionElement, context: ElementFlowContext) => ExtensionFlowContent
+}
+
+/** 扩展元素的原型：不跨页的给 layout，跨页的给 prepare。 */
+export type ExtensionElementPrototype = FixedExtensionElementPrototype | FlowExtensionElementPrototype
 
 /** 任一元素的原型：内置元素的，或扩展元素的。 */
 export type AnyElementPrototype = { [TType in PrintElementType]: ElementPrototype<PrintElementOf<TType>> }[PrintElementType] | ExtensionElementPrototype

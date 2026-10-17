@@ -9,7 +9,7 @@
 import type { JsonObject, JsonValue } from '@xihan-ui/core/json'
 import type { RichBlock } from '@xihan-ui/core/rich-text'
 import type { PrintPage } from '../schema/document'
-import type { PrintElement, TableElement } from '../schema/elements'
+import type { ExtensionElement, PrintElement, TableElement } from '../schema/elements'
 import type { PageBandKey } from '../schema/options'
 import type { TableCellContent, TableColumn, TableFooterCell } from '../schema/table'
 import type { ElementRegion } from '../traverse'
@@ -22,6 +22,7 @@ import { withSeverity } from '@xihan-ui/designer-kit/schema'
 import { fillPageNumber, layoutFixedElement, pageNumberBox } from './boxes'
 import { templateText } from './content'
 import { createLayoutContext, elementScope, pageScope } from './context'
+import { isFlowExtension, placeExtensionFlow, prepareExtensionFlow } from './extension-flow'
 import { placeLongText, prepareLongText } from './long-text'
 import { placeRichText, prepareRichText } from './rich-text'
 import { placeTable, prepareTable } from './table'
@@ -224,13 +225,15 @@ function layoutElement(element: PrintElement, region: ElementRegion, context: La
     case 'table':
       return region === 'body' ? placeTable(prepareTable(element, context, scope), { sheet: 0, y: element.y }, designGeometry(element), context, scope).boxes[0]?.box : undefined
     default:
-      return layoutFixedElement(element, region, context, scope)
+      if (!isFlowExtension(element, context))
+        return layoutFixedElement(element, region, context, scope)
+      return region === 'body' ? placeExtensionFlow(prepareExtensionFlow(element as unknown as ExtensionElement, context), { sheet: 0, y: element.y }, designGeometry(element), context, scope).boxes[0]?.box : undefined
   }
 }
 
 /**
  * 按设计坐标排出页面模板的每个元素，页眉页脚取 options.bands 指定的变体。跨页元素不分页：
- * 长文本与富文本按内容撑高，表格排表头、示意行、补空行与全部表尾行，高度都不小于设计高度。
+ * 长文本、富文本与跨页的扩展元素按内容撑高，表格排表头、示意行、补空行与全部表尾行，高度都不小于设计高度。
  * 测量或格式化结果不合法时抛 PrintLayoutError；页面模板本身不合法时结果不保证有意义，先用 validateDocument 校验。
  */
 export function layoutDesign(page: PrintPage, options: DesignLayoutOptions): DesignLayout {

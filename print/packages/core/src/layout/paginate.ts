@@ -5,7 +5,7 @@
 
 import type { Rect } from '@xihan-ui/designer-kit'
 import type { PageBand, PrintDocument, PrintPage } from '../schema/document'
-import type { PageNumberElement, PrintElement } from '../schema/elements'
+import type { ExtensionElement, PageNumberElement, PrintElement } from '../schema/elements'
 import type { PageBandKey } from '../schema/options'
 import type { IssueParams } from '../validation/issues'
 import type { BodyItem } from './body'
@@ -27,6 +27,7 @@ import { layoutBody } from './body'
 import { fillPageNumber, layoutFixedElement, pageNumberBox } from './boxes'
 import { templateText } from './content'
 import { createLayoutContext, elementScope, pageScope } from './context'
+import { isFlowExtension, prepareExtensionFlow } from './extension-flow'
 import { prepareLongText } from './long-text'
 import { prepareRichText } from './rich-text'
 import { prepareTable } from './table'
@@ -76,7 +77,9 @@ function prepareBodyItem(element: PrintElement, index: number, context: LayoutCo
     case 'pageNumber':
       return { kind: 'fixed', element, index, scope, box: pageNumberBox(element, 'body') }
     default:
-      return { kind: 'fixed', element, index, scope, box: layoutFixedElement(element, 'body', context, scope) }
+      return isFlowExtension(element, context)
+        ? { kind: 'extension', element, index, scope, prepared: prepareExtensionFlow(element as unknown as ExtensionElement, context) }
+        : { kind: 'fixed', element, index, scope, box: layoutFixedElement(element, 'body', context, scope) }
   }
 }
 

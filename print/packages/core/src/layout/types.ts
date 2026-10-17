@@ -250,10 +250,16 @@ export interface TableLayoutBox extends LayoutBoxBase {
 }
 
 /** 布局盒。 */
-/** 扩展元素的布局盒：data 是原型的 layout 给出的数据，交给运行时层同一类型的渲染；类型没登记时为 null。 */
+/**
+ * 扩展元素的布局盒，交给运行时层同一类型的渲染；类型没登记时 data 为 null。
+ * 不跨页的 data 是原型的 layout 给出的数据；跨页的每页一段，data 是 { blocks, repeat }：这一段依次排的块的数据，
+ * 与每段开头重复的那块的数据（没有时为 null）。
+ */
 export interface ExtensionLayoutBox extends LayoutBoxBase {
   kind: 'extension'
   data: JsonValue
+  /** 跨页的扩展元素才有。 */
+  fragment?: LayoutFragment
 }
 
 export type LayoutBox
