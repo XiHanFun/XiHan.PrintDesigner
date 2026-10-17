@@ -99,6 +99,8 @@ export interface PrintPage {
   watermark?: Watermark
   guides?: PageGuides
   meta?: JsonObject
+  /** 扩展自己的数据，键是扩展 id。 */
+  extensions?: JsonObject
 }
 
 /** 打印模板文档。 */
@@ -107,4 +109,6 @@ export interface PrintDocument {
   name?: string
   pages: PrintPage[]
   meta?: JsonObject
+  /** 扩展自己的数据，键是扩展 id。 */
+  extensions?: JsonObject
 }

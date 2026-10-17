@@ -10,12 +10,12 @@ import type { PrintDesignerTranslations } from '@xihan-print/runtime'
 import type { Rect } from '@xihan-ui/designer-kit'
 import type { DesignerGesturePhase, DesignerTransformKind, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import type { TextMeasurer } from '@xihan-ui/viz'
-import type { XhPrintDesigner } from '../src'
-import { createDocument, createElementRegistry, createPage } from '@xihan-print/core'
+import type { PrintDesignerExtension, XhPrintDesigner } from '../src'
+import { createBuiltinElementPrototypes, createDocument, createElementRegistry, createPage } from '@xihan-print/core'
 import { printZhCN } from '@xihan-print/runtime/locale'
-import { CLIPBOARD_FORMAT, clipboardMimeType } from '@xihan-ui/designer-kit'
+import { CLIPBOARD_FORMAT, clipboardMimeType, DesignerExtensionError } from '@xihan-ui/designer-kit'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { definePrintDesigner } from '../src'
+import { definePrintDesigner, PRINT_DESIGNER_EXTENSION_ID } from '../src'
 
 const registry = createElementRegistry()
 const PX_PER_MM = 96 / 25.4
@@ -81,6 +81,51 @@ function key(name: string, init: KeyboardEventInit = {}): void {
 }
 
 describe('<xh-print-designer>', () => {
+  it('扩展：赋值时合并查重，冲突抛错且保持原状；setup 在连上文档时调用，去掉、换引用或断开时清理；扩展的编辑器压过自带的', async () => {
+    const calls: string[] = []
+    const audit: PrintDesignerExtension = {
+      id: '@acme/audit',
+      setup: (context) => {
+        calls.push(`setup:${context.designer === designer}`)
+        return () => calls.push('cleanup')
+      },
+      rules: [document => document.pages.length > 0 ? [{ code: 'audit.checked', path: [], severity: 'warning' }] : []],
+    }
+    designer.extensions = [audit]
+    expect(calls).toEqual(['setup:true'])
+    expect(designer.validate().map(issue => issue.code)).toContain('audit.checked')
+
+    const text = createBuiltinElementPrototypes().find(prototype => prototype.type === 'text')!
+    let error: unknown
+    try {
+      designer.extensions = [audit, { id: '@acme/text', elements: [text] }]
+    }
+    catch (caught) {
+      error = caught
+    }
+    expect(error).toMatchObject({ code: 'designer.extension-conflict', space: 'element-type', key: 'text' })
+    expect(() => {
+      designer.extensions = [{ id: PRINT_DESIGNER_EXTENSION_ID }]
+    }).toThrow(DesignerExtensionError)
+    expect([designer.extensions, calls]).toEqual([[audit], ['setup:true']])
+
+    designer.extensions = [{ ...audit }]
+    expect(calls).toEqual(['setup:true', 'cleanup', 'setup:true'])
+    designer.remove()
+    expect(calls.at(-1)).toBe('cleanup')
+    document.body.append(designer)
+    expect(calls.at(-1)).toBe('setup:true')
+
+    const output = (): { element: HTMLElement } => ({ element: document.createElement('output') })
+    designer.extensions = [{ id: '@acme/border', editors: { byControl: { borderSides: output } } }]
+    designer.select({ elements: ['a'] })
+    await designer.updateComplete
+    const panel = designer.querySelector('xh-designer-properties')!
+    await panel.updateComplete
+    expect(panel.querySelector('[data-path="box.border"] output')).not.toBeNull()
+    expect(panel.querySelector('[data-path="box.border"] xh-tabs')).toBeNull()
+  })
+
   it('自己注册用到的库内元素：宿主不必全量注册 web-components，工具栏、页签、按钮与菜单都升级', () => {
     for (const tag of ['xh-toolbar', 'xh-toggle-group', 'xh-button', 'xh-menu', 'xh-context-menu'])
       expect(customElements.get(tag), tag).toBeDefined()
@@ -523,7 +568,7 @@ describe('<xh-print-designer>', () => {
 
     key('Escape')
     const host = (): { element: HTMLElement } => ({ element: document.createElement('output') })
-    designer.editors = { byControl: { tableColumns: host } }
+    designer.extensions = [{ id: '@acme/columns', editors: { byControl: { tableColumns: host } } }]
     designer.select({ elements: ['t'] })
     await designer.updateComplete
     await panel.updateComplete

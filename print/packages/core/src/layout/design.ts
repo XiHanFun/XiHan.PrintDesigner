@@ -34,7 +34,7 @@ export const DESIGN_SAMPLE_ROWS = 1
 export const DESIGN_FILLER_ROWS = 2
 
 /** 设计态排版的选项：度量器、表达式引擎、格式化器、区域与时区同分页。 */
-export interface DesignLayoutOptions extends Omit<PaginateOptions, 'maxSheets' | 'registry'> {
+export interface DesignLayoutOptions extends Omit<PaginateOptions, 'maxSheets' | 'extensions'> {
   /** 示例数据；给出时按数据取值，不给时字段显示 {path} 占位。 */
   sampleData?: unknown
   /** 页眉、页脚显示哪个变体，缺省 default；变体不存在时用 default。 */

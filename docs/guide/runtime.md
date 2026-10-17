@@ -10,7 +10,7 @@
 
 <PrintDemo name="runtime" />
 
-- `schema`、`data` 与各注入项（`expressionEngine`、`formatter`、`measurer`、`registry`、`locale`、`timeZone`）任一变化都重新分页。
+- `schema`、`data`、`extensions` 与各注入项（`expressionEngine`、`formatter`、`measurer`、`locale`、`timeZone`）任一变化都重新分页。`extensions` 与设计器给同一份，见[设计器的扩展](./designer#扩展)。
 - 分页成功派发 `paginated`，带输出页数与诊断；失败派发 `pagination-error` 并清空预览，带错误码与校验问题。
 - `result` 是最近一次的分页结果，`paginate()` 立即按当前属性重新分页并返回结果。
 - 元素是带滚动的块，在页面上给它一个高度，输出页多时在里面滚动。纸张比预览区宽时从左边开始排，可以横向滚动。

@@ -17,7 +17,6 @@ import { describe, expect, it } from 'vitest'
 import {
   applyOperation,
   applyOperations,
-  createBuiltinElementPrototypes,
   createElementRegistry,
   createPage,
   findElement,
@@ -282,17 +281,12 @@ describe('移动与缩放', () => {
     expect(columns).toEqual([7.5, 47.5, 20, 20])
   })
 
-  it('登记表的原型没有缩放行为时直接替换元素框', () => {
-    const prototypes = createBuiltinElementPrototypes().map((prototype) => {
-      if (prototype.type !== 'table')
-        return prototype
-      const { resize: _resize, ...rest } = prototype
-      return rest
-    })
-    const plain = createElementRegistry(prototypes)
+  it('没登记的类型缩放时直接替换元素框', () => {
     const doc = sample()
-    const result = applyOperation(doc, { type: 'resizeElement', id: 'items', bounds: { x: 10, y: 70, width: 95, height: 22 } }, { registry: plain })
-    expect(elementOf<TableElement>(result.document, 'items').columns[0]!.width).toBe(15)
+    const table = elementOf<TableElement>(doc, 'items')
+    const unknown = { ...doc, pages: [{ ...doc.pages[0]!, elements: doc.pages[0]!.elements.map(item => item.id === 'items' ? { ...table, type: 'seal' } as unknown as TableElement : item) }] }
+    const result = applyOperation(unknown, { type: 'resizeElement', id: 'items', bounds: { x: 10, y: 70, width: 95, height: 22 } })
+    expect(elementOf<TableElement>(result.document, 'items')).toMatchObject({ width: 95, height: 22, columns: table.columns })
   })
 
   it('元素框不变时没有变化，负尺寸或非有限值报错', () => {

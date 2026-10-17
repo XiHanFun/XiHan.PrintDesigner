@@ -3,8 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { JsonPath } from '@xihan-ui/core/json'
+import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
 import type { RichBlock, RichTextDocument } from '@xihan-ui/core/rich-text'
+import type { ControlKind } from '@xihan-ui/designer-kit/properties'
 import type { FormatSpecIssueCode } from '@xihan-ui/expression'
 import type { PropertyControl } from '../registry/types'
 import type { FieldRule } from './checks'
@@ -389,8 +390,11 @@ export function validatePageNumberFormat(value: unknown, path: JsonPath, sink: I
   }
 }
 
-/** 按属性编辑方式校验属性值：内建编辑方式用 designer-kit 的读取器，复合类型按各自的结构规则。 */
-export function validateControlValue(control: PropertyControl, value: unknown, path: JsonPath, sink: IssueSink): void {
+/**
+ * 按属性编辑方式校验属性值：内建编辑方式用 designer-kit 的读取器，复合类型按各自的结构规则；
+ * 其余编辑方式交给 controls 里登记的（扩展的编辑方式），它的 check 给出问题码；没登记的报 unknown-control。
+ */
+export function validateControlValue(control: PropertyControl, value: unknown, path: JsonPath, sink: IssueSink, controls: Readonly<Record<string, ControlKind>> = {}): void {
   switch (control.kind) {
     case 'number':
       readNumber(sink, value, path, control)
@@ -461,5 +465,16 @@ export function validateControlValue(control: PropertyControl, value: unknown, p
     case 'matrixCodeLevel':
       if (typeof value !== 'string' && typeof value !== 'number')
         sink.report('invalid-type', path, { params: { expected: 'string|number' } })
+      return
+    default: {
+      const other = control as { readonly kind: string }
+      if (!Object.hasOwn(controls, other.kind)) {
+        sink.report('unknown-control', path, { params: { kind: other.kind } })
+        return
+      }
+      const code = controls[other.kind]!.check?.(value as JsonValue, other)
+      if (code !== undefined)
+        sink.report(code as ValidationIssueCode, path)
+    }
   }
 }

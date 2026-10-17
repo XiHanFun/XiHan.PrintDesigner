@@ -5,7 +5,7 @@
 
 import type { JsonPathSegment, JsonValue } from '@xihan-ui/core/json'
 import type { Rect } from '@xihan-ui/designer-kit'
-import type { ElementRegistry } from '../registry/registry'
+import type { PrintCoreExtension } from '../extensions'
 import type { PageBand, PageBandSet, PrintDocument, PrintPage } from '../schema/document'
 import type { PrintElement } from '../schema/elements'
 import type { PageBandKey } from '../schema/options'
@@ -30,8 +30,8 @@ import type {
 } from './types'
 import { cloneJson, findJsonViolation, isPlainObject, jsonEquals } from '@xihan-ui/core/json'
 import { applyInSequence } from '@xihan-ui/designer-kit'
+import { createPrintModel } from '../extensions'
 import { collectDocumentIds } from '../factory'
-import { createElementRegistry } from '../registry/registry'
 import { PAGE_BAND_VARIANTS } from '../schema/options'
 import { findElement, findPage, getContainerElements, PAGE_BAND_KEYS } from '../traverse'
 import { PrintOperationError } from './errors'
@@ -39,8 +39,8 @@ import { writeChanges } from './path'
 
 /** 操作选项。 */
 export interface ApplyOperationOptions {
-  /** 提供元素专属缩放行为的登记表，默认为内置元素的登记表。 */
-  registry?: ElementRegistry
+  /** 扩展：缩放元素时按它的原型取专属的缩放行为，内置扩展自动排在最前。 */
+  extensions?: readonly PrintCoreExtension[]
 }
 
 /** 深拷贝已确认是纯 JSON 的模板数据。 */
@@ -218,8 +218,7 @@ function resizeElement(document: PrintDocument, operation: ResizeElementOperatio
   const location = requireElement(document, operation.id)
   const { element } = location
   const bounds: Rect = { x, y, width, height }
-  const registry = options.registry ?? createElementRegistry()
-  const resize = registry.get(element.type)?.resize as ((element: PrintElement, bounds: Rect) => PrintElement) | undefined
+  const resize = createPrintModel(options.extensions).elements.get(element.type)?.resize as ((element: PrintElement, bounds: Rect) => PrintElement) | undefined
   const resized = resize === undefined ? { ...element, ...bounds } as PrintElement : resize(element, bounds)
   const changes = diffChanges(element, resized)
   if (changes.length === 0)

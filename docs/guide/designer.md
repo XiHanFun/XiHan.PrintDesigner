@@ -107,9 +107,20 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 全部文案键见[设计器参考](../reference/designer#printdesignertranslations)。属性面板里的属性名、选项名与单位也在里面，键是属性路径，如 `style.fontSize`。
 
-## 自定义属性编辑器
+## 扩展
 
-`editors` 属性给属性面板换编辑器。查找顺序是对象种类加属性路径、属性路径、编辑方式，都没有时用设计器自带的编辑器：
+`extensions` 收一组扩展对象：元素种类、编辑方式、校验规则与属性编辑器都经它登记。内置元素与设计器自带的编辑器也是扩展，自动排在最前。同一页面上的几个设计器各给各的，互不影响。
+
+- 扩展对象的 `id` 全局唯一，用包名加功能名，如 `@acme/print-fonts`。它也是模板里扩展数据的键：文档、页面与元素都可以带 `extensions: { [扩展 id]: { ... } }`，校验只查它是对象，编辑与复制粘贴原样带着走。
+- 赋值时当场合并查重：扩展 id、元素类型、编辑方式与内置的或别的扩展重名时，抛 `DesignerExtensionError`（`code` 为 `designer.extension-conflict`），设计器保持赋值前的状态。
+- `setup(context)` 在设计器连上文档时调用，它返回的函数在断开、或这个扩展被去掉时调用。同一个扩展对象换了引用，当作卸下再装上，宿主要保持引用稳定。
+- `rules` 是校验规则，收到文档与 `{ elements }`（合并后的元素登记表），返回问题。问题码以扩展 id 的末段加点开头，结构没有 error 时才跑。
+- `controls` 是新的编辑方式：属性描述里用到这个 `kind` 时，按它的 `check` 校验取值；没登记的编辑方式报 `unknown-control`。
+- 预览元素 `<xh-print-preview>` 与 `paginate`、`validateDocument` 这些函数也收 `extensions`，与设计器给同一份。
+
+### 属性编辑器
+
+扩展的 `editors` 给属性面板换编辑器，按扩展的顺序压在设计器自带的编辑器之上。查找顺序是对象种类加属性路径、属性路径、编辑方式，都没有时用面板内建的编辑器：
 
 | 表 | 键 | 适用 |
 | --- | --- | --- |

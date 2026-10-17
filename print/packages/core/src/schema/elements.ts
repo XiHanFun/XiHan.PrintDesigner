@@ -35,6 +35,8 @@ export interface ElementBase<TType extends string> {
   previewOnly?: boolean
   /** 宿主附加数据。 */
   meta?: JsonObject
+  /** 扩展自己的数据，键是扩展 id；core 只检查它是对象，里面不看。 */
+  extensions?: JsonObject
 }
 
 /** 固定尺寸的文本。 */

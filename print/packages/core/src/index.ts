@@ -5,6 +5,7 @@
 
 // 导出 @xihan-print/core 的公共接口。
 
+export * from './extensions'
 export * from './factory'
 export * from './geometry'
 export { MIN_SHRINK_FONT_SIZE, SHRINK_FONT_STEP } from './layout/boxes'
@@ -38,6 +39,7 @@ export * from './schema/table'
 export * from './traverse'
 export { isValidColor } from './validation/checks'
 export type {
+  ExtensionIssueCode,
   IssueParams,
   ValidationIssue,
   ValidationIssueCode,

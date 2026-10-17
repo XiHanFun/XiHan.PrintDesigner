@@ -41,7 +41,7 @@ export function mount(host: HTMLElement): () => void {
   // #region use
   const designer = document.createElement('xh-print-designer')
   designer.panels = 'toolbar properties'
-  designer.editors = { byControl: {}, byPath: { 'style.fontFamily': fontEditor } }
+  designer.extensions = [{ id: '@acme/print-fonts', editors: { byPath: { 'style.fontFamily': fontEditor } } }]
   designer.schema = schema
   // #endregion use
   host.append(designer)

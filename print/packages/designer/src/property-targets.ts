@@ -127,7 +127,7 @@ export function propertySubjects(editor: PrintEditor, editingTable: string | und
     const selected = new Set(selection.elements)
     return editor.visibleElements().filter(item => selected.has(item.element.id)).flatMap(({ element }) => {
       const found = findElement(document, element.id)
-      const prototype = editor.registry.get(element.type)
+      const prototype = editor.elements.get(element.type)
       if (found === undefined || prototype === undefined)
         return []
       return [subject(element.type, element.id, element, prototype.properties, found.path, keep, context, changes => ({ type: 'updateElement', id: element.id, changes }))]

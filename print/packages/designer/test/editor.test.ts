@@ -24,7 +24,7 @@ function sample(): PrintDocument {
 }
 
 function editorOf(document = sample()): ReturnType<typeof createPrintEditor> {
-  return createPrintEditor({ document, registry, now: () => 0 })
+  return createPrintEditor({ document, now: () => 0 })
 }
 
 describe('选择', () => {

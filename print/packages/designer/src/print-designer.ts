@@ -15,7 +15,6 @@ import type {
   ElementCategory,
   ElementContainerRef,
   ElementRegion,
-  ElementRegistry,
   LayoutBox,
   PageBandKey,
   PrintDocument,
@@ -32,7 +31,7 @@ import type {
 import type { PrintDesignerTranslations, PrintOutcome, PrintPreviewPrintOptions } from '@xihan-print/runtime'
 import type { PrintClient } from '@xihan-print/runtime/client'
 import type { JsonValue } from '@xihan-ui/core/json'
-import type { AlignMode, DataField, DistributeAxis, ExecuteOptions, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
+import type { AlignMode, DataField, DistributeAxis, ExecuteOptions, ExtensionHost, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
 import type {
   DesignerFrameRegion,
@@ -58,6 +57,7 @@ import type { PointerSession } from '@xihan-ui/pointer'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { PrintClipboard, PrintSelection, PrintTablePart } from './editor'
+import type { PrintDesignerContext, PrintDesignerExtension, PrintDesignerModel } from './extensions'
 import type { CompositeEditorHost } from './property-editors'
 import type { ExpandedDescriptor } from './property-expand'
 import type { PropertySubject } from './property-targets'
@@ -83,6 +83,7 @@ import { fillTextTemplate } from '@xihan-ui/core/template'
 import {
   centerOn,
   clipboardMimeType,
+  createExtensionHost,
   decodeClipboard,
   encodeClipboard,
   fitRect,
@@ -115,6 +116,7 @@ import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, setText, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhExpressionInputElement, XhFieldArrayElement, XhFieldElement, XhFormatInputElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createPrintEditor, elementRect } from './editor'
+import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID } from './extensions'
 import { defaultIssueText } from './issue-text'
 import { borderSidesEditor, valueFormatEditor } from './property-editors'
 import { propertySubjects, TABLE_PART_KINDS } from './property-targets'
@@ -158,6 +160,7 @@ export interface PrintDesignerEventMap {
 
 /** 剪贴板载荷的结构版本。 */
 const CLIPBOARD_VERSION = 1
+const NO_EXTENSIONS: readonly PrintDesignerExtension[] = []
 const CLIPBOARD_PRODUCT = 'print'
 /** CSS 像素与毫米之比。 */
 const PX_PER_MM = 96 / 25.4
@@ -442,7 +445,6 @@ export class XhPrintDesigner extends XhReactiveElement {
     data: { attribute: false },
     sampleData: { attribute: false },
     fields: { attribute: false },
-    registry: { attribute: false },
     expressionEngine: { attribute: false },
     formatter: { attribute: false },
     measurer: { attribute: false },
@@ -454,7 +456,6 @@ export class XhPrintDesigner extends XhReactiveElement {
     grid: { attribute: false },
     snap: { attribute: false },
     panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
-    editors: { attribute: false },
     printClient: { attribute: false },
   }
 
@@ -464,8 +465,6 @@ export class XhPrintDesigner extends XhReactiveElement {
   declare sampleData: unknown
   /** 可绑定的字段树，供属性面板的字段选择器。 */
   declare fields: readonly DataField[] | undefined
-  /** 元素类型登记表，缺省为内置元素的登记表。 */
-  declare registry: ElementRegistry | undefined
   /** 受限表达式引擎；缺省为 @xihan-ui/expression 的 createExpressionEngine()。 */
   declare expressionEngine: ExpressionEngine | undefined
   /** 值格式化器；缺省为 @xihan-ui/expression 的 formatValue。 */
@@ -490,11 +489,15 @@ export class XhPrintDesigner extends XhReactiveElement {
   declare snap: boolean
   /** 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。 */
   declare panels: string | undefined
-  /** 宿主的属性编辑器，压在内建编辑器与设计器自带的编辑器之上；给了编辑器的复合属性不再拆开，原样交给宿主的编辑器。 */
-  declare editors: PropertyEditorTable<DesignerPropertyEditor> | undefined
-
   readonly #config = new XhConfigController(this)
   readonly #editor = createPrintEditor({ document: createDocument() })
+  #extensions: readonly PrintDesignerExtension[] | undefined
+  #builtin: PrintDesignerExtension | undefined
+  #designerModel: PrintDesignerModel | undefined
+  readonly #host: ExtensionHost<PrintDesignerExtension> = createExtensionHost<PrintDesignerExtension, PrintDesignerContext>({
+    context: () => ({ designer: this, translations: this.#translations() }),
+  })
+
   #layers: Layers | undefined
   /** 内部视口：世界坐标为纸张坐标（mm），zoom 为每毫米的屏幕像素。 */
   #viewport: Viewport = { x: 0, y: 0, zoom: PX_PER_MM }
@@ -519,7 +522,6 @@ export class XhPrintDesigner extends XhReactiveElement {
   #listed: { readonly issues: readonly ValidationIssue[], readonly key: string } | undefined
   #subjects: PropertySubject[] = []
   #panelInputs: readonly unknown[] = []
-  #editorTable: { readonly host: PropertyEditorTable<DesignerPropertyEditor> | undefined, readonly table: PropertyEditorTable<DesignerPropertyEditor> } | undefined
   #unregisterDrop: (() => void) | undefined
   #hoverId: string | undefined
 
@@ -609,6 +611,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       drop: (point, payload) => this.#drop(point, payload),
       leave: () => this.#setOverlayHover(undefined),
     })
+    this.#host.assign(this.#extensions ?? NO_EXTENSIONS)
   }
 
   override disconnectedCallback(): void {
@@ -618,17 +621,39 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#layers?.overlay.cancel()
     this.#unregisterDrop?.()
     this.#unregisterDrop = undefined
+    this.#host.dispose()
+  }
+
+  /**
+   * 扩展：元素种类、编辑方式、规则与属性编辑器都从这里来，设计器自带的扩展与内置元素自动排在最前。
+   * 赋值时当场合并查重，冲突抛 DesignerExtensionError、什么都不变；各扩展的 setup 在元素连上文档时调用、断开时清理。
+   * 同一个扩展对象换了引用当作卸下再装上，宿主要保持引用稳定。
+   */
+  get extensions(): readonly PrintDesignerExtension[] | undefined {
+    return this.#extensions
+  }
+
+  set extensions(value: readonly PrintDesignerExtension[] | undefined) {
+    if (value === this.#extensions)
+      return
+    const model = createPrintDesignerModel(this.#builtinExtension(), value ?? NO_EXTENSIONS)
+    if (this.isConnected)
+      this.#host.assign(value ?? NO_EXTENSIONS)
+    const old = this.#extensions
+    this.#extensions = value
+    this.#designerModel = model
+    this.#editor.setExtensions(model.list)
+    this.requestUpdate('extensions', old)
   }
 
   protected override update(changed: PropertyValues): void {
     super.update(changed)
     const layers = this.#ensureLayers()
     const t = this.#translations()
-    if (changed.has('registry'))
-      this.#editor.setRegistry(this.#registry())
-    if (['sampleData', 'registry', 'expressionEngine', 'formatter', 'measurer', 'locale', 'timeZone'].some(name => changed.has(name)))
+    this.#editor.setExtensions(this.#model().list)
+    if (['sampleData', 'extensions', 'expressionEngine', 'formatter', 'measurer', 'locale', 'timeZone'].some(name => changed.has(name)))
       this.#layoutStale = true
-    if (changed.has('registry') || changed.has('expressionEngine'))
+    if (changed.has('extensions') || changed.has('expressionEngine'))
       this.#scheduleIssues()
     this.toggleAttribute('data-readonly', this.readonly)
     this.dataset.mode = this.mode
@@ -746,7 +771,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 按当前登记表与表达式引擎校验模板。 */
   validate(): ValidationIssue[] {
-    return validateDocument(this.#editor.document, { registry: this.#editor.registry, expressionEngine: this.#engine() }).issues
+    return validateDocument(this.#editor.document, { extensions: this.#model().list, expressionEngine: this.#engine() }).issues
   }
 
   /** 视口：屏幕坐标 = 纸张坐标（mm）× zoom × 96 / 25.4 + (x, y)；zoom 为 1 时是实际尺寸。 */
@@ -825,8 +850,36 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   // —— 内部：模型与布局 ——
 
-  #registry(): ElementRegistry {
-    return this.registry ?? this.#editor.registry
+  /** 当前扩展合出的设计器模型。 */
+  #model(): PrintDesignerModel {
+    this.#designerModel ??= createPrintDesignerModel(this.#builtinExtension(), this.#extensions ?? NO_EXTENSIONS)
+    return this.#designerModel
+  }
+
+  /** 设计器自带的扩展：表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 */
+  #builtinExtension(): PrintDesignerExtension {
+    if (this.#builtin !== undefined)
+      return this.#builtin
+    const composite: CompositeEditorHost = {
+      ownerDocument: this.ownerDocument,
+      translations: () => this.#translations(),
+      engine: () => this.#engine(),
+      locale: () => this.locale,
+      timeZone: () => this.timeZone,
+    }
+    this.#builtin = {
+      id: PRINT_DESIGNER_EXTENSION_ID,
+      editors: {
+        byControl: {
+          tableColumns: this.#partList('column'),
+          tableFooterRows: this.#partList('footerRow'),
+          pageNumberFormat: this.#pageNumberFormat(),
+          borderSides: borderSidesEditor(composite),
+          valueFormat: valueFormatEditor(composite),
+        },
+      },
+    }
+    return this.#builtin
   }
 
   #engine(): ExpressionEngine {
@@ -1499,7 +1552,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   #syncPreview(preview: HTMLElementTagNameMap['xh-print-preview']): void {
     preview.schema = this.#editor.document
     preview.data = this.data
-    preview.registry = this.#editor.registry
+    preview.extensions = this.#model().list
     preview.expressionEngine = this.#engine()
     preview.formatter = this.formatter ?? formatValue
     if (this.measurer !== undefined)
@@ -1513,7 +1566,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 新元素按缺省尺寸、以 center 为中心、左上角吸附网格后的外框；类型未登记时为 undefined。 */
   #placement(type: string, center: Point): Rect | undefined {
-    const prototype = this.#editor.registry.get(type)
+    const prototype = this.#editor.elements.get(type)
     if (prototype === undefined)
       return undefined
     const { width, height } = prototype.defaults as { width: number, height: number }
@@ -1524,7 +1577,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   #syncPalette(layers: Layers, t: PrintDesignerTranslations): void {
     layers.palette.readonly = this.readonly
-    const groups = this.#editor.registry.groupByCategory()
+    const groups = this.#editor.elements.groupByCategory()
     const key = JSON.stringify([groups.map(group => [group.category, group.prototypes.map(prototype => prototype.type)]), t.categories, t.elements])
     if (key === this.#paletteKey)
       return
@@ -1538,7 +1591,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   readonly #onPaletteActivate = (event: Event): void => {
     const { id } = (event as DesignerPaletteEventMap['item-activate']).detail
-    if (!this.readonly && this.mode === 'design' && this.#editor.registry.has(id))
+    if (!this.readonly && this.mode === 'design' && this.#editor.elements.has(id))
       this.addElement(id)
   }
 
@@ -1553,7 +1606,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   #drop(point: Point, payload: unknown): void {
     this.#setOverlayHover(undefined)
-    if (!isPaletteDrag(payload) || this.readonly || this.mode !== 'design' || !this.#editor.registry.has(payload.id))
+    if (!isPaletteDrag(payload) || this.readonly || this.mode !== 'design' || !this.#editor.elements.has(payload.id))
       return
     this.#stopAutoFit()
     this.addElement(payload.id, this.clientToWorld(point.x, point.y))
@@ -1653,32 +1706,9 @@ export class XhPrintDesigner extends XhReactiveElement {
       this.#editor.execute(operations, { merge, mergeWithin: Number.POSITIVE_INFINITY })
   }
 
-  /** 交给面板的编辑器：设计器自带表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器，宿主的 editors 压在上面。 */
+  /** 交给面板的编辑器：各扩展的编辑器按顺序合成一张，设计器自带的在最底下。 */
   #propertyEditors(): PropertyEditorTable<DesignerPropertyEditor> {
-    const host = this.editors
-    if (this.#editorTable !== undefined && this.#editorTable.host === host)
-      return this.#editorTable.table
-    const composite: CompositeEditorHost = {
-      ownerDocument: this.ownerDocument,
-      translations: () => this.#translations(),
-      engine: () => this.#engine(),
-      locale: () => this.locale,
-      timeZone: () => this.timeZone,
-    }
-    const own: Readonly<Record<string, DesignerPropertyEditor>> = {
-      tableColumns: this.#partList('column'),
-      tableFooterRows: this.#partList('footerRow'),
-      pageNumberFormat: this.#pageNumberFormat(),
-      borderSides: borderSidesEditor(composite),
-      valueFormat: valueFormatEditor(composite),
-    }
-    const table: PropertyEditorTable<DesignerPropertyEditor> = {
-      byControl: { ...own, ...host?.byControl },
-      ...(host?.byPath === undefined ? {} : { byPath: host.byPath }),
-      ...(host?.byTarget === undefined ? {} : { byTarget: host.byTarget }),
-    }
-    this.#editorTable = { host, table }
-    return table
+    return this.#model().editors
   }
 
   /** 表格的列或表尾行列成条目，点一下进入表格编辑态并选中该部位。 */
@@ -1898,7 +1928,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       return []
     const selected = new Set(this.#editor.selection.elements)
     return this.#editor.visibleElements().filter(item => selected.has(item.element.id)).map(({ element }) => {
-      const prototype = this.#editor.registry.get(element.type)
+      const prototype = this.#editor.elements.get(element.type)
       return {
         id: element.id,
         rect: elementRect(element),
@@ -1988,7 +2018,7 @@ export class XhPrintDesigner extends XhReactiveElement {
         continue
       const { element, container } = found
       const rect = elementRect(element)
-      const region = this.#editor.registry.get(element.type)?.flow === true
+      const region = this.#editor.elements.get(element.type)?.flow === true
         ? container.region
         : this.#regionAt({ x: rect.x + dx + rect.width / 2, y: rect.y + dy + rect.height / 2 })
       if (region === container.region) {
@@ -2505,7 +2535,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const current = this.#editor.page
     const page = createPage({ id: '__clipboard', paper: current.paper, orientation: current.orientation, margins: current.margins })
     page.elements = elements as PrintElement[]
-    const report = validateDocument(createDocument({ pages: [page] }), { registry: this.#editor.registry })
+    const report = validateDocument(createDocument({ pages: [page] }), { extensions: this.#model().list })
     return report.valid ? { elements: elements as PrintElement[], region } : undefined
   }
 }

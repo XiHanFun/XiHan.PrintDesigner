@@ -4,13 +4,14 @@
  */
 
 import type { ExpressionEngine } from '@xihan-ui/expression'
-import type { PrintDocument, PrintElement, ValidationIssue, ValidationReport } from '../src'
+import type { PrintCoreExtension, PrintDocument, PrintElement, ValidationIssue, ValidationReport } from '../src'
 import { describe, expect, it } from 'vitest'
 import {
   createBuiltinElementPrototypes,
   createDocument,
   createElementRegistry,
   createPage,
+  PRINT_CORE_EXTENSION_ID,
   PRINT_ELEMENT_TYPES,
   validateDocument,
   VALIDATION_ISSUE_SEVERITIES,
@@ -307,10 +308,50 @@ describe('元素通用规则', () => {
     expect(issuesOf(createDocument({ pages: [page] }))).toEqual(['element.flowOutsideBody@pages.0.elements.0'])
   })
 
-  it('只登记部分类型时其余类型视为未知', () => {
-    const shapes = createElementRegistry(createBuiltinElementPrototypes().filter(prototype => prototype.category === 'shape'))
-    const report = validateDocument(withBody(element('text', 't'), element('rect', 'r')), { registry: shapes })
+  it('没登记的类型视为未知', () => {
+    const report = validateDocument(withBody({ ...element('text', 't'), type: 'seal' }, element('rect', 'r')))
     expect(summarize(report)).toEqual(['element.unknownType@pages.0.elements.0.type'])
+  })
+})
+
+describe('扩展', () => {
+  it('文档、页面与元素上的扩展数据只查是对象，每个扩展的数据也是对象，里面不看', () => {
+    const doc = withBody({ ...element('text', 't'), extensions: { '@acme/seal': { angle: 30 }, '@acme/bad': 1 } })
+    const shaped = { ...doc, extensions: { '@acme/seal': { any: [1] } }, pages: [{ ...doc.pages[0]!, extensions: 'x' }] }
+    expect(summarize(validateDocument(shaped))).toEqual([
+      'invalid-type@pages.0.extensions',
+      'invalid-type@pages.0.elements.0.extensions.@acme/bad',
+    ])
+  })
+
+  it('扩展的规则在结构没有 error 时按扩展顺序跑，问题码带扩展 id 末段的前缀，缺省按 error；前缀不对抛 TypeError', () => {
+    const rule: PrintCoreExtension = {
+      id: '@acme/audit',
+      rules: [(document, context) => document.pages.flatMap((page, index) => page.elements.length > 0 && context.elements.has('text')
+        ? [{ code: 'audit.notEmpty', path: ['pages', index], severity: 'warning' as const }, { code: 'audit.always', path: [] }]
+        : [])],
+    }
+    const report = validateDocument(withBody(element('text', 't')), { extensions: [rule] })
+    expect(report.issues.map(issue => [issue.code, issue.severity])).toEqual([['audit.notEmpty', 'warning'], ['audit.always', 'error']])
+    expect(report.valid).toBe(false)
+    expect(summarize(validateDocument({ ...withBody(element('text', 't')), pages: [] }, { extensions: [rule] }))).toEqual(['document.noPages@pages'])
+    const wrong: PrintCoreExtension = { id: '@acme/audit', rules: [() => [{ code: 'other.code', path: [] }]] }
+    expect(() => validateDocument(withBody(element('text', 't')), { extensions: [wrong] })).toThrow(TypeError)
+  })
+
+  it('扩展 id 或元素类型与内置的重名时抛 DesignerExtensionError', () => {
+    const thrown = (extensions: readonly PrintCoreExtension[]): unknown => {
+      try {
+        validateDocument(withBody(), { extensions })
+      }
+      catch (error) {
+        return error
+      }
+      return undefined
+    }
+    const text = createBuiltinElementPrototypes().find(prototype => prototype.type === 'text')!
+    expect(thrown([{ id: PRINT_CORE_EXTENSION_ID }])).toMatchObject({ code: 'designer.extension-conflict', space: 'extension' })
+    expect(thrown([{ id: '@acme/text', elements: [text] }])).toMatchObject({ code: 'designer.extension-conflict', space: 'element-type', key: 'text' })
   })
 })
 

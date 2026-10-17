@@ -7,18 +7,19 @@ import type { JsonPath, JsonPathSegment } from '@xihan-ui/core/json'
 import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { SchemaIssueTarget } from '@xihan-ui/designer-kit/schema'
 import type { ExpressionEngine } from '@xihan-ui/expression'
-import type { ElementRegistry } from '../registry/registry'
+import type { PrintCoreExtension, PrintModel } from '../extensions'
 import type { AnyElementPrototype, ElementValidationContext, PropertyDescriptor } from '../registry/types'
 import type { Edges } from '../schema/common'
+import type { PrintDocument } from '../schema/document'
 import type { PrintElement } from '../schema/elements'
 import type { PageBandKey, PageOrientation } from '../schema/options'
 import type { ElementRegion } from '../traverse'
-import type { IssueSink, ValidationIssue, ValidationReport } from './issues'
+import type { ExtensionIssueCode, IssueSink, ValidationIssue, ValidationIssueCode, ValidationReport } from './issues'
 import { findJsonViolation, isPlainObject } from '@xihan-ui/core/json'
-import { expandRect, rectContains } from '@xihan-ui/designer-kit'
+import { checkExtensionData, expandRect, EXTENSION_DATA_KEY, rectContains, runExtensionRules } from '@xihan-ui/designer-kit'
 import { readArray, readBoolean, readNumber, readObject, readOneOf, readString } from '@xihan-ui/designer-kit/schema'
+import { createPrintModel } from '../extensions'
 import { getBandRect, getBodyRect, getContentRect, getElementRect, getPaperSize } from '../geometry'
-import { createElementRegistry } from '../registry/registry'
 import { PRINT_SCHEMA_VERSION } from '../schema/document'
 import { PAGE_ORIENTATIONS, SINGLE_SHEET_PREFERENCES } from '../schema/options'
 import { PAGE_BAND_KEYS } from '../traverse'
@@ -31,8 +32,8 @@ type Path = JsonPath
 
 /** 校验选项。 */
 export interface ValidateDocumentOptions {
-  /** 元素类型登记表，默认为内置元素的登记表。 */
-  registry?: ElementRegistry
+  /** 扩展：元素种类、编辑方式与规则，内置扩展自动排在最前。 */
+  extensions?: readonly PrintCoreExtension[]
   /** 受限表达式接入点；缺省时只检查表达式源码非空。 */
   expressionEngine?: ExpressionEngine
 }
@@ -44,7 +45,7 @@ interface DescriptorNode {
 }
 
 interface DocumentContext {
-  registry: ElementRegistry
+  model: PrintModel
   expressionEngine?: ExpressionEngine
   issues: ValidationIssue[]
   ids: Set<string>
@@ -91,6 +92,7 @@ function validateDescriptorNode(
   path: Path,
   sink: IssueSink,
   extraKeys: readonly string[],
+  context: DocumentContext,
 ): void {
   const children = [...node.children]
   const object = readObject(sink, value, path, {
@@ -104,10 +106,16 @@ function validateDescriptorNode(
     if (item === undefined)
       continue
     if (child.descriptor !== undefined)
-      validateControlValue(child.descriptor.control, item, [...path, key], sink)
+      validateControlValue(child.descriptor.control, item, [...path, key], sink, context.model.controls)
     else
-      validateDescriptorNode(item, child, [...path, key], sink, [])
+      validateDescriptorNode(item, child, [...path, key], sink, [], context)
   }
+}
+
+/** 对象上的扩展数据：是对象，每个扩展的数据也是对象，里面不看。path 是 extensions 字段自己的路径。 */
+function validateExtensionData(value: unknown, path: Path, sink: IssueSink): void {
+  for (const issue of checkExtensionData({ [EXTENSION_DATA_KEY]: value } as never, path.slice(0, -1)))
+    sink.report(issue.code as ValidationIssueCode, issue.path, { params: { expected: 'object' } })
 }
 
 /** 路径经过的最内层页面或元素，作问题落在的对象。 */
@@ -282,14 +290,16 @@ function validateElement(
   const type = readString(sink, object.type, [...path, 'type'])
   if (type === undefined)
     return
-  const prototype = context.registry.get(type)
+  const prototype = context.model.elements.get(type)
   if (prototype === undefined) {
     sink.report('element.unknownType', [...path, 'type'], { params: { type } })
     return
   }
 
-  validateDescriptorNode(object, descriptorTree(context, prototype), path, sink, ['id', 'type', 'meta'])
+  validateDescriptorNode(object, descriptorTree(context, prototype), path, sink, ['id', 'type', 'meta', EXTENSION_DATA_KEY], context)
   readObject(sink, object.meta, [...path, 'meta'])
+  if (object[EXTENSION_DATA_KEY] !== undefined)
+    validateExtensionData(object[EXTENSION_DATA_KEY], [...path, EXTENSION_DATA_KEY], sink)
   if (context.issues.slice(firstIssue).some(issue => issue.severity === 'error') || findJsonViolation(object) !== undefined)
     return
 
@@ -338,6 +348,7 @@ function validatePage(value: unknown, path: Path, context: DocumentContext): voi
     field('watermark', false, (item, itemPath) => validateWatermark(item, itemPath, sink)),
     field('guides', false, (item, itemPath) => validateGuides(item, itemPath, sink)),
     field('meta', false, (item, itemPath) => readObject(sink, item, itemPath)),
+    field(EXTENSION_DATA_KEY, false, (item, itemPath) => validateExtensionData(item, itemPath, sink)),
   ])
   if (page === undefined)
     return
@@ -445,7 +456,7 @@ export function validateDocument(input: unknown, options: ValidateDocumentOption
   }
 
   const context: DocumentContext = {
-    registry: options.registry ?? createElementRegistry(),
+    model: createPrintModel(options.extensions),
     issues,
     ids: new Set(),
     trees: new Map(),
@@ -464,7 +475,14 @@ export function validateDocument(input: unknown, options: ValidateDocumentOption
       pages.forEach((page, index) => validatePage(page, [...itemPath, index], context))
     }),
     field('meta', false, (item, itemPath) => readObject(sink, item, itemPath)),
+    field(EXTENSION_DATA_KEY, false, (item, itemPath) => validateExtensionData(item, itemPath, sink)),
   ])
+
+  // 结构没有 error 时才跑扩展的规则：规则读的是合乎 schema 的文档
+  if (!issues.some(issue => issue.severity === 'error')) {
+    for (const issue of runExtensionRules(context.model.extensions, input as unknown as PrintDocument, { elements: context.model.elements }))
+      issues.push({ ...issue, code: issue.code as ExtensionIssueCode, severity: issue.severity ?? 'error' })
+  }
 
   return finish()
 }

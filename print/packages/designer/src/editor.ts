@@ -11,6 +11,7 @@ import type {
   ElementRegistry,
   PageBandKey,
   PageBandVariant,
+  PrintCoreExtension,
   PrintDocument,
   PrintElement,
   PrintOperation,
@@ -23,12 +24,14 @@ import type { AlignMode, DistributeAxis, ExecuteOptions, History, HistoryChangeK
 import {
   applyOperation,
   collectDocumentIds,
-  createElementRegistry,
   createPage,
+  createPrintModel,
   findElement,
   validateDocument,
 } from '@xihan-print/core'
 import { alignRects, createHistory, createIdAllocator, distributeRects, nextFreeId, remapIds } from '@xihan-ui/designer-kit'
+
+const NO_EXTENSIONS: readonly PrintCoreExtension[] = []
 
 /** 表格编辑态下选中的部位。 */
 export type PrintTablePart
@@ -67,7 +70,8 @@ export type PrintEditorChange
 
 export interface PrintEditorOptions {
   readonly document: PrintDocument
-  readonly registry?: ElementRegistry
+  /** 扩展：元素种类、编辑方式与规则，内置扩展自动排在最前。 */
+  readonly extensions?: readonly PrintCoreExtension[]
   /** 撤销步数上限，缺省 100。 */
   readonly historyLimit?: number
   /** 同一合并键相隔多少毫秒内并入上一步，缺省 1000。 */
@@ -84,14 +88,16 @@ export interface PrintAddElementInit {
 
 export interface PrintEditor {
   readonly document: PrintDocument
-  readonly registry: ElementRegistry
+  /** 当前扩展合出的元素登记表。 */
+  readonly elements: ElementRegistry
   readonly history: History<PrintDocument, PrintOperation>
   readonly selection: PrintSelection
   readonly activePageId: string
   /** 当前页面模板。 */
   readonly page: PrintPage
   readonly bands: PrintBandView
-  readonly setRegistry: (registry: ElementRegistry) => void
+  /** 换一组扩展：之后的编辑操作与校验都按它；冲突时抛 DesignerExtensionError、什么都不变。 */
+  readonly setExtensions: (extensions: readonly PrintCoreExtension[]) => void
   /** 装载新文档：清空历史与选择，当前页面回到第一张；文档变化的 cause 为 reset。 */
   readonly load: (document: PrintDocument) => void
   /** 执行一组操作并记为一步撤销；返回新文档。 */
@@ -164,10 +170,11 @@ function clone<T>(value: T): T {
 
 /** 创建打印编辑模型。 */
 export function createPrintEditor(options: PrintEditorOptions): PrintEditor {
-  let registry = options.registry ?? createElementRegistry()
+  let extensions = options.extensions ?? NO_EXTENSIONS
+  let elements = createPrintModel(extensions).elements
   const history = createHistory<PrintDocument, PrintOperation>({
     document: options.document,
-    apply: (document, operation) => applyOperation(document, operation, { registry }),
+    apply: (document, operation) => applyOperation(document, operation, { extensions }),
     limit: options.historyLimit ?? 100,
     mergeWithin: options.mergeWithin ?? 1000,
     ...(options.now === undefined ? {} : { now: options.now }),
@@ -277,8 +284,8 @@ export function createPrintEditor(options: PrintEditorOptions): PrintEditor {
     get document() {
       return history.document
     },
-    get registry() {
-      return registry
+    get elements() {
+      return elements
     },
     history,
     get selection() {
@@ -293,8 +300,9 @@ export function createPrintEditor(options: PrintEditorOptions): PrintEditor {
     get bands() {
       return bandsOf(currentPage())
     },
-    setRegistry: (next) => {
-      registry = next
+    setExtensions: (next) => {
+      elements = createPrintModel(next).elements
+      extensions = next
     },
     load: (document) => {
       activePageId = document.pages[0]?.id ?? ''
@@ -349,12 +357,12 @@ export function createPrintEditor(options: PrintEditorOptions): PrintEditor {
     clearSelection: () => setSelection(EMPTY_SELECTION),
     visibleElements,
     addElement: (type, init, options) => {
-      if (!registry.has(type))
+      if (!elements.has(type))
         throw new Error(`[print-designer] element type "${type}" is not registered`)
-      const prototype = registry.get(type)!
+      const prototype = elements.get(type)!
       const region = prototype.flow ? 'body' : init.region ?? 'body'
       const id = nextFreeId(`${type}-`, taken())
-      const element = registry.createElement(type as PrintElement['type'], { id, x: init.x, y: init.y })
+      const element = elements.createElement(type as PrintElement['type'], { id, x: init.x, y: init.y })
       history.execute([{ type: 'addElement', container: containerOf(region), element }], options)
       setSelection({ elements: [id] })
       return element
@@ -423,7 +431,7 @@ export function createPrintEditor(options: PrintEditorOptions): PrintEditor {
         return allocator.next()
       })
       const operations: PrintOperation[] = content.elements.map((element) => {
-        const flow = registry.get(element.type)?.flow === true
+        const flow = elements.get(element.type)?.flow === true
         const copy = { ...clone(element), id: ids.get(element.id)!, x: element.x + offset, y: element.y + offset }
         return { type: 'addElement', container: containerOf(flow ? 'body' : content.region), element: copy }
       })
@@ -484,7 +492,7 @@ export function createPrintEditor(options: PrintEditorOptions): PrintEditor {
         history.execute([{ type: 'updateElement', id: tableId, changes: plan.changes }], options)
       return true
     },
-    validate: () => validateDocument(history.document, { registry }).issues,
+    validate: () => validateDocument(history.document, { extensions }).issues,
     subscribe: (listener) => {
       listeners.add(listener)
       return () => listeners.delete(listener)

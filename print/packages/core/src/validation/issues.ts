@@ -76,11 +76,15 @@ export type ValidationIssueCode = keyof typeof VALIDATION_ISSUE_SEVERITIES
 /** 问题参数，供各语言文案插值。 */
 export type IssueParams = Readonly<Record<string, IssueParamValue>>
 
+/** 扩展自己的问题码：扩展 id 的末段加点开头，如 seal.noImage；没有登记严重程度，缺省按 error。 */
+export type ExtensionIssueCode = `${string}.${string}`
+
 /**
  * 校验问题：@xihan-ui/designer-kit/schema 的 SchemaIssue，严重程度总是给出。
  * path 从文档根算起；target 指出问题落在的页面（kind 为 page）或元素（kind 为 element）。
+ * code 是内置问题码，或扩展的规则、编辑方式与元素原型给出的问题码。
  */
-export type ValidationIssue = SchemaIssue<ValidationIssueCode> & { readonly severity: IssueSeverity }
+export type ValidationIssue = SchemaIssue<ValidationIssueCode | ExtensionIssueCode> & { readonly severity: IssueSeverity }
 
 /** 校验报告。 */
 export interface ValidationReport {
@@ -92,7 +96,7 @@ export interface ValidationReport {
 /** 问题接收器：designer-kit 的 IssueSink 形状，问题写进共享的数组；可带表达式引擎供表达式读取器编译源码。 */
 export interface IssueSink {
   readonly issues: ValidationIssue[]
-  readonly report: (code: ValidationIssueCode, path: JsonPath, details?: IssueDetails) => void
+  readonly report: (code: ValidationIssueCode | ExtensionIssueCode, path: JsonPath, details?: IssueDetails) => void
   readonly expressionEngine?: ExpressionEngine
 }
 
@@ -105,7 +109,7 @@ export function createIssueSink(issues: ValidationIssue[], target?: SchemaIssueT
       issues.push({
         code,
         path: [...path],
-        severity: details.severity ?? VALIDATION_ISSUE_SEVERITIES[code],
+        severity: details.severity ?? (Object.hasOwn(VALIDATION_ISSUE_SEVERITIES, code) ? VALIDATION_ISSUE_SEVERITIES[code as ValidationIssueCode] : 'error'),
         ...(issueTarget === undefined ? {} : { target: issueTarget }),
         ...(details.params === undefined ? {} : { params: details.params }),
       })
