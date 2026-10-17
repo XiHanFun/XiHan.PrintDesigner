@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 复合属性拆成属性面板自带的编辑方式：线拆成线宽、线型、颜色，边距拆成四边，单元格样式、纸张与水印逐项拆开；
+// 复合属性拆成属性面板自带的编辑方式：线拆成线宽、线型、颜色，边距拆成四边，单元格样式、纸张与水印逐项拆开（四边边框有自带编辑器，不拆）；
 // 可选的对象前面加一个开关。开关等面板上读不到的值放在编辑对象的 $view 下，写入时再换回模板里的修改；
 // 个别分项改动时要连带改别处（如改纸张宽高时去掉预设），也在写入时换成一组修改。
 // 文本内容、富文本内容、单元格内容与图片来源先选来源种类，再按种类显示对应输入，切换种类时整体换成该种类的缺省对象；
@@ -288,13 +288,6 @@ const EXPANDERS: Readonly<Record<string, Expander>> = {
       return sides
     return merge(presence(descriptor, path, formatJsonPath(path), () => ({ top: 0, right: 0, bottom: 0, left: 0 })), sides)
   },
-  borderSides: descriptor => merge(...SIDES.map((side) => {
-    const path = [...descriptor.path, side]
-    return merge(
-      presence(descriptor, path, `borderSides/${side}`, defaultStroke),
-      { descriptors: strokeParts(descriptor, path, `borderSides/${side}`, { path, filled: true }) },
-    )
-  })),
   paper: (descriptor) => {
     const { path } = descriptor
     const parent = formatJsonPath(path)

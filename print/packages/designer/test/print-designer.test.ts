@@ -285,17 +285,47 @@ describe('<xh-print-designer>', () => {
     const hadStroke = (target().value as { $view: Record<string, boolean> }).$view['present:stroke']
     change(['$view', 'present:stroke'], !hadStroke)
     expect((designer.schema.pages[0]!.elements.at(-1) as { stroke?: unknown }).stroke).toEqual(hadStroke ? undefined : { width: 0.2, style: 'solid', color: '#000000' })
+  })
 
+  it('四边边框：四个页签，每边一个开关，开时照已有的边或缺省的线写入，线宽、线型与颜色只改这一边，四边都关掉时清除边框', async () => {
     designer.select({ elements: ['a'] })
     await designer.updateComplete
-    expect(label('box.border.top.width')).toBe('Top border · Width')
-    change(['$view', 'present:box.border.top'], true)
-    expect((designer.schema.pages[0]!.elements[0] as { box?: unknown }).box).toEqual({ border: { top: { width: 0.2, style: 'solid', color: '#000000' } } })
+    const panel = designer.querySelector('xh-designer-properties')!
+    await panel.updateComplete
+    const row = panel.querySelector<HTMLElement>('[data-part="property"][data-path="box.border"]')!
+    const tabs = row.querySelector<HTMLElement & { collection?: { value: string, label: string }[] }>('xh-tabs[data-part="border-sides"]')!
+    expect(row.getAttribute('role')).toBe('group')
+    expect(tabs.collection!.map(item => item.label)).toEqual(['Top', 'Right', 'Bottom', 'Left'])
+    const side = (name: string): HTMLElement => tabs.querySelector<HTMLElement>(`[data-part="border-side"][slot="panel:${name}"]`)!
+    const toggle = (name: string): HTMLElement & { checked?: boolean } => side(name).querySelector('xh-switch')!
+    const border = (): unknown => (designer.schema.pages[0]!.elements[0] as { box?: { border?: unknown } }).box?.border
+    expect([toggle('top').querySelector('[data-xh-part="text"]')!.textContent, toggle('top').checked]).toEqual(['Top border', false])
+    expect(side('top').querySelector<HTMLElement>('[data-part="border-side-stroke"]')!.hidden).toBe(true)
+
+    toggle('top').dispatchEvent(new CustomEvent('checked-change', { detail: { checked: true }, bubbles: true }))
+    expect(border()).toEqual({ top: { width: 0.2, style: 'solid', color: '#000000' } })
     await designer.updateComplete
-    expect((target().value as { $view: Record<string, boolean> }).$view).toMatchObject({ 'present:box.border.top': true, 'present:box.border.left': false })
-    change(['box', 'border', 'top', 'width'], 0.5)
-    change(['$view', 'present:box.border.top'], false)
-    expect((designer.schema.pages[0]!.elements[0] as { box?: { border?: unknown } }).box!.border).toEqual({})
+    await panel.updateComplete
+    expect([toggle('top').checked, side('top').querySelector<HTMLElement>('[data-part="border-side-stroke"]')!.hidden]).toEqual([true, false])
+    const width = side('top').querySelector('xh-number-field') as HTMLElement & { value?: string }
+    expect([width.value, width.querySelector('[data-xh-part="suffix"]')!.textContent, width.querySelector('[data-xh-part="label"]')!.textContent]).toEqual(['0.2', 'mm', 'Width'])
+    width.dispatchEvent(new CustomEvent('value-change', { detail: { value: '0.5', valueAsNumber: 0.5 }, bubbles: true }))
+    side('top').querySelector('xh-select')!.dispatchEvent(new CustomEvent('value-change', { detail: { value: ['double'] }, bubbles: true }))
+    expect(border()).toEqual({ top: { width: 0.5, style: 'double', color: '#000000' } })
+    await designer.updateComplete
+    await panel.updateComplete
+
+    toggle('left').dispatchEvent(new CustomEvent('checked-change', { detail: { checked: true }, bubbles: true }))
+    side('left').querySelector('xh-color-field')!.dispatchEvent(new CustomEvent('value-change', { detail: { value: '#ff0000' }, bubbles: true }))
+    expect(border()).toEqual({ top: { width: 0.5, style: 'double', color: '#000000' }, left: { width: 0.5, style: 'double', color: '#ff0000' } })
+    await designer.updateComplete
+    await panel.updateComplete
+
+    toggle('top').dispatchEvent(new CustomEvent('checked-change', { detail: { checked: false }, bubbles: true }))
+    await designer.updateComplete
+    await panel.updateComplete
+    toggle('left').dispatchEvent(new CustomEvent('checked-change', { detail: { checked: false }, bubbles: true }))
+    expect(border()).toBeUndefined()
   })
 
   it('纸张：选预设整体写入，改宽高时去掉预设，选自定义只去掉预设；水印前面有开关，分项按「水印 · 分项」命名', async () => {
