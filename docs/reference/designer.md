@@ -38,7 +38,7 @@
 | `canUndo` | 只读 | `boolean` | 是否有可以撤销的修改。 |
 | `canRedo` | 只读 | `boolean` | 是否有可以重做的修改。 |
 | `dirty` | 只读 | `boolean` | 有未保存的修改。 |
-| `extensions` | 可读写 | `readonly PrintDesignerExtension[] \| undefined` | 扩展：元素种类、编辑方式、规则与属性编辑器都从这里来，设计器自带的扩展与内置元素自动排在最前。赋值时当场合并查重，冲突抛 DesignerExtensionError、什么都不变；各扩展的 setup 在元素连上文档时调用、断开时清理。同一个扩展对象换了引用当作卸下再装上，宿主要保持引用稳定。 |
+| `extensions` | 可读写 | `readonly PrintDesignerExtension[] \| undefined` | 扩展：元素种类、编辑方式、规则、属性编辑器、命令与面板都从这里来，设计器自带的扩展与内置元素自动排在最前。赋值时当场合并查重，冲突抛 DesignerExtensionError、什么都不变；各扩展的 setup 在元素连上文档时调用、断开时清理。同一个扩展对象换了引用当作卸下再装上，宿主要保持引用稳定。 |
 
 ### 方法
 
@@ -314,7 +314,7 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | `PRINT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
 | `PrintDesignerCommand` | 类型 | 设计器的命令：工具栏按钮、右键菜单项与快捷键共用。 |
 | `PrintDesignerContext` | 接口 | 扩展装上时拿到的上下文。 |
-| `PrintDesignerExtension` | 接口 | 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、物料项与 setup。 |
+| `PrintDesignerExtension` | 接口 | 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、物料项与 setup。 |
 | `PrintDesignerModel` | 接口 | 一组设计器扩展合出的东西：交给 core 函数与预览的列表、运行时的模型、属性编辑器表、命令表与物料项。 |
 | `printMenuLayout` | 函数 | 右键菜单的缺省排列；选中的是一张表格时，元素菜单最前面加「编辑表格」。 |
 | `PrintMenuSubject` | 类型 | 右键菜单落在哪类对象上：画布空白处、元素，或表格编辑态里的表格部位。 |

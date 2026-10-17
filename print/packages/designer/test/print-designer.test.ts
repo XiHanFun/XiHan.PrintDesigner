@@ -746,6 +746,46 @@ describe('<xh-print-designer>', () => {
     expect(menuItems()).toEqual(['insert-column-left', 'insert-column-right', 'remove-column', 'move-column-left', 'move-column-right', 'insert-footer-row-above', 'insert-footer-row-below', 'remove-footer-row', 'merge-cell-right', 'split-cell', 'exit-table-edit'])
   })
 
+  it('扩展面板放进外框的命名区，状态变化时刷新、panels 能开关；区名重名时抛错；去掉扩展时撤掉', async () => {
+    const updates: unknown[] = []
+    let destroyed = 0
+    const stamps: PrintDesignerExtension = {
+      id: '@acme/stamps',
+      panels: [{
+        region: { name: 'acme-stamps', position: 'end', label: 'Stamps' },
+        create: () => ({
+          element: document.createElement('section'),
+          update: context => void updates.push(context.designer.getSelection().elements),
+          destroy: () => void destroyed++,
+        }),
+      }],
+    }
+    designer.extensions = [stamps]
+    await designer.updateComplete
+    const frame = designer.querySelector('xh-designer-frame')!
+    const element = frame.querySelector('section[slot="acme-stamps"]')!
+    expect(element).not.toBeNull()
+    expect(frame.regions!.map(region => region.name)).toEqual(['toolbar', 'pages', 'palette', 'canvas', 'properties', 'issues', 'acme-stamps'])
+    expect(frame.regions!.find(region => region.name === 'properties')!.label).toBe('Properties')
+    designer.select({ elements: ['a'] })
+    await designer.updateComplete
+    expect(updates.at(-1)).toEqual(['a'])
+    designer.panels = 'toolbar properties'
+    await designer.updateComplete
+    expect([frame.showsPanel('acme-stamps'), frame.showsPanel('properties')]).toEqual([false, true])
+    designer.panels = undefined
+    await designer.updateComplete
+    expect(element.isConnected).toBe(true)
+
+    const pages: PrintDesignerExtension = { id: '@acme/pages', panels: [{ region: { name: 'pages', position: 'start' }, create: () => ({ element: document.createElement('div') }) }] }
+    expect(() => (designer.extensions = [stamps, pages])).toThrow(DesignerExtensionError)
+    expect([designer.extensions, element.isConnected, destroyed]).toEqual([[stamps], true, 0])
+    designer.extensions = []
+    await designer.updateComplete
+    expect([element.isConnected, destroyed]).toEqual([false, 1])
+    expect(frame.regions!.map(region => region.name)).toEqual(['toolbar', 'pages', 'palette', 'canvas', 'properties', 'issues'])
+  })
+
   it('选中表格后回车进入表格编辑态：点表头选中列，Esc 退出', async () => {
     designer.select({ elements: ['t'] })
     key('Enter')
