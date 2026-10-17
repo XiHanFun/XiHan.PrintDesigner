@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { JsonValue } from '@xihan-ui/core/json'
 import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { IssueSeverity, SchemaIssue, SchemaIssueTarget } from '@xihan-ui/designer-kit/schema'
 import type { ExpressionEngine, ValueFormatter } from '@xihan-ui/expression'
@@ -10,7 +11,7 @@ import type { TextMeasurer } from '@xihan-ui/viz'
 import type { PrintCoreExtension } from '../extensions'
 import type { BoxStyle, Color, Edges, Stroke, TextStyle } from '../schema/common'
 import type { Watermark } from '../schema/document'
-import type { BarCodeTextStyle, PrintElementType } from '../schema/elements'
+import type { BarCodeTextStyle } from '../schema/elements'
 import type {
   BarCodeFormat,
   HorizontalAlign,
@@ -70,7 +71,8 @@ export interface LayoutFragment {
 /** 布局盒共有的字段。坐标相对纸张左上角，单位 mm。 */
 export interface LayoutBoxBase {
   elementId: string
-  elementType: PrintElementType
+  /** 元素类型：内置类型，或扩展登记的类型。 */
+  elementType: string
   region: ElementRegion
   x: number
   y: number
@@ -248,8 +250,15 @@ export interface TableLayoutBox extends LayoutBoxBase {
 }
 
 /** 布局盒。 */
+/** 扩展元素的布局盒：data 是原型的 layout 给出的数据，交给运行时层同一类型的渲染；类型没登记时为 null。 */
+export interface ExtensionLayoutBox extends LayoutBoxBase {
+  kind: 'extension'
+  data: JsonValue
+}
+
 export type LayoutBox
   = | TextLayoutBox
+    | ExtensionLayoutBox
     | RichTextLayoutBox
     | ImageLayoutBox
     | LineLayoutBox

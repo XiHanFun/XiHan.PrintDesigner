@@ -232,6 +232,8 @@ export function paginate(document: PrintDocument, data: unknown, options: Pagina
   if (options.timeZone !== undefined)
     formatOptions.timeZone = options.timeZone
   contextOptions.formatOptions = formatOptions
+  if (options.extensions !== undefined)
+    contextOptions.extensions = options.extensions
   const context = createLayoutContext(data, options.measurer, contextOptions, diagnostics)
 
   const sheets: LayoutSheet[] = []

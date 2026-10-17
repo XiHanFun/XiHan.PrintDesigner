@@ -27,7 +27,7 @@
 
 | 属性 | 读写 | 类型 | 说明 |
 | --- | --- | --- | --- |
-| `extensions` | 可读写 | `readonly PrintCoreExtension[] \| undefined` | 扩展：元素种类、编辑方式与规则，内置扩展自动排在最前。赋值时当场合并查重，冲突抛 DesignerExtensionError、什么都不变；同一个数组只合并一次，宿主要保持引用稳定。 |
+| `extensions` | 可读写 | `readonly PrintRuntimeExtension[] \| undefined` | 扩展：元素种类、渲染、编辑方式与规则，内置扩展自动排在最前。赋值时当场合并查重，冲突抛 DesignerExtensionError、什么都不变；同一个数组只合并一次，宿主要保持引用稳定。 |
 | `result` | 只读 | `PaginationResult \| undefined` | 最近一次分页的结果；还没分页或分页失败时为 undefined。 |
 
 ### 方法
@@ -94,7 +94,7 @@ declare function renderSheets(result: PaginationResult, container: Element, opti
 | `locale?` | `string` | 交给格式化器的区域。 |
 | `timeZone?` | `string` | 交给格式化器的时区：`UTC`、`±HH:mm` 或 IANA 名称。 |
 | `maxSheets?` | `number` | 输出页总数上限，缺省同 @xihan-print/core 的 paginate。 |
-| `extensions?` | `readonly PrintCoreExtension[]` | 扩展：元素种类、编辑方式与规则，内置扩展自动排在最前。 |
+| `extensions?` | `readonly PrintRuntimeExtension[]` | 扩展：元素种类、渲染、编辑方式与规则，内置扩展自动排在最前。 |
 
 ### PrintOptions {#printoptions}
 
@@ -110,6 +110,7 @@ printSheets 的选项。
 | --- | --- | --- |
 | `document?` | `Document` | 发起打印的文档，缺省为全局 document；隐藏 iframe 挂在它的 body 上。 |
 | `title?` | `string` | 打印文档的标题，即打印对话框与另存 PDF 时的缺省文件名；缺省沿用发起打印的文档标题。 |
+| `extensions?` | `readonly PrintRuntimeExtension[]` | 扩展：扩展元素按它们给的渲染画出，与分页用同一份。 |
 
 ### PrintOutcome {#printoutcome}
 
@@ -151,6 +152,16 @@ print() 的选项：浏览器打印时的标题，以及交给本地打印客户
 
 ## 全部导出
 
+### extensions
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `createPrintRuntimeModel` | 函数 | 合出运行时用的打印模型；同一元素类型在两个扩展里都给了渲染时抛 DesignerExtensionError。 |
+| `PrintElementRenderContext` | 接口 | 渲染扩展元素时拿到的上下文。 |
+| `PrintElementRenderer` | 类型 | 扩展元素的渲染：按布局盒建出画在元素框里的节点，元素框的位置、尺寸与只预览标记由运行时摆好。 |
+| `PrintRuntimeExtension` | 接口 | 打印运行时层的扩展：core 层的全部字段，加上扩展元素的渲染。 |
+| `PrintRuntimeModel` | 接口 | 运行时用的打印模型：core 的模型加上各元素类型的渲染。 |
+
 ### options
 
 | 名称 | 种类 | 说明 |
@@ -184,7 +195,7 @@ print() 的选项：浏览器打印时的标题，以及交给本地打印客户
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
-| `renderBox` | 函数 | 按布局盒的种类渲染一个元素。 |
+| `renderBox` | 函数 | 按布局盒的种类渲染一个元素；扩展元素按 renderers 里同一类型的渲染。 |
 
 ### render/sheets
 

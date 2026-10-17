@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { JsonObject } from '@xihan-ui/core/json'
+import type { JsonObject, JsonValue } from '@xihan-ui/core/json'
 import type { RichTextDocument } from '@xihan-ui/core/rich-text'
 import type { NumeralStyle } from '@xihan-ui/expression'
 import type { BoxStyle, Color, ImageSource, Stroke, TextContent, TextStyle } from './common'
@@ -165,6 +165,11 @@ export interface PageNumberElement extends ElementBase<'pageNumber'> {
   numeral?: NumeralStyle
   style: TextStyle
   box?: BoxStyle
+}
+
+/** 扩展登记的元素：通用字段之外的属性由扩展的原型定义，取值都是 JSON。 */
+export interface ExtensionElement extends ElementBase<string> {
+  [key: string]: JsonValue | undefined
 }
 
 /** 内置元素。 */

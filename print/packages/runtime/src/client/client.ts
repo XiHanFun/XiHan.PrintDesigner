@@ -350,6 +350,7 @@ class Client implements PrintClient {
     const documentOptions: ClientDocumentOptions = {
       ...(options.document === undefined ? {} : { document: options.document }),
       ...(this.#fetch === undefined ? {} : { fetch: this.#fetch }),
+      ...(options.extensions === undefined ? {} : { extensions: options.extensions }),
     }
     const document = await buildClientDocument(result, documentOptions)
     const printOptions: Record<string, unknown> = {}

@@ -118,6 +118,17 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - `controls` 是新的编辑方式：属性描述里用到这个 `kind` 时，按它的 `check` 校验取值；没登记的编辑方式报 `unknown-control`。
 - 预览元素 `<xh-print-preview>` 与 `paginate`、`validateDocument` 这些函数也收 `extensions`，与设计器给同一份。
 
+### 扩展元素
+
+扩展的 `elements` 登记新的元素类型，`renderers` 给它们的渲染。原型与内置元素的一样，给出缺省值、尺寸下限、物料分组与属性描述，另外必须给 `layout`：排版时按元素与数据算出画在元素框里的数据（只能是 JSON），元素框的位置与尺寸由排版填好。渲染收到排版盒与输出页所在的文档，返回要放进元素框的节点：
+
+<<< @/examples/snippets/extension-element.ts#element
+
+- 属性描述可以用 `layoutProperties`、`behaviorProperties` 与 `property` 拼，和内置元素用的是同一套。
+- 扩展元素不跨页（`flow` 为 `false`）。没给 `layout` 或要跨页时，赋值时抛 `TypeError`。
+- 渲染只能用标准 HTML 与 SVG：浏览器打印与本地打印客户端用的是另一份文档，自定义元素在那里不会升级。
+- 扩展去掉后，文档里已有的这类元素照样保留：设计器把它画成写着类型的虚线占位，校验报 `element.unknownType`，再装上就恢复。
+
 ### 属性编辑器
 
 扩展的 `editors` 给属性面板换编辑器，按扩展的顺序压在设计器自带的编辑器之上。查找顺序是对象种类加属性路径、属性路径、编辑方式，都没有时用面板内建的编辑器：

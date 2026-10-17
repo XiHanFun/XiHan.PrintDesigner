@@ -5,6 +5,7 @@
 
 import type { LayoutSheet, PaginationResult } from '@xihan-print/core'
 import type { Size } from '@xihan-ui/designer-kit'
+import type { PrintElementRenderer } from '../extensions'
 import { renderBox } from './boxes'
 import { mm, setStyles } from './css'
 import { renderWatermark } from './watermark'
@@ -13,6 +14,8 @@ import { renderWatermark } from './watermark'
 export interface RenderSheetsOptions {
   /** 是否画只在预览中显示的元素，缺省 true；送去打印时为 false。 */
   readonly previewOnly?: boolean
+  /** 扩展元素的渲染，取自 createPrintRuntimeModel(extensions).renderers。 */
+  readonly renderers?: ReadonlyMap<string, PrintElementRenderer>
 }
 
 /** 纸张尺寸对应的 CSS 具名页面，尺寸相同的输出页共用一个名字。 */
@@ -36,7 +39,7 @@ function renderSheet(doc: Document, sheet: LayoutSheet, options: RenderSheetsOpt
   for (const box of sheet.boxes) {
     if (box.previewOnly && options.previewOnly === false)
       continue
-    element.append(renderBox(doc, box))
+    element.append(renderBox(doc, box, options.renderers))
   }
   const watermark = sheet.watermark === undefined ? undefined : renderWatermark(doc, sheet.watermark)
   if (watermark !== undefined)

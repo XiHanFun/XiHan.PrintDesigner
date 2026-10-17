@@ -295,6 +295,16 @@
 | `style` | <code><a href="#textstyle">TextStyle</a></code> | 是 |  |
 | `box` | <code><a href="#boxstyle">BoxStyle</a></code> | 可省 |  |
 
+### ExtensionElement {#extensionelement}
+
+扩展登记的元素：通用字段之外的属性由扩展的原型定义，取值都是 JSON。
+
+继承 <code><a href="#elementbase">ElementBase</a>&lt;string&gt;</code> 的字段。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `` | <code>JsonValue &#124; undefined</code> | 是 |  |
+
 ### PrintElement {#printelement}
 
 内置元素。

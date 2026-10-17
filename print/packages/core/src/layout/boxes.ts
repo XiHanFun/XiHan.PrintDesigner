@@ -3,9 +3,12 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { JsonValue } from '@xihan-ui/core/json'
+import type { ElementLayoutContext } from '../registry/types'
 import type { Edges, TextStyle } from '../schema/common'
 import type {
   BarCodeElement,
+  ExtensionElement,
   ImageElement,
   MatrixCodeElement,
   PageNumberElement,
@@ -14,7 +17,7 @@ import type {
 } from '../schema/elements'
 import type { ElementRegion } from '../traverse'
 import type { DiagnosticScope, LayoutContext } from './context'
-import type { LayoutBox, LayoutBoxBase, TextLayoutBox, TextMeasurement } from './types'
+import type { ExtensionLayoutBox, LayoutBox, LayoutBoxBase, TextLayoutBox, TextMeasurement } from './types'
 import { fillTextTemplate } from '@xihan-ui/core/template'
 import { toSafeImageSource } from '@xihan-ui/core/url'
 import { convertLength } from '@xihan-ui/designer-kit'
@@ -39,7 +42,7 @@ export function paddingOf(element: { box?: { padding?: Edges } }): Edges {
 }
 
 /** 生成布局盒共有字段。 */
-export function boxBase(element: PrintElement, region: ElementRegion): LayoutBoxBase {
+export function boxBase(element: PrintElement | ExtensionElement, region: ElementRegion): LayoutBoxBase {
   return {
     elementId: element.id,
     elementType: element.type,
@@ -189,7 +192,16 @@ export function fillPageNumber(
   box.lines = measureText(context, text, element.style, element.width - padding.left - padding.right, false).lines
 }
 
-/** 为不跨页的元素生成布局盒，坐标为设计坐标；页码与跨页元素另行处理。 */
+/** 扩展元素：按登记的原型的 layout 取数据；类型没登记（扩展被去掉）时数据为 null，渲染成占位。 */
+function layoutExtension(element: ExtensionElement, region: ElementRegion, context: LayoutContext): ExtensionLayoutBox {
+  const layout = context.elements.get(element.type)?.layout as ((element: ExtensionElement, context: ElementLayoutContext) => JsonValue) | undefined
+  const data = layout === undefined
+    ? null
+    : layout(element, { data: context.data, region, field: path => getFieldValue(context.data, path) })
+  return { ...boxBase(element, region), kind: 'extension', data }
+}
+
+/** 为不跨页的元素生成布局盒，坐标为设计坐标；页码与跨页元素另行处理，其余类型是扩展元素。 */
 export function layoutFixedElement(
   element: Exclude<PrintElement, { type: 'table' | 'longText' | 'richText' | 'pageNumber' }>,
   region: ElementRegion,
@@ -223,5 +235,7 @@ export function layoutFixedElement(
         box.fill = element.fill
       return box
     }
+    default:
+      return layoutExtension(element as unknown as ExtensionElement, region, context)
   }
 }

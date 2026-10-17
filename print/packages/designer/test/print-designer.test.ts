@@ -5,13 +5,13 @@
 
 // @vitest-environment jsdom
 
-import type { PrintDocument } from '@xihan-print/core'
+import type { ExtensionElementPrototype, PrintDocument } from '@xihan-print/core'
 import type { PrintDesignerTranslations } from '@xihan-print/runtime'
 import type { Rect } from '@xihan-ui/designer-kit'
 import type { DesignerGesturePhase, DesignerTransformKind, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import type { TextMeasurer } from '@xihan-ui/viz'
 import type { PrintDesignerExtension, XhPrintDesigner } from '../src'
-import { createBuiltinElementPrototypes, createDocument, createElementRegistry, createPage } from '@xihan-print/core'
+import { behaviorProperties, createBuiltinElementPrototypes, createDocument, createElementRegistry, createPage, layoutProperties, property } from '@xihan-print/core'
 import { printZhCN } from '@xihan-print/runtime/locale'
 import { CLIPBOARD_FORMAT, clipboardMimeType, DesignerExtensionError } from '@xihan-ui/designer-kit'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -244,6 +244,41 @@ describe('<xh-print-designer>', () => {
     designer.panels = 'toolbar pages'
     await designer.updateComplete
     expect([ruler.hidden, ruler.contains(viewport()), viewport().isConnected]).toEqual([true, false, true])
+  })
+
+  it('扩展元素：物料面板列出它，画布按扩展的渲染画出；扩展去掉后元素留在文档里，画成占位并报未知类型', async () => {
+    const seal: ExtensionElementPrototype = {
+      type: 'seal',
+      category: 'media',
+      order: 9,
+      flow: false,
+      minSize: { width: 5, height: 5 },
+      defaults: { type: 'seal', width: 30, height: 30, owner: '' },
+      properties: [...layoutProperties({ rotation: false }), property(['owner'], 'content', { kind: 'text' }), ...behaviorProperties()],
+      layout: element => ({ owner: String(element.owner ?? '') }),
+    }
+    const seals: PrintDesignerExtension = {
+      id: '@acme/seal',
+      elements: [seal],
+      renderers: { seal: (box, { document }) => Object.assign(document.createElement('span'), { textContent: `印 ${(box.data as { owner: string }).owner}` }) },
+    }
+    designer.extensions = [seals]
+    await designer.updateComplete
+    const palette = designer.querySelector('xh-designer-palette')!
+    expect(palette.groups!.find(group => group.id === 'media')!.items.map(item => item.id)).toEqual(['image', 'seal'])
+    palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'seal', payload: undefined } }))
+    const added = designer.schema.pages[0]!.elements.at(-1)! as unknown as { id: string, type: string }
+    designer.execute([{ type: 'updateElement', id: added.id, changes: [{ path: ['owner'], value: '曦寒' }] }])
+    await designer.updateComplete
+    const frame = (): HTMLElement => designer.querySelector<HTMLElement>(`[data-part="box"][data-element-id="${added.id}"]`)!
+    expect([added.type, frame().textContent, frame().hasAttribute('data-placeholder')]).toEqual(['seal', '印 曦寒', false])
+    expect(designer.validate().map(issue => issue.code)).not.toContain('element.unknownType')
+
+    designer.extensions = []
+    await designer.updateComplete
+    expect(designer.schema.pages[0]!.elements.at(-1)).toMatchObject({ id: added.id, type: 'seal', owner: '曦寒' })
+    expect([frame().hasAttribute('data-placeholder'), frame().textContent]).toEqual([true, 'seal'])
+    expect(designer.validate().map(issue => issue.code)).toContain('element.unknownType')
   })
 
   it('物料面板按登记表分组列出元素，激活即加到视口中央；面板里的按键不触发画布快捷键，只读时不加', async () => {
