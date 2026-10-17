@@ -9,7 +9,7 @@
 // 下方问题列表点选即定位；页眉页脚可切换变体、拖边界改高度；
 // 双击表格进入表格编辑态；键盘撤销重做、删除、微移、层级与系统剪贴板；可切到 <xh-print-preview> 预览与打印。
 // 整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区。工具栏、右键菜单与快捷键都走扩展合出的命令表，
-// 内置命令是设计器自带的扩展的一部分，排列可由 commandLayout 改写。
+// 内置命令是设计器自带的扩展的一部分，排列可由 commandLayout 改写；扩展的面板放进外框自己的命名区。
 
 import type {
   DesignLayout,
@@ -44,6 +44,7 @@ import type {
   DesignerPaletteDragPayload,
   DesignerPaletteEventMap,
   DesignerPaletteGroup,
+  DesignerPanelHost,
   DesignerPropertiesEventMap,
   DesignerPropertyDescriptor,
   DesignerPropertyEditor,
@@ -107,6 +108,7 @@ import { BUILTIN_CONTROL_KINDS, resolvePropertyEditor } from '@xihan-ui/designer
 import {
   arrangeCommands,
   createCommandToolbar,
+  createPanelHost,
   defineDesignerShellElement,
   parseDesignerPanels,
   registerDropTarget,
@@ -406,6 +408,7 @@ function isPaletteDrag(payload: unknown): payload is DesignerPaletteDragPayload 
 
 interface Layers {
   readonly frame: XhDesignerFrameElement
+  readonly panelHost: DesignerPanelHost<PrintDesignerContext>
   readonly palette: XhDesignerPaletteElement
   readonly issues: XhDesignerIssuesElement
   readonly properties: XhDesignerPropertiesElement
@@ -659,7 +662,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   /**
-   * 扩展：元素种类、编辑方式、规则与属性编辑器都从这里来，设计器自带的扩展与内置元素自动排在最前。
+   * 扩展：元素种类、编辑方式、规则、属性编辑器、命令与面板都从这里来，设计器自带的扩展与内置元素自动排在最前。
    * 赋值时当场合并查重，冲突抛 DesignerExtensionError、什么都不变；各扩展的 setup 在元素连上文档时调用、断开时清理。
    * 同一个扩展对象换了引用当作卸下再装上，宿主要保持引用稳定。
    */
@@ -671,6 +674,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (value === this.#extensions)
       return
     const model = createPrintDesignerModel(this.#builtinExtension(), value ?? NO_EXTENSIONS)
+    this.#ensureLayers().panelHost.assign(model.list, this.#context())
+    this.#regions = undefined
     if (this.isConnected)
       this.#host.assign(value ?? NO_EXTENSIONS)
     const old = this.#extensions
@@ -702,6 +707,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#syncProperties(layers, t)
     this.#renderToolbar(layers, t)
     this.#renderPages(layers, t)
+    layers.panelHost.update({ designer: this, translations: t })
     layers.viewport.setAttribute('aria-label', t.canvas)
     const preview = this.mode === 'preview'
     this.#placeCanvas(layers, preview)
@@ -1024,8 +1030,9 @@ export class XhPrintDesigner extends XhReactiveElement {
     })
   }
 
+  /** 外框的区：内置区带上文案，扩展面板的区按扩展顺序排在后面。 */
   #syncFrameRegions(layers: Layers, t: PrintDesignerTranslations): void {
-    const regions = frameRegions(t)
+    const regions = [...frameRegions(t), ...this.#model().list.flatMap(extension => (extension.panels ?? []).map(panel => panel.region))]
     const key = JSON.stringify(regions)
     if (this.#regions?.key === key)
       return
@@ -1195,6 +1202,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [ruler, menu, preview])
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, pages, palette, workspace, properties, issues]) as XhDesignerFrameElement
     this.append(frame)
+    const panelHost = createPanelHost<PrintDesignerContext>(frame, { regions: frameRegions(this.#translations()) })
 
     viewport.addEventListener('pointerdown', this.#onPointerDown)
     viewport.addEventListener('dblclick', this.#onDoubleClick)
@@ -1208,7 +1216,9 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, palette, issues, properties, toolbar, commandBar, pages, pageBar, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
+    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, pages, pageBar, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
+    this.#regions = undefined
+    panelHost.assign(this.#model().list, this.#context())
     return this.#layers
   }
 

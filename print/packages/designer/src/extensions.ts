@@ -3,13 +3,13 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 设计器层的扩展：在运行时层之上加属性编辑器、命令、物料项与装上时的回调；设计器自带的编辑器与命令也写成一个扩展。
+// 设计器层的扩展：在运行时层之上加属性编辑器、命令、面板、物料项与装上时的回调；设计器自带的编辑器与命令也写成一个扩展。
 
 import type { PrintDesignerTranslations, PrintRuntimeExtension, PrintRuntimeModel } from '@xihan-print/runtime'
 import type { IconRecord } from '@xihan-ui/core'
-import type { DesignerCommand, DesignerExtensionBase } from '@xihan-ui/designer-kit'
+import type { DesignerCommand } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
-import type { DesignerCommandTable, DesignerPropertyEditor } from '@xihan-ui/designer-shell'
+import type { DesignerCommandTable, DesignerPropertyEditor, DesignerShellExtension } from '@xihan-ui/designer-shell'
 import type { XhPrintDesigner } from './print-designer'
 import { ELEMENT_CATEGORIES } from '@xihan-print/core'
 import { createPrintRuntimeModel } from '@xihan-print/runtime'
@@ -33,8 +33,8 @@ export interface PrintPaletteEntry {
   readonly icon?: IconRecord
 }
 
-/** 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、物料项与 setup。 */
-export interface PrintDesignerExtension extends PrintRuntimeExtension, Pick<DesignerExtensionBase<PrintDesignerContext, DesignerPropertyEditor>, 'editors' | 'commands' | 'setup'> {
+/** 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、物料项与 setup。 */
+export interface PrintDesignerExtension extends PrintRuntimeExtension, Pick<DesignerShellExtension<PrintDesignerContext, DesignerPropertyEditor>, 'editors' | 'commands' | 'panels' | 'setup'> {
   /** 本扩展登记的元素的物料项，键是元素类型；只能给本扩展 elements 里的类型。 */
   readonly palette?: Readonly<Record<string, PrintPaletteEntry>>
   /** 本扩展新加的物料分组的名称，键是分组名；不能是内置分组，也不能与别的扩展重名。没给名称的分组显示分组名。 */

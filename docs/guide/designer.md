@@ -36,7 +36,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 属性 | `properties` | 编辑选中的元素，多选时只显示共同的属性；没有选中时编辑页面设置；表格编辑态里编辑选中的表格部位 |
 | 问题 | `issues` | 校验问题列表，点一下切到问题所在的页面模板并定位到元素 |
 
-各区的属性见[元素](../reference/elements)，属性面板的分组与中文名与它一致。
+扩展登记的面板也放进外框，`panels` 里写它的区名同样能开关，见下文「面板」。各区的属性见[元素](../reference/elements)，属性面板的分组与中文名与它一致。
 
 页码的格式是一行文本，行尾的「插入」菜单把当前页码 <code v-pre>{{$page}}</code> 或总页数 <code v-pre>{{$pages}}</code> 插到光标处，下面按第 1 页、共 3 页显示示例，数字写法跟着「数字写法」一栏。
 
@@ -109,7 +109,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ## 扩展
 
-`extensions` 收一组扩展对象：元素种类、编辑方式、校验规则、属性编辑器与命令都经它登记。内置元素、设计器自带的编辑器与命令也是扩展，自动排在最前。同一页面上的几个设计器各给各的，互不影响。
+`extensions` 收一组扩展对象：元素种类、编辑方式、校验规则、属性编辑器、命令与面板都经它登记。内置元素、设计器自带的编辑器与命令也是扩展，自动排在最前。同一页面上的几个设计器各给各的，互不影响。
 
 - 扩展对象的 `id` 全局唯一，用包名加功能名，如 `@acme/print-fonts`。它也是模板里扩展数据的键：文档、页面与元素都可以带 `extensions: { [扩展 id]: { ... } }`，校验只查它是对象，编辑与复制粘贴原样带着走。
 - 赋值时当场合并查重：扩展 id、元素类型、编辑方式、命令 id 与快捷键与内置的或别的扩展重名时，抛 `DesignerExtensionError`（`code` 为 `designer.extension-conflict`），设计器保持赋值前的状态。
@@ -176,3 +176,12 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 视图 | `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `print` |
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
 | 页面模板 | `add-page` `remove-page` `move-page-left` `move-page-right`：固定排在页面模板的页签旁，不经 `commandLayout` |
+
+### 面板
+
+扩展的 `panels` 往外框里加区，放印章库、套打对位这类面板。区是 `{ name, position, size?, minSize?, label? }`：`position` 取 `top`、`start`、`end`、`bottom`，同一位置的区按扩展顺序上下排；`label` 是分隔条可访问名里的区名。`create(context)` 返回放进区里的元素；设计器状态变化时调用 `update(context)`，扩展去掉时先调用 `destroy()` 再移除：
+
+<<< @/examples/snippets/designer-panels.ts#example
+
+- 区名与内置区（`toolbar`、`pages`、`palette`、`canvas`、`properties`、`issues`）或别的扩展的重名时，赋值时抛 `DesignerExtensionError`，设计器保持赋值前的状态。
+- `panels` attribute 照样能开关扩展的区；预览态只保留工具栏。
