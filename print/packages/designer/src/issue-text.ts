@@ -64,6 +64,8 @@ export function defaultIssueText(issue: SchemaIssue): string {
       return 'Must not be empty'
     case 'unknown-key':
       return `Unknown property ${text(params.key)}`
+    case 'unknown-control':
+      return 'Unknown property control'
     case 'duplicate-key':
       return `Duplicate key ${text(params.key)}`
     case 'duplicate-id':

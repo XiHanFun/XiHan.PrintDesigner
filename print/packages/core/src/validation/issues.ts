@@ -21,6 +21,7 @@ export const VALIDATION_ISSUE_SEVERITIES = {
   'invalid-color': 'error',
   'empty': 'error',
   'unknown-key': 'warning',
+  'unknown-control': 'error',
   'duplicate-key': 'error',
   'duplicate-id': 'error',
   'json.circular': 'error',

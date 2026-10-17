@@ -19,6 +19,7 @@
 | `invalid-color` | 错误 | 不是有效的颜色 | — |
 | `empty` | 错误 | 不能为空 | — |
 | `unknown-key` | 警告 | 未知的属性 {key} | `key` |
+| `unknown-control` | 错误 | 未知的编辑方式 | — |
 | `duplicate-key` | 错误 | 键 {key} 重复 | `key` |
 | `duplicate-id` | 错误 | 标识 {id} 重复 | `id` |
 | `json.circular` | 错误 | 数据有循环引用 | — |
