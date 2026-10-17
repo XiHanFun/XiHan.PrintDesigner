@@ -92,7 +92,6 @@
 | `TableRowLayout` | 接口 | 表格行布局：表头、数据行、补空行或表尾行。 |
 | `TextLayoutBox` | 接口 | 文本、长文本与页码的布局盒。 |
 | `TextMeasurement` | 接口 | 按文本样式排出的文字，长度单位 mm。 |
-| `ValueFormatter` | 类型 | 值格式化器：按 @xihan-ui/expression 的格式说明把值转成显示文本，签名与其 formatValue 相同；格式说明或值不合法时抛出 TypeError，message 为问题码。 |
 
 ### operations/apply
 

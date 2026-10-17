@@ -28,7 +28,6 @@ import type {
   TableElement,
   TableLayoutBox,
   ValidationIssue,
-  ValueFormatter,
 } from '@xihan-print/core'
 import type { PrintDesignerTranslations, PrintOutcome, PrintPreviewPrintOptions } from '@xihan-print/runtime'
 import type { PrintClient } from '@xihan-print/runtime/client'
@@ -54,7 +53,7 @@ import type {
   DropOver,
   PanRequestDetail,
 } from '@xihan-ui/designer-shell'
-import type { ExpressionEngine } from '@xihan-ui/expression'
+import type { ExpressionEngine, ValueFormatter } from '@xihan-ui/expression'
 import type { PointerSession } from '@xihan-ui/pointer'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'

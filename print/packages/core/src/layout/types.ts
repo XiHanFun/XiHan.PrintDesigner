@@ -5,7 +5,7 @@
 
 import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { IssueSeverity, SchemaIssue, SchemaIssueTarget } from '@xihan-ui/designer-kit/schema'
-import type { ExpressionEngine, FormatOptions, FormatSpec } from '@xihan-ui/expression'
+import type { ExpressionEngine, ValueFormatter } from '@xihan-ui/expression'
 import type { TextMeasurer } from '@xihan-ui/viz'
 import type { ElementRegistry } from '../registry/registry'
 import type { BoxStyle, Color, Edges, Stroke, TextStyle } from '../schema/common'
@@ -35,12 +35,6 @@ export interface TextMeasurement {
   /** 全部行的总高度。 */
   height: number
 }
-
-/**
- * 值格式化器：按 @xihan-ui/expression 的格式说明把值转成显示文本，签名与其 formatValue 相同；
- * 格式说明或值不合法时抛出 TypeError，message 为问题码。
- */
-export type ValueFormatter = (value: unknown, spec: FormatSpec, options: FormatOptions) => string
 
 /** 分页选项。 */
 export interface PaginateOptions {
