@@ -81,6 +81,13 @@ function key(name: string, init: KeyboardEventInit = {}): void {
 }
 
 describe('<xh-print-designer>', () => {
+  it('自己注册用到的库内元素：宿主不必全量注册 web-components，工具栏、页签、按钮与菜单都升级', () => {
+    for (const tag of ['xh-toolbar', 'xh-toggle-group', 'xh-button', 'xh-menu', 'xh-context-menu'])
+      expect(customElements.get(tag), tag).toBeDefined()
+    const trigger = designer.querySelector('[data-part="band-menu"] > xh-button > button')!
+    expect([trigger.getAttribute('data-scope'), trigger.getAttribute('aria-haspopup')]).toEqual(['button', 'menu'])
+  })
+
   it('装载模板后按设计态排版画出元素，派发 load 与 page-change', () => {
     expect(events).toContain('schema-change:load')
     expect(events).toContain('page-change')
