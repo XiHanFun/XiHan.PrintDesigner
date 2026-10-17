@@ -85,7 +85,7 @@ pnpm dev
 
 - 打印三个包经 `link:` 读 `print/packages/*` 的产物，先在 `print/` 构建；`@xihan-ui/*` 与 `print/` 工作区一样经 overrides 读同级 XiHan.UI 的产物，UI 5.0.0 正式发布后删掉那一段。
 - `docs/reference/` 由 `scripts/gen-reference.mjs` 从源码生成（元素原型、`printZhCN`、TypeScript 源码注释、客户端错误码的 C# 注释），不手改。改了元素、属性、问题码、公开 API 或这些注释，在 `docs/` 跑 `pnpm gen` 并随改动一起提交；参考页的说明不对，就改源码注释。
-- 正文里的代码都放在 `examples/`，用 `<<< @/examples/…#片段` 引入，不在 Markdown 里另写一份：`templates/` 下导出 `schema` 与 `data` 的模板由 `check:examples` 校验并试排，`demos/` 下的文件导出 `mount(host)`，页面上写 `<PrintDemo name="…" />` 真实运行，`snippets/` 只做类型检查。
+- 正文里的 TypeScript 与 Vue 示例都放在 `examples/`，用 `<<< @/examples/…#片段` 引入，不在 Markdown 里另写一份：`templates/` 下导出 `schema` 与 `data` 的模板由 `check:examples` 校验并试排，`demos/` 下的 `.ts` 导出 `mount(host)`、`.vue` 是一个组件，页面上写 `<PrintDemo name="…" />` 真实运行，`snippets/` 只做类型检查。
 - 正文里含 `{{` 的行内代码写成 `<code v-pre>…</code>`，否则会被 Vue 当成插值吃掉，构建也不报错。
 - 站点自己的导航、侧栏与示例组件放在 `docs/.vitepress/`，不复制或改写主题已提供的样式。
 - 文档只写已经做完的能力；不写组件数、元素数与依赖的具体版本号，不写预发布阶段的铺垫。
