@@ -112,6 +112,7 @@ import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, setText, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
+import { defineXhElement, XhButtonElement, XhContextMenuElement, XhMenuElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createPrintEditor, elementRect } from './editor'
 import { defaultIssueText } from './issue-text'
 import { propertySubjects, TABLE_PART_KINDS } from './property-targets'
@@ -2390,6 +2391,11 @@ export function definePrintDesigner(): void {
   defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)
   defineDesignerShellElement('xh-designer-issues', XhDesignerIssuesElement)
   defineDesignerShellElement('xh-designer-properties', XhDesignerPropertiesElement)
+  defineXhElement('xh-toolbar', XhToolbarElement)
+  defineXhElement('xh-toggle-group', XhToggleGroupElement)
+  defineXhElement('xh-button', XhButtonElement)
+  defineXhElement('xh-menu', XhMenuElement)
+  defineXhElement('xh-context-menu', XhContextMenuElement)
   registerElement(PRINT_DESIGNER_TAG, XhPrintDesigner)
 }
 
