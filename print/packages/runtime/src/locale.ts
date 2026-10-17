@@ -483,6 +483,9 @@ const designer: PrintDesignerTranslations = {
   units: { mm: 'mm', pt: 'pt', deg: '°', ratio: '倍', count: '' },
   pageSettings: '页面设置',
   selectedCount: count => `已选中 ${count} 个元素`,
+  pageNumberInsert: '插入',
+  pageNumberTokens: { page: '当前页码', pages: '总页数' },
+  pageNumberSample: text => `示例：${text}`,
 }
 
 /** 打印预览与设计器的中文文案。 */

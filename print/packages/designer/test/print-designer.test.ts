@@ -381,7 +381,7 @@ describe('<xh-print-designer>', () => {
     expect(designer.schema.pages[0]!.elements[0]).toMatchObject({ content: { kind: 'static', document: { blocks: [{ type: 'paragraph', runs: [] }] } } })
   })
 
-  it('二维码纠错级别按码制显示下拉或数字，换码制时去掉级别；页码格式是一行文本', async () => {
+  it('二维码纠错级别按码制显示下拉或数字，换码制时去掉级别', async () => {
     const panel = designer.querySelector('xh-designer-properties')!
     interface Target { kind: string, id: string, descriptors: readonly { path: readonly (string | number)[], control: { kind: string, min?: number, max?: number, options?: readonly { value: unknown }[] }, visibleWhen?: unknown }[] }
     const target = (): Target => panel.targets![0]! as unknown as Target
@@ -401,9 +401,27 @@ describe('<xh-print-designer>', () => {
     panel.dispatchEvent(new CustomEvent('property-change', { detail: { path: ['format'], value: 'pdf417', targets: [{ kind: 'matrixCode', id: 'q' }], merge: 'm' } }))
     const code = designer.schema.pages[0]!.elements.find(element => element.id === 'q')!
     expect([(code as { format: string }).format, 'level' in code]).toEqual(['pdf417', false])
+  })
+
+  it('页码格式：一行文本，行尾的菜单把变量插到光标处，下面按第 1 页、共 3 页显示示例，数字写法取 numeral', async () => {
+    designer.execute([{ type: 'addElement', container: { pageId: 'p', region: 'body' }, element: registry.createElement('pageNumber', { id: 'n', x: 120, y: 200, overrides: { format: '第 {{$page}} 页', numeral: 'cn-lower' } }) }])
     designer.select({ elements: ['n'] })
     await designer.updateComplete
-    expect(target().descriptors.find(descriptor => descriptor.path.join('.') === 'format')!.control.kind).toBe('text')
+    const editor = designer.querySelector<HTMLElement>('[data-part="page-number-format"]')!
+    const field = editor.querySelector('xh-text-field') as HTMLElement & { value?: string, updateComplete: Promise<unknown> }
+    const input = field.querySelector('input')!
+    await field.updateComplete
+    expect([field.value, input.getAttribute('aria-label')]).toEqual(['第 {{$page}} 页', 'Format'])
+    expect(editor.querySelector('[data-xh-part="description"]')!.textContent).toBe('Preview: 第 一 页')
+
+    input.setSelectionRange(input.value.length, input.value.length)
+    const menu = editor.querySelector('xh-menu')!
+    menu.dispatchEvent(new CustomEvent('select', { detail: { value: '$pages' }, bubbles: true }))
+    await designer.updateComplete
+    await field.updateComplete
+    const element = designer.schema.pages[0]!.elements.find(item => item.id === 'n') as { format: string }
+    expect(element.format).toBe('第 {{$page}} 页{{$pages}}')
+    expect(editor.querySelector('[data-xh-part="description"]')!.textContent).toBe('Preview: 第 一 页三')
   })
 
   it('表格的列与表尾行列成条目，点一下进入表格编辑态并选中该部位；宿主给了编辑器时用宿主的', async () => {

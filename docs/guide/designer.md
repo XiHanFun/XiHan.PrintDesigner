@@ -38,6 +38,8 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 各区的属性见[元素](../reference/elements)，属性面板的分组与中文名与它一致。
 
+页码的格式是一行文本，行尾的「插入」菜单把当前页码 <code v-pre>{{$page}}</code> 或总页数 <code v-pre>{{$pages}}</code> 插到光标处，下面按第 1 页、共 3 页显示示例，数字写法跟着「数字写法」一栏。
+
 ## 画布操作
 
 - **选择**：点选元素；按住 Shift、Ctrl 或 ⌘ 点击切换某个元素的选中；在空白处拖动框选。

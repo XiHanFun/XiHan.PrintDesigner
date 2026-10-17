@@ -131,6 +131,12 @@ export interface PrintDesignerTranslations {
   readonly pageSettings: string
   /** 属性面板在选中多个元素时标题下的一行。 */
   readonly selectedCount: (count: number) => string
+  /** 页码格式编辑器里插入变量的菜单按钮。 */
+  readonly pageNumberInsert: string
+  /** 页码格式里能插入的两个变量：当前页码与总页数。 */
+  readonly pageNumberTokens: Readonly<{ page: string, pages: string }>
+  /** 页码格式的示例，入参是按第 1 页、共 3 页填好的文字。 */
+  readonly pageNumberSample: (text: string) => string
 }
 
 declare module '@xihan-ui/web-components' {
