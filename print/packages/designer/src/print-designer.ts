@@ -9,7 +9,8 @@
 // 下方问题列表点选即定位；页眉页脚可切换变体、拖边界改高度；
 // 双击表格进入表格编辑态；键盘撤销重做、删除、微移、层级与系统剪贴板；可切到 <xh-print-preview> 预览与打印。
 // 整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区。工具栏、右键菜单与快捷键都走扩展合出的命令表，
-// 内置命令是设计器自带的扩展的一部分，排列可由 commandLayout 改写；扩展的面板放进外框自己的命名区。
+// 内置命令是设计器自带的扩展的一部分，排列可由 commandLayout 改写；扩展的面板放进外框自己的命名区；
+// 粘贴与拖放进来的外部内容交给扩展的导入器换成元素。
 
 import type {
   DesignLayout,
@@ -32,7 +33,7 @@ import type {
 import type { PrintDesignerTranslations, PrintOutcome, PrintPreviewPrintOptions } from '@xihan-print/runtime'
 import type { PrintClient } from '@xihan-print/runtime/client'
 import type { JsonValue } from '@xihan-ui/core/json'
-import type { AlignMode, DataField, DistributeAxis, ExecuteOptions, ExtensionHost, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
+import type { AlignMode, DataField, DesignerImportSource, DistributeAxis, ExecuteOptions, ExtensionHost, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
 import type {
   CommandToolbar,
@@ -61,7 +62,7 @@ import type { PointerSession } from '@xihan-ui/pointer'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { PrintClipboard, PrintSelection, PrintTablePart } from './editor'
-import type { PrintDesignerCommand, PrintDesignerContext, PrintDesignerExtension, PrintDesignerModel, PrintMenuSubject } from './extensions'
+import type { PrintDesignerCommand, PrintDesignerContext, PrintDesignerExtension, PrintDesignerImporter, PrintDesignerModel, PrintMenuSubject } from './extensions'
 import type { CompositeEditorHost } from './property-editors'
 import type { ExpandedDescriptor } from './property-expand'
 import type { PropertySubject } from './property-targets'
@@ -165,6 +166,8 @@ export interface PrintDesignerEventMap {
   'blank-contextmenu': CustomEvent<{ x: number, y: number }>
   /** 在表格编辑态里打开右键菜单，右键处的表格部位先被选中；可取消，取消后不弹设计器自带的菜单。 */
   'table-contextmenu': CustomEvent<{ id: string, part: PrintTablePart, x: number, y: number }>
+  /** 导入器没能导入粘贴或拖放进来的内容：它抛了错，或给出的元素没有通过校验；importer 是导入器的 id。 */
+  'import-error': CustomEvent<{ importer: string, source: DesignerImportSource, error: unknown }>
   /** 当前页面模板变了。 */
   'page-change': CustomEvent<{ pageId: string }>
   /** 在设计态与预览态之间切换了。 */
@@ -400,6 +403,19 @@ function frameRegions(t: PrintDesignerTranslations): DesignerFrameRegion[] {
     { name: 'properties', position: 'end', size: 22, label: t.properties },
     { name: 'issues', position: 'bottom', size: 22, label: t.issues },
   ]
+}
+
+/** 导入时依次查看的文本类型。 */
+const IMPORT_TEXT_TYPES = ['text/uri-list', 'text/html', 'text/plain'] as const
+
+/** 剪贴板或拖放带来的内容，按文件、链接、HTML、纯文本的顺序列成导入来源。 */
+function importSources(data: DataTransfer, kind: 'clipboard' | 'drop'): DesignerImportSource[] {
+  const files = Array.from(data.files, (file): DesignerImportSource => ({ kind, mime: file.type, name: file.name, file }))
+  const texts = IMPORT_TEXT_TYPES.flatMap((mime): DesignerImportSource[] => {
+    const text = data.getData(mime)
+    return text === '' ? [] : [{ kind, mime, text }]
+  })
+  return [...files, ...texts]
 }
 
 function isPaletteDrag(payload: unknown): payload is DesignerPaletteDragPayload {
@@ -1207,6 +1223,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     viewport.addEventListener('pointerdown', this.#onPointerDown)
     viewport.addEventListener('dblclick', this.#onDoubleClick)
     viewport.addEventListener('contextmenu', this.#onContextMenu)
+    viewport.addEventListener('dragover', this.#onNativeDragOver)
+    viewport.addEventListener('drop', this.#onNativeDrop)
     viewport.addEventListener('wheel', this.#onWheel, { passive: false })
     viewport.addEventListener('pointermove', this.#onHover)
     viewport.addEventListener('pointerleave', this.#onHoverEnd)
@@ -2547,15 +2565,67 @@ export class XhPrintDesigner extends XhReactiveElement {
   readonly #onPaste = (event: ClipboardEvent): void => {
     if (this.readonly || this.mode !== 'design' || !this.#ownsClipboardEvent(event) || event.clipboardData === null)
       return
-    const text = event.clipboardData.getData(clipboardMimeType(CLIPBOARD_PRODUCT)) || event.clipboardData.getData('text/plain')
-    const result = decodeClipboard(text, CLIPBOARD_PRODUCT)
-    if (!result.ok || result.version !== CLIPBOARD_VERSION)
+    const data = event.clipboardData
+    const result = decodeClipboard(data.getData(clipboardMimeType(CLIPBOARD_PRODUCT)) || data.getData('text/plain'), CLIPBOARD_PRODUCT)
+    if (result.ok && result.version === CLIPBOARD_VERSION) {
+      const clipboard = this.#readClipboard(result.payload)
+      if (clipboard === undefined)
+        return
+      event.preventDefault()
+      this.#editor.paste(clipboard)
       return
-    const clipboard = this.#readClipboard(result.payload)
-    if (clipboard === undefined)
+    }
+    if (this.#import(importSources(data, 'clipboard'), this.#viewportCenter()))
+      event.preventDefault()
+  }
+
+  /** 有导入器时画布接受从外部拖进来的文件与文本。 */
+  readonly #onNativeDragOver = (event: DragEvent): void => {
+    if (this.readonly || this.mode !== 'design' || event.dataTransfer === null || this.#model().importers.length === 0)
       return
     event.preventDefault()
-    this.#editor.paste(clipboard)
+    event.dataTransfer.dropEffect = 'copy'
+  }
+
+  readonly #onNativeDrop = (event: DragEvent): void => {
+    if (this.readonly || this.mode !== 'design' || event.dataTransfer === null || this.#model().importers.length === 0)
+      return
+    event.preventDefault()
+    if (this.#import(importSources(event.dataTransfer, 'drop'), this.clientToWorld(event.clientX, event.clientY)))
+      this.#stopAutoFit()
+  }
+
+  /** 依次把来源交给导入器，按扩展顺序第一个接下的导入；没有导入器接下时返回 false。 */
+  #import(sources: readonly DesignerImportSource[], at: Point): boolean {
+    const { importers } = this.#model()
+    for (const source of sources) {
+      const importer = importers.find(item => item.accepts(source))
+      if (importer !== undefined) {
+        void this.#runImport(importer, source, at)
+        return true
+      }
+    }
+    return false
+  }
+
+  /** 导入并放下：元素整体挪到以 at 为中心，校验通过后按粘贴的规则放进当前页面模板；出错时派发 import-error。 */
+  async #runImport(importer: PrintDesignerImporter, source: DesignerImportSource, at: Point): Promise<void> {
+    try {
+      const fragment = await importer.import(source, this.#context())
+      if (fragment === undefined || fragment.elements.length === 0 || this.readonly || this.mode !== 'design')
+        return
+      const bounds = unionRects(fragment.elements.map(elementRect))!
+      const dx = this.#snapValue(at.x - bounds.width / 2) - bounds.x
+      const dy = this.#snapValue(at.y - bounds.height / 2) - bounds.y
+      const elements = fragment.elements.map(element => ({ ...element, x: element.x + dx, y: element.y + dy }))
+      const clipboard = this.#readClipboard({ elements, region: fragment.region ?? this.#regionAt(at) })
+      if (clipboard === undefined)
+        throw new TypeError(`[xh-print] 导入器 ${importer.id} 给出的元素没有通过校验`)
+      this.#editor.paste(clipboard, { offset: 0 })
+    }
+    catch (error) {
+      emitEvent(this, 'import-error', { importer: importer.id, source, error })
+    }
   }
 
   /** 校验粘贴进来的载荷：元素放进一张临时页面按当前登记表校验，有 error 级问题时不粘贴。 */

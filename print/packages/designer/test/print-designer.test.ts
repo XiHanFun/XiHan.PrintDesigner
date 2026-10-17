@@ -5,7 +5,7 @@
 
 // @vitest-environment jsdom
 
-import type { ExtensionElementPrototype, PrintDocument } from '@xihan-print/core'
+import type { ExtensionElementPrototype, PrintDocument, PrintElement } from '@xihan-print/core'
 import type { PrintDesignerTranslations } from '@xihan-print/runtime'
 import type { IconRecord } from '@xihan-ui/core'
 import type { Rect } from '@xihan-ui/designer-kit'
@@ -40,10 +40,10 @@ function at(target: Element, type: string, x: number, y: number): void {
   target.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, clientX: x * PX_PER_MM, clientY: y * PX_PER_MM, button: 0 }))
 }
 
-/** jsdom 没有 DataTransfer，剪贴板事件用的最小替身。 */
-function clipboardData(): Pick<DataTransfer, 'getData' | 'setData'> {
+/** jsdom 没有 DataTransfer，剪贴板与拖放事件用的最小替身。 */
+function clipboardData(files: readonly File[] = []): Pick<DataTransfer, 'getData' | 'setData' | 'files' | 'dropEffect'> {
   const store = new Map<string, string>()
-  return { getData: type => store.get(type) ?? '', setData: (type, value) => void store.set(type, value) }
+  return { getData: type => store.get(type) ?? '', setData: (type, value) => void store.set(type, value), files: files as unknown as FileList, dropEffect: 'none' }
 }
 
 let designer: XhPrintDesigner
@@ -690,6 +690,68 @@ describe('<xh-print-designer>', () => {
     other.setData('text/plain', 'hello')
     viewport().dispatchEvent(Object.assign(new Event('paste', { bubbles: true, cancelable: true }), { clipboardData: other }))
     expect(designer.schema.pages[0]!.elements).toHaveLength(3)
+  })
+
+  it('导入器：粘贴与拖放进来的外部内容交给第一个接下的导入器，元素挪到落点后按粘贴放下；出错或校验不通过时派发 import-error', async () => {
+    const errors: { importer: string, error: unknown }[] = []
+    designer.addEventListener('import-error', event => void errors.push((event as CustomEvent<{ importer: string, error: unknown }>).detail))
+    const rect = (width = 20): PrintElement => registry.createElement('rect', { id: 'r', x: 0, y: 0, overrides: { width, height: 10 } })
+    const seen: string[] = []
+    designer.extensions = [{
+      id: '@acme/import',
+      importers: [
+        {
+          id: '@acme/import.html',
+          accepts: source => source.mime === 'text/html',
+          import: () => {
+            throw new Error('boom')
+          },
+        },
+        {
+          id: '@acme/import.plain',
+          accepts: source => source.mime === 'text/plain' || source.file !== undefined,
+          import: async (source) => {
+            seen.push(`${source.kind}:${source.mime}`)
+            return { elements: [rect(source.text === 'bad' ? -1 : 20)] }
+          },
+        },
+      ],
+    }]
+    const flush = async (): Promise<void> => {
+      for (let index = 0; index < 4; index++)
+        await Promise.resolve()
+    }
+    const paste = (text: string): Event => {
+      const data = clipboardData()
+      data.setData('text/plain', text)
+      const event = Object.assign(new Event('paste', { bubbles: true, cancelable: true }), { clipboardData: data })
+      viewport().dispatchEvent(event)
+      return event
+    }
+    expect(paste('hello').defaultPrevented).toBe(true)
+    await flush()
+    const added = designer.schema.pages[0]!.elements.at(-1)!
+    expect([added.type, added.x, designer.getSelection().elements]).toEqual(['rect', 95, [added.id]])
+
+    const drop = Object.assign(new MouseEvent('drop', { bubbles: true, cancelable: true, clientX: 50 * PX_PER_MM, clientY: 50 * PX_PER_MM }), {
+      dataTransfer: clipboardData([new File(['x'], 'logo.png', { type: 'image/png' })]),
+    })
+    viewport().dispatchEvent(drop)
+    await flush()
+    expect([drop.defaultPrevented, designer.schema.pages[0]!.elements.at(-1)]).toEqual([true, expect.objectContaining({ type: 'rect', x: 40, y: 45 })])
+    expect(seen).toEqual(['clipboard:text/plain', 'drop:image/png'])
+
+    const count = designer.schema.pages[0]!.elements.length
+    paste('bad')
+    const html = clipboardData()
+    html.setData('text/html', '<b>x</b>')
+    viewport().dispatchEvent(Object.assign(new Event('paste', { bubbles: true, cancelable: true }), { clipboardData: html }))
+    await flush()
+    expect(designer.schema.pages[0]!.elements).toHaveLength(count)
+    expect(errors.map(error => [error.importer, error.error instanceof Error ? error.error.message : error.error]).sort()).toEqual([
+      ['@acme/import.html', 'boom'],
+      ['@acme/import.plain', '[xh-print] 导入器 @acme/import.plain 给出的元素没有通过校验'],
+    ])
   })
 
   it('命令：扩展命令按 placement 追加到工具栏与右键菜单，快捷键在画布上生效；commandLayout 改写排列；表格菜单可取消', async () => {

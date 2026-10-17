@@ -87,6 +87,7 @@
 | `element-contextmenu` | `{ id: string, x: number, y: number }` | 在元素上打开右键菜单，未选中的元素先被选中；可取消，取消后不弹设计器自带的菜单。 |
 | `blank-contextmenu` | `{ x: number, y: number }` | 在画布空白处打开右键菜单；可取消，取消后不弹设计器自带的菜单。 |
 | `table-contextmenu` | `{ id: string, part: PrintTablePart, x: number, y: number }` | 在表格编辑态里打开右键菜单，右键处的表格部位先被选中；可取消，取消后不弹设计器自带的菜单。 |
+| `import-error` | `{ importer: string, source: DesignerImportSource, error: unknown }` | 导入器没能导入粘贴或拖放进来的内容：它抛了错，或给出的元素没有通过校验；importer 是导入器的 id。 |
 | `page-change` | `{ pageId: string }` | 当前页面模板变了。 |
 | `mode-change` | `{ mode: PrintDesignerMode }` | 在设计态与预览态之间切换了。 |
 
@@ -314,8 +315,10 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | `PRINT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
 | `PrintDesignerCommand` | 类型 | 设计器的命令：工具栏按钮、右键菜单项与快捷键共用。 |
 | `PrintDesignerContext` | 接口 | 扩展装上时拿到的上下文。 |
-| `PrintDesignerExtension` | 接口 | 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、物料项与 setup。 |
-| `PrintDesignerModel` | 接口 | 一组设计器扩展合出的东西：交给 core 函数与预览的列表、运行时的模型、属性编辑器表、命令表与物料项。 |
+| `PrintDesignerExtension` | 接口 | 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、导入器、物料项与 setup。 |
+| `PrintDesignerImporter` | 类型 | 导入器：把粘贴或拖放进来的外部内容换成一组元素；返回 undefined 即不放任何元素。 |
+| `PrintDesignerModel` | 接口 | 一组设计器扩展合出的东西：交给 core 函数与预览的列表、运行时的模型、属性编辑器表、命令表、导入器与物料项。 |
+| `PrintImportFragment` | 接口 | 导入的结果：一组元素，整体挪到落点（粘贴时为视口中央）后按粘贴的规则放进当前页面模板。 |
 | `printMenuLayout` | 函数 | 右键菜单的缺省排列；选中的是一张表格时，元素菜单最前面加「编辑表格」。 |
 | `PrintMenuSubject` | 类型 | 右键菜单落在哪类对象上：画布空白处、元素，或表格编辑态里的表格部位。 |
 | `PrintPaletteEntry` | 接口 | 物料面板里的一项：扩展元素的名称与图标。 |
