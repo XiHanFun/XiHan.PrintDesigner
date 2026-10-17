@@ -7,7 +7,7 @@ import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { IssueSeverity, SchemaIssue, SchemaIssueTarget } from '@xihan-ui/designer-kit/schema'
 import type { ExpressionEngine, ValueFormatter } from '@xihan-ui/expression'
 import type { TextMeasurer } from '@xihan-ui/viz'
-import type { ElementRegistry } from '../registry/registry'
+import type { PrintCoreExtension } from '../extensions'
 import type { BoxStyle, Color, Edges, Stroke, TextStyle } from '../schema/common'
 import type { Watermark } from '../schema/document'
 import type { BarCodeTextStyle, PrintElementType } from '../schema/elements'
@@ -55,8 +55,8 @@ export interface PaginateOptions {
   timeZone?: string
   /** 输出页总数上限，缺省 1000；超出时停止排版并给出诊断。 */
   maxSheets?: number
-  /** 元素类型登记表，默认为内置元素的登记表。 */
-  registry?: ElementRegistry
+  /** 扩展：元素种类、编辑方式与规则，内置扩展自动排在最前；交给校验，与设计器、预览用同一份。 */
+  extensions?: readonly PrintCoreExtension[]
 }
 
 /** 跨页续排元素的分段位置。 */

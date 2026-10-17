@@ -7,6 +7,8 @@
 
 import type { XhPrintPreview } from '../src'
 import type { JobStatus, PrintClient, PrintClientDocumentOptions } from '../src/client'
+import { PRINT_CORE_EXTENSION_ID } from '@xihan-print/core'
+import { DesignerExtensionError } from '@xihan-ui/designer-kit'
 import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { definePrintPreview, PRINT_PREVIEW_TAG, printDocument, PrintRuntimeError } from '../src'
@@ -111,6 +113,22 @@ describe('<xh-print-preview>', () => {
     expect(sheetsOf(preview)).toHaveLength(2)
     expect(events.map(event => event.detail.sheets)).toEqual([2])
     expect(preview.result?.sheets).toHaveLength(2)
+  })
+
+  it('extensions 赋值时合并查重，冲突抛错且保持原状；扩展的规则进分页前的校验', async () => {
+    const events: CustomEvent[] = []
+    const preview = await mount((element) => {
+      element.addEventListener('pagination-error', event => events.push(event as CustomEvent))
+      element.measurer = createFakeMeasurer()
+      element.schema = documentOf(pageOf('p', [textElement('t', '你好')]))
+    })
+    expect(() => {
+      preview.extensions = [{ id: PRINT_CORE_EXTENSION_ID }]
+    }).toThrow(DesignerExtensionError)
+    expect(preview.extensions).toBeUndefined()
+    preview.extensions = [{ id: '@acme/audit', rules: [() => [{ code: 'audit.blocked', path: [] }]] }]
+    await preview.updateComplete
+    expect(events.map(event => [event.detail.code, event.detail.issues.map((issue: { code: string }) => issue.code)])).toEqual([['document.invalid', ['audit.blocked']]])
   })
 
   it('数据变化后重新分页', async () => {

@@ -8,7 +8,7 @@ import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { PropertyControl as KitPropertyControl, PropertyDescriptor as KitPropertyDescriptor } from '@xihan-ui/designer-kit/properties'
 import type { PrintElement, PrintElementOf, PrintElementType } from '../schema/elements'
 import type { ElementRegion } from '../traverse'
-import type { IssueParams, ValidationIssueCode } from '../validation/issues'
+import type { ExtensionIssueCode, IssueParams, ValidationIssueCode } from '../validation/issues'
 
 /** 物料面板分组取值，按面板中的显示顺序。 */
 export const ELEMENT_CATEGORIES = ['text', 'media', 'data', 'shape', 'code'] as const
@@ -102,7 +102,7 @@ export interface ElementValidationContext {
   /** 按 default 页眉页脚算出的正文区；页面几何不合法时为 undefined。 */
   bodyRect?: Rect
   /** 记录问题，路径相对元素。 */
-  report: (code: ValidationIssueCode, path?: JsonPath, params?: IssueParams) => void
+  report: (code: ValidationIssueCode | ExtensionIssueCode, path?: JsonPath, params?: IssueParams) => void
 }
 
 /** 任一内置元素的原型。 */

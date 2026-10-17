@@ -17,7 +17,6 @@
 | `expressionEngine` | — | `ExpressionEngine \| undefined` | 受限表达式引擎；缺省为 @xihan-ui/expression 的 createExpressionEngine()。 |
 | `formatter` | — | `ValueFormatter \| undefined` | 值格式化器；缺省为 @xihan-ui/expression 的 formatValue。 |
 | `measurer` | — | `TextMeasurer \| undefined` | 文字度量器；缺省用所在文档的 Canvas 度量器，字体加载完成后自动重排。 |
-| `registry` | — | `ElementRegistry \| undefined` | 元素类型登记表，缺省为内置元素的登记表。 |
 | `translations` | — | `Partial<PrintPreviewTranslations> \| undefined` | 元素自己的文案，压在全局配置之上。 |
 | `locale` | `locale` | `string \| undefined` | 交给格式化器的区域。 |
 | `timeZone` | `time-zone` | `string \| undefined` | 交给格式化器的时区。 |
@@ -28,6 +27,7 @@
 
 | 属性 | 读写 | 类型 | 说明 |
 | --- | --- | --- | --- |
+| `extensions` | 可读写 | `readonly PrintCoreExtension[] \| undefined` | 扩展：元素种类、编辑方式与规则，内置扩展自动排在最前。赋值时当场合并查重，冲突抛 DesignerExtensionError、什么都不变；同一个数组只合并一次，宿主要保持引用稳定。 |
 | `result` | 只读 | `PaginationResult \| undefined` | 最近一次分页的结果；还没分页或分页失败时为 undefined。 |
 
 ### 方法
@@ -94,7 +94,7 @@ declare function renderSheets(result: PaginationResult, container: Element, opti
 | `locale?` | `string` | 交给格式化器的区域。 |
 | `timeZone?` | `string` | 交给格式化器的时区：`UTC`、`±HH:mm` 或 IANA 名称。 |
 | `maxSheets?` | `number` | 输出页总数上限，缺省同 @xihan-print/core 的 paginate。 |
-| `registry?` | `ElementRegistry` | 元素类型登记表，缺省为内置元素的登记表。 |
+| `extensions?` | `readonly PrintCoreExtension[]` | 扩展：元素种类、编辑方式与规则，内置扩展自动排在最前。 |
 
 ### PrintOptions {#printoptions}
 

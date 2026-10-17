@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { ElementRegistry, IssueParams, PaginateOptions } from '@xihan-print/core'
+import type { IssueParams, PaginateOptions, PrintCoreExtension } from '@xihan-print/core'
 import type { ExpressionEngine, ValueFormatter } from '@xihan-ui/expression'
 import type { TextMeasurer } from '@xihan-ui/viz'
 import { formatValue } from '@xihan-ui/expression'
@@ -22,8 +22,8 @@ export interface PrintRenderOptions {
   readonly timeZone?: string
   /** 输出页总数上限，缺省同 @xihan-print/core 的 paginate。 */
   readonly maxSheets?: number
-  /** 元素类型登记表，缺省为内置元素的登记表。 */
-  readonly registry?: ElementRegistry
+  /** 扩展：元素种类、编辑方式与规则，内置扩展自动排在最前。 */
+  readonly extensions?: readonly PrintCoreExtension[]
 }
 
 /** 运行时无法完成分页或打印的原因：拿不到文字度量器、没有给模板。 */
@@ -64,7 +64,7 @@ export function resolvePaginateOptions(options: PrintRenderOptions, defaults: Re
     resolved.timeZone = options.timeZone
   if (options.maxSheets !== undefined)
     resolved.maxSheets = options.maxSheets
-  if (options.registry !== undefined)
-    resolved.registry = options.registry
+  if (options.extensions !== undefined)
+    resolved.extensions = options.extensions
   return resolved
 }

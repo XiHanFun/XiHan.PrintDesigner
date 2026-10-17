@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | 模板的保存 | 存模板 JSON，管名称、分类、版本与审核 | `schema`、`schema-change`、`save`、`dirty`、`markSaved()` |
 | 取数 | 调接口取业务数据，整理成模板要的结构 | `data`、`sampleData`、`fields` |
-| 权限 | 决定谁能看、谁能改、谁能打印，服务端再复核 | `readonly`、`panels`、`editors` |
+| 权限 | 决定谁能看、谁能改、谁能打印，服务端再复核 | `readonly`、`panels`、`extensions` |
 | 校验 | 保存前拦住有错误的模板，服务端复核 | `validate()`、`issues-change`、`validateDocument` |
 | 打印记录 | 记下谁在什么时候打了什么 | `print()` 的结果、客户端任务的状态 |
 

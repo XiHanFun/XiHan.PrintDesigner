@@ -15,7 +15,6 @@
 | `data` | — | `unknown` | 预览分页用的数据。 |
 | `sampleData` | — | `unknown` | 示例数据：给出时画布按它显示实际值，不给时字段显示 {path} 占位。 |
 | `fields` | — | `readonly DataField[] \| undefined` | 可绑定的字段树，供属性面板的字段选择器。 |
-| `registry` | — | `ElementRegistry \| undefined` | 元素类型登记表，缺省为内置元素的登记表。 |
 | `expressionEngine` | — | `ExpressionEngine \| undefined` | 受限表达式引擎；缺省为 @xihan-ui/expression 的 createExpressionEngine()。 |
 | `formatter` | — | `ValueFormatter \| undefined` | 值格式化器；缺省为 @xihan-ui/expression 的 formatValue。 |
 | `measurer` | — | `TextMeasurer \| undefined` | 文字度量器；缺省用所在文档的 Canvas 度量器。 |
@@ -28,7 +27,6 @@
 | `grid` | — | `number \| false` | 吸附网格边长，mm，缺省 1；false 不吸附网格。 |
 | `snap` | — | `boolean` | 吸附其它元素、页边距、区边界与参考线并显示对齐线，缺省 true。 |
 | `panels` | `panels` | `string \| undefined` | 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。 |
-| `editors` | — | `PropertyEditorTable<DesignerPropertyEditor> \| undefined` | 宿主的属性编辑器，压在内建编辑器与设计器自带的编辑器之上；给了编辑器的复合属性不再拆开，原样交给宿主的编辑器。 |
 
 ### 存取器
 
@@ -39,6 +37,7 @@
 | `canUndo` | 只读 | `boolean` | 是否有可以撤销的修改。 |
 | `canRedo` | 只读 | `boolean` | 是否有可以重做的修改。 |
 | `dirty` | 只读 | `boolean` | 有未保存的修改。 |
+| `extensions` | 可读写 | `readonly PrintDesignerExtension[] \| undefined` | 扩展：元素种类、编辑方式、规则与属性编辑器都从这里来，设计器自带的扩展与内置元素自动排在最前。赋值时当场合并查重，冲突抛 DesignerExtensionError、什么都不变；各扩展的 setup 在元素连上文档时调用、断开时清理。同一个扩展对象换了引用当作卸下再装上，宿主要保持引用稳定。 |
 
 ### 方法
 
@@ -231,7 +230,7 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
 | `document` | `PrintDocument` |  |
-| `registry?` | `ElementRegistry` |  |
+| `extensions?` | `readonly PrintCoreExtension[]` | 扩展：元素种类、编辑方式与规则，内置扩展自动排在最前。 |
 | `historyLimit?` | `number` | 撤销步数上限，缺省 100。 |
 | `mergeWithin?` | `number` | 同一合并键相隔多少毫秒内并入上一步，缺省 1000。 |
 
@@ -244,7 +243,7 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
 | `document` | `PrintDocument` |  |
-| `registry` | `ElementRegistry` |  |
+| `elements` | `ElementRegistry` | 当前扩展合出的元素登记表。 |
 | `history` | `History<PrintDocument, PrintOperation>` |  |
 | `selection` | `PrintSelection` |  |
 | `activePageId` | `string` |  |
@@ -253,7 +252,7 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 
 | 方法 | 说明 |
 | --- | --- |
-| `setRegistry(registry: ElementRegistry): void` |  |
+| `setExtensions(extensions: readonly PrintCoreExtension[]): void` | 换一组扩展：之后的编辑操作与校验都按它；冲突时抛 DesignerExtensionError、什么都不变。 |
 | `load(document: PrintDocument): void` | 装载新文档：清空历史与选择，当前页面回到第一张；文档变化的 cause 为 reset。 |
 | `execute(operations: readonly PrintOperation[], options?: ExecuteOptions): PrintDocument` | 执行一组操作并记为一步撤销；返回新文档。 |
 | `undo(): boolean` |  |
@@ -302,6 +301,16 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | `PrintSelection` | 接口 | 选择：都在当前页面模板的正文与当前显示的页眉页脚变体里；tablePart 只在表格编辑态下出现。 |
 | `PrintSelectMode` | 类型 | 选择方式：替换、追加或切换。 |
 | `PrintTablePart` | 类型 | 表格编辑态下选中的部位。 |
+
+### extensions
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `createPrintDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名都抛 DesignerExtensionError。 |
+| `PRINT_DESIGNER_EXTENSION_ID` | 常量 | 设计器自带的扩展的 id：表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 |
+| `PrintDesignerContext` | 接口 | 扩展装上时拿到的上下文。 |
+| `PrintDesignerExtension` | 接口 | 打印设计器层的扩展：core 层的全部字段，加上属性编辑器与 setup。 |
+| `PrintDesignerModel` | 接口 | 一组设计器扩展合出的东西：交给 core 函数与预览的列表、core 的模型与属性编辑器表。 |
 
 ### print-designer
 

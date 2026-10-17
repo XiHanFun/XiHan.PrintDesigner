@@ -5,7 +5,7 @@
 
 // <xh-print-preview>：按数据排出打印模板并逐页显示，可直接打印。属性变化后自动重新分页。
 
-import type { ElementRegistry, IssueParams, PaginationDiagnostic, PaginationResult, PrintDocument, PrintLayoutErrorCode, ValidationIssue } from '@xihan-print/core'
+import type { IssueParams, PaginationDiagnostic, PaginationResult, PrintCoreExtension, PrintDocument, PrintLayoutErrorCode, ValidationIssue } from '@xihan-print/core'
 import type { ExpressionEngine, ValueFormatter } from '@xihan-ui/expression'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
@@ -14,7 +14,7 @@ import type { ClientPrintOptions } from './client/protocol'
 import type { PrintRuntimeErrorCode } from './options'
 import type { PrintOutcome, PrintSheetsOptions } from './print'
 import type { PrintPreviewTranslations } from './translations'
-import { paginate, PrintLayoutError } from '@xihan-print/core'
+import { createPrintModel, paginate, PrintLayoutError } from '@xihan-print/core'
 import { createExpressionEngine } from '@xihan-ui/expression'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -48,7 +48,7 @@ const DEFAULT_TRANSLATIONS: PrintPreviewTranslations = {
 }
 
 /** 影响分页结果的属性，任一变化都重新分页。 */
-const PAGINATION_PROPS = ['schema', 'data', 'expressionEngine', 'formatter', 'locale', 'timeZone', 'measurer', 'registry'] as const
+const PAGINATION_PROPS = ['schema', 'data', 'expressionEngine', 'formatter', 'locale', 'timeZone', 'measurer', 'extensions'] as const
 
 function errorDetail(error: unknown): PaginationErrorDetail | undefined {
   if (error instanceof PrintLayoutError)
@@ -68,7 +68,6 @@ export class XhPrintPreview extends XhReactiveElement {
     expressionEngine: { attribute: false },
     formatter: { attribute: false },
     measurer: { attribute: false },
-    registry: { attribute: false },
     translations: { attribute: false },
     locale: { type: String },
     timeZone: { type: String, attribute: 'time-zone' },
@@ -86,8 +85,6 @@ export class XhPrintPreview extends XhReactiveElement {
   declare formatter: ValueFormatter | undefined
   /** 文字度量器；缺省用所在文档的 Canvas 度量器，字体加载完成后自动重排。 */
   declare measurer: TextMeasurer | undefined
-  /** 元素类型登记表，缺省为内置元素的登记表。 */
-  declare registry: ElementRegistry | undefined
   /** 元素自己的文案，压在全局配置之上。 */
   declare translations: Partial<PrintPreviewTranslations> | undefined
   /** 交给格式化器的区域。 */
@@ -100,6 +97,7 @@ export class XhPrintPreview extends XhReactiveElement {
   declare printClient: PrintClient | undefined
 
   readonly #config = new XhConfigController(this)
+  #extensions: readonly PrintCoreExtension[] | undefined
   #root: HTMLDivElement | undefined
   #sheets: HTMLDivElement | undefined
   #result: PaginationResult | undefined
@@ -113,6 +111,23 @@ export class XhPrintPreview extends XhReactiveElement {
       return
     this.#canvasMeasurer.refresh()
     this.#repaginate()
+  }
+
+  /**
+   * 扩展：元素种类、编辑方式与规则，内置扩展自动排在最前。
+   * 赋值时当场合并查重，冲突抛 DesignerExtensionError、什么都不变；同一个数组只合并一次，宿主要保持引用稳定。
+   */
+  get extensions(): readonly PrintCoreExtension[] | undefined {
+    return this.#extensions
+  }
+
+  set extensions(value: readonly PrintCoreExtension[] | undefined) {
+    if (value === this.#extensions)
+      return
+    createPrintModel(value)
+    const old = this.#extensions
+    this.#extensions = value
+    this.requestUpdate('extensions', old)
   }
 
   override connectedCallback(): void {

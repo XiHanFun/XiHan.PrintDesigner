@@ -97,6 +97,7 @@
 | `watermark` | <code><a href="#watermark">Watermark</a></code> | 可省 |  |
 | `guides` | <code><a href="#pageguides">PageGuides</a></code> | 可省 |  |
 | `meta` | <code>JsonObject</code> | 可省 |  |
+| `extensions` | <code>JsonObject</code> | 可省 | 扩展自己的数据，键是扩展 id。 |
 
 ### PrintDocument {#printdocument}
 
@@ -108,6 +109,7 @@
 | `name` | <code>string</code> | 可省 |  |
 | `pages` | <code><a href="#printpage">PrintPage</a>[]</code> | 是 |  |
 | `meta` | <code>JsonObject</code> | 可省 |  |
+| `extensions` | <code>JsonObject</code> | 可省 | 扩展自己的数据，键是扩展 id。 |
 
 ## 元素
 
@@ -127,6 +129,7 @@
 | `locked` | <code>boolean</code> | 可省 | 是否锁定，锁定的元素在设计器中不可拖动与缩放。 |
 | `previewOnly` | <code>boolean</code> | 可省 | 是否只在设计与预览中显示、不参与打印。 |
 | `meta` | <code>JsonObject</code> | 可省 | 宿主附加数据。 |
+| `extensions` | <code>JsonObject</code> | 可省 | 扩展自己的数据，键是扩展 id；core 只检查它是对象，里面不看。 |
 
 ### TextElement {#textelement}
 

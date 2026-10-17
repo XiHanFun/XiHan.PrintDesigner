@@ -210,8 +210,8 @@ function checkOptions(options: PaginateOptions): number {
 export function paginate(document: PrintDocument, data: unknown, options: PaginateOptions): PaginationResult {
   const maxSheets = checkOptions(options)
   const validationOptions: Parameters<typeof validateDocument>[1] = {}
-  if (options.registry !== undefined)
-    validationOptions.registry = options.registry
+  if (options.extensions !== undefined)
+    validationOptions.extensions = options.extensions
   if (options.expressionEngine !== undefined)
     validationOptions.expressionEngine = options.expressionEngine
   const validation = validateDocument(document, validationOptions)

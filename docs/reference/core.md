@@ -6,6 +6,18 @@
 
 ## 全部导出
 
+### extensions
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `createPrintModel` | 函数 | 合出打印模型：内置扩展 PRINT_CORE_EXTENSION 在前，extensions 按顺序在后。 |
+| `PRINT_CORE_EXTENSION` | 常量 | 内置扩展：全部内置元素。 |
+| `PRINT_CORE_EXTENSION_ID` | 常量 | 内置扩展的 id。 |
+| `PRINT_EXTENSION_SPACES` | 常量 | 打印各层扩展共用的名字空间：元素类型。 |
+| `PrintCoreExtension` | 接口 | 打印 core 层的扩展：元素原型、编辑方式与校验规则。 |
+| `PrintModel` | 接口 | 一组扩展合出的打印模型：元素登记表与编辑方式。 |
+| `PrintRuleContext` | 接口 | 规则拿到的上下文：合并后的元素登记表。 |
+
 ### factory
 
 | 名称 | 种类 | 说明 |
@@ -357,6 +369,7 @@
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
+| `ExtensionIssueCode` | 类型 | 扩展自己的问题码：扩展 id 的末段加点开头，如 seal.noImage；没有登记严重程度，缺省按 error。 |
 | `IssueParams` | 类型 | 问题参数，供各语言文案插值。 |
 | `VALIDATION_ISSUE_SEVERITIES` | 常量 | 全部问题码及其固定的严重程度：不带前缀的是 @xihan-ui/designer-kit/schema 的通用问题码，带前缀的是打印专属的问题码。 |
 | `ValidationIssue` | 类型 | 校验问题：@xihan-ui/designer-kit/schema 的 SchemaIssue，严重程度总是给出。 |
