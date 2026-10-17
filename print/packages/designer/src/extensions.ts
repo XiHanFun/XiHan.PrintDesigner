@@ -3,11 +3,12 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 设计器层的扩展：在运行时层之上加属性编辑器、命令、面板、物料项与装上时的回调；设计器自带的编辑器与命令也写成一个扩展。
+// 设计器层的扩展：在运行时层之上加属性编辑器、命令、面板、导入器、物料项与装上时的回调；设计器自带的编辑器与命令也写成一个扩展。
 
+import type { ElementRegion, PrintElement } from '@xihan-print/core'
 import type { PrintDesignerTranslations, PrintRuntimeExtension, PrintRuntimeModel } from '@xihan-print/runtime'
 import type { IconRecord } from '@xihan-ui/core'
-import type { DesignerCommand } from '@xihan-ui/designer-kit'
+import type { DesignerCommand, DesignerImporter } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
 import type { DesignerCommandTable, DesignerPropertyEditor, DesignerShellExtension } from '@xihan-ui/designer-shell'
 import type { XhPrintDesigner } from './print-designer'
@@ -26,6 +27,16 @@ export interface PrintDesignerContext {
 /** 设计器的命令：工具栏按钮、右键菜单项与快捷键共用。 */
 export type PrintDesignerCommand = DesignerCommand<PrintDesignerContext>
 
+/** 导入的结果：一组元素，整体挪到落点（粘贴时为视口中央）后按粘贴的规则放进当前页面模板。 */
+export interface PrintImportFragment {
+  readonly elements: readonly PrintElement[]
+  /** 放进哪个区，缺省按落点所在的区。 */
+  readonly region?: ElementRegion
+}
+
+/** 导入器：把粘贴或拖放进来的外部内容换成一组元素；返回 undefined 即不放任何元素。 */
+export type PrintDesignerImporter = DesignerImporter<PrintDesignerContext, PrintImportFragment | undefined>
+
 /** 物料面板里的一项：扩展元素的名称与图标。 */
 export interface PrintPaletteEntry {
   /** 元素种类的名称，物料面板、画布与属性面板的可访问名、问题列表都用它；不给时显示类型名。 */
@@ -33,8 +44,10 @@ export interface PrintPaletteEntry {
   readonly icon?: IconRecord
 }
 
-/** 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、物料项与 setup。 */
+/** 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、导入器、物料项与 setup。 */
 export interface PrintDesignerExtension extends PrintRuntimeExtension, Pick<DesignerShellExtension<PrintDesignerContext, DesignerPropertyEditor>, 'editors' | 'commands' | 'panels' | 'setup'> {
+  /** 导入器：粘贴与拖放共用，按扩展顺序问 accepts，第一个接下的导入；id 不能与别的导入器重名。 */
+  readonly importers?: readonly PrintDesignerImporter[]
   /** 本扩展登记的元素的物料项，键是元素类型；只能给本扩展 elements 里的类型。 */
   readonly palette?: Readonly<Record<string, PrintPaletteEntry>>
   /** 本扩展新加的物料分组的名称，键是分组名；不能是内置分组，也不能与别的扩展重名。没给名称的分组显示分组名。 */
@@ -73,7 +86,7 @@ export function printMenuLayout(subject: PrintMenuSubject, tableSelected: boolea
   ]
 }
 
-/** 一组设计器扩展合出的东西：交给 core 函数与预览的列表、运行时的模型、属性编辑器表、命令表与物料项。 */
+/** 一组设计器扩展合出的东西：交给 core 函数与预览的列表、运行时的模型、属性编辑器表、命令表、导入器与物料项。 */
 export interface PrintDesignerModel {
   /** 设计器自带的扩展在前、传入的在后；校验、分页与预览都拿这一份。 */
   readonly list: readonly PrintDesignerExtension[]
@@ -83,6 +96,8 @@ export interface PrintDesignerModel {
   readonly editors: PropertyEditorTable<DesignerPropertyEditor>
   /** 各扩展的命令，内置在前、扩展按登记顺序在后。 */
   readonly commands: DesignerCommandTable<PrintDesignerContext>
+  /** 各扩展的导入器，按扩展顺序。 */
+  readonly importers: readonly PrintDesignerImporter[]
   /** 扩展的元素类型 → 物料项。 */
   readonly palette: ReadonlyMap<string, PrintPaletteEntry>
   /** 扩展的物料分组 → 名称。 */
@@ -112,5 +127,5 @@ export function createPrintDesignerModel(builtin: PrintDesignerExtension, extens
       categories.set(category, label)
     }
   }
-  return { list, runtime, editors: extensionEditors<DesignerPropertyEditor>(undefined, all), commands: extensionCommands(all), palette, categories }
+  return { list, runtime, editors: extensionEditors<DesignerPropertyEditor>(undefined, all), commands: extensionCommands(all), importers: all.flatMap(extension => extension.importers ?? []), palette, categories }
 }

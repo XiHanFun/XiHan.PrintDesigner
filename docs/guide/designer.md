@@ -77,7 +77,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | Enter | 选中表格时进入表格编辑态 |
 | Esc | 取消正在进行的拖动；在表格编辑态里退出；否则取消选择 |
 
-复制的元素以 JSON 放进系统剪贴板，可以在两个设计器之间粘贴；粘贴时先按当前的元素登记表校验，有错误的内容不粘贴。
+复制的元素以 JSON 放进系统剪贴板，可以在两个设计器之间粘贴；粘贴时先按当前的元素登记表校验，有错误的内容不粘贴。别的内容（图片、旧模板等）粘贴或拖到画布上时交给扩展的导入器，见下文「导入」。
 
 ## 保存与事件
 
@@ -109,7 +109,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ## 扩展
 
-`extensions` 收一组扩展对象：元素种类、编辑方式、校验规则、属性编辑器、命令与面板都经它登记。内置元素、设计器自带的编辑器与命令也是扩展，自动排在最前。同一页面上的几个设计器各给各的，互不影响。
+`extensions` 收一组扩展对象：元素种类、编辑方式、校验规则、属性编辑器、命令、面板与导入器都经它登记。内置元素、设计器自带的编辑器与命令也是扩展，自动排在最前。同一页面上的几个设计器各给各的，互不影响。
 
 - 扩展对象的 `id` 全局唯一，用包名加功能名，如 `@acme/print-fonts`。它也是模板里扩展数据的键：文档、页面与元素都可以带 `extensions: { [扩展 id]: { ... } }`，校验只查它是对象，编辑与复制粘贴原样带着走。
 - 赋值时当场合并查重：扩展 id、元素类型、编辑方式、命令 id 与快捷键与内置的或别的扩展重名时，抛 `DesignerExtensionError`（`code` 为 `designer.extension-conflict`），设计器保持赋值前的状态。
@@ -185,3 +185,13 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 - 区名与内置区（`toolbar`、`pages`、`palette`、`canvas`、`properties`、`issues`）或别的扩展的重名时，赋值时抛 `DesignerExtensionError`，设计器保持赋值前的状态。
 - `panels` attribute 照样能开关扩展的区；预览态只保留工具栏。
+
+### 导入
+
+扩展的 `importers` 把粘贴与拖到画布上的外部内容换成元素。来源是 `{ kind, mime?, name?, text?, file? }`：`kind` 为 `clipboard` 或 `drop`，文件带 `file`，文本按链接（`text/uri-list`）、HTML、纯文本依次给出。设计器按文件、链接、HTML、纯文本的顺序逐个问各导入器的 `accepts`，扩展靠前的先问，第一个接下的导入：
+
+<<< @/examples/snippets/designer-importers.ts#example
+
+- `import` 可以是异步的，返回 `{ elements, region? }`，返回 `undefined` 即什么都不放。元素整体挪到落点（粘贴时是视口中央），左上角吸附网格，再按粘贴的规则换新 id 放进当前页面模板并选中，记一步撤销。`region` 缺省按落点所在的区。
+- 放下前按当前的元素登记表校验；`import` 抛错或元素没有通过校验时，设计器派发 `import-error`，带导入器的 id、来源与错误，不放任何元素。
+- 设计器自己的剪贴板内容不经导入器。存量模板的迁移、图片上传到宿主的存储，都写成导入器。
