@@ -132,6 +132,17 @@ describe('元素类型登记表', () => {
     ])
   })
 
+  it('扩展的分组按首次登记的顺序排在内置分组之后', () => {
+    const rect = samplePrototypes().find(prototype => prototype.type === 'rect')!
+    const extra = (type: string, category: string, order: number): AnyElementPrototype => ({ ...rect, type, category, order }) as unknown as AnyElementPrototype
+    const registry = createElementRegistry([extra('stamp', 'office', 2), ...samplePrototypes().filter(prototype => prototype.category === 'shape'), extra('chart', 'charts', 1), extra('seal', 'office', 1)])
+    expect(registry.groupByCategory().map(group => [group.category, group.prototypes.map(prototype => prototype.type)])).toEqual([
+      ['shape', ['line', 'rect', 'ellipse']],
+      ['office', ['seal', 'stamp']],
+      ['charts', ['chart']],
+    ])
+  })
+
   it('可只登记部分原型，空分组不列出', () => {
     const registry = createElementRegistry(samplePrototypes().filter(prototype => prototype.category === 'shape'))
     expect(registry.has('rect')).toBe(true)

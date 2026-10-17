@@ -7,6 +7,7 @@
 
 import type { ExtensionElementPrototype, PrintDocument } from '@xihan-print/core'
 import type { PrintDesignerTranslations } from '@xihan-print/runtime'
+import type { IconRecord } from '@xihan-ui/core'
 import type { Rect } from '@xihan-ui/designer-kit'
 import type { DesignerGesturePhase, DesignerTransformKind, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import type { TextMeasurer } from '@xihan-ui/viz'
@@ -279,6 +280,48 @@ describe('<xh-print-designer>', () => {
     expect(designer.schema.pages[0]!.elements.at(-1)).toMatchObject({ id: added.id, type: 'seal', owner: '曦寒' })
     expect([frame().hasAttribute('data-placeholder'), frame().textContent]).toEqual([true, 'seal'])
     expect(designer.validate().map(issue => issue.code)).toContain('element.unknownType')
+  })
+
+  it('扩展的物料项：新分组排在内置分组之后，名称与图标随扩展给出，没给时显示类型名与分组名；分组重名或给别处的元素类型时抛错', async () => {
+    const shape = (type: string, category: string): ExtensionElementPrototype => ({
+      type,
+      category,
+      order: 1,
+      flow: false,
+      minSize: { width: 5, height: 5 },
+      defaults: { type, width: 20, height: 20 },
+      properties: [...layoutProperties({ rotation: false }), ...behaviorProperties()],
+      layout: () => ({}),
+    })
+    const icon: IconRecord = { name: 'stamp', viewBox: '0 0 24 24', nodes: [{ tag: 'circle', attrs: { cx: '12', cy: '12', r: '9' } }] }
+    const office: PrintDesignerExtension = {
+      id: '@acme/office',
+      elements: [shape('stamp', 'office'), shape('chart', 'charts')],
+      palette: { stamp: { label: '印章', icon } },
+      categories: { office: '办公' },
+    }
+    designer.extensions = [office]
+    await designer.updateComplete
+    const palette = designer.querySelector('xh-designer-palette')!
+    expect(palette.groups!.map(group => [group.id, group.label])).toEqual([['text', 'Text'], ['media', 'Media'], ['data', 'Data'], ['shape', 'Shapes'], ['code', 'Codes'], ['office', '办公'], ['charts', 'charts']])
+    expect(palette.groups!.slice(-2).map(group => group.items)).toEqual([[{ id: 'stamp', label: '印章', icon }], [{ id: 'chart', label: 'chart' }]])
+    const stamp = designer.addElement('stamp')
+    await designer.updateComplete
+    expect(designer.querySelector(`[data-element-id="${stamp.id}"][aria-label]`)!.getAttribute('aria-label')).toBe(`印章 ${stamp.id}`)
+
+    const thrown = (assign: () => void): unknown => {
+      try {
+        assign()
+      }
+      catch (error) {
+        return error
+      }
+      return undefined
+    }
+    expect(thrown(() => (designer.extensions = [office, { id: '@acme/other', categories: { office: '办公室' } }]))).toMatchObject({ code: 'designer.extension-conflict', space: 'palette-category', key: 'office' })
+    expect(thrown(() => (designer.extensions = [{ id: '@acme/other', categories: { media: '媒体' } }]))).toMatchObject({ space: 'palette-category', key: 'media' })
+    expect(thrown(() => (designer.extensions = [office, { id: '@acme/other', palette: { stamp: { label: '章' } } }]))).toBeInstanceOf(TypeError)
+    expect(designer.extensions).toEqual([office])
   })
 
   it('物料面板按登记表分组列出元素，激活即加到视口中央；面板里的按键不触发画布快捷键，只读时不加', async () => {

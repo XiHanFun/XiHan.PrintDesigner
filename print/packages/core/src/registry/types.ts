@@ -10,10 +10,10 @@ import type { ElementBase, ExtensionElement, PrintElement, PrintElementOf, Print
 import type { ElementRegion } from '../traverse'
 import type { ExtensionIssueCode, IssueParams, ValidationIssueCode } from '../validation/issues'
 
-/** 物料面板分组取值，按面板中的显示顺序。 */
+/** 内置的物料分组，按面板中的显示顺序；扩展自定的分组排在它们之后。 */
 export const ELEMENT_CATEGORIES = ['text', 'media', 'data', 'shape', 'code'] as const
 
-/** 物料面板分组：文字、图片、数据、图形、条码。 */
+/** 内置的物料分组：文字、图片、数据、图形、条码。 */
 export type ElementCategory = (typeof ELEMENT_CATEGORIES)[number]
 
 /** 元素与表格部位的属性分组取值，按面板中的显示顺序。 */
@@ -80,7 +80,8 @@ export type ElementDefaults<TElement extends ElementBase<string>> = Omit<TElemen
 /** 元素原型：一种元素的默认值、尺寸约束、可编辑属性与专属行为。 */
 export interface ElementPrototype<TElement extends ElementBase<string> = PrintElement> {
   type: TElement['type']
-  category: ElementCategory
+  /** 物料分组：内置分组（ElementCategory）之一，或扩展自定的分组名。 */
+  category: string
   /** 在物料面板分组内的顺序，越小越靠前。 */
   order: number
   /** 是否随数据纵向延展并跨页续排；这类元素只能放在正文区。 */
