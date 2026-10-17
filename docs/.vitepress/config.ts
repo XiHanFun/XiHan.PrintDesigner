@@ -33,6 +33,7 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
       { text: '运行时', link: '/guide/runtime' },
       { text: '设计器', link: '/guide/designer' },
       { text: '打印客户端', link: '/guide/client' },
+      { text: '与宿主集成', link: '/guide/host' },
     ],
   },
 ]
@@ -144,6 +145,14 @@ export default defineXiHanConfig({
       { name: 'reference', label: '参考', dirs: ['reference'] },
     ],
     transform: machineReadable,
+  },
+  // Vue 示例里的 xh- 标签都是自定义元素，不当作 Vue 组件解析
+  vue: {
+    template: {
+      compilerOptions: {
+        isCustomElement: tag => tag.startsWith('xh-'),
+      },
+    },
   },
   themeConfig: {
     nav,
