@@ -260,6 +260,8 @@ function issueText(issue: SchemaIssue): string {
       return '不能为空'
     case 'unknown-key':
       return `未知的属性 ${text(params.key)}`
+    case 'unknown-control':
+      return '未知的编辑方式'
     case 'duplicate-key':
       return `键 ${text(params.key)} 重复`
     case 'duplicate-id':

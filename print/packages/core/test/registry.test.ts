@@ -68,7 +68,15 @@ describe('内置元素原型', () => {
       if (condition !== undefined && 'path' in condition)
         expect(keys).toContain(condition.path.join('.'))
     }
-    expect(checkProperties(descriptors, { ...prototype.defaults, x: 0, y: 0 } as unknown as JsonValue)).toEqual([])
+    // 打印自己的编辑方式登记给 checkProperties：取值交给打印的校验，有 error 级问题时给出第一条的问题码
+    const controls = Object.fromEntries(descriptors.map(descriptor => [descriptor.control.kind, {
+      check: (value: JsonValue): string | undefined => {
+        const issues: ValidationIssue[] = []
+        validateControlValue(descriptor.control, value, [], createIssueSink(issues))
+        return issues.find(issue => issue.severity === 'error')?.code
+      },
+    }]))
+    expect(checkProperties(descriptors, { ...prototype.defaults, x: 0, y: 0 } as unknown as JsonValue, { controls })).toEqual([])
 
     for (const key of Object.keys(prototype.defaults)) {
       if (key === 'type')
