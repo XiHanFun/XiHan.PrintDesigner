@@ -220,8 +220,8 @@
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
 | `AnyElementPrototype` | 类型 | 任一元素的原型：内置元素的，或扩展元素的。 |
-| `ELEMENT_CATEGORIES` | 常量 | 物料面板分组取值，按面板中的显示顺序。 |
-| `ElementCategory` | 类型 | 物料面板分组：文字、图片、数据、图形、条码。 |
+| `ELEMENT_CATEGORIES` | 常量 | 内置的物料分组，按面板中的显示顺序；扩展自定的分组排在它们之后。 |
+| `ElementCategory` | 类型 | 内置的物料分组：文字、图片、数据、图形、条码。 |
 | `ElementDefaults` | 类型 | 元素默认值：不含标识与坐标。 |
 | `ElementLayoutContext` | 接口 | 扩展元素排版时拿到的上下文。 |
 | `ElementPrototype` | 接口 | 元素原型：一种元素的默认值、尺寸约束、可编辑属性与专属行为。 |

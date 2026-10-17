@@ -19,6 +19,7 @@ import type {
   PageBandKey,
   PrintDocument,
   PrintElement,
+  PrintElementType,
   PrintOperation,
   PropertyGroup,
   PropertyUnit,
@@ -427,9 +428,14 @@ function normalizeAngle(degrees: number): number {
   return ((degrees % 360) + 360) % 360
 }
 
-/** 元素类型的名字：语言包里有就用，没有（如扩展的类型）时用类型名。 */
-function elementName(t: PrintDesignerTranslations, type: string): string {
-  return (t.elements as Readonly<Record<string, string | undefined>>)[type] ?? type
+/** 元素类型的名字：内置类型取语言包，扩展的类型取扩展给的名称，都没有时用类型名。 */
+function elementName(t: PrintDesignerTranslations, model: PrintDesignerModel, type: string): string {
+  return Object.hasOwn(t.elements, type) ? t.elements[type as PrintElementType] : model.palette.get(type)?.label ?? type
+}
+
+/** 物料分组的名字：内置分组取语言包，扩展的分组取扩展给的名称，都没有时用分组名。 */
+function categoryName(t: PrintDesignerTranslations, model: PrintDesignerModel, category: string): string {
+  return Object.hasOwn(t.categories, category) ? t.categories[category as ElementCategory] : model.categories.get(category) ?? category
 }
 
 function isCommand(value: string): value is Command {
@@ -522,7 +528,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   #lastGrid = 1
   #spacePan = false
   #regions: { readonly key: string, readonly regions: readonly DesignerFrameRegion[] } | undefined
-  #paletteKey = ''
+  #palette: { readonly key: string, readonly model: PrintDesignerModel } | undefined
   #listed: { readonly issues: readonly ValidationIssue[], readonly key: string } | undefined
   #subjects: PropertySubject[] = []
   #panelInputs: readonly unknown[] = []
@@ -1413,7 +1419,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     layers.elements.replaceChildren(...boxes.flatMap((box) => {
       const node = renderBox(doc, box, this.#model().runtime.renderers)
       node.toggleAttribute('data-selected', selected.has(box.elementId))
-      node.setAttribute('aria-label', t.elementLabel(elementName(t, box.elementType), box.elementId))
+      node.setAttribute('aria-label', t.elementLabel(elementName(t, this.#model(), box.elementType), box.elementId))
       const designHeight = designHeights.get(box.elementId)
       if (box.region !== 'body' || designHeight === undefined || box.height <= designHeight + DESIGN_EPSILON)
         return [node]
@@ -1582,15 +1588,19 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   #syncPalette(layers: Layers, t: PrintDesignerTranslations): void {
     layers.palette.readonly = this.readonly
-    const groups = this.#editor.elements.groupByCategory()
-    const key = JSON.stringify([groups.map(group => [group.category, group.prototypes.map(prototype => prototype.type)]), t.categories, t.elements])
-    if (key === this.#paletteKey)
+    const model = this.#model()
+    const groups = model.runtime.elements.groupByCategory()
+    const key = JSON.stringify([t.categories, t.elements])
+    if (key === this.#palette?.key && model === this.#palette.model)
       return
-    this.#paletteKey = key
+    this.#palette = { key, model }
     layers.palette.groups = groups.map((group): DesignerPaletteGroup => ({
       id: group.category,
-      label: t.categories[group.category as ElementCategory] ?? group.category,
-      items: group.prototypes.map(prototype => ({ id: prototype.type, label: elementName(t, prototype.type) })),
+      label: categoryName(t, model, group.category),
+      items: group.prototypes.map((prototype) => {
+        const icon = model.palette.get(prototype.type)?.icon
+        return { id: prototype.type, label: elementName(t, model, prototype.type), ...(icon === undefined ? {} : { icon }) }
+      }),
     }))
   }
 
@@ -1692,7 +1702,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const element = findElement(this.#editor.document, elementId)?.element
     if (element === undefined)
       return undefined
-    const label = t.elementLabel(elementName(t, element.type), element.name ?? element.id)
+    const label = t.elementLabel(elementName(t, this.#model(), element.type), element.name ?? element.id)
     const part = this.#editor.selection.tablePart
     return elementId === first.id || part === undefined ? label : `${label} · ${t.tableParts[part.kind]}`
   }
@@ -1862,7 +1872,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (found === undefined)
       return target.id
     const type = found.element.type
-    return `${pageName(pages.indexOf(found.page))} · ${t.elementLabel(elementName(t, type), found.element.name ?? found.element.id)}`
+    return `${pageName(pages.indexOf(found.page))} · ${t.elementLabel(elementName(t, this.#model(), type), found.element.name ?? found.element.id)}`
   }
 
   /** 点选问题：切到所在页面模板；落在元素上时选中元素并移进视口。 */

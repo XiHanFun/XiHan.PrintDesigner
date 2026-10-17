@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 一个扩展元素：圆形印章。原型给缺省值、属性与排版，渲染把排版给出的数据画成 SVG。
+// 一个扩展元素：圆形印章。原型给缺省值、属性与排版，渲染把排版给出的数据画成 SVG，物料项给出它在物料面板里的名称。
 
 // #region element
 import type { ExtensionElementPrototype } from '@xihan-print/core'
@@ -35,6 +35,7 @@ const seal: ExtensionElementPrototype = {
 export const sealExtension: PrintDesignerExtension = {
   id: '@acme/print-seal',
   elements: [seal],
+  palette: { seal: { label: '印章' } },
   renderers: {
     seal: (box, { document }) => {
       const { name, color } = box.data as { name: string, color: string }
