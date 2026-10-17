@@ -42,6 +42,22 @@
   border-radius: var(--xh-radius-md);
 }
 
+/* 示例里的设计器给定高度 */
+.print-demo xh-print-designer {
+  block-size: 36rem;
+}
+
+/* 示例里宿主自己写的原生下拉框 */
+.print-demo select[data-xh-part='control'] {
+  inline-size: 100%;
+  padding-block: var(--xh-space-1);
+  padding-inline: var(--xh-space-2);
+  border: var(--xh-stroke-thin) solid var(--xh-border-control);
+  border-radius: var(--xh-radius-md);
+  background: var(--xh-bg-field);
+  color: var(--xh-fg-default);
+}
+
 /* 示例里直接写的原生按钮 */
 .print-demo__stage > button {
   margin-block-end: var(--xh-space-3);
