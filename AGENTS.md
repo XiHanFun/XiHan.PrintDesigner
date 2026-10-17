@@ -101,14 +101,15 @@ pnpm dev
 | --- | --- |
 | 构建 | `dotnet build XiHan.PrintClient.slnx -c Release` |
 | 测试 | `dotnet test --solution XiHan.PrintClient.slnx -c Release --no-build` |
-| 安装包 | `pwsh installer/build.ps1`（自包含发布 x64 与 arm64，再用 Inno Setup 6 编译；`-PublishOnly` 只发布） |
+| 安装包 | `pwsh installer/build.ps1`（自包含发布 x64 与 arm64，再用 Inno Setup 6 编译；`-PublishOnly` 只发布，`-SkipWebView2` 不打 WebView2 安装程序、只用于本机试装） |
 
 - SDK 版本以 `client/global.json` 为准，与 XiHan.Framework 一致；包版本集中在 `Directory.Packages.props`。
 - 运行时 NuGet 依赖只有 `Microsoft.Web.WebView2`；新增任何运行时依赖前先征得维护者同意，能用 .NET 自带库或 Windows API 自写的就自写。
 - Core 不引用任何 Windows 专属 API，平台相关的实现放在平台项目里，经 Core 的接口接入。
 - 代码风格照 XiHan.Framework：文件头两行版权注释，文件级命名空间，公开成员写中文 XML 注释，注释只写做什么。
 - 原始通道的集成测试要一台端口指向文件的「Generic / Text Only」打印机，经环境变量 `XIHAN_PRINT_TEST_PRINTER`、`XIHAN_PRINT_TEST_OUTPUT` 告知；没配置时跳过。CI 里由 `client.yml` 自动装，本机要跑时以管理员身份照那一步装。
-- 安装包按当前用户装到 `%LocalAppData%ProgramsXiHanFunPrintClient`，不要管理员权限；打进 WebView2 Evergreen 引导程序（内网可用 `-WebView2Installer` 换成离线安装包）。分支 CI 出未签名的安装包；推 `client-v<版本>` 标签时 `client-release.yml` 签名（仓库密钥 `CLIENT_SIGNING_CERT`、`CLIENT_SIGNING_PASSWORD`，没有就不签）并建草稿 Release，发布草稿后把附件里的 `update.json` 提交到 main 的 `client/update.json`，客户端的自动更新才看得到新版。
+- 本机编译安装包用按当前用户装的 Inno Setup 6.7.3（官方安装包，装在 `%LocalAppData%\Programs\Inno Setup 6`），`build.ps1` 会在那里和 PATH 里找 `ISCC.exe`；它只用于编译与试装，不进运行时依赖，也不进仓库。CI 自己装 Inno Setup，不依赖哪台机器。Inno Setup 6 不带简体中文语言文件，向导是英文、自定义文案是中文。
+- 安装包按当前用户装到 `%LocalAppData%\Programs\XiHanFun\PrintClient`，不要管理员权限；打进 WebView2 Evergreen 引导程序（内网可用 `-WebView2Installer` 换成离线安装包）。分支 CI 出未签名的安装包；推 `client-v<版本>` 标签时 `client-release.yml` 签名（仓库密钥 `CLIENT_SIGNING_CERT`、`CLIENT_SIGNING_PASSWORD`，没有就不签）并建草稿 Release，发布草稿后把附件里的 `update.json` 提交到 main 的 `client/update.json`，客户端的自动更新才看得到新版。
 - 自动更新只安装 `Directory.Build.props` 里 `XiHanUpdatePublisher` 这个发布者签名的安装包，为空时只提示新版、不自动安装。
 - 提交前跑构建、测试与 `git diff --check`。
 

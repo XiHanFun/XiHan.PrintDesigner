@@ -14,6 +14,9 @@
 .PARAMETER WebView2Installer
   打进安装包的 WebView2 安装程序：缺省下载微软的 Evergreen 引导程序；内网环境可传离线安装包的路径。
 
+.PARAMETER SkipWebView2
+  不打 WebView2 安装程序：只用于本机试装，或已确知装好运行时的环境；装到没有运行时的机器上时，HTML 打印与导出 PDF 不可用。
+
 .PARAMETER SignCommand
   签名命令，文件路径用 $f 占位，如 signtool sign /f cert.pfx /p ****** /fd sha256 /tr http://timestamp.digicert.com /td sha256 $f；为空不签名。
 
@@ -32,6 +35,7 @@ param(
     [string[]] $Arch = @('x64', 'arm64'),
     [string] $Version,
     [string] $WebView2Installer,
+    [switch] $SkipWebView2,
     [string] $SignCommand,
     [string] $ReleaseBaseUrl,
     [string] $NotesFile,
@@ -103,9 +107,11 @@ foreach ($target in $Arch) {
         "/DFileVersion=$fileVersion",
         "/DArch=$target",
         "/DSourceDir=$publish",
-        "/DOutputDir=$output",
-        "/DWebView2Installer=$(Get-WebView2Installer)"
+        "/DOutputDir=$output"
     )
+    if (-not $SkipWebView2) {
+        $defines += "/DWebView2Installer=$(Get-WebView2Installer)"
+    }
     if ($SignCommand) {
         $defines += '/DSignTool'
         $defines += "/Sxihan=$SignCommand"
