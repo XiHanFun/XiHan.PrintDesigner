@@ -5,12 +5,14 @@
 
 import type { PrintElement } from '../schema/elements'
 import type { DiagnosticScope, LayoutContext } from './context'
+import type { PreparedExtensionFlow } from './extension-flow'
 import type { PreparedLongText } from './long-text'
 import type { BodyGeometry, PlacedBox, Placement, SheetCursor } from './placement'
 import type { PreparedRichText } from './rich-text'
 import type { PreparedTable } from './table'
 import type { LayoutBox } from './types'
 import { LAYOUT_EPSILON } from './context'
+import { placeExtensionFlow } from './extension-flow'
 import { placeLongText } from './long-text'
 import { bodyBottom, compareCursors, nextSheetTop } from './placement'
 import { placeRichText } from './rich-text'
@@ -22,6 +24,7 @@ export type BodyItem
     | { kind: 'longText', element: PrintElement, index: number, scope: DiagnosticScope, prepared: PreparedLongText }
     | { kind: 'richText', element: PrintElement, index: number, scope: DiagnosticScope, prepared: PreparedRichText }
     | { kind: 'table', element: PrintElement, index: number, scope: DiagnosticScope, prepared: PreparedTable }
+    | { kind: 'extension', element: PrintElement, index: number, scope: DiagnosticScope, prepared: PreparedExtensionFlow }
 
 /** 正文排版结果。 */
 export interface BodyLayout {
@@ -94,13 +97,15 @@ function placeFlow(
       return placeRichText(item.prepared, cursor, geometry, context, scope)
     case 'longText':
       return placeLongText(item.prepared, cursor, geometry, context, scope)
+    case 'extension':
+      return placeExtensionFlow(item.prepared, cursor, geometry, context, scope)
   }
 }
 
 /**
  * 按设计 top 依次排正文元素：每个元素取其上方各元素（设计底边不低于本元素设计顶边）的排后底边加设计间距中最靠后的位置，
  * 不在任何元素之下的元素留在首页设计位置；被下推的不跨页元素越过正文区底边时移到下一页正文区顶部；
- * 长文本、富文本与表格从起点续排到后续输出页。
+ * 长文本、富文本、表格与跨页的扩展元素从起点续排到后续输出页。
  */
 export function layoutBody(items: readonly BodyItem[], geometry: BodyGeometry, context: LayoutContext): BodyLayout {
   const order = [...items].sort((a, b) =>

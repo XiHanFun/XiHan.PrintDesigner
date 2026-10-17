@@ -260,6 +260,35 @@ describe('<xh-print-designer>', () => {
     expect([ruler.hidden, ruler.contains(viewport()), viewport().isConnected]).toEqual([true, false, true])
   })
 
+  it('跨页的扩展元素：画布按设计态排成一段、按内容撑高；拖向页眉时照样留在正文', async () => {
+    const rows: ExtensionElementPrototype = {
+      type: 'rows',
+      category: 'data',
+      order: 9,
+      flow: true,
+      minSize: { width: 5, height: 5 },
+      defaults: { type: 'rows', width: 60, height: 10 },
+      properties: [...layoutProperties({ rotation: false }), ...behaviorProperties()],
+      prepare: () => ({ repeat: { height: 5, data: '表头' }, blocks: [{ height: 10, data: '一' }, { height: 10, data: '二' }] }),
+    }
+    designer.extensions = [{
+      id: '@acme/rows',
+      elements: [rows],
+      renderers: { rows: (box, { document }) => Object.assign(document.createElement('span'), { textContent: (box.data as { blocks: string[] }).blocks.join(',') }) },
+    }]
+    const doc = sample()
+    doc.pages[0]!.header.default.height = 20
+    designer.schema = doc
+    const added = designer.addElement('rows', { x: 50, y: 120 })
+    await designer.updateComplete
+    const frame = designer.querySelector<HTMLElement>(`[data-part="box"][data-element-id="${added.id}"]`)!
+    expect([frame.textContent, frame.style.height]).toEqual(['一,二', '25mm'])
+    designer.select({ elements: [added.id] })
+    transform('start', 'move', { [added.id]: { x: added.x, y: added.y, width: 60, height: 10 } })
+    transform('end', 'move', { [added.id]: { x: added.x, y: 5, width: 60, height: 10 } })
+    expect([designer.schema.pages[0]!.header.default.elements.length, designer.schema.pages[0]!.elements.at(-1)!.id]).toEqual([0, added.id])
+  })
+
   it('扩展元素：物料面板列出它，画布按扩展的渲染画出；扩展去掉后元素留在文档里，画成占位并报未知类型', async () => {
     const seal: ExtensionElementPrototype = {
       type: 'seal',

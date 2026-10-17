@@ -120,17 +120,26 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ### 扩展元素
 
-扩展的 `elements` 登记新的元素类型，`renderers` 给它们的渲染。原型与内置元素的一样，给出缺省值、尺寸下限、物料分组与属性描述，另外必须给 `layout`：排版时按元素与数据算出画在元素框里的数据（只能是 JSON），元素框的位置与尺寸由排版填好。渲染收到排版盒与输出页所在的文档，返回要放进元素框的节点：
+扩展的 `elements` 登记新的元素类型，`renderers` 给它们的渲染。原型与内置元素的一样，给出缺省值、尺寸下限、物料分组与属性描述；不跨页的元素（`flow` 为 `false`）另外必须给 `layout`：排版时按元素与数据算出画在元素框里的数据（只能是 JSON），元素框的位置与尺寸由排版填好。渲染收到排版盒与输出页所在的文档，返回要放进元素框的节点：
 
 <<< @/examples/snippets/extension-element.ts#element
 
 - 属性描述可以用 `layoutProperties`、`behaviorProperties` 与 `property` 拼，和内置元素用的是同一套。
-- 扩展元素不跨页（`flow` 为 `false`）。没给 `layout` 或要跨页时，赋值时抛 `TypeError`。
+- 不跨页的元素没给 `layout`、跨页的元素没给 `prepare`（见下文）时，赋值时抛 `TypeError`。
 - `palette` 给自己元素的物料项：名称与图标（`@xihan-ui/core` 的 `IconRecord`）。名称也用在画布与属性面板的可访问名和问题列表里，不给时显示类型名。`palette` 里写了不是本扩展登记的元素类型时，赋值时抛 `TypeError`。
 - 原型的 `category` 可以是内置分组（`text`、`media`、`data`、`shape`、`code`），也可以是新的分组。新分组排在内置分组之后，按首次登记的顺序；名称写在扩展的 `categories` 里，没写时显示分组名。分组名与内置分组或别的扩展写的重名时，抛 `DesignerExtensionError`。
 - 名称随扩展给出，不在设计器的语言包里。扩展包要支持多种语言，就按语言给出不同的扩展对象，例如导出一个收文案的工厂函数。
 - 渲染只能用标准 HTML 与 SVG：浏览器打印与本地打印客户端用的是另一份文档，自定义元素在那里不会升级。
 - 扩展去掉后，文档里已有的这类元素照样保留：设计器把它画成写着类型的虚线占位，校验报 `element.unknownType`，再装上就恢复。
+
+跨页的元素（`flow` 为 `true`）给 `prepare` 而不是 `layout`：按元素与数据给出按顺序的若干块，每块是高度（mm）与交给渲染的数据，另可给一块 `repeat`，排在每页那一段的开头（如表头）。`prepare` 收到的上下文比 `layout` 多一个 `measureText(text, style, width)`，按文字样式与可用宽度折行量出各行与总高度：
+
+<<< @/examples/snippets/extension-flow-element.ts#element
+
+- 块依次排进正文区，放不下的整块挪到下一页，与长文本、表格一样把下方的元素往下推；只有一段时高度不小于设计高度。
+- 每页一段，渲染每段调一次：排版盒的 `data` 是 `{ blocks, repeat }`，`blocks` 是这一段的那几块的数据，`repeat` 是重复块的数据（没给时为 `null`）；`fragment` 给出段序号与是不是最后一段。
+- 一块比整页正文区还高时照样放下，分页诊断报 `element.overflow`；块高度不是不小于 0 的有限数时，排版抛 `TypeError`。
+- 跨页的元素只能放在正文区，放进页眉页脚时校验报 `element.flowInBand`；设计态排成一段、按内容撑高。
 
 ### 属性编辑器
 
