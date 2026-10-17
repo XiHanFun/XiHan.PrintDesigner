@@ -150,7 +150,7 @@ declare function shouldFallBack(error: unknown): boolean
 
 ### ClientPrintOptions {#clientprintoptions}
 
-交给客户端的打印选项。
+交给客户端的打印选项。纸张不在选项里：每组输出页按模板里的纸张尺寸下发；原始指令的纸张由指令自己决定。
 
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
