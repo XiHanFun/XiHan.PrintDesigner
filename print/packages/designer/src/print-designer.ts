@@ -130,16 +130,27 @@ export type PrintSchemaChangeKind = 'execute' | 'undo' | 'redo' | 'load'
 
 /** 设计器派发的事件；x / y 为浏览器视口坐标。 */
 export interface PrintDesignerEventMap {
+  /** 模板变了：schema 为变化后的模板，operations 为实际应用的操作；一次拖动、一次属性编辑等事务提交时合成一次，宿主装载新模板时 kind 为 load、operations 为空。 */
   'schema-change': CustomEvent<{ schema: PrintDocument, operations: readonly PrintOperation[], kind: PrintSchemaChangeKind }>
+  /** 选择变了，detail 为当前选择。 */
   'selection-change': CustomEvent<PrintSelection>
+  /** 是否有未保存的修改变了。 */
   'dirty-change': CustomEvent<{ dirty: boolean }>
+  /** 模板改动或登记表、表达式引擎换了之后重新校验，detail 为全部校验问题。 */
   'issues-change': CustomEvent<{ issues: readonly ValidationIssue[] }>
+  /** 视口变了，取值同 getViewport()。 */
   'viewport-change': CustomEvent<{ viewport: Viewport }>
+  /** 设计态下焦点在设计器里（输入框与面板之外）时按了 Ctrl / ⌘ + S；设计器不保存，宿主保存后调用 markSaved()。 */
   'save': CustomEvent<Record<string, never>>
+  /** 双击元素；双击表格时同时进入表格编辑态。 */
   'element-dblclick': CustomEvent<{ id: string }>
+  /** 在元素上打开右键菜单，未选中的元素先被选中；可取消，取消后不弹设计器自带的菜单。 */
   'element-contextmenu': CustomEvent<{ id: string, x: number, y: number }>
+  /** 在画布空白处打开右键菜单；可取消，取消后不弹设计器自带的菜单。 */
   'blank-contextmenu': CustomEvent<{ x: number, y: number }>
+  /** 当前页面模板变了。 */
   'page-change': CustomEvent<{ pageId: string }>
+  /** 在设计态与预览态之间切换了。 */
   'mode-change': CustomEvent<{ mode: PrintDesignerMode }>
 }
 
@@ -451,7 +462,9 @@ export class XhPrintDesigner extends XhReactiveElement {
   declare measurer: TextMeasurer | undefined
   /** 本地打印客户端：给了时打印先交给它静默打印，连不上客户端才退回浏览器打印。 */
   declare printClient: PrintClient | undefined
+  /** 交给格式化器的区域，只决定小数点与千分位符号；同名 attribute。 */
   declare locale: string | undefined
+  /** 交给格式化器的时区：`UTC`、`±HH:mm` 或 IANA 名称；attribute 为 time-zone。 */
   declare timeZone: string | undefined
   /** 元素自己的文案，压在全局配置之上。 */
   declare translations: Partial<PrintDesignerTranslations> | undefined
@@ -557,10 +570,12 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#editor.setActivePage(value)
   }
 
+  /** 是否有可以撤销的修改。 */
   get canUndo(): boolean {
     return this.#editor.history.canUndo
   }
 
+  /** 是否有可以重做的修改。 */
   get canRedo(): boolean {
     return this.#editor.history.canRedo
   }
@@ -640,10 +655,12 @@ export class XhPrintDesigner extends XhReactiveElement {
     return this.#editor.execute(operations, options)
   }
 
+  /** 撤销一步；没有可撤销的修改时返回 false。 */
   undo(): boolean {
     return this.#editor.undo()
   }
 
+  /** 重做一步；没有可重做的修改时返回 false。 */
   redo(): boolean {
     return this.#editor.redo()
   }
@@ -662,39 +679,48 @@ export class XhPrintDesigner extends XhReactiveElement {
     return this.#editor.addElement(type, { x: placed.x, y: placed.y, region: options.region ?? this.#regionAt(center) })
   }
 
+  /** 替换当前选择；不在当前页面模板正文与当前显示的页眉页脚变体里的元素会被忽略。 */
   select(selection: Partial<PrintSelection>): void {
     this.#editor.select(selection)
   }
 
+  /** 当前选择。 */
   getSelection(): PrintSelection {
     return this.#editor.selection
   }
 
+  /** 删除选中的元素；只读或没有选中时返回 false。 */
   deleteSelection(): boolean {
     return !this.readonly && this.#editor.deleteSelection()
   }
 
+  /** 复制选中的元素；没有选中时返回 undefined。 */
   copy(): PrintClipboard | undefined {
     return this.#editor.copy()
   }
 
+  /** 复制并删除选中的元素；只读或没有选中时返回 undefined。 */
   cut(): PrintClipboard | undefined {
     return this.readonly ? undefined : this.#editor.cut()
   }
 
+  /** 粘贴到当前页面模板并选中粘贴出的元素；缺省用最近一次复制的内容，连续粘贴依次错开。只读时不粘贴。 */
   paste(clipboard?: PrintClipboard): PrintSelection {
     return this.readonly ? this.#editor.selection : this.#editor.paste(clipboard)
   }
 
+  /** 复制选中的元素并立即粘贴，不改动剪贴板；只读时什么都不做。 */
   duplicate(): PrintSelection {
     return this.readonly ? this.#editor.selection : this.#editor.duplicate()
   }
 
+  /** 对齐选中的元素；少于两个或只读时什么都不做。 */
   align(mode: AlignMode): void {
     if (!this.readonly)
       this.#editor.align(mode)
   }
 
+  /** 等距分布选中的元素；少于三个或只读时什么都不做。 */
   distribute(axis: DistributeAxis): void {
     if (!this.readonly)
       this.#editor.distribute(axis)
@@ -729,10 +755,12 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#fitIfPending()
   }
 
+  /** 以视口中心放大一档。 */
   zoomIn(): void {
     this.#zoomAtCenter(ZOOM_STEP)
   }
 
+  /** 以视口中心缩小一档。 */
   zoomOut(): void {
     this.#zoomAtCenter(1 / ZOOM_STEP)
   }
