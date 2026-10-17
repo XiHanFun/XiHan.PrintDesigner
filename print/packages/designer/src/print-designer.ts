@@ -1367,7 +1367,9 @@ export class XhPrintDesigner extends XhReactiveElement {
       }
       const rect = region === 'header' ? headerRect : footerRect
       const menu = createAuthoredElement(doc, 'xh-menu', { 'size': 'sm', 'data-part': 'band-menu', 'data-region': region }, [
-        createAuthoredElement(doc, 'button', { 'data-xh-part': 'trigger', 'type': 'button', 'aria-label': t.bandVariant(region) }, [`${t.regions[region]} · ${t.bandVariants[current]}`]),
+        createAuthoredElement(doc, 'xh-button', { 'data-xh-part': 'trigger', 'variant': 'subtle', 'size': 'sm' }, [
+          createAuthoredElement(doc, 'button', { 'data-xh-part': 'root', 'type': 'button', 'aria-label': t.bandVariant(region) }, [`${t.regions[region]} · ${t.bandVariants[current]}`]),
+        ]),
         createAuthoredElement(doc, 'div', { 'data-xh-part': 'positioner' }, [createAuthoredElement(doc, 'div', { 'data-xh-part': 'content' }, items)]),
       ])
       menu.style.top = `${rect.y}mm`
