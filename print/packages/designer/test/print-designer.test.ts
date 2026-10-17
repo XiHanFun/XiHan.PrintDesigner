@@ -14,32 +14,11 @@ import type { XhPrintDesigner } from '../src'
 import { createDocument, createElementRegistry, createPage } from '@xihan-print/core'
 import { printZhCN } from '@xihan-print/runtime/locale'
 import { CLIPBOARD_FORMAT, clipboardMimeType } from '@xihan-ui/designer-kit'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { definePrintDesigner } from '../src'
 
 const registry = createElementRegistry()
 const PX_PER_MM = 96 / 25.4
-
-// jsdom 不排版：属性面板的多行输入框按计算样式与 scrollHeight 自动调高，这里按浏览器的初始值与一行 16 像素补上
-const LAYOUT_DEFAULTS: Readonly<Record<string, string>> = {
-  'writing-mode': 'horizontal-tb',
-  'box-sizing': 'content-box',
-  'max-block-size': 'none',
-  'padding-top': '0px',
-  'padding-bottom': '0px',
-  'border-top-width': '0px',
-  'border-bottom-width': '0px',
-}
-const computedStyle = window.getComputedStyle.bind(window)
-vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudo) => {
-  const style = computedStyle(element, pseudo)
-  return new Proxy(style, {
-    get: (target, key) => key === 'getPropertyValue'
-      ? (name: string): string => target.getPropertyValue(name) || LAYOUT_DEFAULTS[name] || ''
-      : typeof Reflect.get(target, key) === 'function' ? (Reflect.get(target, key) as (...args: unknown[]) => unknown).bind(target) : Reflect.get(target, key),
-  })
-})
-Object.defineProperty(HTMLTextAreaElement.prototype, 'scrollHeight', { configurable: true, get: () => 16 })
 
 const measurer: TextMeasurer = {
   version: 0,
