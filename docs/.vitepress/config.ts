@@ -32,6 +32,7 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
       { text: '数据绑定与格式化', link: '/guide/binding' },
       { text: '运行时', link: '/guide/runtime' },
       { text: '设计器', link: '/guide/designer' },
+      { text: '打印客户端', link: '/guide/client' },
     ],
   },
 ]
