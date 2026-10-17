@@ -41,7 +41,6 @@ export type NumberControl = Extract<KitPropertyControl, { kind: 'number' }> & { 
 export type PropertyControl
   = | Exclude<KitPropertyControl, { kind: 'number' }>
     | NumberControl
-    | { kind: 'field', target: 'value' | 'list' }
     | { kind: 'textContent' }
     | { kind: 'richTextContent' }
     | { kind: 'imageSource' }

@@ -262,7 +262,7 @@ function tablePrototype(): ElementPrototype<TableElement> {
     },
     properties: [
       ...layoutProperties({ rotation: false }),
-      property(['dataField'], 'data', { kind: 'field', target: 'list' }),
+      property(['dataField'], 'data', { kind: 'dataField', kinds: ['list'] }),
       property(['columns'], 'table', { kind: 'tableColumns' }),
       ...nestProperties(['header'], tableHeaderProperties()),
       ...nestProperties(['body'], tableBodyProperties()),

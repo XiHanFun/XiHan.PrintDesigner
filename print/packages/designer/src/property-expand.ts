@@ -8,16 +8,16 @@
 // 个别分项改动时要连带改别处（如改纸张宽高时去掉预设），也在写入时换成一组修改。
 // 文本内容、富文本内容、单元格内容与图片来源先选来源种类，再按种类显示对应输入，切换种类时整体换成该种类的缺省对象；
 // 富文本写死的文档在面板上不能编辑，只能切换来源；
-// 绑定字段在给了字段树时是平铺的下拉，值格式暂用 JSON 文本框；二维码纠错级别按码制显示下拉或数字。
+// 内容里的绑定字段用属性面板内建的 dataField，值格式暂用 JSON 文本框；二维码纠错级别按码制显示下拉或数字。
 
 import type { PropertyChange, PropertyDescriptor } from '@xihan-print/core'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
-import type { DataField, DataFieldKind } from '@xihan-ui/designer-kit'
+import type { DataFieldKind } from '@xihan-ui/designer-kit'
 import type { PropertyCondition, PropertyControl } from '@xihan-ui/designer-kit/properties'
 import type { DesignerPropertyDescriptor } from '@xihan-ui/designer-shell'
 import { AGGREGATE_FUNCTIONS, AGGREGATE_SCOPES, createPaper, HORIZONTAL_ALIGNS, RICH_TEXT_SOURCES, STROKE_STYLES, VERTICAL_ALIGNS } from '@xihan-print/core'
 import { formatJsonPath, getJsonAt } from '@xihan-ui/core/json'
-import { listDataFields, PAPER_PRESET_NAMES } from '@xihan-ui/designer-kit'
+import { PAPER_PRESET_NAMES } from '@xihan-ui/designer-kit'
 import { MATRIX_CODE_LEVEL_RANGES, QR_LEVELS } from '@xihan-ui/headless'
 
 /** 面板上读写、模板里没有的值放在编辑对象的这个键下。 */
@@ -52,9 +52,8 @@ export interface ExpandedProperties {
   readonly write: (value: JsonValue, path: JsonPath, next: JsonValue | undefined) => PropertyChange[]
 }
 
-/** 拆分时用到的数据：字段树，以及表格列与表尾汇总的字段相对的数组字段路径。 */
+/** 拆分时用到的数据：表格列与表尾汇总的字段相对的数组字段路径。 */
 export interface ExpandContext {
-  readonly fields?: readonly DataField[]
   readonly rowBase?: JsonPath
 }
 
@@ -135,12 +134,9 @@ function strokeParts(base: PropertyDescriptor, path: JsonPath, labelParent: stri
 
 const SIDES = ['top', 'right', 'bottom', 'left'] as const
 
-/** 绑定字段的编辑方式：给了字段树时是平铺的下拉（选项名为字段名加路径，选项再少也不换成切换按钮组），否则是文本框。 */
-function fieldControl(context: ExpandContext, kinds: readonly DataFieldKind[], base?: JsonPath): PropertyControl {
-  if (context.fields === undefined)
-    return { kind: 'text' }
-  const entries = listDataFields(context.fields, { kinds, ...(base === undefined ? {} : { base }) })
-  return { kind: 'select', appearance: 'dropdown', options: entries.map(entry => ({ value: entry.text, label: entry.field.label === undefined ? entry.text : `${entry.field.label} (${entry.text})` })) }
+/** 绑定字段：只能选 kinds 里的字段，给了 base 时路径相对它。 */
+function fieldControl(kinds: readonly DataFieldKind[], base?: JsonPath): PropertyControl {
+  return { kind: 'dataField', kinds, ...(base === undefined ? {} : { base }) }
 }
 
 /** 内容的一个分项：只在 kinds 里的来源种类下显示。 */
@@ -197,10 +193,6 @@ function textParts(field: PropertyControl): ContentPart[] {
 }
 
 const EXPANDERS: Readonly<Record<string, Expander>> = {
-  field: (descriptor, context) => {
-    const control = descriptor.control as { readonly target?: string }
-    return { descriptors: [{ ...descriptor, control: fieldControl(context, control.target === 'list' ? ['list'] : ['value']) }] }
-  },
   valueFormat: descriptor => ({ descriptors: [{ ...descriptor, control: FORMAT }] }),
   matrixCodeLevel: (descriptor) => {
     const { path } = descriptor
@@ -225,23 +217,23 @@ const EXPANDERS: Readonly<Record<string, Expander>> = {
       },
     }
   },
-  textContent: (descriptor, context) => content(descriptor, TEXT_KINDS, textContent, textParts(fieldControl(context, ['value']))),
-  richTextContent: (descriptor, context) => content(
+  textContent: descriptor => content(descriptor, TEXT_KINDS, textContent, textParts(fieldControl(['value']))),
+  richTextContent: descriptor => content(
     descriptor,
     ['static', 'field'],
     (kind): JsonValue => kind === 'static' ? { kind, document: { blocks: [{ type: 'paragraph', runs: [] }] } } : { kind, field: '', source: 'html' },
     [
-      { key: 'field', control: fieldControl(context, ['value']), kinds: ['field'] },
+      { key: 'field', control: fieldControl(['value']), kinds: ['field'] },
       { key: 'source', control: { kind: 'select', options: choices(RICH_TEXT_SOURCES) }, kinds: ['field'] },
     ],
   ),
-  imageSource: (descriptor, context) => content(
+  imageSource: descriptor => content(
     descriptor,
     ['static', 'field'],
     (kind): JsonValue => kind === 'static' ? { kind, url: '' } : { kind, field: '' },
     [
       { key: 'url', control: { kind: 'text' }, kinds: ['static'] },
-      { key: 'field', control: fieldControl(context, ['value']), kinds: ['field'] },
+      { key: 'field', control: fieldControl(['value']), kinds: ['field'] },
     ],
   ),
   cellContent: (descriptor, context) => content(
@@ -249,7 +241,7 @@ const EXPANDERS: Readonly<Record<string, Expander>> = {
     ['field', 'template', 'rowNumber', 'expression'],
     kind => kind === 'rowNumber' ? { kind } : textContent(kind),
     [
-      { key: 'field', control: fieldControl(context, ['value'], context.rowBase), kinds: ['field'] },
+      { key: 'field', control: fieldControl(['value'], context.rowBase), kinds: ['field'] },
       { key: 'emptyText', control: { kind: 'text' }, kinds: ['field'] },
       { key: 'template', control: MULTILINE, kinds: ['template'] },
       { key: 'expression', control: MULTILINE, kinds: ['expression'] },
@@ -261,9 +253,9 @@ const EXPANDERS: Readonly<Record<string, Expander>> = {
     [...TEXT_KINDS, 'aggregate'],
     kind => kind === 'aggregate' ? { kind, fn: 'count', scope: 'all' } : textContent(kind),
     [
-      ...textParts(fieldControl(context, ['value'])).filter(item => item.key !== 'format'),
+      ...textParts(fieldControl(['value'])).filter(item => item.key !== 'format'),
       { key: 'fn', control: { kind: 'select', options: choices(AGGREGATE_FUNCTIONS) }, kinds: ['aggregate'] },
-      { key: 'field', control: fieldControl(context, ['value'], context.rowBase), kinds: ['aggregate'] },
+      { key: 'field', control: fieldControl(['value'], context.rowBase), kinds: ['aggregate'] },
       { key: 'scope', control: { kind: 'select', options: choices(AGGREGATE_SCOPES) }, kinds: ['aggregate'] },
       { key: 'format', control: FORMAT, kinds: ['field', 'expression', 'aggregate'] },
     ],

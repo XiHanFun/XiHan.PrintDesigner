@@ -96,7 +96,7 @@ import {
   wheelZoomFactor,
   zoomBy,
 } from '@xihan-ui/designer-kit'
-import { resolvePropertyEditor } from '@xihan-ui/designer-kit/properties'
+import { BUILTIN_CONTROL_KINDS, resolvePropertyEditor } from '@xihan-ui/designer-kit/properties'
 import {
   defineDesignerShellElement,
   parseDesignerPanels,
@@ -355,7 +355,7 @@ const PAGE_COMMANDS: readonly Command[] = ['add-page', 'remove-page', 'move-page
 const NO_GUIDES: DesignerGuides = { x: [], y: [] }
 
 /** 属性面板自带编辑器的编辑方式。 */
-const BUILTIN_CONTROLS: ReadonlySet<string> = new Set(['text', 'number', 'boolean', 'select', 'tags', 'color', 'json'])
+const BUILTIN_CONTROLS: ReadonlySet<string> = new Set(BUILTIN_CONTROL_KINDS)
 
 /** 外框的命名区：上方是工具栏与页面模板页签，左侧物料，中间画布；label 是分隔条名称里的区名。 */
 function frameRegions(t: PrintDesignerTranslations): DesignerFrameRegion[] {
@@ -1565,7 +1565,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   #syncProperties(layers: Layers, t: PrintDesignerTranslations): void {
     const panel = layers.properties
     const editors = this.#propertyEditors()
-    const subjects = propertySubjects(this.#editor, this.#tableEdit, (kind, descriptor) => resolvePropertyEditor(editors, kind, descriptor) !== undefined, this.fields)
+    const subjects = propertySubjects(this.#editor, this.#tableEdit, (kind, descriptor) => resolvePropertyEditor(editors, kind, descriptor) !== undefined)
     this.#subjects = subjects
     const kind = subjects.length > 0 && subjects.every(subject => subject.kind === subjects[0]!.kind) ? subjects[0]!.kind : ''
     const usable = (descriptor: DesignerPropertyDescriptor): boolean =>
@@ -1579,6 +1579,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       return
     this.#panelInputs = inputs
     panel.editors = editors
+    panel.dataFields = this.fields
     panel.groupOrder = kind === 'page' ? PAGE_PROPERTY_GROUPS : PROPERTY_GROUPS
     panel.groupLabel = group => t.propertyGroups[group as PropertyGroup] ?? group
     panel.labelOf = (descriptor) => {

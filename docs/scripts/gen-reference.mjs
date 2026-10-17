@@ -512,8 +512,8 @@ function describeControl(control, key) {
         const name = optionName(key, option.value)
         return name === undefined ? code(String(option.value), true) : `${code(String(option.value), true)} ${name}`
       }).join('、')
-    case 'field':
-      return control.target === 'list' ? '指向数组的字段路径' : '字段路径'
+    case 'dataField':
+      return control.kinds?.length === 1 && control.kinds[0] === 'list' ? '指向数组的字段路径' : '字段路径'
     default:
       if (COMPOSITE_KINDS[control.kind] === undefined)
         throw new Error(`[gen-reference] unknown property control kind: ${control.kind}`)

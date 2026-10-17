@@ -357,13 +357,13 @@ describe('<xh-print-designer>', () => {
     expect(designer.schema.pages[0]!.watermark!.text).toBe('样稿')
   })
 
-  it('内容类：先选来源种类再按种类显示输入，切换种类整体换成缺省对象；字段按字段树平铺成下拉，表格列从数组字段往下列', async () => {
+  it('内容类：先选来源种类再按种类显示输入，切换种类整体换成缺省对象；字段用内建的绑定字段，字段树交给面板，表格列从数组字段往下列', async () => {
     designer.fields = [
       { name: 'name', label: 'Name', kind: 'value' },
       { name: 'items', kind: 'list', children: [{ name: 'qty', kind: 'value' }] },
     ]
     const panel = designer.querySelector('xh-designer-properties')!
-    interface Target { kind: string, id: string, descriptors: readonly { path: readonly (string | number)[], control: { kind: string, options?: readonly { value: unknown, label?: string }[] }, visibleWhen?: unknown }[] }
+    interface Target { kind: string, id: string, descriptors: readonly { path: readonly (string | number)[], control: { kind: string, options?: readonly { value: unknown, label?: string }[], kinds?: readonly string[], base?: readonly (string | number)[] }, visibleWhen?: unknown }[] }
     const target = (): Target => panel.targets![0]! as unknown as Target
     const find = (path: string): Target['descriptors'][number] => target().descriptors.find(descriptor => descriptor.path.join('.') === path)!
     const change = (path: (string | number)[], value: unknown): void => {
@@ -373,20 +373,20 @@ describe('<xh-print-designer>', () => {
     designer.select({ elements: ['a'] })
     await designer.updateComplete
     expect(find('content.kind').control.options!.map(option => option.value)).toEqual(['static', 'field', 'template', 'expression'])
-    expect(find('content.field').control.options).toEqual([{ value: 'name', label: 'Name (name)' }])
-    expect(find('content.field').control).toMatchObject({ kind: 'select', appearance: 'dropdown' })
+    expect(find('content.field').control).toEqual({ kind: 'dataField', kinds: ['value'] })
+    expect(panel.dataFields).toBe(designer.fields)
     expect([panel.labelOf!(find('content.kind') as never), panel.labelOf!(find('content.template') as never)]).toEqual(['Content', 'Content · Template'])
     change(['content', 'kind'], 'template')
     expect(designer.schema.pages[0]!.elements[0]).toMatchObject({ content: { kind: 'template', template: '' } })
 
     designer.select({ elements: ['t'] })
     await designer.updateComplete
-    expect(find('dataField').control.options!.map(option => option.value)).toEqual(['items'])
+    expect(find('dataField').control).toEqual({ kind: 'dataField', kinds: ['list'] })
     key('Enter')
     const table = designer.schema.pages[0]!.elements[1] as { columns: { id: string }[] }
     designer.select({ elements: ['t'], tablePart: { kind: 'column', elementId: 't', columnId: table.columns[0]!.id } })
     await designer.updateComplete
-    expect(find('content.field').control.options!.map(option => option.value)).toEqual(['qty'])
+    expect(find('content.field').control).toEqual({ kind: 'dataField', kinds: ['value'], base: ['items'] })
   })
 
   it('富文本：画布按设计态排出的行画出，字段显示 {path} 占位；面板只切来源，字段来源再选字段与内容格式', async () => {
