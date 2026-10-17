@@ -144,14 +144,14 @@ interface ContentPart {
   readonly kinds: readonly string[]
 }
 
-/** 来源种类加各种类的分项；切换种类时整体换成 create 给出的缺省对象。 */
+/** 来源种类加各种类的分项；切换种类时整体换成 create 给出的缺省对象。种类超过三种时用下拉，不用切换按钮组。 */
 function content(descriptor: PropertyDescriptor, kinds: readonly string[], create: (kind: string) => JsonValue, parts: readonly ContentPart[]): Expansion {
   const { path } = descriptor
   const parent = formatJsonPath(path)
   const kind = [...path, 'kind']
   return {
     descriptors: [
-      part(descriptor, kind, { kind: 'select', options: choices(kinds) }, parent),
+      part(descriptor, kind, { kind: 'select', options: choices(kinds), ...(kinds.length > 3 ? { appearance: 'dropdown' as const } : {}) }, parent),
       ...parts.map(item => part(descriptor, [...path, item.key], item.control, `content/${item.key}`, { path: kind, oneOf: [...item.kinds] }, parent)),
     ],
     writes: {

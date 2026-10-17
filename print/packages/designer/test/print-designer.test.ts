@@ -373,6 +373,7 @@ describe('<xh-print-designer>', () => {
     designer.select({ elements: ['a'] })
     await designer.updateComplete
     expect(find('content.kind').control.options!.map(option => option.value)).toEqual(['static', 'field', 'template', 'expression'])
+    expect((find('content.kind').control as { appearance?: string }).appearance).toBe('dropdown')
     expect(find('content.field').control).toEqual({ kind: 'dataField', kinds: ['value'] })
     expect(panel.dataFields).toBe(designer.fields)
     expect([panel.labelOf!(find('content.kind') as never), panel.labelOf!(find('content.template') as never)]).toEqual(['Content', 'Content · Template'])

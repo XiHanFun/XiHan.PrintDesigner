@@ -199,7 +199,7 @@ function pageNumberPrototype(): ElementPrototype<PageNumberElement> {
     properties: [
       ...layoutProperties({ rotation: false }),
       property(['format'], 'content', { kind: 'pageNumberFormat' }),
-      property(['numeral'], 'content', { kind: 'select', options: choices(NUMERAL_STYLES) }, { optional: true }),
+      property(['numeral'], 'content', { kind: 'select', options: choices(NUMERAL_STYLES), appearance: 'dropdown' }, { optional: true }),
       ...textStyleProperties(),
       ...boxProperties(),
       ...behaviorProperties(),
