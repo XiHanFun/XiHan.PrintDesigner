@@ -159,6 +159,7 @@
 
 <<< @/examples/templates/delivery.ts#body
 
+表格跨页的规则见[运行时](./runtime#表格)。
 
 ## 校验
 

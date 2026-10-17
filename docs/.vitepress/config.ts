@@ -29,6 +29,8 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
     collapsed: false,
     items: [
       { text: '模板结构', link: '/guide/template' },
+      { text: '数据绑定与格式化', link: '/guide/binding' },
+      { text: '运行时', link: '/guide/runtime' },
     ],
   },
 ]
