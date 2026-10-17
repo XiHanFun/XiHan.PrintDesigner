@@ -8,7 +8,7 @@
 // 个别分项改动时要连带改别处（如改纸张宽高时去掉预设），也在写入时换成一组修改。
 // 文本内容、富文本内容、单元格内容与图片来源先选来源种类，再按种类显示对应输入，切换种类时整体换成该种类的缺省对象；
 // 富文本写死的文档在面板上不能编辑，只能切换来源；
-// 内容里的绑定字段用属性面板内建的 dataField，值格式暂用 JSON 文本框；二维码纠错级别按码制显示下拉或数字。
+// 内容里的绑定字段用属性面板内建的 dataField，值格式交给设计器自带的值格式编辑器；二维码纠错级别按码制显示下拉或数字。
 
 import type { PropertyChange, PropertyDescriptor } from '@xihan-print/core'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
@@ -68,7 +68,7 @@ function both(first: PropertyCondition | undefined, second: PropertyCondition): 
 }
 
 /** 由原描述派生一项：路径、编辑方式与文案键换掉，分组、显示条件沿用原描述，可再加一个显示条件。 */
-function part(base: PropertyDescriptor, path: JsonPath, control: PropertyControl, labelKey: string, when?: PropertyCondition, labelParent?: string): ExpandedDescriptor {
+function part(base: PropertyDescriptor, path: JsonPath, control: ExpandedDescriptor['control'], labelKey: string, when?: PropertyCondition, labelParent?: string): ExpandedDescriptor {
   const visibleWhen = when === undefined ? base.visibleWhen : both(base.visibleWhen, when)
   return {
     path,
@@ -140,7 +140,7 @@ function fieldControl(kinds: readonly DataFieldKind[], base?: JsonPath): Propert
 /** 内容的一个分项：只在 kinds 里的来源种类下显示。 */
 interface ContentPart {
   readonly key: string
-  readonly control: PropertyControl
+  readonly control: ExpandedDescriptor['control']
   readonly kinds: readonly string[]
 }
 
@@ -161,7 +161,7 @@ function content(descriptor: PropertyDescriptor, kinds: readonly string[], creat
 }
 
 const MULTILINE: PropertyControl = { kind: 'text', multiline: true }
-const FORMAT: PropertyControl = { kind: 'json' }
+const FORMAT = { kind: 'valueFormat' } as const
 
 /** 文本内容的种类与缺省对象。 */
 const TEXT_KINDS = ['static', 'field', 'template', 'expression'] as const
@@ -191,7 +191,6 @@ function textParts(field: PropertyControl): ContentPart[] {
 }
 
 const EXPANDERS: Readonly<Record<string, Expander>> = {
-  valueFormat: descriptor => ({ descriptors: [{ ...descriptor, control: FORMAT }] }),
   matrixCodeLevel: (descriptor) => {
     const { path } = descriptor
     const format = [...path.slice(0, -1), 'format']

@@ -197,6 +197,11 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `pageSettings` | `string` | 属性面板在没有选中时编辑页面设置，标题下的一行。 |
 | `pageNumberInsert` | `string` | 页码格式编辑器里插入变量的菜单按钮。 |
 | `pageNumberTokens` | `Readonly<{ page: string, pages: string }>` | 页码格式里能插入的两个变量：当前页码与总页数。 |
+| `valueFormatKind` | `string` | 值格式编辑器里种类下拉的名字。 |
+| `valueFormatKinds` | `Readonly<{ none: string, format: string, map: string, expression: string }>` | 值格式的种类：不设格式、常用格式（数字、百分比、日期、人民币大写、数字字形）、值映射、表达式。 |
+| `valueMapColumns` | `Readonly<{ value: string, text: string }>` | 值映射表的两列：数据值与显示文本。 |
+| `valueMapAdd` | `string` | 值映射表下面添加一项的按钮。 |
+| `valueMapFallback` | `string` | 值映射里没有命中任何一项时显示的文本。 |
 
 | 方法 | 说明 |
 | --- | --- |
@@ -211,6 +216,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `propertyPart(parent: string, part: string): string` | 复合属性拆开后分项的名字，如「页边距 · 上」。 |
 | `selectedCount(count: number): string` | 属性面板在选中多个元素时标题下的一行。 |
 | `pageNumberSample(text: string): string` | 页码格式的示例，入参是按第 1 页、共 3 页填好的文字。 |
+| `valueMapCell(index: number, column: string): string` | 值映射表里一格的名字，index 从 1 起，column 是列名。 |
 
 ## 编辑模型
 

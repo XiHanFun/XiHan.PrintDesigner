@@ -159,7 +159,7 @@ const PROPERTY_NAMES: Readonly<Record<string, string>> = {
   'content/emptyText': '空值时显示',
   'content/template': '模板',
   'content/expression': '表达式',
-  'content/format': '格式（JSON）',
+  'content/format': '格式',
   'content/url': '地址',
   'content/source': '内容格式',
   'content/fn': '汇总方式',
@@ -486,6 +486,12 @@ const designer: PrintDesignerTranslations = {
   pageNumberInsert: '插入',
   pageNumberTokens: { page: '当前页码', pages: '总页数' },
   pageNumberSample: text => `示例：${text}`,
+  valueFormatKind: '格式种类',
+  valueFormatKinds: { none: '不设格式', format: '常用格式', map: '值映射', expression: '表达式' },
+  valueMapColumns: { value: '数据值', text: '显示文本' },
+  valueMapCell: (index, column) => `第 ${index} 项${column}`,
+  valueMapAdd: '添加一项',
+  valueMapFallback: '没有命中时显示',
 }
 
 /** 打印预览与设计器的中文文案。 */
