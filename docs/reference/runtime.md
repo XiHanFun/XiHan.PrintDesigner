@@ -162,6 +162,15 @@ print() 的选项：浏览器打印时的标题，以及交给本地打印客户
 | `PrintRuntimeExtension` | 接口 | 打印运行时层的扩展：core 层的全部字段，加上扩展元素的渲染。 |
 | `PrintRuntimeModel` | 接口 | 运行时用的打印模型：core 的模型加上各元素类型的渲染。 |
 
+### merge
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `MergedPaginationDiagnostic` | 类型 | 合并结果里的一条诊断：原样带着，另记它来自第几份结果。 |
+| `MergedPaginationPart` | 接口 | 一份结果在合并结果里占的输出页。 |
+| `MergedPaginationResult` | 接口 | 合并后的分页结果。 |
+| `mergePaginationResults` | 函数 | 按顺序把几份分页结果接成一份。 |
+
 ### options
 
 | 名称 | 种类 | 说明 |
