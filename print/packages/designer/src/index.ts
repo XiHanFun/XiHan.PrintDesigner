@@ -17,7 +17,7 @@ export type {
   PrintSelectMode,
   PrintTablePart,
 } from './editor'
-export { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID } from './extensions'
-export type { PrintDesignerContext, PrintDesignerExtension, PrintDesignerModel, PrintPaletteEntry } from './extensions'
+export { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_PAGE_COMMANDS, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
+export type { PrintDesignerCommand, PrintDesignerContext, PrintDesignerExtension, PrintDesignerModel, PrintMenuSubject, PrintPaletteEntry } from './extensions'
 export { definePrintDesigner, PRINT_DESIGNER_TAG, XhPrintDesigner } from './print-designer'
 export type { PrintDesignerEventMap, PrintDesignerMode, PrintSchemaChangeKind } from './print-designer'

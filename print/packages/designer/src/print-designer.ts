@@ -8,7 +8,8 @@
 // 画布外有毫米标尺，从标尺拖出的参考线存进页面模板；右侧属性面板编辑选中元素、表格部位或页面设置，
 // 下方问题列表点选即定位；页眉页脚可切换变体、拖边界改高度；
 // 双击表格进入表格编辑态；键盘撤销重做、删除、微移、层级与系统剪贴板；可切到 <xh-print-preview> 预览与打印。
-// 整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区。
+// 整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区。工具栏、右键菜单与快捷键都走扩展合出的命令表，
+// 内置命令是设计器自带的扩展的一部分，排列可由 commandLayout 改写。
 
 import type {
   DesignLayout,
@@ -34,6 +35,8 @@ import type { JsonValue } from '@xihan-ui/core/json'
 import type { AlignMode, DataField, DistributeAxis, ExecuteOptions, ExtensionHost, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
 import type {
+  CommandToolbar,
+  DesignerCommandLayout,
   DesignerFrameRegion,
   DesignerGuides,
   DesignerIssueItem,
@@ -57,7 +60,7 @@ import type { PointerSession } from '@xihan-ui/pointer'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { PrintClipboard, PrintSelection, PrintTablePart } from './editor'
-import type { PrintDesignerContext, PrintDesignerExtension, PrintDesignerModel } from './extensions'
+import type { PrintDesignerCommand, PrintDesignerContext, PrintDesignerExtension, PrintDesignerModel, PrintMenuSubject } from './extensions'
 import type { CompositeEditorHost } from './property-editors'
 import type { ExpandedDescriptor } from './property-expand'
 import type { PropertySubject } from './property-targets'
@@ -78,11 +81,13 @@ import {
   validateDocument,
 } from '@xihan-print/core'
 import { definePrintPreview, PRINT_PREVIEW_TAG, renderBox, renderWatermark } from '@xihan-print/runtime'
+import { detectKbdPlatform } from '@xihan-ui/core/hotkey'
 import { formatJsonPath } from '@xihan-ui/core/json'
 import { fillTextTemplate } from '@xihan-ui/core/template'
 import {
   centerOn,
   clipboardMimeType,
+  commandForShortcut,
   createExtensionHost,
   decodeClipboard,
   encodeClipboard,
@@ -100,9 +105,13 @@ import {
 } from '@xihan-ui/designer-kit'
 import { BUILTIN_CONTROL_KINDS, resolvePropertyEditor } from '@xihan-ui/designer-kit/properties'
 import {
+  arrangeCommands,
+  createCommandToolbar,
   defineDesignerShellElement,
   parseDesignerPanels,
   registerDropTarget,
+  renderCommandMenu,
+  runCommand,
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
   XhDesignerPaletteElement,
@@ -113,15 +122,15 @@ import {
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
-import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, setText, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
+import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhExpressionInputElement, XhFieldArrayElement, XhFieldElement, XhFormatInputElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createPrintEditor, elementRect } from './editor'
-import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID } from './extensions'
+import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_PAGE_COMMANDS, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
 import { defaultIssueText } from './issue-text'
 import { borderSidesEditor, valueFormatEditor } from './property-editors'
 import { propertySubjects, TABLE_PART_KINDS } from './property-targets'
 import { PROPERTY_GROUP_NAMES, PROPERTY_NAMES, PROPERTY_OPTION_NAMES, UNIT_NAMES } from './property-text'
-import { columnBoundaries, planTableCommand, TABLE_COMMANDS, tablePartAt } from './table-edit'
+import { columnBoundaries, planTableCommand, tablePartAt } from './table-edit'
 
 /** 设计器的标签名。 */
 export const PRINT_DESIGNER_TAG = 'xh-print-designer'
@@ -152,6 +161,8 @@ export interface PrintDesignerEventMap {
   'element-contextmenu': CustomEvent<{ id: string, x: number, y: number }>
   /** 在画布空白处打开右键菜单；可取消，取消后不弹设计器自带的菜单。 */
   'blank-contextmenu': CustomEvent<{ x: number, y: number }>
+  /** 在表格编辑态里打开右键菜单，右键处的表格部位先被选中；可取消，取消后不弹设计器自带的菜单。 */
+  'table-contextmenu': CustomEvent<{ id: string, part: PrintTablePart, x: number, y: number }>
   /** 当前页面模板变了。 */
   'page-change': CustomEvent<{ pageId: string }>
   /** 在设计态与预览态之间切换了。 */
@@ -276,7 +287,7 @@ const DEFAULT_TRANSLATIONS: PrintDesignerTranslations = {
 
 type StringKey = { [K in keyof PrintDesignerTranslations]: PrintDesignerTranslations[K] extends string ? K : never }[keyof PrintDesignerTranslations]
 
-/** 工具栏与右键菜单共用的命令。 */
+/** 设计器自带的命令。 */
 type Command
   = | 'undo' | 'redo' | 'cut' | 'copy' | 'paste' | 'duplicate' | 'delete' | 'select-all'
     | 'align-left' | 'align-center' | 'align-right' | 'align-top' | 'align-middle' | 'align-bottom'
@@ -351,16 +362,26 @@ const LABELS: Readonly<Record<Command, StringKey>> = {
   'split-cell': 'splitCell',
 }
 
-const TOOLBAR_GROUPS: readonly (readonly Command[])[] = [
-  ['undo', 'redo'],
-  ['cut', 'copy', 'paste', 'duplicate', 'delete'],
-  ['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom', 'distribute-horizontal', 'distribute-vertical'],
-  ['bring-to-front', 'bring-forward', 'send-backward', 'send-to-back'],
-  ['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual', 'grid', 'snap'],
-  ['design', 'preview', 'print'],
-]
+/** 内置命令的快捷键；+、= 放大与 Backspace 删除这些别名由按键处理直接接住。 */
+const SHORTCUTS: Readonly<Partial<Record<Command, readonly string[]>>> = {
+  'undo': ['Mod', 'Z'],
+  'redo': ['Mod', 'Shift', 'Z'],
+  'select-all': ['Mod', 'A'],
+  'duplicate': ['Mod', 'D'],
+  'delete': ['Delete'],
+  'bring-forward': ['Mod', ']'],
+  'bring-to-front': ['Mod', 'Shift', ']'],
+  'send-backward': ['Mod', '['],
+  'send-to-back': ['Mod', 'Shift', '['],
+  'zoom-out': ['-'],
+  'zoom-to-fit': ['0'],
+}
 
-const PAGE_COMMANDS: readonly Command[] = ['add-page', 'remove-page', 'move-page-left', 'move-page-right']
+/** 开关式的内置命令。 */
+const TOGGLES: ReadonlySet<Command> = new Set<Command>(['grid', 'snap', 'design', 'preview'])
+
+/** 设计器占用的 Ctrl / ⌘ 组合的主键：对应命令此刻不可用时也不交给浏览器。 */
+const RESERVED_COMMAND_KEYS: ReadonlySet<string> = new Set(['z', 'a', 'd', '[', ']'])
 
 const NO_GUIDES: DesignerGuides = { x: [], y: [] }
 
@@ -389,9 +410,9 @@ interface Layers {
   readonly issues: XhDesignerIssuesElement
   readonly properties: XhDesignerPropertiesElement
   readonly toolbar: HTMLElement
-  readonly toolbarRoot: HTMLElement
-  readonly items: Map<Command, HTMLButtonElement>
+  readonly commandBar: CommandToolbar<PrintDesignerContext>
   readonly pages: HTMLElement
+  readonly pageBar: CommandToolbar<PrintDesignerContext>
   readonly workspace: HTMLElement
   readonly menu: HTMLElement
   readonly ruler: XhDesignerRulerElement
@@ -438,10 +459,6 @@ function categoryName(t: PrintDesignerTranslations, model: PrintDesignerModel, c
   return Object.hasOwn(t.categories, category) ? t.categories[category as ElementCategory] : model.categories.get(category) ?? category
 }
 
-function isCommand(value: string): value is Command {
-  return Object.hasOwn(LABELS, value)
-}
-
 function rectStyle(element: HTMLElement, rect: Rect): void {
   element.style.left = `${rect.x}mm`
   element.style.top = `${rect.y}mm`
@@ -467,6 +484,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     snap: { attribute: false },
     panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     printClient: { attribute: false },
+    commandLayout: { attribute: false },
   }
 
   /** 预览分页用的数据。 */
@@ -499,13 +517,18 @@ export class XhPrintDesigner extends XhReactiveElement {
   declare snap: boolean
   /** 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。 */
   declare panels: string | undefined
+  /**
+   * 工具栏与右键菜单的排列：位置（toolbar、menu:blank、menu:element、menu:table）→ 若干组命令 id，内置与扩展的命令可以混排。
+   * 写了某个位置就只显示列出的命令；写了没登记的命令 id 时抛 TypeError。
+   */
+  declare commandLayout: DesignerCommandLayout | undefined
   readonly #config = new XhConfigController(this)
   readonly #editor = createPrintEditor({ document: createDocument() })
   #extensions: readonly PrintDesignerExtension[] | undefined
   #builtin: PrintDesignerExtension | undefined
   #designerModel: PrintDesignerModel | undefined
   readonly #host: ExtensionHost<PrintDesignerExtension> = createExtensionHost<PrintDesignerExtension, PrintDesignerContext>({
-    context: () => ({ designer: this, translations: this.#translations() }),
+    context: () => this.#context(),
   })
 
   #layers: Layers | undefined
@@ -534,6 +557,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   #panelInputs: readonly unknown[] = []
   #unregisterDrop: (() => void) | undefined
   #hoverId: string | undefined
+  #platform: 'mac' | 'other' | undefined
 
   constructor() {
     super()
@@ -866,7 +890,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     return this.#designerModel
   }
 
-  /** 设计器自带的扩展：表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 */
+  /** 设计器自带的扩展：内置命令，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 */
   #builtinExtension(): PrintDesignerExtension {
     if (this.#builtin !== undefined)
       return this.#builtin
@@ -879,6 +903,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     }
     this.#builtin = {
       id: PRINT_DESIGNER_EXTENSION_ID,
+      commands: this.#builtinCommands(),
       editors: {
         byControl: {
           tableColumns: this.#partList('column'),
@@ -890,6 +915,31 @@ export class XhPrintDesigner extends XhReactiveElement {
       },
     }
     return this.#builtin
+  }
+
+  /** 设计器自带的命令：可用与否、选中状态与执行都取设计器此刻的状态。 */
+  #builtinCommands(): PrintDesignerCommand[] {
+    return (Object.keys(LABELS) as Command[]).map((id): PrintDesignerCommand => {
+      const shortcut = SHORTCUTS[id]
+      return {
+        id,
+        label: ({ translations }) => translations[LABELS[id]],
+        ...(shortcut === undefined ? {} : { shortcut }),
+        ...(TOGGLES.has(id) ? { checked: () => this.#commandChecked(id) } : {}),
+        enabled: () => this.#commandEnabled(id),
+        run: () => this.#run(id),
+      }
+    })
+  }
+
+  /** 交给命令与扩展 setup 的上下文。 */
+  #context(): PrintDesignerContext {
+    return { designer: this, translations: this.#translations() }
+  }
+
+  #kbdPlatform(): 'mac' | 'other' {
+    this.#platform ??= detectKbdPlatform()
+    return this.#platform
   }
 
   #engine(): ExpressionEngine {
@@ -1101,23 +1151,10 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (this.#layers?.frame.parentElement === this)
       return this.#layers
     const doc = this.ownerDocument
-    const items = new Map<Command, HTMLButtonElement>()
-    const groups: HTMLElement[] = []
-    TOOLBAR_GROUPS.forEach((group, index) => {
-      if (index > 0)
-        groups.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'separator' }))
-      groups.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'group' }, group.map((command) => {
-        const item = createAuthoredElement(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': command })
-        items.set(command, item)
-        return item
-      })))
-    })
-    groups.push(createAuthoredElement(doc, 'button', { 'data-xh-part': 'overflow-trigger', 'type': 'button' }))
-    const toolbarRoot = createAuthoredElement(doc, 'div', { 'data-xh-part': 'root' }, groups)
-    const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'toolbar' }, [createAuthoredElement(doc, 'xh-toolbar', { size: 'sm' }, [toolbarRoot])])
-    toolbarRoot.addEventListener('click', this.#onCommandClick)
-
-    const pages = createAuthoredElement(doc, 'div', { 'slot': 'pages', 'data-part': 'pages' })
+    const commandBar = createCommandToolbar<PrintDesignerContext>(doc)
+    const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'toolbar' }, [commandBar.element])
+    const pageBar = createCommandToolbar<PrintDesignerContext>(doc)
+    const pages = createAuthoredElement(doc, 'div', { 'slot': 'pages', 'data-part': 'pages' }, [pageBar.element])
 
     const paper = createAuthoredElement(doc, 'div', { 'data-part': 'paper' })
     const frames = createAuthoredElement(doc, 'div', { 'data-part': 'frames' })
@@ -1171,7 +1208,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, palette, issues, properties, toolbar, toolbarRoot, items, pages, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
+    this.#layers = { frame, palette, issues, properties, toolbar, commandBar, pages, pageBar, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
     return this.#layers
   }
 
@@ -1340,27 +1377,25 @@ export class XhPrintDesigner extends XhReactiveElement {
       this.#editor.select({ elements: [table.id], tablePart: planned.part })
   }
 
+  #commandChecked(command: Command): boolean {
+    if (command === 'grid')
+      return this.grid !== false
+    return command === 'snap' ? this.snap : this.mode === command
+  }
+
   #renderToolbar(layers: Layers, t: PrintDesignerTranslations): void {
-    layers.toolbarRoot.setAttribute('aria-label', t.toolbar)
-    for (const [command, item] of layers.items) {
-      setText(item, t[LABELS[command]])
-      const disabled = !this.#commandEnabled(command)
-      if (item.disabled !== disabled)
-        item.disabled = disabled
-      const pressed = command === 'grid' ? this.grid !== false : command === 'snap' ? this.snap : command === 'design' || command === 'preview' ? this.mode === command : undefined
-      if (pressed === undefined)
-        item.removeAttribute('aria-pressed')
-      else
-        item.setAttribute('aria-pressed', String(pressed))
-    }
+    const { commands } = this.#model()
+    layers.commandBar.update(arrangeCommands('toolbar', commands, PRINT_TOOLBAR_LAYOUT, this.commandLayout), commands, { designer: this, translations: t }, t.toolbar)
   }
 
   #renderPages(layers: Layers, t: PrintDesignerTranslations): void {
+    const { commands } = this.#model()
+    layers.pageBar.update([PRINT_PAGE_COMMANDS], commands, { designer: this, translations: t }, t.pages)
     const doc = this.ownerDocument
     const pages = this.#editor.document.pages
     const active = this.#editor.activePageId
     const titles = pages.map((page, index) => page.name ?? t.pageTitle(index + 1))
-    const signature = JSON.stringify([pages.map(page => page.id), titles, active, this.readonly, this.mode, t.pages, PAGE_COMMANDS.map(command => [t[LABELS[command]], this.#commandEnabled(command)])])
+    const signature = JSON.stringify([pages.map(page => page.id), titles, active, t.pages])
     if (layers.pages.dataset.signature === signature)
       return
     layers.pages.dataset.signature = signature
@@ -1374,15 +1409,11 @@ export class XhPrintDesigner extends XhReactiveElement {
       if (typeof value === 'string' && value !== this.#editor.activePageId)
         this.#editor.setActivePage(value)
     })
-    const actions = createAuthoredElement(doc, 'xh-toolbar', { size: 'sm' }, [
-      createAuthoredElement(doc, 'div', { 'data-xh-part': 'root', 'aria-label': t.pages }, [
-        createAuthoredElement(doc, 'div', { 'data-xh-part': 'group' }, PAGE_COMMANDS.map(command =>
-          createAuthoredElement(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': command, 'disabled': !this.#commandEnabled(command) }, [t[LABELS[command]]]),
-        )),
-      ]),
-    ])
-    actions.addEventListener('click', this.#onCommandClick)
-    layers.pages.replaceChildren(tabs, actions)
+    const previous = layers.pages.querySelector(':scope > xh-toggle-group')
+    if (previous)
+      previous.replaceWith(tabs)
+    else
+      layers.pages.prepend(tabs)
   }
 
   #renderPaper(layers: Layers, t: PrintDesignerTranslations): void {
@@ -2324,6 +2355,11 @@ export class XhPrintDesigner extends XhReactiveElement {
     const part = tableBox === undefined ? undefined : tablePartAt(tableBox, point)
     if (tableBox !== undefined && part !== undefined) {
       this.#editor.select({ elements: [tableBox.elementId], tablePart: part })
+      if (!emitEvent(this, 'table-contextmenu', { id: tableBox.elementId, part, ...position }, { cancelable: true })) {
+        event.preventDefault()
+        event.stopPropagation()
+        return
+      }
       this.#prepareMenu('table')
       return
     }
@@ -2341,38 +2377,19 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#prepareMenu(hit === undefined ? 'blank' : 'element')
   }
 
-  #prepareMenu(subject: 'blank' | 'element' | 'table'): void {
+  #prepareMenu(subject: PrintMenuSubject): void {
     this.#fillMenu(this.#ensureLayers().menuContent, subject)
   }
 
-  #fillMenu(content: HTMLElement, subject: 'blank' | 'element' | 'table'): void {
-    const t = this.#translations()
-    const doc = this.ownerDocument
-    const separator = '|'
-    const tableEntries: (Command | typeof separator)[] = this.#selectedTable() ? ['edit-table', separator] : []
-    const entries: (Command | typeof separator)[] = subject === 'table'
-      ? [...TABLE_COMMANDS.slice(0, 5), separator, ...TABLE_COMMANDS.slice(5), separator, 'exit-table-edit']
-      : subject === 'element'
-        ? [...tableEntries, 'cut', 'copy', 'duplicate', 'delete', separator, 'bring-to-front', 'bring-forward', 'send-backward', 'send-to-back']
-        : ['paste', 'select-all', separator, 'zoom-to-fit']
-    content.replaceChildren(...entries.map(entry => entry === separator
-      ? createAuthoredElement(doc, 'div', { 'data-xh-part': 'separator' })
-      : createAuthoredElement(doc, 'div', { 'data-xh-part': 'item', 'value': entry, 'aria-disabled': this.#commandEnabled(entry) ? undefined : 'true' }, [
-          createAuthoredElement(doc, 'span', { 'data-xh-part': 'item-text' }, [t[LABELS[entry]]]),
-        ])))
+  /** 按对象换上右键菜单的条目；条目的可用状态取此刻设计器的状态。 */
+  #fillMenu(content: HTMLElement, subject: PrintMenuSubject): void {
+    const { commands } = this.#model()
+    const groups = arrangeCommands(`menu:${subject}`, commands, printMenuLayout(subject, this.#selectedTable() !== undefined), this.commandLayout)
+    renderCommandMenu(content, groups, commands, this.#context(), { platform: this.#kbdPlatform() })
   }
 
   readonly #onMenuSelect = (event: Event): void => {
-    const { value } = (event as CustomEvent<{ value: string }>).detail
-    if (isCommand(value))
-      this.#run(value)
-  }
-
-  readonly #onCommandClick = (event: MouseEvent): void => {
-    const item = (event.target as Element | null)?.closest<HTMLButtonElement>('button[value]')
-    if (!item || item.disabled || !isCommand(item.value))
-      return
-    this.#run(item.value)
+    runCommand(this.#model().commands, (event as CustomEvent<{ value: string }>).detail.value, this.#context())
   }
 
   readonly #onWheel = (event: WheelEvent): void => {
@@ -2408,33 +2425,30 @@ export class XhPrintDesigner extends XhReactiveElement {
     }
     if (this.#gesture)
       return
+    const context = this.#context()
+    const hit = commandForShortcut(this.#model().commands.values(), event, context, this.#kbdPlatform())
+    if (hit) {
+      hit.run(context)
+      event.preventDefault()
+      return
+    }
     const command = event.ctrlKey || event.metaKey
     if (command && !event.altKey ? this.#onCommandKey(event) : !command && !event.altKey && this.#onPlainKey(event))
       event.preventDefault()
   }
 
+  /** 命令没有接住的 Ctrl / ⌘ 组合：S 派发 save，Y 重做；设计器占用的其余组合此刻不可用时也不交给浏览器。 */
   #onCommandKey(event: KeyboardEvent): boolean {
     const key = event.key.toLowerCase()
-    const shortcuts: Readonly<Record<string, Command>> = {
-      'a': 'select-all',
-      'd': 'duplicate',
-      'y': 'redo',
-      ']': event.shiftKey ? 'bring-to-front' : 'bring-forward',
-      '[': event.shiftKey ? 'send-to-back' : 'send-backward',
-    }
     if (key === 's') {
       emitEvent(this, 'save', {})
       return true
     }
-    if (key === 'z') {
-      this.#run(event.shiftKey ? 'redo' : 'undo')
+    if (key === 'y') {
+      this.#run('redo')
       return true
     }
-    const shortcut = shortcuts[key]
-    if (shortcut === undefined)
-      return false
-    this.#run(shortcut)
-    return true
+    return RESERVED_COMMAND_KEYS.has(key)
   }
 
   #onPlainKey(event: KeyboardEvent): boolean {
@@ -2445,12 +2459,6 @@ export class XhPrintDesigner extends XhReactiveElement {
       case '+':
       case '=':
         this.zoomIn()
-        return true
-      case '-':
-        this.zoomOut()
-        return true
-      case '0':
-        this.zoomToFit()
         return true
       case ' ':
         if (event.target !== this.#layers?.viewport)

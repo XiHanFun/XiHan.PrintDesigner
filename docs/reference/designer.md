@@ -27,6 +27,7 @@
 | `grid` | — | `number \| false` | 吸附网格边长，mm，缺省 1；false 不吸附网格。 |
 | `snap` | — | `boolean` | 吸附其它元素、页边距、区边界与参考线并显示对齐线，缺省 true。 |
 | `panels` | `panels` | `string \| undefined` | 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。 |
+| `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏与右键菜单的排列：位置（toolbar、menu:blank、menu:element、menu:table）→ 若干组命令 id，内置与扩展的命令可以混排。写了某个位置就只显示列出的命令；写了没登记的命令 id 时抛 TypeError。 |
 
 ### 存取器
 
@@ -85,6 +86,7 @@
 | `element-dblclick` | `{ id: string }` | 双击元素；双击表格时同时进入表格编辑态。 |
 | `element-contextmenu` | `{ id: string, x: number, y: number }` | 在元素上打开右键菜单，未选中的元素先被选中；可取消，取消后不弹设计器自带的菜单。 |
 | `blank-contextmenu` | `{ x: number, y: number }` | 在画布空白处打开右键菜单；可取消，取消后不弹设计器自带的菜单。 |
+| `table-contextmenu` | `{ id: string, part: PrintTablePart, x: number, y: number }` | 在表格编辑态里打开右键菜单，右键处的表格部位先被选中；可取消，取消后不弹设计器自带的菜单。 |
 | `page-change` | `{ pageId: string }` | 当前页面模板变了。 |
 | `mode-change` | `{ mode: PrintDesignerMode }` | 在设计态与预览态之间切换了。 |
 
@@ -307,10 +309,15 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
 | `createPrintDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 |
-| `PRINT_DESIGNER_EXTENSION_ID` | 常量 | 设计器自带的扩展的 id：表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 |
+| `PRINT_DESIGNER_EXTENSION_ID` | 常量 | 设计器自带的扩展的 id：内置命令，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 |
+| `PRINT_PAGE_COMMANDS` | 常量 | 页面模板页签旁的命令，排列固定。 |
+| `PRINT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
+| `PrintDesignerCommand` | 类型 | 设计器的命令：工具栏按钮、右键菜单项与快捷键共用。 |
 | `PrintDesignerContext` | 接口 | 扩展装上时拿到的上下文。 |
-| `PrintDesignerExtension` | 接口 | 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、物料项与 setup。 |
-| `PrintDesignerModel` | 接口 | 一组设计器扩展合出的东西：交给 core 函数与预览的列表、运行时的模型、属性编辑器表与物料项。 |
+| `PrintDesignerExtension` | 接口 | 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、物料项与 setup。 |
+| `PrintDesignerModel` | 接口 | 一组设计器扩展合出的东西：交给 core 函数与预览的列表、运行时的模型、属性编辑器表、命令表与物料项。 |
+| `printMenuLayout` | 函数 | 右键菜单的缺省排列；选中的是一张表格时，元素菜单最前面加「编辑表格」。 |
+| `PrintMenuSubject` | 类型 | 右键菜单落在哪类对象上：画布空白处、元素，或表格编辑态里的表格部位。 |
 | `PrintPaletteEntry` | 接口 | 物料面板里的一项：扩展元素的名称与图标。 |
 
 ### print-designer
