@@ -157,8 +157,10 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+#ifdef WebView2Installer
 var
   Code: Integer;
+#endif
 begin
   if CurStep <> ssPostInstall then
     Exit;
