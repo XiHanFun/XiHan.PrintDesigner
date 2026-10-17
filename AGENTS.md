@@ -80,10 +80,12 @@ pnpm dev
 | 构建 | `pnpm build`（站内死链会让构建失败） |
 | 重新生成参考页 | `pnpm gen`；`pnpm gate:gen` 只比对、不写文件 |
 | 示例类型检查 | `pnpm typecheck` |
+| 示例模板校验并试排 | `pnpm check:examples` |
 | Lint | `pnpm lint` |
 
 - 打印三个包经 `link:` 读 `print/packages/*` 的产物，先在 `print/` 构建；`@xihan-ui/*` 与 `print/` 工作区一样经 overrides 读同级 XiHan.UI 的产物，UI 5.0.0 正式发布后删掉那一段。
 - `docs/reference/` 由 `scripts/gen-reference.mjs` 从源码生成（元素原型、`printZhCN`、TypeScript 源码注释、客户端错误码的 C# 注释），不手改。改了元素、属性、问题码、公开 API 或这些注释，在 `docs/` 跑 `pnpm gen` 并随改动一起提交；参考页的说明不对，就改源码注释。
+- 正文里的代码都放在 `examples/`，用 `<<< @/examples/…#片段` 引入，不在 Markdown 里另写一份：`templates/` 下导出 `schema` 与 `data` 的模板由 `check:examples` 校验并试排，`demos/` 下的文件导出 `mount(host)`，页面上写 `<PrintDemo name="…" />` 真实运行，`snippets/` 只做类型检查。
 - 正文里含 `{{` 的行内代码写成 `<code v-pre>…</code>`，否则会被 Vue 当成插值吃掉，构建也不报错。
 - 站点自己的导航、侧栏与示例组件放在 `docs/.vitepress/`，不复制或改写主题已提供的样式。
 - 文档只写已经做完的能力；不写组件数、元素数与依赖的具体版本号，不写预发布阶段的铺垫。
@@ -143,7 +145,7 @@ pnpm dev
 
 - 保留用户已有和无关改动；不要 reset、checkout 或清理它们。
 - 使用 Conventional Commits：`<type>(<scope>): <中文说明>`，scope 取 `core`、`runtime`、`designer`、`client`、`docs`、`repo`。
-- 一项完整功能一个提交；改 `print/` 的提交前跑 `pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test`，改 `client/` 的跑构建与测试，改 `docs/` 的在 `docs/` 跑 `pnpm gate:gen`、`pnpm lint`、`pnpm typecheck`、`pnpm build`，都要过 `git diff --check`。
+- 一项完整功能一个提交；改 `print/` 的提交前跑 `pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test`，改 `client/` 的跑构建与测试，改 `docs/` 的在 `docs/` 跑 `pnpm gate:gen`、`pnpm check:examples`、`pnpm lint`、`pnpm typecheck`、`pnpm build`，都要过 `git diff --check`。
 - 不推送、不发布、不创建远程 PR，除非用户明确要求。
 
 ## 禁止事项

@@ -22,6 +22,7 @@
     "preview": "vitepress preview",
     "gen": "node scripts/gen-reference.mjs",
     "gate:gen": "node scripts/gen-reference.mjs --check",
+    "check:examples": "node scripts/check-examples.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
@@ -32,6 +33,7 @@
     "@xihan-print/runtime": "link:../print/packages/runtime",
     "@xihan-ui/designer-kit": "^5.0.0",
     "@xihan-ui/designer-shell": "^5.0.0",
+    "@xihan-ui/expression": "^5.0.0",
     "@xihan-ui/styles": "^5.0.0",
     "@xihan-ui/web-components": "^5.0.0",
     "@xihanfun/vitepress-theme": "^1.1.0",

@@ -54,3 +54,8 @@
 - `@xihan-print/core` 不依赖 DOM，可以在浏览器、Node.js 或其它 JavaScript 运行环境里校验模板、排出输出页。
 - `@xihan-print/runtime` 与 `@xihan-print/designer` 要在支持 Custom Elements 的浏览器里运行，文字度量缺省用 Canvas 2D。
 - 本地打印客户端是 Windows 托盘程序，有 x64 与 arm64 两种安装包，渲染用系统的 WebView2 运行时。
+
+## 下一步
+
+- [快速开始](./quickstart)：在任意前端项目里装包、渲染一张模板并打印。
+- [模板结构](./guide/template)：页面、页眉页脚、元素与表格。
