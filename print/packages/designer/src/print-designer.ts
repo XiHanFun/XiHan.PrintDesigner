@@ -53,7 +53,7 @@ import type {
   DropOver,
   PanRequestDetail,
 } from '@xihan-ui/designer-shell'
-import type { ExpressionEngine, ValueFormatter } from '@xihan-ui/expression'
+import type { ExpressionEngine, NumeralStyle, ValueFormatter } from '@xihan-ui/expression'
 import type { PointerSession } from '@xihan-ui/pointer'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
@@ -78,6 +78,7 @@ import {
 } from '@xihan-print/core'
 import { definePrintPreview, PRINT_PREVIEW_TAG, renderBox, renderWatermark } from '@xihan-print/runtime'
 import { formatJsonPath } from '@xihan-ui/core/json'
+import { fillTextTemplate } from '@xihan-ui/core/template'
 import {
   centerOn,
   clipboardMimeType,
@@ -111,7 +112,7 @@ import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, setText, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
-import { defineXhElement, XhButtonElement, XhContextMenuElement, XhMenuElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
+import { defineXhElement, XhButtonElement, XhContextMenuElement, XhFieldElement, XhMenuElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createPrintEditor, elementRect } from './editor'
 import { defaultIssueText } from './issue-text'
 import { propertySubjects, TABLE_PART_KINDS } from './property-targets'
@@ -257,6 +258,9 @@ const DEFAULT_TRANSLATIONS: PrintDesignerTranslations = {
   units: UNIT_NAMES,
   pageSettings: 'Page settings',
   selectedCount: count => `${count} elements selected`,
+  pageNumberInsert: 'Insert',
+  pageNumberTokens: { page: 'Current page', pages: 'Total pages' },
+  pageNumberSample: text => `Preview: ${text}`,
 }
 
 type StringKey = { [K in keyof PrintDesignerTranslations]: PrintDesignerTranslations[K] extends string ? K : never }[keyof PrintDesignerTranslations]
@@ -1648,6 +1652,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const own: Readonly<Record<string, DesignerPropertyEditor>> = {
       tableColumns: this.#partList('column'),
       tableFooterRows: this.#partList('footerRow'),
+      pageNumberFormat: this.#pageNumberFormat(),
     }
     const table: PropertyEditorTable<DesignerPropertyEditor> = {
       byControl: { ...own, ...host?.byControl },
@@ -1683,6 +1688,83 @@ export class XhPrintDesigner extends XhReactiveElement {
       }
       render(initial)
       return { element: list, update: render }
+    }
+  }
+
+  /**
+   * 页码格式：一行文本，行尾的菜单把 {{$page}}、{{$pages}} 插到光标处，下面按第 1 页、共 3 页显示示例，
+   * 数字写法取页码元素的 numeral。
+   */
+  #pageNumberFormat(): DesignerPropertyEditor {
+    return (initial) => {
+      const doc = this.ownerDocument
+      let context = initial
+      const input = createAuthoredElement(doc, 'input', { 'data-xh-part': 'input' }) as HTMLInputElement
+      const menu = createAuthoredElement(doc, 'xh-menu', { size: 'sm', placement: 'bottom-end' }) as XhMenuElement
+      const field = createAuthoredElement(doc, 'xh-text-field', { size: 'sm' }, [
+        createAuthoredElement(doc, 'div', { 'data-xh-part': 'root' }, [
+          createAuthoredElement(doc, 'div', { 'data-xh-part': 'control' }, [
+            input,
+            createAuthoredElement(doc, 'span', { 'data-xh-part': 'suffix' }, [menu]),
+          ]),
+        ]),
+      ]) as XhTextFieldElement
+      field.setAttribute('data-xh-part', 'control')
+      // 示例是字段的说明：放进字段时文本框铺满面板，读屏也会把示例当说明读出
+      const sample = createAuthoredElement(doc, 'p', { 'data-xh-part': 'description' })
+      const root = createAuthoredElement(doc, 'xh-field', { 'data-part': 'page-number-format' }, [
+        createAuthoredElement(doc, 'div', { 'data-xh-part': 'root' }, [field, sample]),
+      ])
+      const current = (): string => typeof context.value === 'string' ? context.value : ''
+      field.addEventListener('value-change', (event) => {
+        event.stopPropagation()
+        const { value } = (event as CustomEvent<{ value: string }>).detail
+        field.value = value
+        context.setValue(value)
+      })
+      field.addEventListener('focusout', () => context.commit())
+      // 菜单的事件只在编辑器里用，不冒到设计器
+      menu.addEventListener('open-change', event => event.stopPropagation())
+      menu.addEventListener('select', (event) => {
+        event.stopPropagation()
+        const token = `{{${(event as CustomEvent<{ value: string }>).detail.value}}}`
+        const text = current()
+        const start = input.selectionStart ?? text.length
+        const end = input.selectionEnd ?? start
+        const next = text.slice(0, start) + token + text.slice(end)
+        field.value = next
+        context.setValue(next)
+        context.commit()
+        void field.updateComplete.then(() => {
+          input.focus()
+          input.setSelectionRange(start + token.length, start + token.length)
+        })
+      })
+      const render = (next: typeof initial): void => {
+        context = next
+        const t = this.#translations()
+        const kind = next.target[0]?.kind ?? ''
+        const name = t.propertyNames[`${kind}:format`] ?? t.propertyNames.format ?? 'format'
+        if (input.getAttribute('aria-label') !== name)
+          input.setAttribute('aria-label', name)
+        const value = current()
+        if (field.value !== value)
+          field.value = value
+        field.readOnly = next.readonly
+        menu.disabled = next.readonly
+        menu.label = t.pageNumberInsert
+        menu.collection = [
+          { value: '$page', label: t.pageNumberTokens.page, shortcut: '{{$page}}' },
+          { value: '$pages', label: t.pageNumberTokens.pages, shortcut: '{{$pages}}' },
+        ]
+        const numeral = (next.target[0]?.value as { numeral?: NumeralStyle } | undefined)?.numeral
+        const formatter = this.formatter ?? formatValue
+        const options = this.locale === undefined ? {} : { locale: this.locale }
+        const number = (n: number): string => numeral === undefined ? String(n) : formatter(n, { kind: 'numeral', style: numeral }, options)
+        sample.textContent = t.pageNumberSample(fillTextTemplate(value, { $page: number(1), $pages: number(3) }).text)
+      }
+      render(initial)
+      return { element: root, update: render }
     }
   }
 
@@ -2423,6 +2505,8 @@ export function definePrintDesigner(): void {
   defineXhElement('xh-toggle-group', XhToggleGroupElement)
   defineXhElement('xh-button', XhButtonElement)
   defineXhElement('xh-menu', XhMenuElement)
+  defineXhElement('xh-text-field', XhTextFieldElement)
+  defineXhElement('xh-field', XhFieldElement)
   defineXhElement('xh-context-menu', XhContextMenuElement)
   registerElement(PRINT_DESIGNER_TAG, XhPrintDesigner)
 }

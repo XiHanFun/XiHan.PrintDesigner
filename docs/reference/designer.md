@@ -195,6 +195,8 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `propertyOptions` | `Readonly<Record<string, string>>` | select 选项名：键为选项值；「路径=选项值」覆盖该属性上的名字。 |
 | `units` | `Readonly<Record<PropertyUnit, string>>` | 数值属性的单位。 |
 | `pageSettings` | `string` | 属性面板在没有选中时编辑页面设置，标题下的一行。 |
+| `pageNumberInsert` | `string` | 页码格式编辑器里插入变量的菜单按钮。 |
+| `pageNumberTokens` | `Readonly<{ page: string, pages: string }>` | 页码格式里能插入的两个变量：当前页码与总页数。 |
 
 | 方法 | 说明 |
 | --- | --- |
@@ -208,6 +210,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `issue(issue: SchemaIssue): string` | 校验问题与分页诊断的说明，按问题码与参数生成。 |
 | `propertyPart(parent: string, part: string): string` | 复合属性拆开后分项的名字，如「页边距 · 上」。 |
 | `selectedCount(count: number): string` | 属性面板在选中多个元素时标题下的一行。 |
+| `pageNumberSample(text: string): string` | 页码格式的示例，入参是按第 1 页、共 3 页填好的文字。 |
 
 ## 编辑模型
 

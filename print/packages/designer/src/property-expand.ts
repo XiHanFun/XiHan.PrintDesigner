@@ -8,8 +8,7 @@
 // 个别分项改动时要连带改别处（如改纸张宽高时去掉预设），也在写入时换成一组修改。
 // 文本内容、富文本内容、单元格内容与图片来源先选来源种类，再按种类显示对应输入，切换种类时整体换成该种类的缺省对象；
 // 富文本写死的文档在面板上不能编辑，只能切换来源；
-// 绑定字段在给了字段树时是平铺的下拉，值格式暂用 JSON 文本框；二维码纠错级别按码制显示下拉或数字，
-// 页码格式是一行文本。
+// 绑定字段在给了字段树时是平铺的下拉，值格式暂用 JSON 文本框；二维码纠错级别按码制显示下拉或数字。
 
 import type { PropertyChange, PropertyDescriptor } from '@xihan-print/core'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
@@ -203,7 +202,6 @@ const EXPANDERS: Readonly<Record<string, Expander>> = {
     return { descriptors: [{ ...descriptor, control: fieldControl(context, control.target === 'list' ? ['list'] : ['value']) }] }
   },
   valueFormat: descriptor => ({ descriptors: [{ ...descriptor, control: FORMAT }] }),
-  pageNumberFormat: descriptor => ({ descriptors: [{ ...descriptor, control: { kind: 'text' } }] }),
   matrixCodeLevel: (descriptor) => {
     const { path } = descriptor
     const format = [...path.slice(0, -1), 'format']
