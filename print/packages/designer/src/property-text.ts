@@ -153,7 +153,7 @@ export const PROPERTY_NAMES: PrintDesignerTranslations['propertyNames'] = {
   'content/emptyText': 'Text when empty',
   'content/template': 'Template',
   'content/expression': 'Expression',
-  'content/format': 'Format (JSON)',
+  'content/format': 'Format',
   'content/url': 'URL',
   'content/source': 'Content format',
   'content/fn': 'Summary',

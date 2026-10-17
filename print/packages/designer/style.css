@@ -207,6 +207,18 @@ xh-print-designer [data-part='border-side-stroke'][hidden] {
   display: none;
 }
 
+/* 值格式：种类下拉在上，下面是当前种类的编辑区；值映射的表下面是没有命中时的文本 */
+xh-print-designer [data-part='value-format'],
+xh-print-designer [data-part='value-map'] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xh-space-3);
+}
+
+xh-print-designer [data-part='value-map'][hidden] {
+  display: none;
+}
+
 xh-print-designer [data-part='preview'] {
   display: flex;
   flex: 1 1 auto;
