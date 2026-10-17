@@ -56,19 +56,25 @@ UninstallDisplayName={#AppName}
 UninstallDisplayIcon={app}\{#AppExe}
 CloseApplications=no
 RestartApplications=no
+; 按系统界面语言选：中文系统用简体中文，其余用英文，不弹语言选择框
+LanguageDetectionMethod=uilanguage
+ShowLanguageDialog=no
 #ifdef SignTool
 SignTool=xihan
 SignedUninstaller=yes
 #endif
 
 [Languages]
-#if FileExists(CompilerPath + "Languages\ChineseSimplified.isl")
-Name: "zh"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
-#else
-Name: "zh"; MessagesFile: "compiler:Default.isl"
-#endif
+; 英文在前，系统界面语言没有对应时用它；简体中文叠在英文之上，只覆写会出现的消息
+Name: "en"; MessagesFile: "compiler:Default.isl"
+Name: "zh"; MessagesFile: "compiler:Default.isl,zh-CN.isl"
 
 [CustomMessages]
+en.AutoStart=Start {#AppName} automatically when you sign in
+en.LaunchNow=Start {#AppName}
+en.InstallingWebView2=Installing the WebView2 Runtime...
+en.WebView2Failed=The WebView2 Runtime was not installed. HTML printing and PDF export are unavailable until it is installed.
+en.RemoveData=Also remove the settings, origin lists and logs of {#AppName}?
 zh.AutoStart=开机时自动启动曦寒打印客户端
 zh.LaunchNow=启动曦寒打印客户端
 zh.InstallingWebView2=正在安装 WebView2 运行时…
@@ -83,6 +89,9 @@ Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs 
 #ifdef WebView2Installer
 Source: "{#WebView2Installer}"; DestDir: "{tmp}"; DestName: "WebView2Setup.exe"; Flags: ignoreversion; Check: NeedsWebView2
 #endif
+
+[Icons]
+Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchNow}"; Flags: nowait postinstall skipifsilent
