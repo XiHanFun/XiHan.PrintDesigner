@@ -8,6 +8,7 @@ shellEmulator: true
 # 开发期临时：@xihan-ui/* 改指同级 XiHan.UI 源码（与 print/ 工作区同一写法）。
 # UI 5.0.0 正式发布后删掉本段，即回落到 package.json 里的发布版。
 overrides:
+  '@xihan-ui/designer-kit': 'link:../../XiHan.UI/ui/packages/features/designer-kit'
   '@xihan-ui/designer-shell': 'link:../../XiHan.UI/ui/packages/features/designer-shell'
   '@xihan-ui/styles': 'link:../../XiHan.UI/ui/packages/design/styles'
   '@xihan-ui/web-components': 'link:../../XiHan.UI/ui/packages/adapters/web-components'

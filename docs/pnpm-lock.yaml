@@ -5,6 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
+  '@xihan-ui/designer-kit': link:../../XiHan.UI/ui/packages/features/designer-kit
   '@xihan-ui/designer-shell': link:../../XiHan.UI/ui/packages/features/designer-shell
   '@xihan-ui/styles': link:../../XiHan.UI/ui/packages/design/styles
   '@xihan-ui/web-components': link:../../XiHan.UI/ui/packages/adapters/web-components
@@ -22,6 +23,9 @@ importers:
       '@xihan-print/runtime':
         specifier: link:../print/packages/runtime
         version: link:../print/packages/runtime
+      '@xihan-ui/designer-kit':
+        specifier: link:../../XiHan.UI/ui/packages/features/designer-kit
+        version: link:../../XiHan.UI/ui/packages/features/designer-kit
       '@xihan-ui/designer-shell':
         specifier: link:../../XiHan.UI/ui/packages/features/designer-shell
         version: link:../../XiHan.UI/ui/packages/features/designer-shell
