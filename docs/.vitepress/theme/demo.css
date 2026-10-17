@@ -34,3 +34,26 @@
   margin: 0;
   color: var(--xh-fg-danger);
 }
+
+/* 示例里的预览区给定高度，输出页多时在区内滚动 */
+.print-demo xh-print-preview {
+  block-size: 30rem;
+  border: var(--xh-stroke-thin) solid var(--xh-border-subtle);
+  border-radius: var(--xh-radius-md);
+}
+
+/* 示例里直接写的原生按钮 */
+.print-demo__stage > button {
+  margin-block-end: var(--xh-space-3);
+  padding-block: var(--xh-space-1);
+  padding-inline: var(--xh-space-3);
+  border: var(--xh-stroke-thin) solid var(--xh-border-default);
+  border-radius: var(--xh-radius-md);
+  background: var(--xh-bg-surface);
+  font-size: var(--xh-font-size-sm);
+}
+
+.print-demo__stage > button:focus-visible {
+  outline: 2px solid var(--xh-ring-focus);
+  outline-offset: 2px;
+}
