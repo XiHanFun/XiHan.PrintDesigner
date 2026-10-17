@@ -21,12 +21,19 @@ export default defineXiHanTheme({
   },
 })
 
-// 深浅模式桥接：VitePress 切主题是给 html 加 .dark 类，UI 令牌认的是 [data-theme]。
 if (typeof window !== 'undefined') {
+  // 深浅模式桥接：VitePress 切主题是给 html 加 .dark 类，UI 令牌认的是 [data-theme]。
   const root = document.documentElement
   const syncTheme = (): void => {
     root.dataset.theme = root.classList.contains('dark') ? 'dark' : 'light'
   }
   syncTheme()
   new MutationObserver(syncTheme).observe(root, { attributes: true, attributeFilter: ['class'] })
+
+  // 示例里的预览与设计器全站用中文界面
+  void Promise.all([
+    import('@xihan-ui/web-components'),
+    import('@xihan-ui/web-components/locale'),
+    import('@xihan-print/runtime/locale'),
+  ]).then(([{ mergeXhConfig, setXhConfig }, { zhCN }, { printZhCN }]) => setXhConfig(mergeXhConfig(zhCN, printZhCN)))
 }
