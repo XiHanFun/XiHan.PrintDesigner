@@ -692,6 +692,60 @@ describe('<xh-print-designer>', () => {
     expect(designer.schema.pages[0]!.elements).toHaveLength(3)
   })
 
+  it('命令：扩展命令按 placement 追加到工具栏与右键菜单，快捷键在画布上生效；commandLayout 改写排列；表格菜单可取消', async () => {
+    const runs: unknown[] = []
+    designer.extensions = [{
+      id: '@acme/hello',
+      commands: [{
+        id: '@acme/hello.run',
+        label: ({ designer }) => `Hello ${designer.schema.pages[0]!.elements.length}`,
+        placement: ['toolbar', 'menu:element'],
+        shortcut: ['Mod', 'Shift', 'H'],
+        enabled: ({ designer }) => !designer.readonly,
+        run: context => void runs.push(context.designer),
+      }],
+    }]
+    await designer.updateComplete
+    const toolbarItems = (): string[] => Array.from(designer.querySelectorAll<HTMLButtonElement>('[data-part="toolbar"] button[data-xh-part="item"]'), item => item.value)
+    expect(toolbarItems().slice(-4)).toEqual(['design', 'preview', 'print', '@acme/hello.run'])
+    expect(designer.querySelector('[data-part="toolbar"] button[value="@acme/hello.run"]')!.textContent).toBe('Hello 2')
+    expect(designer.querySelector('[data-part="toolbar"] button[value="grid"]')!.getAttribute('aria-pressed')).toBe('true')
+
+    const content = designer.querySelector('[data-print-canvas-root] > [data-xh-part="positioner"] > [data-xh-part="content"]')!
+    const menuItems = (): string[] => Array.from(content.querySelectorAll('[data-xh-part="item"]'), item => item.getAttribute('value')!)
+    at(viewport(), 'contextmenu', 20, 35)
+    expect(menuItems()).toEqual(['cut', 'copy', 'duplicate', 'delete', 'bring-to-front', 'bring-forward', 'send-backward', 'send-to-back', '@acme/hello.run'])
+    expect(content.querySelector('[value="duplicate"] [data-xh-part="item-shortcut"]')!.textContent).toBe('Ctrl+D')
+    designer.querySelector('xh-context-menu[data-print-canvas-menu]')!.dispatchEvent(new CustomEvent('select', { detail: { value: '@acme/hello.run' } }))
+    expect(runs).toEqual([designer])
+    key('H', { ctrlKey: true, shiftKey: true })
+    expect(runs).toHaveLength(2)
+    designer.readonly = true
+    key('H', { ctrlKey: true, shiftKey: true })
+    expect(runs).toHaveLength(2)
+    designer.readonly = false
+
+    designer.commandLayout = { 'toolbar': [['@acme/hello.run', 'undo']], 'menu:blank': [['zoom-to-fit']] }
+    await designer.updateComplete
+    expect(toolbarItems()).toEqual(['@acme/hello.run', 'undo'])
+    at(viewport(), 'contextmenu', 150, 10)
+    expect(menuItems()).toEqual(['zoom-to-fit'])
+
+    designer.select({ elements: ['t'] })
+    key('Enter')
+    await designer.updateComplete
+    const parts: unknown[] = []
+    designer.addEventListener('table-contextmenu', (event) => {
+      parts.push((event as CustomEvent<{ part: unknown }>).detail.part)
+      event.preventDefault()
+    }, { once: true })
+    at(viewport(), 'contextmenu', 15, 62)
+    expect(parts).toEqual([expect.objectContaining({ kind: 'column', elementId: 't' })])
+    expect(menuItems()).toEqual(['zoom-to-fit'])
+    at(viewport(), 'contextmenu', 15, 62)
+    expect(menuItems()).toEqual(['insert-column-left', 'insert-column-right', 'remove-column', 'move-column-left', 'move-column-right', 'insert-footer-row-above', 'insert-footer-row-below', 'remove-footer-row', 'merge-cell-right', 'split-cell', 'exit-table-edit'])
+  })
+
   it('选中表格后回车进入表格编辑态：点表头选中列，Esc 退出', async () => {
     designer.select({ elements: ['t'] })
     key('Enter')
