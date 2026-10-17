@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import type { RichBlock } from '@xihan-ui/core/rich-text'
 import type { TableCell } from '@xihan-ui/designer-kit'
 import type { ElementValidationContext } from '../registry/types'
 import type {
@@ -11,6 +12,7 @@ import type {
   LineElement,
   MatrixCodeElement,
   RectElement,
+  RichTextElement,
   TableElement,
 } from '../schema/elements'
 import { checkTableCells } from '@xihan-ui/designer-kit'
@@ -114,4 +116,21 @@ export function validateMatrixCodeRules(element: MatrixCodeElement, context: Ele
   }
   if (element.format !== 'pdf417' && Math.abs(element.width - element.height) > LENGTH_TOLERANCE)
     context.report('matrixCode.notSquare', [], { width: element.width, height: element.height })
+}
+
+/** 块里有没有要显示的东西：非空白文字、行内字段、分隔线或列表项。 */
+function hasRichContent(blocks: readonly RichBlock[]): boolean {
+  return blocks.some((block) => {
+    if (block.type === 'list')
+      return block.items.length > 0
+    if (block.type === 'divider')
+      return true
+    return block.runs.some(run => run.type === 'field' || (run.type === 'text' && run.text.trim() !== ''))
+  })
+}
+
+/** 富文本规则：模板里写死的文档要有内容。 */
+export function validateRichTextRules(element: RichTextElement, context: ElementValidationContext): void {
+  if (element.content.kind === 'static' && !hasRichContent(element.content.document.blocks))
+    context.report('richText.empty', ['content', 'document'])
 }

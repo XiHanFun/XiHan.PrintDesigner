@@ -4,6 +4,7 @@
  */
 
 import type { JsonObject } from '@xihan-ui/core/json'
+import type { RichTextDocument } from '@xihan-ui/core/rich-text'
 import type { NumeralStyle } from '@xihan-ui/expression'
 import type { BoxStyle, Color, ImageSource, Stroke, TextContent, TextStyle } from './common'
 import type {
@@ -12,6 +13,7 @@ import type {
   LineDirection,
   MatrixCodeFormat,
   MatrixCodeLevel,
+  RichTextSource,
   TextOverflow,
 } from './options'
 import type { TableBody, TableBorder, TableColumn, TableFooterRow, TableHeader } from './table'
@@ -50,6 +52,23 @@ export interface TextElement extends ElementBase<'text'> {
 /** 随内容纵向延展并可跨页续排的长文本。 */
 export interface LongTextElement extends ElementBase<'longText'> {
   content: TextContent
+  style: TextStyle
+  box?: BoxStyle
+}
+
+/**
+ * 富文本的内容来源：模板里写死的文档，或从数据字段读取。字段值是 HTML 串时（source 为 html）按白名单换成文档，
+ * 字段值已是富文本文档对象时 source 为 document。文档是 @xihan-ui/core/rich-text 的 RichTextDocument，
+ * 其中行内字段的 format 按值格式解释。
+ */
+export type RichTextContent
+  = | { kind: 'static', document: RichTextDocument }
+    | { kind: 'field', field: string, source: RichTextSource }
+
+/** 随内容纵向延展并可跨页续排的富文本：段落、标题、列表、分隔线与带样式的文字。 */
+export interface RichTextElement extends ElementBase<'richText'> {
+  content: RichTextContent
+  /** 基准样式：块与行内的样式在它之上覆写。 */
   style: TextStyle
   box?: BoxStyle
 }
@@ -150,6 +169,7 @@ export interface PageNumberElement extends ElementBase<'pageNumber'> {
 export type PrintElement
   = | TextElement
     | LongTextElement
+    | RichTextElement
     | TableElement
     | ImageElement
     | LineElement
@@ -169,6 +189,7 @@ export type PrintElementOf<TType extends PrintElementType> = Extract<PrintElemen
 export const PRINT_ELEMENT_TYPES: readonly PrintElementType[] = [
   'text',
   'longText',
+  'richText',
   'table',
   'image',
   'line',

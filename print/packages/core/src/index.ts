@@ -11,6 +11,14 @@ export { MIN_SHRINK_FONT_SIZE, SHRINK_FONT_STEP } from './layout/boxes'
 export { DESIGN_FILLER_ROWS, DESIGN_SAMPLE_ROWS, layoutDesign } from './layout/design'
 export type { DesignLayout, DesignLayoutOptions } from './layout/design'
 export { DEFAULT_MAX_SHEETS, paginate } from './layout/paginate'
+export {
+  RICH_TEXT_BLOCK_GAP,
+  RICH_TEXT_DIVIDER_WIDTH,
+  RICH_TEXT_HEADING_SCALES,
+  RICH_TEXT_LIST_INDENT,
+  RICH_TEXT_MARKER_GAP,
+  RICH_TEXT_SCRIPT_SCALE,
+} from './layout/rich-text'
 export { DEFAULT_FONT_FAMILY } from './layout/text-measure'
 export * from './layout/types'
 export { applyOperation, applyOperations } from './operations/apply'

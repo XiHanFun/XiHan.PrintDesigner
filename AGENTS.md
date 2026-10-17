@@ -57,7 +57,7 @@ XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components
 
 `pnpm build` 按依赖拓扑依次构建 core、runtime、designer。runtime 与 designer 经包的 `exports` 读取上游 dist，改了上游先重建再验证下游。
 
-开发预览页在 `print/playground`，用 Vite 起在 5191 端口（strictPort），分「分页预览」「设计器」两个页签。分页预览用 `<xh-print-preview>` 显示三份示例模板的分页结果——送货单（表格跨页、重复表头、本页小计与合计、补空行、人民币大写、中文页码）、商品标签（EAN-13 条码与二维码）、内部通知（奇偶页眉、罗马数字页码、平铺水印、长文本跨页），可切换模板、缩放、调起浏览器打印、切换中文语言包 `printZhCN`；度量器用缺省的 Canvas 度量器。设计器页签用 `<xh-print-designer>` 打开同一份示例模板，可切换画布按示例数据显示，下方滚动显示设计器派发的事件。
+开发预览页在 `print/playground`，用 Vite 起在 5191 端口（strictPort），分「分页预览」「设计器」两个页签。分页预览用 `<xh-print-preview>` 显示三份示例模板的分页结果——送货单（表格跨页、重复表头、本页小计与合计、补空行、人民币大写、中文页码）、商品标签（EAN-13 条码与二维码）、内部通知（奇偶页眉、罗马数字页码、平铺水印、长文本跨页、字段里的 HTML 排成富文本跨页），可切换模板、缩放、调起浏览器打印、切换中文语言包 `printZhCN`；度量器用缺省的 Canvas 度量器。设计器页签用 `<xh-print-designer>` 打开同一份示例模板，可切换画布按示例数据显示，下方滚动显示设计器派发的事件。
 它直接引用 core、runtime 与 designer 的源码，改了源码即时生效，不必先 `pnpm build`；`@xihan-ui/*` 经 overrides 读同级 XiHan.UI 的产物，启动前先在 `XiHan.UI/ui` 构建依赖的包：
 
 ```bash

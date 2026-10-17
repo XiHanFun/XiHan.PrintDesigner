@@ -17,6 +17,7 @@ import { DEFAULT_FONT_FAMILY } from '@xihan-print/core'
 import { renderBarCode, renderMatrixCode } from './codes'
 import { applyBoxStyle, borderValue, mm, pt, setStyles } from './css'
 import { boxFrame, JUSTIFY } from './frame'
+import { renderRichText } from './rich-text'
 import { createMmSvg, strokeSegment } from './svg'
 import { renderTable } from './table'
 
@@ -107,6 +108,8 @@ export function renderBox(doc: Document, box: LayoutBox): HTMLElement {
   switch (box.kind) {
     case 'text':
       return renderText(doc, box)
+    case 'richText':
+      return renderRichText(doc, box)
     case 'image':
       return renderImage(doc, box)
     case 'line':

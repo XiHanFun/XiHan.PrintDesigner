@@ -4,10 +4,12 @@
  */
 
 import type { JsonPath } from '@xihan-ui/core/json'
+import type { RichBlock, RichTextDocument } from '@xihan-ui/core/rich-text'
 import type { FormatSpecIssueCode } from '@xihan-ui/expression'
 import type { PropertyControl } from '../registry/types'
 import type { FieldRule } from './checks'
 import type { IssueSink, ValidationIssueCode } from './issues'
+import { checkRichTextDocument } from '@xihan-ui/core/rich-text'
 import { parseTextTemplate } from '@xihan-ui/core/template'
 import { toSafeImageSource } from '@xihan-ui/core/url'
 import { isPaperPresetName, PAPER_PRESET_NAMES, PAPER_PRESETS } from '@xihan-ui/designer-kit'
@@ -18,6 +20,7 @@ import {
   AGGREGATE_FUNCTIONS,
   AGGREGATE_SCOPES,
   HORIZONTAL_ALIGNS,
+  RICH_TEXT_SOURCES,
   STROKE_STYLES,
   TABLE_CELL_TYPES,
   TABLE_FOOTER_PLACEMENTS,
@@ -119,6 +122,47 @@ function textContentRules(sink: IssueSink): Record<string, FieldRule[]> {
 /** 校验文本内容来源。 */
 export function validateTextContent(value: unknown, path: JsonPath, sink: IssueSink): void {
   checkVariant(sink, value, path, textContentRules(sink))
+}
+
+/** 逐个读取富文本块里行内字段的路径与值格式。 */
+function validateRichFields(blocks: readonly RichBlock[], path: JsonPath, sink: IssueSink): void {
+  blocks.forEach((block, index) => {
+    const blockPath = [...path, index]
+    if (block.type === 'list') {
+      block.items.forEach((item, itemIndex) => validateRichFields(item.blocks, [...blockPath, 'items', itemIndex, 'blocks'], sink))
+      return
+    }
+    if (block.type === 'divider')
+      return
+    block.runs.forEach((run, runIndex) => {
+      if (run.type !== 'field')
+        return
+      const runPath = [...blockPath, 'runs', runIndex]
+      readFieldPath(sink, run.field, [...runPath, 'field'])
+      if (run.format !== undefined)
+        validateValueFormat(run.format, [...runPath, 'format'], sink)
+    })
+  })
+}
+
+/** 校验富文本文档：结构按 @xihan-ui/core/rich-text 的 checkRichTextDocument，结构无误时再读行内字段的路径与值格式。 */
+export function validateRichTextDocument(value: unknown, path: JsonPath, sink: IssueSink): void {
+  const issues = checkRichTextDocument(value)
+  for (const issue of issues)
+    sink.report('richText.invalidDocument', [...path, ...issue.path], { params: { code: issue.code } })
+  if (issues.length === 0)
+    validateRichFields((value as RichTextDocument).blocks, [...path, 'blocks'], sink)
+}
+
+/** 校验富文本内容来源。 */
+export function validateRichTextContent(value: unknown, path: JsonPath, sink: IssueSink): void {
+  checkVariant(sink, value, path, {
+    static: [field('document', true, (item, itemPath) => validateRichTextDocument(item, itemPath, sink))],
+    field: [
+      field('field', true, (item, itemPath) => readFieldPath(sink, item, itemPath)),
+      field('source', true, (item, itemPath) => readOneOf(sink, item, itemPath, RICH_TEXT_SOURCES)),
+    ],
+  })
 }
 
 /** 校验图片来源。 */
@@ -371,6 +415,9 @@ export function validateControlValue(control: PropertyControl, value: unknown, p
       return
     case 'textContent':
       validateTextContent(value, path, sink)
+      return
+    case 'richTextContent':
+      validateRichTextContent(value, path, sink)
       return
     case 'imageSource':
       validateImageSource(value, path, sink)

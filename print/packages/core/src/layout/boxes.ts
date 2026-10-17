@@ -191,7 +191,7 @@ export function fillPageNumber(
 
 /** 为不跨页的元素生成布局盒，坐标为设计坐标；页码与跨页元素另行处理。 */
 export function layoutFixedElement(
-  element: Exclude<PrintElement, { type: 'table' | 'longText' | 'pageNumber' }>,
+  element: Exclude<PrintElement, { type: 'table' | 'longText' | 'richText' | 'pageNumber' }>,
   region: ElementRegion,
   context: LayoutContext,
   scope: DiagnosticScope,

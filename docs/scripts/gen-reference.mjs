@@ -465,6 +465,7 @@ const UNIT_NAMES = { mm: 'mm', pt: 'pt', deg: '度', ratio: '倍', count: '个' 
 
 const COMPOSITE_KINDS = {
   textContent: '[文本内容](./schema#textcontent)',
+  richTextContent: '[富文本内容](./schema#richtextcontent)',
   imageSource: '[图片来源](./schema#imagesource)',
   valueFormat: '[值格式](./schema#valueformat)',
   stroke: '[描边](./schema#stroke)',

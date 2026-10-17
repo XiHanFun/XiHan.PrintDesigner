@@ -84,9 +84,9 @@ describe('内置元素原型', () => {
     expect(nested.find(descriptor => descriptor.path.join('.') === 'header.repeat')!.visibleWhen).toEqual({ path: ['header', 'visible'], equals: true })
   })
 
-  it('只有长文本与表格是跨页续排元素', () => {
+  it('只有长文本、富文本与表格是跨页续排元素', () => {
     const flow = samplePrototypes().filter(prototype => prototype.flow).map(prototype => prototype.type)
-    expect(flow.sort()).toEqual(['longText', 'table'])
+    expect(flow.sort()).toEqual(['longText', 'richText', 'table'])
   })
 
   it('码制选项直接取 @xihan-ui/headless 的码制常量', () => {
@@ -105,6 +105,7 @@ describe('元素类型登记表', () => {
     expect(registry.prototypes.map(prototype => prototype.type)).toEqual([
       'text',
       'longText',
+      'richText',
       'pageNumber',
       'image',
       'table',
@@ -115,7 +116,7 @@ describe('元素类型登记表', () => {
       'matrixCode',
     ])
     expect(registry.groupByCategory().map(group => [group.category, group.prototypes.length])).toEqual([
-      ['text', 3],
+      ['text', 4],
       ['media', 1],
       ['data', 1],
       ['shape', 3],

@@ -66,18 +66,19 @@ describe('合法文档', () => {
     expect(validateDocument(roundTrip).issues).toEqual([])
   })
 
-  it('各类型默认元素放进正文后没有 error，只有提示未绑定的 warning', () => {
+  it('各类型默认元素放进正文后没有 error，只有提示未绑定或内容为空的 warning', () => {
     const elements = PRINT_ELEMENT_TYPES.map((type, index) =>
       registry.createElement(type, { id: `e${index}`, x: 15, y: 30 + index * 2 }),
     )
     const report = validateDocument(withBody(...elements))
     expect(report.valid).toBe(true)
     expect(summarize(report)).toEqual([
-      'field.empty@pages.0.elements.2.dataField',
-      'field.empty@pages.0.elements.2.columns.0.content.field',
-      'field.empty@pages.0.elements.2.columns.1.content.field',
-      'field.empty@pages.0.elements.2.columns.2.content.field',
-      'image.emptySource@pages.0.elements.3.source.url',
+      'richText.empty@pages.0.elements.2.content.document',
+      'field.empty@pages.0.elements.3.dataField',
+      'field.empty@pages.0.elements.3.columns.0.content.field',
+      'field.empty@pages.0.elements.3.columns.1.content.field',
+      'field.empty@pages.0.elements.3.columns.2.content.field',
+      'image.emptySource@pages.0.elements.4.source.url',
     ])
   })
 

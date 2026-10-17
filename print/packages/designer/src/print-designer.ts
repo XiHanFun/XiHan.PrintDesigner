@@ -219,6 +219,7 @@ const DEFAULT_TRANSLATIONS: PrintDesignerTranslations = {
   elements: {
     text: 'Text',
     longText: 'Long text',
+    richText: 'Rich text',
     table: 'Table',
     image: 'Image',
     line: 'Line',

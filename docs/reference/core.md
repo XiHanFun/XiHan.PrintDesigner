@@ -57,6 +57,17 @@
 | `DEFAULT_MAX_SHEETS` | 常量 | 输出页总数上限的缺省值。 |
 | `paginate` | 函数 | 按数据排出模板文档的全部输出页，返回每页每个元素的布局盒。 |
 
+### layout/rich-text
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `RICH_TEXT_BLOCK_GAP` | 常量 | 顶层块与块之间的段距，基准字号的倍数；列表项之间与列表项里的块之间不留段距。 |
+| `RICH_TEXT_DIVIDER_WIDTH` | 常量 | 分隔线的线宽，单位 mm。 |
+| `RICH_TEXT_HEADING_SCALES` | 常量 | 一到三级标题的字号，基准字号的倍数。 |
+| `RICH_TEXT_LIST_INDENT` | 常量 | 每层列表的缩进，基准字号的倍数。 |
+| `RICH_TEXT_MARKER_GAP` | 常量 | 项目符号或序号与文字之间的间距，基准字号的倍数。 |
+| `RICH_TEXT_SCRIPT_SCALE` | 常量 | 上标与下标的字号，所在文字字号的倍数。 |
+
 ### layout/text-measure
 
 | 名称 | 种类 | 说明 |
@@ -87,6 +98,10 @@
 | `PrintLayoutError` | 类 | 分页无法进行时抛出的错误。 |
 | `PrintLayoutErrorCode` | 类型 | 分页无法进行的原因：文档有 error 级校验问题、选项不合法、测量器或格式化器返回了不合法的结果。 |
 | `RectLayoutBox` | 接口 | 矩形布局盒。 |
+| `RichTextLayoutBox` | 接口 | 富文本布局盒，跨页时每页一段。 |
+| `RichTextLine` | 接口 | 富文本排出的一行，长度单位 mm。 |
+| `RichTextMarker` | 接口 | 列表项的项目符号或序号。 |
+| `RichTextSpan` | 接口 | 富文本一行里同一样式的一截文字：字号与字间距单位 pt。 |
 | `TableCellLayout` | 接口 | 表格单元格布局，坐标相对纸张左上角。 |
 | `TableLayoutBox` | 接口 | 表格布局盒，跨页时每页一段。 |
 | `TableRowLayout` | 接口 | 表格行布局：表头、数据行、补空行或表尾行。 |
@@ -250,6 +265,8 @@
 | `PrintElementOf` | 类型 | 按类型取元素接口。 |
 | `PrintElementType` | 类型 | 内置元素类型。 |
 | `RectElement` | 接口 | 矩形。 |
+| `RichTextContent` | 类型 | 富文本的内容来源：模板里写死的文档，或从数据字段读取。 |
+| `RichTextElement` | 接口 | 随内容纵向延展并可跨页续排的富文本：段落、标题、列表、分隔线与带样式的文字。 |
 | `TableElement` | 接口 | 绑定数组数据、随行数延展并可跨页续排的表格。 |
 | `TextElement` | 接口 | 固定尺寸的文本。 |
 
@@ -275,6 +292,8 @@
 | `PageBandKey` | 类型 | 页眉页脚的全部带区键，`default` 为未命中任何变体时使用的带区。 |
 | `PageBandVariant` | 类型 | 页眉页脚变体：first 首页、last 末页、odd 奇数页、even 偶数页（按页码奇偶）。 |
 | `PageOrientation` | 类型 | 页面方向：portrait 纵向，landscape 横向（宽高互换）。 |
+| `RICH_TEXT_SOURCES` | 常量 | 富文本字段的内容格式取值。 |
+| `RichTextSource` | 类型 | 富文本字段的内容格式：html 为 HTML 串，按白名单换成文档；document 为富文本文档对象。 |
 | `SINGLE_SHEET_PREFERENCES` | 常量 | 同一输出页既是首页又是末页时优先采用的变体取值。 |
 | `SingleSheetPreference` | 类型 | 同一输出页既是首页又是末页时优先采用的变体。 |
 | `STROKE_STYLES` | 常量 | 线型取值。 |

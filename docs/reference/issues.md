@@ -63,6 +63,8 @@
 | `matrixCode.notSquare` | 警告 | 二维码宽高不等 | — |
 | `pageNumber.noToken` | 警告 | 页码格式里没有 &#123;&#123;$page}} 或 &#123;&#123;$pages}} | — |
 | `pageNumber.unknownToken` | 警告 | 页码格式里有未知的变量 {token} | `token` |
+| `richText.invalidDocument` | 错误 | 富文本写法不对 | `code` |
+| `richText.empty` | 警告 | 富文本没有内容 | — |
 
 ## 分页诊断
 
@@ -80,6 +82,8 @@
 | `barCode.invalidValue` | 错误 | 内容无法按 {format} 编码 | `format` |
 | `matrixCode.invalidValue` | 错误 | 内容无法按 {format} 编码 | `format` |
 | `text.overflow` | 警告 | 文字缩到 {fontSize} pt 仍超出元素框 | `fontSize` |
+| `richText.droppedContent` | 警告 | 字段 {field} 的 HTML 里去掉了 {names} | `field`、`names` |
+| `richText.invalidData` | 错误 | 字段 {field} 不是合规的富文本文档 | `field` |
 | `table.rowOverflow` | 警告 | 第 … 行在一页里放不下 | `dataIndex` |
 | `element.overflow` | 警告 | 内容超出元素框 | — |
 | `layout.sheetLimit` | 错误 | 输出页数超过上限 {limit} | `limit` |

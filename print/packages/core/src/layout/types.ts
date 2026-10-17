@@ -21,6 +21,8 @@ import type {
   PageBandKey,
   PageOrientation,
   TableCellType,
+  TextAlign,
+  VerticalAlign,
 } from '../schema/options'
 import type { CellStyle, TableBorder } from '../schema/table'
 import type { ElementRegion } from '../traverse'
@@ -91,6 +93,62 @@ export interface TextLayoutBox extends LayoutBoxBase {
   box?: BoxStyle
   /** 长文本跨页时的分段位置。 */
   fragment?: LayoutFragment
+}
+
+/** 富文本一行里同一样式的一截文字：字号与字间距单位 pt。 */
+export interface RichTextSpan {
+  text: string
+  /** 字体族，缺省使用运行时默认字体。 */
+  fontFamily?: string
+  /** 字号；上标与下标为缩小后的值。 */
+  fontSize: number
+  bold: boolean
+  italic: boolean
+  underline: boolean
+  lineThrough: boolean
+  color: Color
+  /** 文字底色。 */
+  background?: Color
+  letterSpacing: number
+  /** 上标或下标。 */
+  script?: 'super' | 'sub'
+  /** 链接地址，已过 @xihan-ui/core/url 的 toSafeLinkHref。 */
+  link?: string
+}
+
+/** 列表项的项目符号或序号。 */
+export interface RichTextMarker {
+  /** 距内容区左边的位置，单位 mm。 */
+  x: number
+  span: RichTextSpan
+}
+
+/** 富文本排出的一行，长度单位 mm。 */
+export interface RichTextLine {
+  /** 与上一行之间的段距；每段续排的第一行为 0。 */
+  gap: number
+  /** 行高：这一行里最大的字号乘以行高倍数。 */
+  height: number
+  /** 行首缩进，即列表的层级缩进。 */
+  indent: number
+  /** 水平对齐；两端对齐的块里，最后一行与换行之前的行取 left。 */
+  align: TextAlign
+  /** 这一行的文字；空行与分隔线没有文字。 */
+  spans: RichTextSpan[]
+  /** 列表项第一行的项目符号或序号。 */
+  marker?: RichTextMarker
+  /** 分隔线：这一行竖向居中画一条横线。 */
+  divider?: { color: Color, width: number }
+}
+
+/** 富文本布局盒，跨页时每页一段。 */
+export interface RichTextLayoutBox extends LayoutBoxBase {
+  kind: 'richText'
+  lines: RichTextLine[]
+  /** 内容在元素框里的竖向对齐，取基准样式。 */
+  verticalAlign: VerticalAlign
+  box?: BoxStyle
+  fragment: LayoutFragment
 }
 
 /** 图片布局盒。 */
@@ -192,6 +250,7 @@ export interface TableLayoutBox extends LayoutBoxBase {
 /** 布局盒。 */
 export type LayoutBox
   = | TextLayoutBox
+    | RichTextLayoutBox
     | ImageLayoutBox
     | LineLayoutBox
     | RectLayoutBox
@@ -245,6 +304,8 @@ export const PAGINATION_DIAGNOSTIC_SEVERITIES = {
   'barCode.invalidValue': 'error',
   'matrixCode.invalidValue': 'error',
   'text.overflow': 'warning',
+  'richText.droppedContent': 'warning',
+  'richText.invalidData': 'error',
   'table.rowOverflow': 'warning',
   'element.overflow': 'warning',
   'layout.sheetLimit': 'error',

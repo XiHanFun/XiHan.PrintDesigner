@@ -6,7 +6,8 @@
 // 复合属性拆成属性面板自带的编辑方式：线拆成线宽、线型、颜色，边距拆成四边，单元格样式、纸张与水印逐项拆开；
 // 可选的对象前面加一个开关。开关等面板上读不到的值放在编辑对象的 $view 下，写入时再换回模板里的修改；
 // 个别分项改动时要连带改别处（如改纸张宽高时去掉预设），也在写入时换成一组修改。
-// 文本内容、单元格内容与图片来源先选来源种类，再按种类显示对应输入，切换种类时整体换成该种类的缺省对象；
+// 文本内容、富文本内容、单元格内容与图片来源先选来源种类，再按种类显示对应输入，切换种类时整体换成该种类的缺省对象；
+// 富文本写死的文档在面板上不能编辑，只能切换来源；
 // 绑定字段在给了字段树时是平铺的下拉，值格式暂用 JSON 文本框；二维码纠错级别按码制显示下拉或数字，
 // 页码格式是一行文本。
 
@@ -15,7 +16,7 @@ import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
 import type { DataField, DataFieldKind } from '@xihan-ui/designer-kit'
 import type { PropertyCondition, PropertyControl } from '@xihan-ui/designer-kit/properties'
 import type { DesignerPropertyDescriptor } from '@xihan-ui/designer-shell'
-import { AGGREGATE_FUNCTIONS, AGGREGATE_SCOPES, createPaper, HORIZONTAL_ALIGNS, STROKE_STYLES, VERTICAL_ALIGNS } from '@xihan-print/core'
+import { AGGREGATE_FUNCTIONS, AGGREGATE_SCOPES, createPaper, HORIZONTAL_ALIGNS, RICH_TEXT_SOURCES, STROKE_STYLES, VERTICAL_ALIGNS } from '@xihan-print/core'
 import { formatJsonPath, getJsonAt } from '@xihan-ui/core/json'
 import { listDataFields, PAPER_PRESET_NAMES } from '@xihan-ui/designer-kit'
 import { MATRIX_CODE_LEVEL_RANGES, QR_LEVELS } from '@xihan-ui/headless'
@@ -227,6 +228,15 @@ const EXPANDERS: Readonly<Record<string, Expander>> = {
     }
   },
   textContent: (descriptor, context) => content(descriptor, TEXT_KINDS, textContent, textParts(fieldControl(context, ['value']))),
+  richTextContent: (descriptor, context) => content(
+    descriptor,
+    ['static', 'field'],
+    (kind): JsonValue => kind === 'static' ? { kind, document: { blocks: [{ type: 'paragraph', runs: [] }] } } : { kind, field: '', source: 'html' },
+    [
+      { key: 'field', control: fieldControl(context, ['value']), kinds: ['field'] },
+      { key: 'source', control: { kind: 'select', options: choices(RICH_TEXT_SOURCES) }, kinds: ['field'] },
+    ],
+  ),
   imageSource: (descriptor, context) => content(
     descriptor,
     ['static', 'field'],

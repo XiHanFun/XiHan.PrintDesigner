@@ -9,6 +9,20 @@ import type { SchemaIssue } from '@xihan-ui/designer-kit/schema'
 
 const REGIONS: Readonly<Record<string, string>> = { header: 'header', body: 'body', footer: 'footer' }
 
+/** 富文本文档结构问题的说明，键为 @xihan-ui/core/rich-text 的问题码。 */
+const RICH_TEXT_ISSUES: Readonly<Record<string, string>> = {
+  'invalid-document': 'Rich text is not a { blocks: [...] } document',
+  'unknown-block': 'Rich text has an unknown block',
+  'unknown-inline': 'Rich text has unknown inline content',
+  'unknown-mark': 'Rich text has an unknown style',
+  'unknown-key': 'Rich text has an extra property',
+  'missing': 'Rich text is missing a required value',
+  'invalid-value': 'Rich text has an invalid value',
+  'unsafe-link': 'Rich text link address is not allowed',
+  'conflicting-marks': 'Rich text has both superscript and subscript on',
+  'list-too-deep': 'Rich text lists are nested more than three levels',
+}
+
 function text(value: unknown): string {
   return Array.isArray(value) ? value.join(', ') : String(value ?? '')
 }
@@ -136,6 +150,10 @@ export function defaultIssueText(issue: SchemaIssue): string {
       return '2D code is not square'
     case 'pageNumber.noToken':
       return 'Page number format has no {{$page}} or {{$pages}}'
+    case 'richText.invalidDocument':
+      return RICH_TEXT_ISSUES[text(params.code)] ?? 'Rich text is malformed'
+    case 'richText.empty':
+      return 'Rich text has no content'
     case 'pageNumber.unknownToken':
       return `Unknown variable ${text(params.token)} in page number format`
     case 'data.notArray':
@@ -154,6 +172,10 @@ export function defaultIssueText(issue: SchemaIssue): string {
       return params.fontSize === undefined ? 'Text overflows its box' : `Text overflows its box at ${text(params.fontSize)} pt`
     case 'table.rowOverflow':
       return `Row ${Number(params.dataIndex) + 1} does not fit on one page`
+    case 'richText.droppedContent':
+      return `Removed ${text(params.names)} from the HTML in field ${text(params.field)}`
+    case 'richText.invalidData':
+      return `Field ${text(params.field)} is not a valid rich text document`
     case 'element.overflow':
       return 'Content overflows its box'
     case 'layout.sheetLimit':

@@ -155,6 +155,24 @@
 | `style` | <code><a href="#textstyle">TextStyle</a></code> | 是 |  |
 | `box` | <code><a href="#boxstyle">BoxStyle</a></code> | 可省 |  |
 
+### RichTextContent {#richtextcontent}
+
+富文本的内容来源：模板里写死的文档，或从数据字段读取。字段值是 HTML 串时（source 为 html）按白名单换成文档，字段值已是富文本文档对象时 source 为 document。文档是 @xihan-ui/core/rich-text 的 RichTextDocument，其中行内字段的 format 按值格式解释。
+
+类型：<code>&#124; { kind: 'static', document: RichTextDocument } &#124; { kind: 'field', field: string, source: <a href="#richtextsource">RichTextSource</a> }</code>
+
+### RichTextElement {#richtextelement}
+
+随内容纵向延展并可跨页续排的富文本：段落、标题、列表、分隔线与带样式的文字。
+
+继承 <code><a href="#elementbase">ElementBase</a>&lt;'richText'&gt;</code> 的字段。
+
+| 字段 | 类型 | 必填 | 说明 |
+| --- | --- | --- | --- |
+| `content` | <code><a href="#richtextcontent">RichTextContent</a></code> | 是 |  |
+| `style` | <code><a href="#textstyle">TextStyle</a></code> | 是 | 基准样式：块与行内的样式在它之上覆写。 |
+| `box` | <code><a href="#boxstyle">BoxStyle</a></code> | 可省 |  |
+
 ### TableElement {#tableelement}
 
 绑定数组数据、随行数延展并可跨页续排的表格。
@@ -278,7 +296,7 @@
 
 内置元素。
 
-取其一：<code><a href="#textelement">TextElement</a></code>、<code><a href="#longtextelement">LongTextElement</a></code>、<code><a href="#tableelement">TableElement</a></code>、<code><a href="#imageelement">ImageElement</a></code>、<code><a href="#lineelement">LineElement</a></code>、<code><a href="#rectelement">RectElement</a></code>、<code><a href="#ellipseelement">EllipseElement</a></code>、<code><a href="#barcodeelement">BarCodeElement</a></code>、<code><a href="#matrixcodeelement">MatrixCodeElement</a></code>、<code><a href="#pagenumberelement">PageNumberElement</a></code>。
+取其一：<code><a href="#textelement">TextElement</a></code>、<code><a href="#longtextelement">LongTextElement</a></code>、<code><a href="#richtextelement">RichTextElement</a></code>、<code><a href="#tableelement">TableElement</a></code>、<code><a href="#imageelement">ImageElement</a></code>、<code><a href="#lineelement">LineElement</a></code>、<code><a href="#rectelement">RectElement</a></code>、<code><a href="#ellipseelement">EllipseElement</a></code>、<code><a href="#barcodeelement">BarCodeElement</a></code>、<code><a href="#matrixcodeelement">MatrixCodeElement</a></code>、<code><a href="#pagenumberelement">PageNumberElement</a></code>。
 
 ### PrintElementType {#printelementtype}
 
@@ -706,6 +724,17 @@
 | `clip` | 裁掉 |
 | `shrink` | 缩小字号 |
 | `visible` | 照常显示 |
+
+### RichTextSource {#richtextsource}
+
+富文本字段的内容格式：html 为 HTML 串，按白名单换成文档；document 为富文本文档对象。
+
+取值见常量 `RICH_TEXT_SOURCES`：
+
+| 取值 | 中文名 |
+| --- | --- |
+| `html` | HTML |
+| `document` | 富文本文档 |
 
 ### ImageFit {#imagefit}
 

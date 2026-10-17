@@ -126,6 +126,40 @@ describe('文本', () => {
   })
 })
 
+describe('富文本', () => {
+  it('按 core 排好的行逐行输出：每截文字带自己的样式，段距、缩进、项目符号与分隔线按行画；链接是带 href 的 a', () => {
+    const rich = registry.createElement('richText', {
+      id: 'r',
+      x: 0,
+      y: 0,
+      overrides: { width: 100, content: { kind: 'field', field: 'body', source: 'html' } },
+    })
+    rich.style = { ...rich.style, fontSize: 10, lineHeight: 1, verticalAlign: 'middle' }
+    render([rich], { body: '<p>甲<strong style="color:#123456">乙</strong><sup>2</sup><a href="https://example.com">链</a></p><ul><li>项</li></ul><hr>' })
+    const box = boxIn(container, 'r')
+    expect(box.dataset.kind).toBe('richText')
+    expect(box.style.overflow).toBe('hidden')
+    const content = box.querySelector<HTMLElement>('[data-part="text"]')!
+    expect(content.style.justifyContent).toBe('center')
+    const [first, item, divider] = Array.from(content.children) as HTMLElement[]
+    expect(first!.style.height).toBe('3.5278mm')
+    expect(Array.from(first!.querySelectorAll<HTMLElement>('[data-part="span"]'), span => [span.tagName, span.textContent, span.style.fontWeight, span.style.verticalAlign])).toEqual([
+      ['SPAN', '甲', '400', ''],
+      ['SPAN', '乙', '700', ''],
+      ['SPAN', '2', '400', 'super'],
+      ['A', '链', '400', ''],
+    ])
+    const [, bold, sup, link] = Array.from(first!.querySelectorAll<HTMLElement>('[data-part="span"]'))
+    expect(bold!.style.color).toBe('rgb(18, 52, 86)')
+    expect(sup!.style.fontSize).toBe('7pt')
+    expect([link!.getAttribute('href'), link!.style.getPropertyValue('text-decoration-line')]).toEqual(['https://example.com', 'none'])
+    expect(item!.style.marginTop).toBe('1.7639mm')
+    expect(item!.style.paddingLeft).toBe('7.0556mm')
+    expect(item!.querySelector('[data-part="marker"]')!.textContent).toBe('•')
+    expect(divider!.querySelector<HTMLElement>('[data-part="divider"]')!.style.borderTop).toBe('0.2mm solid rgb(0, 0, 0)')
+  })
+})
+
 describe('图形与图片', () => {
   it('矩形与椭圆用描边与圆角，直线用 SVG，双线画成两条', () => {
     const rect = registry.createElement('rect', { id: 'r', x: 0, y: 0, overrides: { radius: 2, fill: '#ff0000', stroke: { width: 0.5, style: 'solid', color: '#000000' } } })
