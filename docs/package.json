@@ -1,0 +1,44 @@
+{
+  "name": "xihan-print-designer-docs",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "description": "XiHan.PrintDesigner 文档站：框架无关的打印设计器，以 Web Components 交付，配套本地打印客户端。",
+  "author": {
+    "name": "XiHanFun"
+  },
+  "license": "MIT",
+  "repository": {
+    "url": "https://github.com/XiHanFun/XiHan.PrintDesigner"
+  },
+  "bugs": {
+    "url": "https://github.com/XiHanFun/XiHan.PrintDesigner/issues"
+  },
+  "scripts": {
+    "bootstrap": "pnpm install --frozen-lockfile",
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "dependencies": {
+    "@xihan-print/core": "link:../print/packages/core",
+    "@xihan-print/designer": "link:../print/packages/designer",
+    "@xihan-print/runtime": "link:../print/packages/runtime",
+    "@xihan-ui/designer-shell": "^5.0.0",
+    "@xihan-ui/styles": "^5.0.0",
+    "@xihan-ui/web-components": "^5.0.0",
+    "@xihanfun/vitepress-theme": "^1.1.0",
+    "vitepress": "2.0.0-alpha.20",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^9.5.1",
+    "@types/node": "^24.10.0",
+    "eslint": "^10.12.0",
+    "typescript": "^6.0.3"
+  }
+}
