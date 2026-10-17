@@ -378,8 +378,9 @@ describe('<xh-print-designer>', () => {
     expect(tabs.collection!.map(item => item.label)).toEqual(['Top', 'Right', 'Bottom', 'Left'])
     const side = (name: string): HTMLElement => tabs.querySelector<HTMLElement>(`[data-part="border-side"][slot="panel:${name}"]`)!
     const toggle = (name: string): HTMLElement & { checked?: boolean } => side(name).querySelector('xh-switch')!
+    const label = (field: Element): string | null => field.closest('[data-part="property"]')!.querySelector('[data-xh-part="label"]')!.textContent
     const border = (): unknown => (designer.schema.pages[0]!.elements[0] as { box?: { border?: unknown } }).box?.border
-    expect([toggle('top').querySelector('[data-xh-part="text"]')!.textContent, toggle('top').checked]).toEqual(['Top border', false])
+    expect([label(toggle('top')), toggle('top').checked]).toEqual(['Top border', false])
     expect(side('top').querySelector<HTMLElement>('[data-part="border-side-stroke"]')!.hidden).toBe(true)
 
     toggle('top').dispatchEvent(new CustomEvent('checked-change', { detail: { checked: true }, bubbles: true }))
@@ -388,9 +389,11 @@ describe('<xh-print-designer>', () => {
     await panel.updateComplete
     expect([toggle('top').checked, side('top').querySelector<HTMLElement>('[data-part="border-side-stroke"]')!.hidden]).toEqual([true, false])
     const width = side('top').querySelector('xh-number-field') as HTMLElement & { value?: string }
-    expect([width.value, width.querySelector('[data-xh-part="suffix"]')!.textContent, width.querySelector('[data-xh-part="label"]')!.textContent]).toEqual(['0.2', 'mm', 'Width'])
+    expect([width.value, width.querySelector('[data-xh-part="suffix"]')!.textContent, label(width)]).toEqual(['0.2', 'mm', 'Width'])
+    const style = side('top').querySelector('xh-select')!
+    expect([label(style), Array.from(style.querySelectorAll('[data-xh-part="item-text"]'), item => item.textContent)]).toEqual(['Style', ['Solid', 'Dashed', 'Dotted', 'Double']])
     width.dispatchEvent(new CustomEvent('value-change', { detail: { value: '0.5', valueAsNumber: 0.5 }, bubbles: true }))
-    side('top').querySelector('xh-select')!.dispatchEvent(new CustomEvent('value-change', { detail: { value: ['double'] }, bubbles: true }))
+    style.dispatchEvent(new CustomEvent('value-change', { detail: { value: ['3'] }, bubbles: true }))
     expect(border()).toEqual({ top: { width: 0.5, style: 'double', color: '#000000' } })
     await designer.updateComplete
     await panel.updateComplete
@@ -527,13 +530,16 @@ describe('<xh-print-designer>', () => {
     }
     const editor = panel.querySelector<HTMLElement>('[data-path="content.format"] [data-part="value-format"]')!
     type Control = HTMLElement & { value?: unknown, collection?: { value: string, label: string }[], kinds?: unknown, clearable?: boolean, check?: unknown }
-    const kind = editor.querySelector<Control>(':scope > xh-select')!
+    const kindRow = editor.firstElementChild!
+    const kind = kindRow.querySelector<Control>('xh-select')!
+    const pick = (index: number): void => void kind.dispatchEvent(new CustomEvent('value-change', { detail: { value: [String(index)] }, bubbles: true }))
     const format = (): unknown => (designer.schema.pages[0]!.elements[0] as { content: { format?: unknown } }).content.format
-    const visible = (): string[] => Array.from(editor.children as HTMLCollectionOf<HTMLElement>).filter(child => !child.hidden && child !== kind).map(child => child.dataset.part ?? child.localName)
-    expect([kind.value, kind.getAttribute('aria-label'), kind.collection!.map(item => item.label)]).toEqual([['none'], 'Format type', ['No format', 'Common format', 'Value map', 'Expression']])
+    const visible = (): string[] => Array.from(editor.children as HTMLCollectionOf<HTMLElement>).filter(child => !child.hidden && child !== kindRow).map(child => child.dataset.part ?? child.localName)
+    expect([kind.value, kindRow.querySelector('[data-xh-part="label"]')!.textContent, Array.from(kind.querySelectorAll('[data-xh-part="item-text"]'), item => item.textContent)])
+      .toEqual([['0'], 'Format type', ['No format', 'Common format', 'Value map', 'Expression']])
     expect(visible()).toEqual([])
 
-    kind.dispatchEvent(new CustomEvent('value-change', { detail: { value: ['format'] }, bubbles: true }))
+    pick(1)
     expect(format()).toEqual({ kind: 'number' })
     await settle()
     const input = editor.querySelector<Control>('xh-format-input')!
@@ -541,7 +547,7 @@ describe('<xh-print-designer>', () => {
     input.dispatchEvent(new CustomEvent('value-change', { detail: { value: { kind: 'percent', decimals: 1 } }, bubbles: true }))
     expect(format()).toEqual({ kind: 'percent', decimals: 1 })
 
-    kind.dispatchEvent(new CustomEvent('value-change', { detail: { value: ['map'] }, bubbles: true }))
+    pick(2)
     expect(format()).toEqual({ kind: 'map', entries: [] })
     await settle()
     expect(visible()).toEqual(['value-map'])
@@ -553,17 +559,19 @@ describe('<xh-print-designer>', () => {
     expect(Array.from(cells, cell => cell.getAttribute('aria-label'))).toEqual(['Value of entry 1', 'Display text of entry 1'])
     cells[0]!.dispatchEvent(new CustomEvent('value-change', { detail: { value: 'M' }, bubbles: true }))
     cells[1]!.dispatchEvent(new CustomEvent('value-change', { detail: { value: '男' }, bubbles: true }))
-    editor.querySelector<Control>('[data-part="value-map"] > xh-text-field')!.dispatchEvent(new CustomEvent('value-change', { detail: { value: '未知' }, bubbles: true }))
+    const fallback = editor.querySelector<Control>('[data-part="value-map"] > [data-part="property"] xh-text-field')!
+    expect(fallback.closest('[data-part="property"]')!.querySelector('[data-xh-part="label"]')!.textContent).toBe('Text when nothing matches')
+    fallback.dispatchEvent(new CustomEvent('value-change', { detail: { value: '未知' }, bubbles: true }))
     expect(format()).toEqual({ kind: 'map', entries: [{ value: 'M', text: '男' }], fallback: '未知' })
 
-    kind.dispatchEvent(new CustomEvent('value-change', { detail: { value: ['expression'] }, bubbles: true }))
+    pick(3)
     await settle()
     const expression = editor.querySelector<Control>('xh-expression-input')!
     expect([visible(), typeof expression.check]).toEqual([['xh-expression-input'], 'function'])
     expression.dispatchEvent(new CustomEvent('value-change', { detail: { value: 'value * 2' }, bubbles: true }))
     expect(format()).toEqual({ kind: 'expression', expression: 'value * 2' })
 
-    kind.dispatchEvent(new CustomEvent('value-change', { detail: { value: ['none'] }, bubbles: true }))
+    pick(0)
     expect(format()).toBeUndefined()
   })
 
