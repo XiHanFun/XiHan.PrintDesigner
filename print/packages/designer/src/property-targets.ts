@@ -8,7 +8,6 @@
 
 import type { PrintOperation, PropertyChange, PropertyDescriptor, TableElement } from '@xihan-print/core'
 import type { JsonPath, JsonPathSegment, JsonValue } from '@xihan-ui/core/json'
-import type { DataField } from '@xihan-ui/designer-kit'
 import type { PrintEditor, PrintTablePart } from './editor'
 import type { ExpandContext, ExpandedDescriptor } from './property-expand'
 import {
@@ -102,11 +101,11 @@ function subject(
 
 /**
  * 按当前选择取编辑对象：表格编辑态下是选中的部位，选中元素时是这些元素，什么都没选时是当前页面设置。
- * fields 是可绑定的字段树；表格部位里相对行的字段从表格的数组字段往下列。
+ * 表格部位里相对行的字段从表格的数组字段往下列。
  */
-export function propertySubjects(editor: PrintEditor, editingTable: string | undefined, keep: KeepComposite, fields?: readonly DataField[]): PropertySubject[] {
+export function propertySubjects(editor: PrintEditor, editingTable: string | undefined, keep: KeepComposite): PropertySubject[] {
   const { document, selection } = editor
-  const context: ExpandContext = fields === undefined ? {} : { fields }
+  const context: ExpandContext = {}
   const part = selection.tablePart
   if (editingTable !== undefined && part !== undefined) {
     const found = findElement(document, editingTable)

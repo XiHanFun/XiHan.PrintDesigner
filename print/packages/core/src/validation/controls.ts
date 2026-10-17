@@ -410,7 +410,7 @@ export function validateControlValue(control: PropertyControl, value: unknown, p
     case 'tags':
     case 'json':
       return
-    case 'field':
+    case 'dataField':
       readFieldPath(sink, value, path)
       return
     case 'textContent':
