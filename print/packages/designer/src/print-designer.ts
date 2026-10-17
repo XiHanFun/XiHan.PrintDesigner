@@ -112,9 +112,10 @@ import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, setText, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
-import { defineXhElement, XhButtonElement, XhContextMenuElement, XhFieldElement, XhMenuElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
+import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhFieldElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createPrintEditor, elementRect } from './editor'
 import { defaultIssueText } from './issue-text'
+import { borderSidesEditor } from './property-editors'
 import { propertySubjects, TABLE_PART_KINDS } from './property-targets'
 import { PROPERTY_GROUP_NAMES, PROPERTY_NAMES, PROPERTY_OPTION_NAMES, UNIT_NAMES } from './property-text'
 import { columnBoundaries, planTableCommand, TABLE_COMMANDS, tablePartAt } from './table-edit'
@@ -1644,7 +1645,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       this.#editor.execute(operations, { merge, mergeWithin: Number.POSITIVE_INFINITY })
   }
 
-  /** 交给面板的编辑器：设计器自带表格列与表尾行的条目编辑器，宿主的 editors 压在上面。 */
+  /** 交给面板的编辑器：设计器自带表格列与表尾行的条目、页码格式与四边边框的编辑器，宿主的 editors 压在上面。 */
   #propertyEditors(): PropertyEditorTable<DesignerPropertyEditor> {
     const host = this.editors
     if (this.#editorTable !== undefined && this.#editorTable.host === host)
@@ -1653,6 +1654,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       tableColumns: this.#partList('column'),
       tableFooterRows: this.#partList('footerRow'),
       pageNumberFormat: this.#pageNumberFormat(),
+      borderSides: borderSidesEditor({ ownerDocument: this.ownerDocument, translations: () => this.#translations() }),
     }
     const table: PropertyEditorTable<DesignerPropertyEditor> = {
       byControl: { ...own, ...host?.byControl },
@@ -2508,6 +2510,11 @@ export function definePrintDesigner(): void {
   defineXhElement('xh-text-field', XhTextFieldElement)
   defineXhElement('xh-field', XhFieldElement)
   defineXhElement('xh-context-menu', XhContextMenuElement)
+  defineXhElement('xh-tabs', XhTabsElement)
+  defineXhElement('xh-switch', XhSwitchElement)
+  defineXhElement('xh-number-field', XhNumberFieldElement)
+  defineXhElement('xh-select', XhSelectElement)
+  defineXhElement('xh-color-field', XhColorFieldElement)
   registerElement(PRINT_DESIGNER_TAG, XhPrintDesigner)
 }
 

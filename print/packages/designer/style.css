@@ -195,6 +195,18 @@ xh-print-designer [data-part='part-list'] {
   gap: var(--xh-space-1);
 }
 
+/* 四边边框：每个页签里开关在上，线宽、线型、颜色依次往下 */
+xh-print-designer [data-part='border-side'],
+xh-print-designer [data-part='border-side-stroke'] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--xh-space-3);
+}
+
+xh-print-designer [data-part='border-side-stroke'][hidden] {
+  display: none;
+}
+
 xh-print-designer [data-part='preview'] {
   display: flex;
   flex: 1 1 auto;
