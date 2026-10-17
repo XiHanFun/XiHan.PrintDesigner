@@ -34,19 +34,22 @@ export type PropertyUnit = 'mm' | 'pt' | 'deg' | 'ratio' | 'count'
 /** 数值属性：designer-kit 的 number 编辑方式，单位取打印的单位。 */
 export type NumberControl = Extract<KitPropertyControl, { kind: 'number' }> & { readonly unit: PropertyUnit }
 
+/** 四边距离：designer-kit 的 sides 编辑方式，单位取打印的单位。 */
+export type SidesControl = Extract<KitPropertyControl, { kind: 'sides' }> & { readonly unit: PropertyUnit }
+
 /**
  * 属性编辑方式：@xihan-ui/designer-kit/properties 的内建编辑方式（数值的单位取打印的单位），
  * 加上打印专属的复合类型；复合类型由设计器提供对应的专用编辑器。
  */
 export type PropertyControl
-  = | Exclude<KitPropertyControl, { kind: 'number' }>
+  = | Exclude<KitPropertyControl, { kind: 'number' | 'sides' }>
     | NumberControl
+    | SidesControl
     | { kind: 'textContent' }
     | { kind: 'richTextContent' }
     | { kind: 'imageSource' }
     | { kind: 'valueFormat' }
     | { kind: 'stroke' }
-    | { kind: 'edges' }
     | { kind: 'borderSides' }
     | { kind: 'cellStyle' }
     | { kind: 'tableColumns' }

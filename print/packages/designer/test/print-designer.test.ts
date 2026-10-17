@@ -263,7 +263,7 @@ describe('<xh-print-designer>', () => {
     expect(panel.errors).toContainEqual({ target: { kind: 'text', id: 'a' }, path: ['width'], message: 'Must be at least 0' })
   })
 
-  it('复合属性拆开：页边距拆成四边，可选的线与边框各边前面有开关，开时写入缺省值、关时删掉', async () => {
+  it('复合属性拆开：页边距用内建的四边距离、整体写入，可选的线前面有开关，开时写入缺省值、关时删掉', async () => {
     const panel = designer.querySelector('xh-designer-properties')!
     const target = (): { kind: string, id: string, value: unknown, descriptors: readonly { path: readonly (string | number)[] }[] } => panel.targets![0]!
     const paths = (): string[] => target().descriptors.map(descriptor => descriptor.path.join('.'))
@@ -272,9 +272,9 @@ describe('<xh-print-designer>', () => {
       panel.dispatchEvent(new CustomEvent('property-change', { detail: { path, value, targets: [{ kind, id }], merge: 'm' } }))
     }
     const label = (path: string): string => panel.labelOf!(target().descriptors.find(descriptor => descriptor.path.join('.') === path)! as never)
-    expect(paths()).toEqual(expect.arrayContaining(['margins.top', 'margins.right', 'margins.bottom', 'margins.left']))
-    expect(label('margins.left')).toBe('Margins · Left')
-    change(['margins', 'left'], 15)
+    expect(target().descriptors.find(descriptor => descriptor.path.join('.') === 'margins')).toMatchObject({ control: { kind: 'sides', unit: 'mm', min: 0 } })
+    expect([paths().some(path => path.startsWith('margins.')), label('margins')]).toEqual([false, 'Margins'])
+    change(['margins'], { top: 10, right: 10, bottom: 10, left: 15 })
     expect(designer.schema.pages[0]!.margins.left).toBe(15)
 
     designer.execute([{ type: 'addElement', container: { pageId: 'p', region: 'body' }, element: registry.createElement('rect', { id: 'r', x: 100, y: 100 }) }])

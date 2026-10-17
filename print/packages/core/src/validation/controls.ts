@@ -428,7 +428,7 @@ export function validateControlValue(control: PropertyControl, value: unknown, p
     case 'stroke':
       validateStroke(value, path, sink)
       return
-    case 'edges':
+    case 'sides':
       validateEdges(value, path, sink)
       return
     case 'borderSides':
