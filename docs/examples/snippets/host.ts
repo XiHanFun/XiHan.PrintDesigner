@@ -3,10 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 与宿主集成：模板的读取与保存、按示例数据生成字段树、列出模板引用的字段、离开前提醒未保存、服务端复核模板。
+// 与宿主集成：模板的读取与保存、按示例数据生成字段树、列出模板引用的字段、离开前提醒未保存、存量模板迁移、服务端复核模板。
 
 // #region save
-import type { PrintDocument } from '@xihan-print/core'
+import type { PrintDocument, ValidationIssue } from '@xihan-print/core'
 import type { XhPrintDesigner } from '@xihan-print/designer'
 import type { DataField } from '@xihan-ui/designer-kit'
 import { collectDocumentFields, validateDocument } from '@xihan-print/core'
@@ -74,6 +74,17 @@ export function missingFields(document: PrintDocument, known: readonly DataField
   return missing
 }
 // #endregion collect
+
+// #region migrate
+/** 打开一份存量模板：转换函数由宿主写，产出的模板先校验，没有错误级问题才交给设计器。 */
+export function openLegacyTemplate(designer: XhPrintDesigner, legacy: unknown, convert: (legacy: unknown) => PrintDocument): ValidationIssue[] {
+  const document = convert(legacy)
+  const errors = validateDocument(document).issues.filter(issue => issue.severity === 'error')
+  if (errors.length === 0)
+    designer.schema = document
+  return errors
+}
+// #endregion migrate
 
 // #region server
 /** 服务端收到模板时复核：只有错误级问题才拒收，返回这些问题的问题码与路径。 */
