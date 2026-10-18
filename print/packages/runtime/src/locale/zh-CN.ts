@@ -366,6 +366,7 @@ const designer: PrintDesignerLocale = {
     'unknown-control': () => '未知的编辑方式',
     'duplicate-key': p => `键 ${text(p.key)} 重复`,
     'duplicate-id': p => `标识 ${text(p.id)} 重复`,
+    'duplicate-value': () => '选项的值重复',
     'json.circular': () => '数据有循环引用',
     'schema.unsupportedVersion': p => `不支持模板版本 ${text(p.version)}（应为 ${text(p.supported)}）`,
     'field.empty': () => '没有绑定字段',

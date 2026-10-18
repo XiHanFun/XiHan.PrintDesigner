@@ -291,6 +291,7 @@ const ISSUE_TEXTS: PrintDesignerLocale['issueTexts'] = {
   'unknown-control': () => 'Unknown property control',
   'duplicate-key': p => `Duplicate key ${text(p.key)}`,
   'duplicate-id': p => `Duplicate id ${text(p.id)}`,
+  'duplicate-value': () => 'Duplicate option value',
   'json.circular': () => 'Contains a circular reference',
   'schema.unsupportedVersion': p => `Template version ${text(p.version)} is not supported (expected ${text(p.supported)})`,
   'field.empty': () => 'No field is bound',

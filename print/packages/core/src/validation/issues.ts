@@ -24,6 +24,7 @@ export const VALIDATION_ISSUE_SEVERITIES = {
   'unknown-control': 'error',
   'duplicate-key': 'error',
   'duplicate-id': 'error',
+  'duplicate-value': 'error',
   'json.circular': 'error',
   'schema.unsupportedVersion': 'error',
   'field.empty': 'warning',

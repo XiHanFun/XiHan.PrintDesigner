@@ -374,6 +374,7 @@ const designer: PrintDesignerLocale = {
     'unknown-control': () => 'Type d’éditeur inconnu',
     'duplicate-key': p => `Clé ${text(p.key)} en double`,
     'duplicate-id': p => `Identifiant ${text(p.id)} en double`,
+    'duplicate-value': () => 'Valeur d’option en double',
     'json.circular': () => 'Les données contiennent une référence circulaire',
     'schema.unsupportedVersion': p => `La version de modèle ${text(p.version)} n’est pas prise en charge (version attendue : ${text(p.supported)})`,
     'field.empty': () => 'Aucun champ lié',

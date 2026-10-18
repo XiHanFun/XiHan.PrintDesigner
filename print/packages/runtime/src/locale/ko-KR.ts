@@ -369,6 +369,7 @@ const designer: PrintDesignerLocale = {
     'unknown-control': () => '알 수 없는 편집 방식입니다',
     'duplicate-key': p => `${text(p.key)} 키가 중복됩니다`,
     'duplicate-id': p => `${text(p.id)} ID가 중복됩니다`,
+    'duplicate-value': () => '옵션 값이 중복되었습니다',
     'json.circular': () => '데이터에 순환 참조가 있습니다',
     'schema.unsupportedVersion': p => `지원되지 않는 템플릿 버전입니다: ${text(p.version)}(지원 버전: ${text(p.supported)})`,
     'field.empty': () => '바인딩된 필드가 없습니다',
