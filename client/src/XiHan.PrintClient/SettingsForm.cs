@@ -100,10 +100,19 @@ internal sealed class SettingsForm : Form
         layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.Controls.Add(new Label { Text = "允许的网站", AutoSize = true }, 0, 0);
         layout.Controls.Add(new Label { Text = "拒绝的网站", AutoSize = true }, 1, 0);
+        // 名单的名字写在名单上；两个「删除」各自写明删哪张名单；Tab 顺序是一张名单接着它的「删除」
+        _allowed.AccessibleName = "允许的网站";
+        _denied.AccessibleName = "拒绝的网站";
+        var removeAllowed = RemoveButton(_allowed, "从允许的网站中删除");
+        var removeDenied = RemoveButton(_denied, "从拒绝的网站中删除");
+        _allowed.TabIndex = 0;
+        removeAllowed.TabIndex = 1;
+        _denied.TabIndex = 2;
+        removeDenied.TabIndex = 3;
         layout.Controls.Add(_allowed, 0, 1);
         layout.Controls.Add(_denied, 1, 1);
-        layout.Controls.Add(RemoveButton(_allowed), 0, 2);
-        layout.Controls.Add(RemoveButton(_denied), 1, 2);
+        layout.Controls.Add(removeAllowed, 0, 2);
+        layout.Controls.Add(removeDenied, 1, 2);
         page.Controls.Add(layout);
         return page;
     }
@@ -115,9 +124,9 @@ internal sealed class SettingsForm : Form
         return page;
     }
 
-    private Button RemoveButton(ListBox list)
+    private Button RemoveButton(ListBox list, string accessibleName)
     {
-        var button = new Button { Text = "删除", AutoSize = true };
+        var button = new Button { Text = "删除", AutoSize = true, AccessibleName = accessibleName };
         button.Click += (_, _) =>
         {
             if (list.SelectedItem is OriginItem { FromPolicy: false } item)
