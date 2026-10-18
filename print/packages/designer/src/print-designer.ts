@@ -1241,7 +1241,10 @@ export class XhPrintDesigner extends XhReactiveElement {
     ruler.snap = (_axis, value) => this.#snapValue(value)
     ruler.addEventListener('guides-change', this.#onGuidesChange)
     const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [ruler, menu, preview])
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, pages, palette, workspace, properties, issues]) as XhDesignerFrameElement
+    // 问题列表带计数的严重程度开关放进它所在卡片的面板头
+    const issueSummary = issues.summary
+    issueSummary.slot = 'issues-actions'
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, pages, palette, workspace, properties, issues, issueSummary]) as XhDesignerFrameElement
     frame.addEventListener('panels-change', this.#onPanelsChange)
     this.append(frame)
     const panelHost = createPanelHost<PrintDesignerContext>(frame, { regions: FRAME_REGIONS })

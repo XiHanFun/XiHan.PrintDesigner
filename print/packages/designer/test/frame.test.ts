@@ -90,3 +90,16 @@ describe('外框卡片', () => {
     expect(designer.querySelector<HTMLElement>('xh-designer-ruler')!.hidden).toBe(true)
   })
 })
+
+describe('问题计数', () => {
+  it('错误、警告数在问题卡片的面板头里，零件里不再有；条数照旧随校验变', async () => {
+    designer.execute([{ type: 'moveElements', ids: ['a'], dx: 200, dy: 0 }])
+    await Promise.resolve()
+    await settle()
+    const actions = frame().querySelector('[data-region="issues"] [data-part="panel-actions"]')!
+    const summary = actions.querySelector('[data-part="filter"]')!
+    expect(summary).not.toBeNull()
+    expect(designer.querySelector('xh-designer-issues')!.querySelector('[data-part="filter"]')).toBeNull()
+    expect(summary.textContent).toContain('1 warning')
+  })
+})
