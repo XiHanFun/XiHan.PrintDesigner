@@ -186,6 +186,23 @@ describe('设置', () => {
     expect(errors).toEqual([expect.objectContaining({ operation: 'read', key: 'broken' })])
   })
 
+  it('工具栏显示方式取设置里的 general.toolbarDisplay，缺省只显示图标；换方式不重铺按钮，翻页条始终只显示图标', async () => {
+    const designer = await mount()
+    const shell = (): Element => designer.querySelector('[data-part="command-bar"] > xh-tooltip')!
+    const strip = (): Element => designer.querySelector('[slot="canvas-end"]')!
+    const undo = toolbarButton(designer, 'undo')
+    expect([shell().getAttribute('data-display'), strip().getAttribute('data-display')]).toEqual(['icon', 'icon'])
+    designer.settings = { 'general.toolbarDisplay': 'both' }
+    await settle(designer)
+    expect(shell().getAttribute('data-display')).toBe('both')
+    designer.settings = { 'general.toolbarDisplay': 'text' }
+    await settle(designer)
+    expect([shell().getAttribute('data-display'), strip().getAttribute('data-display'), toolbarButton(designer, 'undo')]).toEqual(['text', 'icon', undo])
+    designer.openSettings()
+    await settle(designer)
+    expect(row('general.toolbarDisplay')).not.toBeNull()
+  })
+
   it('扩展登记的设置分区放进对话框；分区 id 与 print、general 或彼此重名时赋值即抛错', async () => {
     const section = { id: 'acme', label: 'Acme', order: 200, items: [{ path: ['token'], label: 'Token', control: { kind: 'text' as const, secret: true } }] }
     const designer = await mount(element => (element.extensions = [{ id: 'acme', settings: [section] }]))

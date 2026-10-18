@@ -41,7 +41,6 @@ import type { AlignMode, DataField, DesignerImportSource, DistributeAxis, Execut
 import type { PropertyEditorTable, PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
 import type {
   CommandToolbar,
-  CommandToolbarDisplay,
   DesignerCommandLayout,
   DesignerCommandsTranslations,
   DesignerFrameEventMap,
@@ -135,6 +134,7 @@ import {
   renderCommandMenu,
   resolveSettings,
   runCommand,
+  toolbarDisplayOf,
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
   XhDesignerPaletteElement,
@@ -1030,11 +1030,6 @@ export class XhPrintDesigner extends XhReactiveElement {
     return this.#config.translations<DesignerCommandsTranslations>('xh-designer-commands', DESIGNER_COMMANDS_EN_US)
   }
 
-  /** 工具栏与页签旁命令栏按钮的显示方式。 */
-  #toolbarDisplay(): CommandToolbarDisplay {
-    return 'icon'
-  }
-
   #kbdPlatform(): 'mac' | 'other' {
     this.#platform ??= detectKbdPlatform()
     return this.#platform
@@ -1181,8 +1176,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#resolvedSettings = resolveSettings(this.#settingsSectionList, this.settings)
     const dialog = layers.settings
     const general = { brands: this.brands, customBrand: this.registerBrand !== undefined }
-    // 设计器还没接状态栏与工具栏显示方式，基础分区里这两项不显示
-    const policy: DesignerSettingsPolicy = { 'general.statusBar': 'hidden', 'general.toolbarDisplay': 'hidden', ...this.settingsPolicy }
+    // 设计器还没接状态栏，基础分区里这一项不显示
+    const policy: DesignerSettingsPolicy = { 'general.statusBar': 'hidden', ...this.settingsPolicy }
     const dialogKey = JSON.stringify([general.brands, general.customBrand, policy])
     if (dialogKey !== this.#settingsDialogKey) {
       this.#settingsDialogKey = dialogKey
@@ -1361,7 +1356,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (this.#layers?.frame.parentElement === this)
       return this.#layers
     const doc = this.ownerDocument
-    const bar = { display: this.#toolbarDisplay(), platform: this.#kbdPlatform() }
+    const bar = { platform: this.#kbdPlatform() }
     const commandBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
     const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'command-bar' }, [commandBar.element])
     const pageStrip = createCommandToolbar<PrintDesignerContext>(doc, { ...bar, orientation: 'vertical' })
@@ -1617,6 +1612,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   #renderToolbar(layers: Layers): void {
     const { commands } = this.#model()
     const context = this.#context()
+    // 按钮的显示方式只取设置的 general.toolbarDisplay：换方式不重铺按钮，放不下的按新宽度收进「更多」
+    layers.commandBar.setDisplay(toolbarDisplayOf(this.#resolvedSettings))
     layers.commandBar.update(arrangeCommands('toolbar', commands, PRINT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, context.commands.toolbar)
   }
 
