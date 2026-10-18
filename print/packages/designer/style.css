@@ -26,7 +26,7 @@ xh-print-designer > [data-part='frame'] {
   min-block-size: 0;
 }
 
-xh-print-designer [data-part='toolbar'] {
+xh-print-designer [data-part='command-bar'] {
   flex: none;
   min-inline-size: 0;
   padding: var(--xh-space-1) var(--xh-space-2);

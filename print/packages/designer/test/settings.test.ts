@@ -71,7 +71,7 @@ function toggle(key: string, checked: boolean): void {
 }
 
 function toolbarButton(designer: XhPrintDesigner, value: string): HTMLButtonElement {
-  return designer.querySelector<HTMLButtonElement>(`[data-part="toolbar"] button[value="${value}"]`)!
+  return designer.querySelector<HTMLButtonElement>(`[data-part="command-bar"] button[value="${value}"]`)!
 }
 
 describe('设置', () => {
