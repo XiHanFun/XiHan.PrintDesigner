@@ -31,7 +31,7 @@ export interface PrintDesignerTranslations {
   readonly label: string
   /** 画布区域的可访问名。 */
   readonly canvas: string
-  /** 显示并吸附网格的开关。 */
+  /** 显示网格的开关。 */
   readonly grid: string
   /** 吸附其它元素与参考线的开关。 */
   readonly snap: string
@@ -99,6 +99,16 @@ export interface PrintDesignerTranslations {
   readonly propertiesHelp: string
   /** 问题列表面板头里的帮助。 */
   readonly issuesHelp: string
+  /** 设置对话框里设计器自己那一页（画布偏好）的名称。 */
+  readonly settingsCanvas: string
+  readonly settingsShowGrid: string
+  readonly settingsShowGridHint: string
+  readonly settingsGridSize: string
+  readonly settingsGridSizeHint: string
+  readonly settingsSnap: string
+  readonly settingsSnapHint: string
+  readonly settingsShowMargins: string
+  readonly settingsShowMarginsHint: string
   /** 校验问题与分页诊断的说明，按问题码与参数生成。 */
   readonly issue: (issue: SchemaIssue) => string
   /** 属性分组的名称。 */

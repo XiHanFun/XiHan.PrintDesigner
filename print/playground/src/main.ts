@@ -88,6 +88,8 @@ onDesigner('selection-change', event => write(`selection-change ${JSON.stringify
 onDesigner('page-change', event => write(`page-change ${event.detail.pageId}`))
 onDesigner('mode-change', event => write(`mode-change ${event.detail.mode}`))
 onDesigner('dirty-change', event => write(`dirty-change ${event.detail.dirty}`))
+onDesigner('panels-change', event => write(`panels-change ${event.detail.panels}`))
+onDesigner('settings-change', event => write(`settings-change ${event.detail.key} = ${JSON.stringify(event.detail.value)}`))
 onDesigner('issues-change', event => write(`issues-change ${event.detail.issues.map(issue => issue.code).join(', ') || '无问题'}`))
 onDesigner('save', () => {
   designer.markSaved()

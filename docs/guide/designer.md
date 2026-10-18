@@ -72,9 +72,30 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - **换区**：元素中心拖进页眉、正文或页脚，就放进那个区；表格、长文本与富文本只能留在正文区。
 - **页眉页脚**：在区的标签上切换当前编辑的变体（缺省、首页、末页、奇数页、偶数页），可以新增或删除变体；拖动区的边界改高度。
 - **平移与缩放**：滚轮平移，Ctrl / ⌘ + 滚轮以指针为中心缩放；按住空格或鼠标中键拖动平移。
-- **吸附**：`grid` 是网格边长（mm，缺省 1，`false` 不吸附网格）；`snap` 打开时还吸附其它元素、页边距、区边界与参考线，并显示对齐线。
+- **吸附**：拖动、新建与缩放元素时吸附到网格间距（设置「画布」一页，缺省 1 mm，写 0 不吸附网格）；「吸附对齐」打开时还吸附其它元素、页边距、区边界与参考线，并显示对齐线。工具栏上的「网格」开关显示或收起网格线，「吸附」开关就是「吸附对齐」，两者改的都是设置。
 - **表格编辑态**：双击表格或选中后按 Enter 进入。可以分别选中列、表头、表体、表尾行与表尾单元格，在属性面板里编辑；拖列边界改列宽；右键菜单里插入、删除、左右移动列，插入、删除表尾行，合并与拆分表尾单元格。按 Esc 退出。
 - **右键菜单**：在空白处、元素上与表格编辑态里各有一套，带快捷键的条目在行尾显示快捷键。设计器先派发可取消的 `blank-contextmenu`、`element-contextmenu` 或 `table-contextmenu`（表格编辑态里，右键处的部位先被选中），宿主取消后不弹自带的菜单，可以换成自己的。
+
+## 设置
+
+设置是用户偏好，每人每机一份，不随模板保存。`openSettings(section?)` 打开设置对话框，左边一个分区一页：
+
+- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）与主题色。
+- 「画布」（`print`）：显示网格、网格间距、吸附对齐、显示边距线。网格缺省不显示，间距缺省 1 mm，按当前缩放挤得太密时改按间距的整数倍画；边距线缺省显示。
+- 扩展登记的分区，排在后面。分区 id 与 `general`、`print` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
+
+<<< @/examples/snippets/settings.ts#open
+
+值是扁平的键值，键是「分区 id.条目 id」，如 `general.theme`、`print.showGrid`，没写的键取缺省值。宿主给缺省、锁定条目或读值时用常量，不手写键：「画布」分区的 id 与各条目的键是包入口导出的 `PRINT_SETTINGS_SECTION` 与 `PRINT_SETTING_KEYS`，「基础」分区的键是 `@xihan-ui/designer-shell` 的 `DESIGNER_SETTING_KEYS`。`settings` 赋值即生效；用户在对话框里或用工具栏的网格、吸附开关改了一条，设计器换成新的一份并派发 `settings-change`，宿主存起来、下次赋回。`settingsPolicy` 隐藏或锁定条目，键是条目键或分区 id：`hidden` 不显示，一个分区的条目全藏了就没有这一页；`locked` 只读，说明换成「由所在系统管理」。
+
+<<< @/examples/snippets/settings.ts#host
+
+- **主题只作用于设计器**：主题与主题色写在 `<xh-print-designer>` 自己的 `data-theme`、`data-brand` 上，页面其余部分不变；设置对话框、菜单这些浮层跟着设计器变。主题色的预设由宿主给 `brands`（品牌 id 与色板格子的颜色，品牌 id 可以用 `@xihan-ui/tokens` 的 `BRAND_PRESETS`）；给了 `registerBrand`（形状同 `@xihan-ui/tokens` 的 `registerBrand`）才许自定义颜色。两样都不给时没有主题色这一项。
+- **扩展读设置**：命令、面板与扩展从上下文的 `settings` 读值，各分区没写的条目已经取了缺省值，如 `context.settings['print.gridSize']`。
+
+独立使用、没有宿主替你存时，给 `settingsStorageKey`：连上文档时若没赋 `settings` 就从根所在窗口的 localStorage 读，用户改了设置就写回去；标了 `secret` 的文本条目（如密钥）不存。读写失败派发 `settings-storage-error`，设置留在内存里。不给就不读写存储。
+
+<<< @/examples/snippets/settings.ts#storage
 
 ## 快捷键
 
@@ -91,7 +112,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | Ctrl / ⌘ + ]、[ | 上移一层、下移一层 |
 | Ctrl / ⌘ + Shift + ]、[ | 置于顶层、置于底层 |
 | Delete、Backspace | 删除选中的元素 |
-| 方向键 | 选中的元素移动一格（网格边长，不吸附网格时 1 mm）；没有选中时平移视口 |
+| 方向键 | 选中的元素移动一格（网格间距，写 0 时 1 mm）；没有选中时平移视口 |
 | Shift + 方向键 | 选中的元素移动 10 mm |
 | +、- | 放大、缩小 |
 | 0 | 适合窗口 |
@@ -133,7 +154,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ## 扩展
 
-`extensions` 收一组扩展对象：元素种类、编辑方式、校验规则、属性编辑器、命令、面板与导入器都经它登记。内置元素、设计器自带的编辑器与命令也是扩展，自动排在最前。同一页面上的几个设计器各给各的，互不影响。
+`extensions` 收一组扩展对象：元素种类、编辑方式、校验规则、属性编辑器、命令、面板、设置分区与导入器都经它登记。内置元素、设计器自带的编辑器与命令也是扩展，自动排在最前。同一页面上的几个设计器各给各的，互不影响。
 
 - 扩展对象的 `id` 全局唯一，用包名加功能名，如 `@acme/print-fonts`。它也是模板里扩展数据的键：文档、页面与元素都可以带 `extensions: { [扩展 id]: { ... } }`，校验只查它是对象，编辑与复制粘贴原样带着走。
 - 赋值时当场合并查重：扩展 id、元素类型、编辑方式、命令 id 与快捷键与内置的或别的扩展重名时，抛 `DesignerExtensionError`（`code` 为 `designer.extension-conflict`），设计器保持赋值前的状态。

@@ -86,6 +86,23 @@ xh-print-designer [data-part='paper'] {
   box-shadow: var(--xh-elevation-raised);
 }
 
+/* 网格线：间距由设计器按缩放写进 --xh-print-designer-grid，线宽在屏幕上总是一条细线。 */
+xh-print-designer [data-part='grid'] {
+  --xh-print-designer-grid-line: calc(var(--xh-stroke-thin) / var(--xh-print-designer-zoom));
+
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--xh-border-subtle) var(--xh-print-designer-grid-line), transparent var(--xh-print-designer-grid-line)),
+    linear-gradient(to bottom, var(--xh-border-subtle) var(--xh-print-designer-grid-line), transparent var(--xh-print-designer-grid-line));
+  background-size: var(--xh-print-designer-grid) var(--xh-print-designer-grid);
+}
+
+xh-print-designer [data-part='grid'][hidden] {
+  display: none;
+}
+
 xh-print-designer [data-part='frames'],
 xh-print-designer [data-part='elements'],
 xh-print-designer [data-part='watermark-layer'],
