@@ -103,6 +103,9 @@ const designer: PrintDesignerLocale = {
   fieldGroup: 'Champs',
   properties: 'Propriétés',
   issues: 'Problèmes',
+  paletteHelp: 'Faites glisser un élément ou un champ sur la page, ou cliquez dessus pour le placer au centre de la vue.',
+  propertiesHelp: 'Modifiez les éléments ou parties de tableau sélectionnés. Si rien n’est sélectionné, modifiez la mise en page.',
+  issuesHelp: 'Problèmes trouvés en vérifiant le modèle. Cliquez sur l’un d’eux pour aller à la page ou à l’élément concerné.',
   propertyGroups: {
     layout: 'Disposition',
     content: 'Contenu',

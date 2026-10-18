@@ -95,6 +95,9 @@ const designer: PrintDesignerLocale = {
   fieldGroup: 'フィールド',
   properties: 'プロパティ',
   issues: '問題',
+  paletteHelp: '要素やフィールドをページにドラッグするか、クリックしてビューの中央に配置します。',
+  propertiesHelp: '選択した要素や表の部位を編集します。何も選択していないときはページ設定を編集します。',
+  issuesHelp: 'テンプレートのチェックで見つかった問題です。クリックすると、その問題があるページや要素に移動します。',
   propertyGroups: {
     layout: 'レイアウト',
     content: '内容',

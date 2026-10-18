@@ -95,6 +95,9 @@ const designer: PrintDesignerLocale = {
   fieldGroup: '字段',
   properties: '属性',
   issues: '问题',
+  paletteHelp: '把元素或字段拖到页面上，或点一下放到视口中央。',
+  propertiesHelp: '编辑选中的元素或表格部位；什么都没选中时编辑页面设置。',
+  issuesHelp: '校验模板发现的问题；点一条转到它所在的页面或元素。',
   propertyGroups: {
     layout: '布局',
     content: '内容',

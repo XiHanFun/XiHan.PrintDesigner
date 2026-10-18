@@ -88,6 +88,12 @@ export interface PrintDesignerTranslations {
   readonly properties: string
   /** 问题列表的标题。 */
   readonly issues: string
+  /** 物料面板头里的帮助。 */
+  readonly paletteHelp: string
+  /** 属性面板头里的帮助。 */
+  readonly propertiesHelp: string
+  /** 问题列表面板头里的帮助。 */
+  readonly issuesHelp: string
   /** 校验问题与分页诊断的说明，按问题码与参数生成。 */
   readonly issue: (issue: SchemaIssue) => string
   /** 属性分组的名称。 */
