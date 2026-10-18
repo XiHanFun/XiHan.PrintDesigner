@@ -2,6 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 using System.Drawing.Printing;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using XiHan.PrintClient.Core.Protocol;
 using XiHan.PrintClient.Windows.Rendering;
@@ -40,16 +41,21 @@ internal sealed partial class PrintDialogPrompt : IPrintDialog
             settings.DefaultPageSettings.Color = options.Color == ColorMode.Color;
 
         using var owner = Owner();
+        // 走带钩子的 PrintDlg：旧式对话框在本进程里弹出
         using var dialog = new PrintDialog
         {
-            UseEXDialog = true,
+            UseEXDialog = false,
             AllowSomePages = !multiple,
             AllowSelection = false,
             AllowCurrentPage = false,
             AllowPrintToFile = false,
             PrinterSettings = settings,
         };
-        if (dialog.ShowDialog(owner) != DialogResult.OK)
+        // 任务超时或被取消时，在界面线程上替用户点「取消」，对话框随之返回
+        using var closing = cancellationToken.Register(() => owner.BeginInvoke(() => CancelOwnedDialog(owner.Handle)));
+        var result = dialog.ShowDialog(owner);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (result != DialogResult.OK)
             return Task.FromResult<PrintDialogChoice?>(null);
 
         var chosen = dialog.PrinterSettings;
@@ -88,6 +94,26 @@ internal sealed partial class PrintDialogPrompt : IPrintDialog
 
     [GeneratedRegex(@"^(?<from>\d+)(-(?<to>\d+))?$")]
     private static partial Regex SingleRangePattern();
+
+    /// <summary>
+    /// 给 owner 名下正开着的那个对话框发「取消」
+    /// </summary>
+    private static void CancelOwnedDialog(nint owner)
+    {
+        var dialog = GetWindow(owner, GetWindowEnabledPopup);
+        if (dialog != 0 && dialog != owner)
+            SendMessage(dialog, WindowMessageCommand, CancelCommand, 0);
+    }
+
+    private const uint GetWindowEnabledPopup = 6;
+    private const uint WindowMessageCommand = 0x0111;
+    private const nint CancelCommand = 2;
+
+    [LibraryImport("user32.dll")]
+    private static partial nint GetWindow(nint window, uint command);
+
+    [LibraryImport("user32.dll", EntryPoint = "SendMessageW")]
+    private static partial nint SendMessage(nint window, uint message, nint wParam, nint lParam);
 
     /// <summary>
     /// 置顶的透明小窗放在屏幕中央作对话框的所有者，对话框就会出现在浏览器前面的屏幕中央
