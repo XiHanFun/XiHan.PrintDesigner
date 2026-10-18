@@ -950,16 +950,17 @@ describe('<xh-print-designer>', () => {
     expect(menuItems()).toEqual(['insert-column-left', 'insert-column-right', 'remove-column', 'move-column-left', 'move-column-right', 'insert-footer-row-above', 'insert-footer-row-below', 'remove-footer-row', 'merge-cell-right', 'split-cell', 'exit-table-edit'])
   })
 
-  it('工具栏：内置命令带图标，名字与快捷键写在按钮上，会删掉内容的命令带危险语气，共用命令取 designer-shell 的文案；两条命令栏都只显示图标', async () => {
-    const button = (bar: string, value: string): HTMLButtonElement => designer.querySelector<HTMLButtonElement>(`[data-part="${bar}"] button[value="${value}"]`)!
+  it('工具栏：内置命令带图标，名字与快捷键写在按钮上，会删掉内容的命令带危险语气，共用命令取 designer-shell 的文案；工具栏与翻页条都只显示图标', async () => {
+    const bars: Record<string, string> = { toolbar: '[data-part="toolbar"] > xh-tooltip', strip: '[slot="canvas-end"]' }
+    const button = (bar: string, value: string): HTMLButtonElement => designer.querySelector<HTMLButtonElement>(`${bars[bar]} button[value="${value}"]`)!
     expect(button('toolbar', 'undo').hasAttribute('data-icon')).toBe(true)
     expect([button('toolbar', 'undo').getAttribute('aria-label'), button('toolbar', 'undo').getAttribute('aria-keyshortcuts')]).toEqual(['Undo', 'Control+Z'])
     expect([button('toolbar', 'duplicate').getAttribute('aria-label'), button('toolbar', 'zoom-in').getAttribute('aria-keyshortcuts')]).toEqual(['Duplicate', 'Plus'])
     expect(designer.querySelector('[data-part="toolbar"] [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('Designer actions')
-    expect([button('toolbar', 'delete').getAttribute('data-tone'), button('pages', 'remove-page').getAttribute('data-tone'), button('pages', 'remove-page').getAttribute('aria-label')]).toEqual(['danger', 'danger', 'Delete page'])
+    expect([button('toolbar', 'delete').getAttribute('data-tone'), button('strip', 'remove-page').getAttribute('data-tone'), button('strip', 'remove-page').getAttribute('aria-label')]).toEqual(['danger', 'danger', 'Delete page'])
     expect((printZhCN.translations!['xh-designer-commands'] as { duplicate: string }).duplicate).toBe('创建副本')
 
-    const display = (): (string | null)[] => ['toolbar', 'pages'].map(bar => designer.querySelector(`[data-part="${bar}"] > xh-tooltip`)!.getAttribute('data-display'))
+    const display = (): (string | null)[] => ['toolbar', 'strip'].map(bar => designer.querySelector(bars[bar]!)!.getAttribute('data-display'))
     expect(display()).toEqual(['icon', 'icon'])
   })
 
@@ -982,7 +983,7 @@ describe('<xh-print-designer>', () => {
     const frame = designer.querySelector('xh-designer-frame')!
     const element = frame.querySelector('section[slot="acme-stamps"]')!
     expect(element).not.toBeNull()
-    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'pages', 'palette', 'canvas', 'properties', 'issues', 'status', 'acme-stamps'])
+    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'palette', 'canvas', 'properties', 'issues', 'status', 'acme-stamps'])
     expect(frame.regions!.find(region => region.name === 'properties')!.title).toBe('Properties')
     designer.select({ elements: ['a'] })
     await designer.updateComplete
@@ -994,13 +995,13 @@ describe('<xh-print-designer>', () => {
     await designer.updateComplete
     expect(element.isConnected).toBe(true)
 
-    const pages: PrintDesignerExtension = { id: '@acme/pages', panels: [{ region: { name: 'pages', position: 'start' }, create: () => ({ element: document.createElement('div') }) }] }
+    const pages: PrintDesignerExtension = { id: '@acme/pages', panels: [{ region: { name: 'palette', position: 'start' }, create: () => ({ element: document.createElement('div') }) }] }
     expect(() => (designer.extensions = [stamps, pages])).toThrow(DesignerExtensionError)
     expect([designer.extensions, element.isConnected, destroyed]).toEqual([[stamps], true, 0])
     designer.extensions = []
     await designer.updateComplete
     expect([element.isConnected, destroyed]).toEqual([false, 1])
-    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'pages', 'palette', 'canvas', 'properties', 'issues', 'status'])
+    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'palette', 'canvas', 'properties', 'issues', 'status'])
   })
 
   it('选中表格后回车进入表格编辑态：点表头选中列，Esc 退出', async () => {
@@ -1032,27 +1033,28 @@ describe('<xh-print-designer>', () => {
     expect(designer.getSelection()).toEqual({ elements: ['remark'] })
   })
 
-  it('页面页签与带区变体：新增页面切过去，变体菜单列出现有与可新增的变体', async () => {
-    const add = designer.querySelector<HTMLButtonElement>('[data-part="pages"] button[value="add-page"]')!
+  it('翻页条与带区变体：新增页面切过去，变体菜单列出现有与可新增的变体', async () => {
+    const add = designer.querySelector<HTMLButtonElement>('[slot="canvas-end"] button[value="add-page"]')!
     add.click()
     expect([designer.schema.pages.length, designer.activePageId]).toEqual([2, 'page-1'])
     await designer.updateComplete
-    expect(designer.querySelectorAll('[data-part="pages"] xh-toggle-group button')).toHaveLength(2)
+    expect(designer.querySelector('[slot="canvas-end"] button[value="page-menu"]')!.getAttribute('aria-label')).toBe('Page 2 of 2: Page 2')
     const values = Array.from(designer.querySelectorAll('[data-part="band-menu"][data-region="footer"] [value]'), item => item.getAttribute('value'))
     expect(values).toEqual(['show:default', 'add:first', 'add:last', 'add:odd', 'add:even'])
   })
 
-  it('外框按 panels 显示工具栏与页面页签，画布总是显示', async () => {
+  it('外框按 panels 显示工具栏与翻页条，画布总是显示', async () => {
     const region = (name: string): Element | null => designer.querySelector(`[data-part="frame"] [data-part="region"][data-region="${name}"]`)
+    const strip = (): HTMLElement => designer.querySelector<HTMLElement>('[slot="canvas-end"]')!
     expect(region('toolbar')!.contains(designer.querySelector('[data-part="toolbar"]'))).toBe(true)
-    expect(region('pages')).not.toBeNull()
     expect(region('canvas')!.contains(viewport())).toBe(true)
+    expect(strip().hidden).toBe(false)
     designer.panels = 'pages'
     await designer.updateComplete
-    expect([region('toolbar'), region('pages') !== null]).toEqual([null, true])
+    expect([region('toolbar'), strip().hidden]).toEqual([null, false])
     designer.panels = ''
     await designer.updateComplete
-    expect([region('pages'), region('canvas') !== null]).toEqual([null, true])
+    expect([strip().hidden, region('canvas') !== null]).toEqual([true, true])
   })
 
   it('切到预览态时用 <xh-print-preview> 显示当前模板，派发 mode-change；只读时不能删除', async () => {

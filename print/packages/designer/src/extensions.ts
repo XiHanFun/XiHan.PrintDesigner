@@ -69,8 +69,11 @@ export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['design', 'preview', 'print'],
 ]
 
-/** 页面模板页签旁的命令，排列固定。 */
-export const PRINT_PAGE_COMMANDS: readonly string[] = ['add-page', 'remove-page', 'move-page-left', 'move-page-right']
+/** 画布右侧翻页条上的命令，排列固定：上一页、页码、下一页，新增、复制、删除页面。 */
+export const PRINT_PAGE_STRIP_LAYOUT: readonly (readonly string[])[] = [
+  ['previous-page', 'page-menu', 'next-page'],
+  ['add-page', 'duplicate-page', 'remove-page'],
+]
 
 /** 右键菜单落在哪类对象上：画布空白处、元素，或表格编辑态里的表格部位。 */
 export type PrintMenuSubject = 'blank' | 'element' | 'table'

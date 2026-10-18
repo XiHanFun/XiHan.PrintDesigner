@@ -145,6 +145,21 @@ describe('页面与带区', () => {
     expect(editor.removePage('p1')).toBe(false)
   })
 
+  it('复制页面模板：放在原页之后并切过去，页面、正文与页眉页脚各变体的元素都换了新 id；撤销后回到原样', () => {
+    const editor = editorOf()
+    const copy = editor.duplicatePage('p1')
+    expect([copy.id, editor.activePageId]).toEqual(['page-1', 'page-1'])
+    expect(editor.document.pages.map(page => page.id)).toEqual(['p1', 'page-1', 'p2'])
+    const page = editor.document.pages[1]!
+    expect(page.elements.map(element => element.id)).toEqual(['text-1', 'text-2', 'text-3'])
+    expect([page.header.default.elements[0]!.id, page.header.first!.elements[0]!.id]).toEqual(['text-4', 'text-5'])
+    expect(page.elements.map(element => element.x)).toEqual([10, 40, 90])
+    expect(editor.document.pages[0]!.elements.map(element => element.id)).toEqual(['a', 'b', 'c'])
+    editor.undo()
+    expect([editor.document.pages.map(item => item.id), editor.activePageId]).toEqual([['p1', 'p2'], 'p1'])
+    expect(() => editor.duplicatePage('nope')).toThrow('nope')
+  })
+
   it('新增变体取 default 的高度并切过去；调整与删除带区；撤销新增页面时当前页回落', () => {
     const editor = editorOf()
     editor.addBand('footer', 'last')

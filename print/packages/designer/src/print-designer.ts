@@ -134,13 +134,13 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, ArrowLeftIcon, ArrowRightIcon, BringForwardIcon, BringToFrontIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileMinusIcon, FilePlusIcon, GridIcon, MagnetIcon, MaximizeIcon, PencilIcon, PrinterIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SquareDashedIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileMinusIcon, FilePlusIcon, GridIcon, MagnetIcon, MaximizeIcon, PencilIcon, PrinterIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SquareDashedIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhExpressionInputElement, XhFieldArrayElement, XhFieldElement, XhFormatInputElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createPrintEditor, elementRect } from './editor'
-import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_PAGE_COMMANDS, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
+import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { borderSidesEditor, valueFormatEditor } from './property-editors'
 import { propertySubjects, TABLE_PART_KINDS } from './property-targets'
@@ -215,7 +215,7 @@ type Command
     | 'bring-to-front' | 'bring-forward' | 'send-backward' | 'send-to-back'
     | 'zoom-out' | 'zoom-in' | 'zoom-to-fit' | 'zoom-to-actual' | 'grid' | 'snap'
     | 'design' | 'preview' | 'print' | 'edit-table' | 'exit-table-edit'
-    | 'add-page' | 'remove-page' | 'move-page-left' | 'move-page-right'
+    | 'previous-page' | 'next-page' | 'add-page' | 'duplicate-page' | 'remove-page' | 'move-page-up' | 'move-page-down'
     | TableCommand
 
 const ALIGN: Readonly<Record<string, AlignMode>> = {
@@ -273,10 +273,13 @@ const LABELS: Readonly<Record<Exclude<Command, SharedCommand>, StringKey>> = {
   'print': 'print',
   'edit-table': 'editTable',
   'exit-table-edit': 'exitTableEdit',
+  'previous-page': 'previousPage',
+  'next-page': 'nextPage',
   'add-page': 'addPage',
+  'duplicate-page': 'duplicatePage',
   'remove-page': 'removePage',
-  'move-page-left': 'movePageLeft',
-  'move-page-right': 'movePageRight',
+  'move-page-up': 'movePageUp',
+  'move-page-down': 'movePageDown',
   'insert-column-left': 'insertColumnLeft',
   'insert-column-right': 'insertColumnRight',
   'remove-column': 'removeColumn',
@@ -322,10 +325,13 @@ const ICONS: Readonly<Record<Command, IconRecord>> = {
   'print': PrinterIcon,
   'edit-table': TableIcon,
   'exit-table-edit': XIcon,
+  'previous-page': ChevronUpIcon,
+  'next-page': ChevronDownIcon,
   'add-page': FilePlusIcon,
+  'duplicate-page': CopyPlusIcon,
   'remove-page': FileMinusIcon,
-  'move-page-left': ArrowLeftIcon,
-  'move-page-right': ArrowRightIcon,
+  'move-page-up': ArrowUpIcon,
+  'move-page-down': ArrowDownIcon,
   'insert-column-left': TableColumnInsertLeftIcon,
   'insert-column-right': TableColumnInsertRightIcon,
   'remove-column': TableColumnRemoveIcon,
@@ -373,11 +379,8 @@ const NO_GUIDES: DesignerGuides = { x: [], y: [] }
 /** 属性面板自带编辑器的编辑方式。 */
 const BUILTIN_CONTROLS: ReadonlySet<string> = new Set(BUILTIN_CONTROL_KINDS)
 
-/** 外框的内置区：缺省的区，工具栏下面多一行页面模板页签。 */
-const FRAME_REGIONS: readonly DesignerFrameRegion[] = DESIGNER_FRAME_REGIONS.flatMap(region => region.name === 'toolbar' ? [region, { name: 'pages', position: 'top' as const }] : [region])
-
-/** 不是外框的区、由设计器自己开关的面板。 */
-const OWN_PANELS: readonly string[] = ['rulers']
+/** 不是外框的区、由设计器自己开关的面板：画布右侧的翻页条与标尺。 */
+const OWN_PANELS: readonly string[] = ['pages', 'rulers']
 
 /** 物料面板里字段那一组的 id。 */
 const FIELD_GROUP_ID = 'fields'
@@ -409,8 +412,8 @@ interface Layers {
   readonly properties: XhDesignerPropertiesElement
   readonly toolbar: HTMLElement
   readonly commandBar: CommandToolbar<PrintDesignerContext>
-  readonly pages: HTMLElement
-  readonly pageBar: CommandToolbar<PrintDesignerContext>
+  /** 画布右侧中间的竖排翻页条。 */
+  readonly pageStrip: CommandToolbar<PrintDesignerContext>
   readonly workspace: HTMLElement
   readonly menu: HTMLElement
   readonly ruler: XhDesignerRulerElement
@@ -514,7 +517,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   /** 吸附其它元素、页边距、区边界与参考线并显示对齐线，缺省 true。 */
   declare snap: boolean
   /**
-   * 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。
+   * 要显示的面板，空格分隔：toolbar palette pages rulers properties issues，pages 是画布右侧的翻页条；不写即全部显示。同名 attribute。
    * 点了面板头的关闭钮时设计器改写它并派发 panels-change。
    */
   declare panels: string | undefined
@@ -709,7 +712,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#syncProperties(layers, t)
     this.#syncFrameRegions(layers, t)
     this.#renderToolbar(layers)
-    this.#renderPages(layers, t)
+    this.#renderPageStrip(layers, t)
     layers.panelHost.update(this.#context())
     layers.viewport.setAttribute('aria-label', t.canvas)
     const preview = this.mode === 'preview'
@@ -928,7 +931,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 设计器自带的命令：可用与否、选中状态与执行都取设计器此刻的状态。 */
   #builtinCommands(): PrintDesignerCommand[] {
-    return (Object.keys(ICONS) as Command[]).map((id): PrintDesignerCommand => {
+    const builtin = (Object.keys(ICONS) as Command[]).map((id): PrintDesignerCommand => {
       const shortcut = SHORTCUTS[id]
       return {
         id,
@@ -941,6 +944,28 @@ export class XhPrintDesigner extends XhReactiveElement {
         run: () => this.#run(id),
       }
     })
+    return [...builtin, this.#pageMenu()]
+  }
+
+  /** 翻页条上的页码：点开菜单，上半是全部页面模板（单选），下半是上移、下移页面。 */
+  #pageMenu(): PrintDesignerCommand {
+    const name = (index: number, t: PrintDesignerTranslations): string => this.#editor.document.pages[index]?.name ?? t.pageTitle(index + 1)
+    return {
+      id: 'page-menu',
+      label: ({ translations }) => translations.pagePosition(this.#pageIndex() + 1, this.#editor.document.pages.length, name(this.#pageIndex(), translations)),
+      shortLabel: () => `${this.#pageIndex() + 1} / ${this.#editor.document.pages.length}`,
+      enabled: () => this.mode === 'design',
+      menu: ({ translations }) => [
+        ...this.#editor.document.pages.map((page, index) => ({ value: page.id, label: name(index, translations), checked: page.id === this.#editor.activePageId, group: 'page' })),
+        'separator',
+        'move-page-up',
+        'move-page-down',
+      ],
+      select: (value) => {
+        if (this.#editor.document.pages.some(page => page.id === value))
+          this.#editor.setActivePage(value)
+      },
+    }
   }
 
   /** 交给命令与扩展 setup 的上下文。 */
@@ -1046,21 +1071,20 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   /**
-   * 外框的区：工具栏、页签与画布带上区名（分隔条的无障碍名称）；物料、属性与问题画成卡片，面板头写标题与帮助，
+   * 外框的区：工具栏与画布带上区名（分隔条的无障碍名称）；物料、属性与问题画成卡片，面板头写标题与帮助，
    * 属性面板的副标题是当前编辑的对象。扩展面板的区按扩展顺序排在后面。
    */
   #syncFrameRegions(layers: Layers, t: PrintDesignerTranslations): void {
     const heading = layers.properties.heading
     const own: Readonly<Record<string, Partial<DesignerFrameRegion>>> = {
       toolbar: { label: this.#commandTexts().toolbar },
-      pages: { label: t.pages },
       palette: { title: t.palette, help: t.paletteHelp },
       canvas: { label: t.canvas },
       properties: { title: t.properties, ...(heading === undefined ? {} : { subtitle: heading }), help: t.propertiesHelp },
       issues: { title: t.issues, help: t.issuesHelp },
     }
     const regions = [
-      ...FRAME_REGIONS.map(region => ({ ...region, ...own[region.name] })),
+      ...DESIGNER_FRAME_REGIONS.map(region => ({ ...region, ...own[region.name] })),
       ...this.#model().list.flatMap(extension => (extension.panels ?? []).map(panel => panel.region)),
     ]
     const key = JSON.stringify(regions)
@@ -1070,7 +1094,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     layers.frame.regions = regions
   }
 
-  /** 外框收起了一块面板：外框只认自己的区，设计器自己开关的标尺照原样留着。 */
+  /** 外框收起了一块面板：外框只认自己的区，设计器自己开关的翻页条与标尺照原样留着。 */
   readonly #onPanelsChange = (event: Event): void => {
     event.stopPropagation()
     const frame = (event as DesignerFrameEventMap['panels-change']).detail.panels.split(' ').filter(Boolean)
@@ -1201,8 +1225,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     const bar = { display: this.#toolbarDisplay(), platform: this.#kbdPlatform() }
     const commandBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
     const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'toolbar' }, [commandBar.element])
-    const pageBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
-    const pages = createAuthoredElement(doc, 'div', { 'slot': 'pages', 'data-part': 'pages' }, [pageBar.element])
+    const pageStrip = createCommandToolbar<PrintDesignerContext>(doc, { ...bar, orientation: 'vertical' })
+    pageStrip.element.slot = 'canvas-end'
 
     const paper = createAuthoredElement(doc, 'div', { 'data-part': 'paper' })
     const frames = createAuthoredElement(doc, 'div', { 'data-part': 'frames' })
@@ -1244,10 +1268,10 @@ export class XhPrintDesigner extends XhReactiveElement {
     // 问题列表带计数的严重程度开关放进它所在卡片的面板头
     const issueSummary = issues.summary
     issueSummary.slot = 'issues-actions'
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, pages, palette, workspace, properties, issues, issueSummary]) as XhDesignerFrameElement
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, palette, workspace, pageStrip.element, properties, issues, issueSummary]) as XhDesignerFrameElement
     frame.addEventListener('panels-change', this.#onPanelsChange)
     this.append(frame)
-    const panelHost = createPanelHost<PrintDesignerContext>(frame, { regions: FRAME_REGIONS })
+    const panelHost = createPanelHost<PrintDesignerContext>(frame)
 
     viewport.addEventListener('pointerdown', this.#onPointerDown)
     viewport.addEventListener('dblclick', this.#onDoubleClick)
@@ -1263,7 +1287,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, pages, pageBar, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
+    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
     this.#regions = undefined
     panelHost.assign(this.#model().list, this.#context())
     return this.#layers
@@ -1316,16 +1340,19 @@ export class XhPrintDesigner extends XhReactiveElement {
         return editable && this.#selectedTable() !== undefined && this.#tableEdit === undefined
       case 'exit-table-edit':
         return this.#tableEdit !== undefined
+      case 'previous-page':
+        return this.mode === 'design' && this.#pageIndex() > 0
+      case 'next-page':
+        return this.mode === 'design' && this.#pageIndex() < this.#editor.document.pages.length - 1
       case 'add-page':
+      case 'duplicate-page':
         return editable
       case 'remove-page':
         return editable && this.#editor.document.pages.length > 1
-      case 'move-page-left':
-        return editable && this.#editor.document.pages.findIndex(page => page.id === this.#editor.activePageId) > 0
-      case 'move-page-right': {
-        const pages = this.#editor.document.pages
-        return editable && pages.findIndex(page => page.id === this.#editor.activePageId) < pages.length - 1
-      }
+      case 'move-page-up':
+        return editable && this.#pageIndex() > 0
+      case 'move-page-down':
+        return editable && this.#pageIndex() < this.#editor.document.pages.length - 1
       default: {
         const table = this.#editTable()
         if (!editable || table === undefined)
@@ -1405,16 +1432,23 @@ export class XhPrintDesigner extends XhReactiveElement {
       case 'exit-table-edit':
         this.#exitTableEdit()
         return
+      case 'previous-page':
+      case 'next-page':
+        this.#editor.setActivePage(pages[command === 'previous-page' ? pageIndex - 1 : pageIndex + 1]!.id)
+        return
       case 'add-page':
         this.#editor.addPage(pageIndex + 1)
+        return
+      case 'duplicate-page':
+        this.#editor.duplicatePage(this.#editor.activePageId)
         return
       case 'remove-page':
         this.#editor.removePage(this.#editor.activePageId)
         return
-      case 'move-page-left':
+      case 'move-page-up':
         this.#editor.movePage(this.#editor.activePageId, pageIndex - 1)
         return
-      case 'move-page-right':
+      case 'move-page-down':
         this.#editor.movePage(this.#editor.activePageId, pageIndex + 1)
         return
     }
@@ -1446,32 +1480,20 @@ export class XhPrintDesigner extends XhReactiveElement {
     layers.commandBar.update(arrangeCommands('toolbar', commands, PRINT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, context.commands.toolbar)
   }
 
-  #renderPages(layers: Layers, t: PrintDesignerTranslations): void {
-    const { commands } = this.#model()
-    layers.pageBar.update([PRINT_PAGE_COMMANDS], commands, this.#context(), t.pages)
-    const doc = this.ownerDocument
-    const pages = this.#editor.document.pages
-    const active = this.#editor.activePageId
-    const titles = pages.map((page, index) => page.name ?? t.pageTitle(index + 1))
-    const signature = JSON.stringify([pages.map(page => page.id), titles, active, t.pages])
-    if (layers.pages.dataset.signature === signature)
-      return
-    layers.pages.dataset.signature = signature
-    const tabs = createAuthoredElement(doc, 'xh-toggle-group', { 'value': active, 'disallow-empty': true, 'size': 'sm' }, [
-      createAuthoredElement(doc, 'div', { 'data-xh-part': 'root', 'aria-label': t.pages }, pages.map((page, index) =>
-        createAuthoredElement(doc, 'button', { 'data-xh-part': 'item', 'type': 'button', 'value': page.id }, [titles[index]!]),
-      )),
-    ])
-    tabs.addEventListener('value-change', (event) => {
-      const { value } = (event as CustomEvent<{ value: string | string[] | null }>).detail
-      if (typeof value === 'string' && value !== this.#editor.activePageId)
-        this.#editor.setActivePage(value)
-    })
-    const previous = layers.pages.querySelector(':scope > xh-toggle-group')
-    if (previous)
-      previous.replaceWith(tabs)
-    else
-      layers.pages.prepend(tabs)
+  /** 画布右侧的翻页条：panels 里没有 pages 或处于预览态时收起。 */
+  #renderPageStrip(layers: Layers, t: PrintDesignerTranslations): void {
+    const shown = parseDesignerPanels(this.panels)
+    const hidden = this.mode === 'preview' || (shown !== undefined && !shown.has('pages'))
+    layers.pageStrip.element.hidden = hidden
+    if (!hidden) {
+      const { commands } = this.#model()
+      layers.pageStrip.update(PRINT_PAGE_STRIP_LAYOUT, commands, this.#context(), t.pages)
+    }
+  }
+
+  /** 当前页面模板在文档里的序号。 */
+  #pageIndex(): number {
+    return this.#editor.document.pages.findIndex(page => page.id === this.#editor.activePageId)
   }
 
   #renderPaper(layers: Layers, t: PrintDesignerTranslations): void {

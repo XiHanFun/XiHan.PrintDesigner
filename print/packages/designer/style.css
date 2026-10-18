@@ -32,24 +32,11 @@ xh-print-designer [data-part='toolbar'] {
   padding: var(--xh-space-1) var(--xh-space-2);
 }
 
-xh-print-designer [data-region='toolbar'] + [data-region='pages'] {
-  border-block-start: var(--xh-stroke-thin) solid var(--xh-border-subtle);
-}
-
 xh-print-designer [data-part='workspace'] {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-block-size: 0;
-}
-
-xh-print-designer [data-part='pages'] {
-  display: flex;
-  flex: none;
-  flex-wrap: wrap;
-  gap: var(--xh-space-2);
-  align-items: center;
-  padding: var(--xh-space-1) var(--xh-space-2);
 }
 
 xh-print-designer [data-part='workspace'] > xh-designer-ruler {

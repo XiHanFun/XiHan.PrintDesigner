@@ -26,7 +26,7 @@
 | `mode` | `mode` | `PrintDesignerMode` | 设计态或预览态，缺省 design；同名 attribute。 |
 | `grid` | — | `number \| false` | 吸附网格边长，mm，缺省 1；false 不吸附网格。 |
 | `snap` | — | `boolean` | 吸附其它元素、页边距、区边界与参考线并显示对齐线，缺省 true。 |
-| `panels` | `panels` | `string \| undefined` | 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。点了面板头的关闭钮时设计器改写它并派发 panels-change。 |
+| `panels` | `panels` | `string \| undefined` | 要显示的面板，空格分隔：toolbar palette pages rulers properties issues，pages 是画布右侧的翻页条；不写即全部显示。同名 attribute。点了面板头的关闭钮时设计器改写它并派发 panels-change。 |
 | `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏与右键菜单的排列：位置（toolbar、menu:blank、menu:element、menu:table）→ 若干组命令 id，内置与扩展的命令可以混排。写了某个位置就只显示列出的命令；写了没登记的命令 id 时抛 TypeError。 |
 
 ### 存取器
@@ -139,11 +139,14 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `grid` | `string` | 显示并吸附网格的开关。 |
 | `snap` | `string` | 吸附其它元素与参考线的开关。 |
 | `print` | `string` |  |
-| `pages` | `string` | 页面模板页签的可访问名。 |
+| `pages` | `string` | 画布右侧翻页条的可访问名。 |
+| `previousPage` | `string` |  |
+| `nextPage` | `string` |  |
 | `addPage` | `string` |  |
+| `duplicatePage` | `string` |  |
 | `removePage` | `string` |  |
-| `movePageLeft` | `string` |  |
-| `movePageRight` | `string` |  |
+| `movePageUp` | `string` |  |
+| `movePageDown` | `string` |  |
 | `regions` | `Readonly<Record<ElementRegion, string>>` | 页眉、正文、页脚的名称。 |
 | `bandVariants` | `Readonly<Record<PageBandKey, string>>` | 页眉页脚变体的名称。 |
 | `addBandVariant` | `string` |  |
@@ -185,6 +188,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 
 | 方法 | 说明 |
 | --- | --- |
+| `pagePosition(position: number, count: number, name: string): string` | 翻页条上页码按钮的名字：第几个、共几个与页面名称（没有名称时是 pageTitle），position 从 1 开始。 |
 | `pageTitle(position: number): string` | 没有名称的页面模板的标题，position 从 1 开始。 |
 | `bandVariant(region: 'header' \| 'footer'): string` | 选择当前编辑的页眉或页脚变体的控件的可访问名。 |
 | `resizeBand(region: 'header' \| 'footer'): string` | 拖动调整页眉或页脚高度的把手的可访问名。 |
@@ -256,6 +260,7 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | `paste(clipboard?: PrintClipboard, options?: ExecuteOptions & { readonly offset?: number }): PrintSelection` | 粘贴到当前页面模板并选中粘贴出的元素；缺省用最近一次 copy 的内容，每次粘贴比上一次多偏移 offset（mm）。 |
 | `duplicate(options?: ExecuteOptions & { readonly offset?: number }): PrintSelection` | 复制选中内容并立即粘贴，不改动剪贴板。 |
 | `addPage(index?: number, options?: ExecuteOptions): PrintPage` | 在 index 处（缺省末尾）新增一张页面模板并切到它。 |
+| `duplicatePage(pageId: string, options?: ExecuteOptions): PrintPage` | 复制页面模板：页面与其中的元素换新 id，放在原页之后并切到它；页面不存在时抛错。 |
 | `removePage(pageId: string, options?: ExecuteOptions): boolean` | 删除页面模板；只剩一张时不删并返回 false。 |
 | `movePage(pageId: string, index: number, options?: ExecuteOptions): void` |  |
 | `addBand(region: 'header' \| 'footer', variant: PageBandVariant, options?: ExecuteOptions): void` | 为当前页面模板的页眉或页脚新增变体（高度取 default 的高度）并切到它；已存在时只切换。 |
@@ -289,7 +294,7 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | --- | --- | --- |
 | `createPrintDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 |
 | `PRINT_DESIGNER_EXTENSION_ID` | 常量 | 设计器自带的扩展的 id：内置命令，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 |
-| `PRINT_PAGE_COMMANDS` | 常量 | 页面模板页签旁的命令，排列固定。 |
+| `PRINT_PAGE_STRIP_LAYOUT` | 常量 | 画布右侧翻页条上的命令，排列固定：上一页、页码、下一页，新增、复制、删除页面。 |
 | `PRINT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
 | `PrintDesignerCommand` | 类型 | 设计器的命令：工具栏按钮、右键菜单项与快捷键共用。 |
 | `PrintDesignerContext` | 接口 | 扩展装上时拿到的上下文。 |
