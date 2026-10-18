@@ -24,10 +24,13 @@ catalog:
   '@xihan-ui/web-components': ^5.0.0
   # 开发依赖
   '@antfu/eslint-config': ^9.5.1
+  '@arethetypeswrong/cli': ^0.18.0
+  '@changesets/cli': ^2.31.0
   '@types/node': ^24.10.0
   eslint: ^10.12.0
   jsdom: ^27.0.0
   oxlint: ^1.88.0
+  publint: ^0.3.25
   tsdown: ~0.22.0
   typescript: ^6.0.3
   vite: ^8.3.4

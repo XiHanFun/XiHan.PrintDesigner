@@ -1,0 +1,96 @@
+name: Release
+
+# 推 v<版本> 标签时：核对标签，构建并核对产物，把三个公开包发到 npm（带 provenance），在空项目里装刚发的版本冒烟，再部署文档站。
+# 版本号、各包 CHANGELOG、文档站的更新日志由人用 print/scripts/release/VersionUpgrade 定好并合进 main；这里不提交、不建 GitHub Release。
+# 手动 Run workflow 时选中一个版本标签；选分支会被 guard 拦下。
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+defaults:
+  run:
+    working-directory: print
+
+jobs:
+  guard:
+    name: 核对标签
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: 只放行 main 上的版本标签
+        working-directory: .
+        run: |
+          if [ "$GITHUB_REF_TYPE" != "tag" ]; then
+            echo "::error::Release 只接受版本标签触发，收到 $GITHUB_REF_TYPE $GITHUB_REF_NAME"
+            exit 1
+          fi
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+            echo "::error::标签 $GITHUB_REF_NAME 指向的提交 $GITHUB_SHA 不在 main 的历史里，拒绝发布。先把要发布的提交合进 main，再在 main 上打标签。"
+            exit 1
+          fi
+          echo "标签 $GITHUB_REF_NAME 在 main 上，放行"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: 标签号与包版本、预发布模式对账
+        run: node scripts/release/check-release-tag.mjs
+
+  publish:
+    name: 发到 npm
+    needs: guard
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      # 仓库根没有 package.json，pnpm 版本以工作区清单为准
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: print/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: print/pnpm-lock.yaml
+          registry-url: https://registry.npmjs.org
+      - run: pnpm install --frozen-lockfile
+      - name: Build
+        run: pnpm build
+      - name: 产物契约（publint + attw）
+        run: pnpm gate:publish
+      # changeset publish 只发 npm 上还没有的版本；预发布模式下自动加上 dist-tag
+      - name: Publish to npm
+        run: pnpm exec changeset publish --no-git-tag
+        env:
+          NPM_CONFIG_PROVENANCE: 'true'
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  smoke:
+    name: 发布后冒烟
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: 在空项目里装刚发的版本，类型检查、打包与 Node 侧导入
+        run: node scripts/release/smoke.mjs --version "${GITHUB_REF_NAME#v}"
+
+  docs:
+    name: 部署文档站
+    needs: smoke
+    permissions:
+      contents: write
+    uses: ./.github/workflows/deploy-docs.yml

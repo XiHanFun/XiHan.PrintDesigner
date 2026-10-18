@@ -1,8 +1,9 @@
 # 名称
 name: 部署文档
 
-# 触发条件：main 分支上 docs 或打印各包有变更时，或手动触发
+# 触发条件：main 分支上 docs 或打印各包有变更时、Release 发完包后调用，或手动触发
 # 打印各包也要触发：文档里的示例渲染的是真实的预览与设计器，包改了文档产物就变了
+# 只部署已经发布的版本：当前版本有标签、main 上的包与标签一致、这个版本已在 npm 上，三条都满足才部署
 on:
   push:
     branches: [main]
@@ -10,6 +11,7 @@ on:
       - "docs/**"
       - "print/**"
       - ".github/workflows/deploy-docs.yml"
+  workflow_call:
   workflow_dispatch:
 
 # 同一分支上新推送取消尚未完成的旧运行
@@ -35,40 +37,75 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: 只部署已经发布的版本
+        id: released
+        working-directory: .
+        run: |
+          version=$(node -p "require('./print/packages/core/package.json').version")
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor HEAD refs/remotes/origin/main; then
+            echo "::notice::当前提交不在 main 上，不部署"
+            exit 0
+          fi
+          if ! git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
+            echo "::notice::v$version 还没有标签，等 Release 发完包再部署"
+            exit 0
+          fi
+          if ! git diff --quiet "v$version" HEAD -- print/packages print/pnpm-lock.yaml; then
+            echo "::notice::main 上的打印各包与 v$version 不一致，等下一次发版再部署"
+            exit 0
+          fi
+          for attempt in 1 2 3 4 5 6; do
+            if npm view "@xihan-print/core@$version" version >/dev/null 2>&1; then
+              echo "deploy=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::notice::@xihan-print/core@$version 不在 npm 上，不部署"
+
       # 仓库根没有 package.json，action 默认在根找 packageManager 会失败；
       # 指向工作区的清单，pnpm 版本仍以 print/package.json 为唯一事实源
       - name: 安装 pnpm
+        if: steps.released.outputs.deploy == 'true'
         uses: pnpm/action-setup@v6
         with:
           package_json_file: print/package.json
 
       - name: 安装 Node.js
+        if: steps.released.outputs.deploy == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 24
 
       # 文档站以 link: 引用 print/packages 下的 core、runtime 与 designer，示例要渲染就得先有 dist
       - name: 安装打印各包的依赖
+        if: steps.released.outputs.deploy == 'true'
         working-directory: ./print/
         run: pnpm install --frozen-lockfile
 
       - name: 构建打印各包
+        if: steps.released.outputs.deploy == 'true'
         working-directory: ./print/
         run: pnpm build
 
       # 文档站独立锁文件随仓库提交，部署与本地构建使用相同依赖解析结果。
       - name: 安装依赖
+        if: steps.released.outputs.deploy == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: 构建文档
+        if: steps.released.outputs.deploy == 'true'
         run: pnpm run build
 
       # 产物包含供「取本页 Markdown」直读的原始 Markdown，其中的页码占位等双花括号不是 Liquid 模板。
       # 缺少该标记时 GitHub Pages 会交给 Jekyll 处理：.md 被转成 HTML，双花括号还可能让构建失败。
       - name: 验证 GitHub Pages 静态托管标记
+        if: steps.released.outputs.deploy == 'true'
         run: test -f .vitepress/dist/.nojekyll
 
       - name: 部署文档
+        if: steps.released.outputs.deploy == 'true'
         uses: JamesIves/github-pages-deploy-action@v4
         with:
           # 这是文档部署到的分支名称
