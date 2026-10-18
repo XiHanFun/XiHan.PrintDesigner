@@ -10,7 +10,7 @@ import type { PrintDesignerTranslations, PrintRuntimeExtension, PrintRuntimeMode
 import type { IconRecord } from '@xihan-ui/core'
 import type { DesignerCommand, DesignerImporter } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
-import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension } from '@xihan-ui/designer-shell'
+import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
 import type { XhPrintDesigner } from './print-designer'
 import { ELEMENT_CATEGORIES } from '@xihan-print/core'
 import { createPrintRuntimeModel } from '@xihan-print/runtime'
@@ -31,6 +31,8 @@ export interface PrintDesignerContext {
    * 基础分区（general.*）只有宿主或用户写了的键。
    */
   readonly settings: DesignerSettings
+  /** 设计器的外框；内置的「面板」命令从它列出能开关的面板。设计器还没建出外框时为 undefined。 */
+  readonly frame: XhDesignerFrameElement | undefined
 }
 
 /** 设计器的命令：工具栏按钮、右键菜单项与快捷键共用。 */
@@ -74,7 +76,11 @@ export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['bring-to-front', 'bring-forward', 'send-backward', 'send-to-back'],
   ['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual', 'grid', 'snap'],
   ['design', 'preview', 'print'],
+  ['panels', 'settings', 'help'],
 ]
+
+/** 内置命令 help 打开的帮助页：打印文档站的设计器一页。 */
+export const PRINT_DESIGNER_HELP_URL = 'https://print.docs.xihanfun.com/guide/designer'
 
 /** 画布右侧翻页条上的命令，排列固定：上一页、页码、下一页，新增、复制、删除页面。 */
 export const PRINT_PAGE_STRIP_LAYOUT: readonly (readonly string[])[] = [

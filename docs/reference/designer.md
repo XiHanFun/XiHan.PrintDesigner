@@ -309,6 +309,7 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | --- | --- | --- |
 | `createPrintDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区与设计器自己的 print、内建的 general 重名）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 |
 | `PRINT_DESIGNER_EXTENSION_ID` | 常量 | 设计器自带的扩展的 id：内置命令，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 |
+| `PRINT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：打印文档站的设计器一页。 |
 | `PRINT_PAGE_STRIP_LAYOUT` | 常量 | 画布右侧翻页条上的命令，排列固定：上一页、页码、下一页，新增、复制、删除页面。 |
 | `PRINT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
 | `PrintDesignerCommand` | 类型 | 设计器的命令：工具栏按钮、右键菜单项与快捷键共用。 |
