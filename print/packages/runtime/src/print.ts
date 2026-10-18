@@ -31,8 +31,14 @@ export interface PrintSheetsOptions {
   readonly extensions?: readonly PrintRuntimeExtension[]
 }
 
+/** paginateDocument 的选项：分页注入项，外加缺省度量器所在的文档。 */
+export interface PaginateDocumentOptions extends PrintRenderOptions {
+  /** 缺省度量器所在的文档，缺省为全局 document。 */
+  readonly document?: Document
+}
+
 /** printDocument 的选项：分页注入项加上打印选项。 */
-export interface PrintOptions extends PrintRenderOptions, PrintSheetsOptions {}
+export interface PrintOptions extends PaginateDocumentOptions, PrintSheetsOptions {}
 
 /** 一次打印的结果：送去打印的输出页数与分页诊断。 */
 export interface PrintOutcome {
@@ -160,15 +166,24 @@ export async function printSheets(result: PaginationResult, options: PrintSheets
 }
 
 /**
- * 按数据排出模板并直接打印，不需要页面上有预览元素。度量器缺省用发起打印的文档里的 Canvas 度量器，
- * 表达式引擎与格式化器缺省同预览元素。文档不合法或拿不到度量器时抛错，不打开打印对话框。
+ * 按数据排出模板，返回分页结果，不打印；缺省注入项与 printDocument 相同：
+ * 度量器用 options.document（缺省全局 document）里的 Canvas 度量器，表达式引擎与格式化器同预览元素。
+ * 一次打多份时每份数据调一次，经 mergePaginationResults 合并后交给 printSheets 或打印客户端的 printSheets。
+ * 文档不合法时抛 PrintLayoutError，拿不到度量器时抛 PrintRuntimeError。
  */
-export async function printDocument(schema: PrintDocument, data: unknown, options: PrintOptions = {}): Promise<PrintOutcome> {
+export function paginateDocument(schema: PrintDocument, data: unknown, options: PaginateDocumentOptions = {}): PaginationResult {
   const source = options.document ?? globalThis.document
-  const result = paginate(schema, data, resolvePaginateOptions(options, {
+  return paginate(schema, data, resolvePaginateOptions(options, {
     measurer: () => createCanvasMeasurer(source),
     expressionEngine: () => createExpressionEngine(),
   }))
+}
+
+/**
+ * 按数据排出模板并直接打印，不需要页面上有预览元素；分页同 paginateDocument。文档不合法或拿不到度量器时抛错，不打开打印对话框。
+ */
+export async function printDocument(schema: PrintDocument, data: unknown, options: PrintOptions = {}): Promise<PrintOutcome> {
+  const result = paginateDocument(schema, data, options)
   await printSheets(result, options)
   return { sheets: result.sheets.length, diagnostics: result.diagnostics, via: 'browser' }
 }

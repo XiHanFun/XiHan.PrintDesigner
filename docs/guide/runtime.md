@@ -88,7 +88,16 @@
 
 ### 一次打多份
 
-`mergePaginationResults(results)` 把几份分页结果按顺序接成一份，交给 `printSheets`、`renderSheets` 或打印客户端，一次打出多份单据。每份数据各自用 `paginate` 分页，页码与总页数各自从第 1 页算起，合并后不变。合并结果的 `parts` 给出每份占的输出页（起点与张数）；诊断各带 `part`，是来自第几份（从 0 开始），`path` 与 `target` 相对那一份的文档。
+一份数据打一份单据；要一次打出多份，每份数据各用 `paginateDocument(schema, data, options?)` 排一次，`mergePaginationResults(results)` 按顺序接成一份，再交给 `printSheets`：
+
+<<< @/examples/snippets/print-batch.ts#browser
+
+- `paginateDocument` 只分页、不打印，缺省注入项与 `printDocument` 同一份：度量器用 `options.document`（缺省为当前页面）里的 Canvas 度量器，表达式引擎与格式化器同预览元素，`measurer`、`expressionEngine`、`formatter`、`locale`、`timeZone`、`maxSheets` 与 `extensions` 照样可以给。出错的情形也与 `printDocument` 相同。
+- 每份的页码与总页数各自从第 1 页算起，合并后不变。合并结果的 `parts` 给出每份占的输出页（起点与张数）；诊断各带 `part`，是来自第几份（从 0 开始），`path` 与 `target` 相对那一份的文档。
+- `printDocument` 只收一份数据，不收数组：模板的数据根本身就可能是数组（比如整份数据就是一张明细表），收数组会分不清是一份还是多份。
+- 合并结果同样可以交给 `renderSheets` 显示，或交给[打印客户端](./client)的 `printSheets`：
+
+<<< @/examples/snippets/print-batch.ts#client
 
 ## 字体与文字度量
 

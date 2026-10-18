@@ -7,11 +7,12 @@
 
 import type { XhPrintPreview } from '../src'
 import type { JobStatus, PrintClient, PrintClientDocumentOptions } from '../src/client'
-import { PRINT_CORE_EXTENSION_ID } from '@xihan-print/core'
+import { paginate, PRINT_CORE_EXTENSION_ID } from '@xihan-print/core'
 import { DesignerExtensionError } from '@xihan-ui/designer-kit'
+import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
 import { setXhConfig } from '@xihan-ui/web-components'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { definePrintPreview, PRINT_PREVIEW_TAG, printDocument, PrintRuntimeError } from '../src'
+import { definePrintPreview, mergePaginationResults, paginateDocument, PRINT_PREVIEW_TAG, printDocument, PrintRuntimeError, printSheets } from '../src'
 import { PrintClientError, printWithFallback } from '../src/client'
 import { printZhCN } from '../src/locale'
 import { createFakeMeasurer, documentOf, pageOf, registry, textElement } from './fixtures'
@@ -248,6 +249,37 @@ describe('printWithFallback', () => {
     expect(printed[0]!.title).toBe('回退')
     await expect(printWithFallback(stubClient(async () => Promise.reject(new PrintClientError('CONSENT_DENIED'))), schema(), {}, { measurer: createFakeMeasurer() })).rejects.toMatchObject({ code: 'CONSENT_DENIED' })
     expect(printed).toHaveLength(1)
+  })
+})
+
+describe('paginateDocument', () => {
+  /** 用到表达式与值格式的模板：缺省的表达式引擎或格式化器换了，排出的文字就不同。 */
+  const schema = documentOf(pageOf('p', [
+    registry.createElement('text', { id: 'total', x: 10, y: 20, overrides: { content: { kind: 'expression', expression: 'qty * price', format: { kind: 'number', decimals: 2, grouping: true } } } }),
+    registry.createElement('text', { id: 'name', x: 10, y: 40, overrides: { content: { kind: 'field', field: 'name' } } }),
+  ]))
+
+  it('缺省注入项与 printDocument 同一份：表达式引擎与格式化器取 UI 的缺省，结果与 printDocument 送去打印的一致', async () => {
+    const measurer = createFakeMeasurer()
+    const data = { qty: 1200, price: 3.5, name: '甲' }
+    const result = paginateDocument(schema, data, { measurer })
+    expect(result).toEqual(paginate(schema, data, { measurer, expressionEngine: createExpressionEngine(), formatter: formatValue }))
+    const outcome = await printDocument(schema, data, { measurer })
+    expect(outcome).toEqual({ sheets: result.sheets.length, diagnostics: result.diagnostics, via: 'browser' })
+    expect(printed[0]!.sheets).toBe(result.sheets.length)
+  })
+
+  it('拿不到度量器时与 printDocument 一样抛 PrintRuntimeError', async () => {
+    expect(() => paginateDocument(schema, {})).toThrow(PrintRuntimeError)
+    await expect(printDocument(schema, {})).rejects.toMatchObject({ code: 'measurer.unavailable' })
+  })
+
+  it('一次打多份：每份数据各排一次，合并后交给 printSheets', async () => {
+    const measurer = createFakeMeasurer()
+    const merged = mergePaginationResults([{ qty: 1, price: 1, name: '甲' }, { qty: 2, price: 2, name: '乙' }].map(data => paginateDocument(schema, data, { measurer })))
+    expect(merged.parts).toEqual([{ start: 0, count: 1 }, { start: 1, count: 1 }])
+    await printSheets(merged)
+    expect(printed[0]!.sheets).toBe(2)
   })
 })
 

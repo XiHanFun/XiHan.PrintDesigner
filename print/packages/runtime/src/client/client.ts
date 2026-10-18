@@ -7,10 +7,7 @@ import type { PaginationResult, PrintDocument } from '@xihan-print/core'
 import type { PrintRenderOptions } from '../options'
 import type { ClientDocumentOptions } from './document'
 import type { ClientErrorPayload, ClientPrintOptions, ClientWelcome, JobState, JobStatus, PrinterInfo } from './protocol'
-import { paginate } from '@xihan-print/core'
-import { createExpressionEngine } from '@xihan-ui/expression'
-import { createCanvasMeasurer } from '@xihan-ui/viz'
-import { resolvePaginateOptions } from '../options'
+import { paginateDocument } from '../print'
 import { toBase64 } from './base64'
 import { buildClientDocument } from './document'
 import { PrintClientError } from './errors'
@@ -339,11 +336,7 @@ class Client implements PrintClient {
   // —— 内部：任务 ——
 
   #paginate(schema: PrintDocument, data: unknown, options: PrintClientDocumentOptions): PaginationResult {
-    const source = options.document ?? globalThis.document
-    return paginate(schema, data, resolvePaginateOptions(options, {
-      measurer: () => createCanvasMeasurer(source),
-      expressionEngine: () => createExpressionEngine(),
-    }))
+    return paginateDocument(schema, data, options)
   }
 
   async #document(result: PaginationResult, options: PrintClientDocumentOptions): Promise<{ document: unknown, options: Record<string, unknown>, printer?: string }> {
