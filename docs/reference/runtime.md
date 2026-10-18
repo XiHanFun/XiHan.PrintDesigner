@@ -54,7 +54,7 @@
 declare function printDocument(schema: PrintDocument, data: unknown, options?: PrintOptions): Promise<PrintOutcome>
 ```
 
-按数据排出模板并直接打印，不需要页面上有预览元素。度量器缺省用发起打印的文档里的 Canvas 度量器，表达式引擎与格式化器缺省同预览元素。文档不合法或拿不到度量器时抛错，不打开打印对话框。
+按数据排出模板并直接打印，不需要页面上有预览元素；分页同 paginateDocument。文档不合法或拿不到度量器时抛错，不打开打印对话框。
 
 ### printSheets() {#printsheets}
 
@@ -100,7 +100,7 @@ declare function renderSheets(result: PaginationResult, container: Element, opti
 
 printDocument 的选项：分页注入项加上打印选项。
 
-继承 `PrintRenderOptions`、`PrintSheetsOptions`。
+继承 `PaginateDocumentOptions`、`PrintSheetsOptions`。
 
 ### PrintSheetsOptions {#printsheetsoptions}
 
@@ -189,7 +189,9 @@ print() 的选项：浏览器打印时的标题，以及交给本地打印客户
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
-| `printDocument` | 函数 | 按数据排出模板并直接打印，不需要页面上有预览元素。 |
+| `paginateDocument` | 函数 | 按数据排出模板，返回分页结果，不打印；缺省注入项与 printDocument 相同：度量器用 options.document（缺省全局 document）里的 Canvas 度量器，表达式引擎与格式化器同预览元素。 |
+| `PaginateDocumentOptions` | 接口 | paginateDocument 的选项：分页注入项，外加缺省度量器所在的文档。 |
+| `printDocument` | 函数 | 按数据排出模板并直接打印，不需要页面上有预览元素；分页同 paginateDocument。 |
 | `PrintOptions` | 接口 | printDocument 的选项：分页注入项加上打印选项。 |
 | `PrintOutcome` | 接口 | 一次打印的结果：送去打印的输出页数与分页诊断。 |
 | `printSheets` | 函数 | 把排好的输出页送去打印：在隐藏 iframe 里渲染（只在预览中显示的元素不画），纸张尺寸不同的输出页分到各自的具名 @page，带上源文档的字体，等样式表、图片与字体就绪后调起打印对话框，对话框关闭后移除 iframe。 |
