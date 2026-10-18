@@ -11,6 +11,7 @@
 // 整体版式用 @xihan-ui/designer-shell 的外框，panels 决定显示哪些区。工具栏、右键菜单与快捷键都走扩展合出的命令表，
 // 内置命令是设计器自带的扩展的一部分，排列可由 commandLayout 改写；扩展的面板放进外框自己的命名区；
 // 粘贴与拖放进来的外部内容交给扩展的导入器换成元素。
+// 设置对话框（openSettings()）里是基础分区、设计器自己的「画布」与各扩展的分区，值经 settings 与 settings-change 交给宿主。
 
 import type {
   BarCodeFormat,
@@ -35,8 +36,9 @@ import type { PrintDesignerTranslations, PrintOutcome, PrintPreviewPrintOptions 
 import type { PrintClient } from '@xihan-print/runtime/client'
 import type { IconRecord } from '@xihan-ui/core'
 import type { JsonValue } from '@xihan-ui/core/json'
+import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { AlignMode, DataField, DesignerImportSource, DistributeAxis, ExecuteOptions, ExtensionHost, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
-import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
+import type { PropertyEditorTable, PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
 import type {
   CommandToolbar,
   CommandToolbarDisplay,
@@ -57,6 +59,11 @@ import type {
   DesignerPropertyEditor,
   DesignerPropertyError,
   DesignerRulerEventMap,
+  DesignerSettings,
+  DesignerSettingsEventMap,
+  DesignerSettingsHost,
+  DesignerSettingsPolicy,
+  DesignerSettingsSection,
   DesignerSnapOptions,
   DesignerTransformEventMap,
   DesignerTransformItem,
@@ -117,6 +124,7 @@ import { BUILTIN_CONTROL_KINDS, resolvePropertyEditor } from '@xihan-ui/designer
 import {
   arrangeCommands,
   createCommandToolbar,
+  createDesignerSettingsHost,
   createPanelHost,
   defineDesignerShellElement,
   DESIGNER_COMMANDS_EN_US,
@@ -125,12 +133,14 @@ import {
   parseDesignerPanels,
   registerDropTarget,
   renderCommandMenu,
+  resolveSettings,
   runCommand,
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
   XhDesignerPaletteElement,
   XhDesignerPropertiesElement,
   XhDesignerRulerElement,
+  XhDesignerSettingsElement,
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
@@ -144,6 +154,7 @@ import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_PAGE_STRIP
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { borderSidesEditor, valueFormatEditor } from './property-editors'
 import { propertySubjects, TABLE_PART_KINDS } from './property-targets'
+import { PRINT_SETTING_KEYS, printSettingsSection } from './settings'
 import { columnBoundaries, planTableCommand, tablePartAt } from './table-edit'
 
 /** 设计器的标签名。 */
@@ -185,6 +196,13 @@ export interface PrintDesignerEventMap {
   'mode-change': CustomEvent<{ mode: PrintDesignerMode }>
   /** 点了面板头的关闭钮，设计器已收起这块面板：panels 是收起之后要显示的面板（空格分隔），设计器的 panels 已换成它。 */
   'panels-change': CustomEvent<{ panels: string }>
+  /**
+   * 改了一条设置（设置对话框里，或工具栏上的网格、吸附开关）：设计器已换成新的 settings 并生效；
+   * value 为 undefined 表示删掉这个键、回到缺省值。宿主存起来，下次赋回 settings。
+   */
+  'settings-change': CustomEvent<{ key: string, value: JsonValue | undefined, settings: DesignerSettings }>
+  /** 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 */
+  'settings-storage-error': CustomEvent<VisualEnvironmentStorageError>
 }
 
 /** 剪贴板载荷的结构版本。 */
@@ -204,6 +222,8 @@ const PAN_STEP = 48
 const NUDGE_LARGE_STEP = 10
 /** 长度比较的容差，mm。 */
 const DESIGN_EPSILON = 1e-6
+/** 网格线在屏幕上的最小间距，像素；网格间距画出来比它密时改按整数倍画。 */
+const GRID_MIN_PIXELS = 8
 
 type StringKey = { [K in keyof PrintDesignerTranslations]: PrintDesignerTranslations[K] extends string ? K : never }[keyof PrintDesignerTranslations]
 
@@ -422,12 +442,16 @@ interface Layers {
   readonly overlay: XhDesignerTransformElement
   readonly world: HTMLElement
   readonly paper: HTMLElement
+  /** 网格线。 */
+  readonly grid: HTMLElement
   readonly frames: HTMLElement
   readonly elements: HTMLElement
   readonly watermark: HTMLElement
   readonly decorations: HTMLElement
   readonly bandMenus: HTMLElement
   readonly preview: HTMLElement
+  /** 设置对话框。 */
+  readonly settings: XhDesignerSettingsElement
 }
 
 interface Gesture {
@@ -481,11 +505,14 @@ export class XhPrintDesigner extends XhReactiveElement {
     translations: { attribute: false },
     readonly: { converter: BOOLEAN_CONVERTER },
     mode: { type: String },
-    grid: { attribute: false },
-    snap: { attribute: false },
     panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     printClient: { attribute: false },
     commandLayout: { attribute: false },
+    settings: { attribute: false },
+    settingsPolicy: { attribute: false },
+    settingsStorageKey: { attribute: 'settings-storage-key', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
+    brands: { attribute: false },
+    registerBrand: { attribute: false },
   }
 
   /** 预览分页用的数据。 */
@@ -512,10 +539,6 @@ export class XhPrintDesigner extends XhReactiveElement {
   declare readonly?: boolean
   /** 设计态或预览态，缺省 design；同名 attribute。 */
   declare mode: PrintDesignerMode
-  /** 吸附网格边长，mm，缺省 1；false 不吸附网格。 */
-  declare grid: number | false
-  /** 吸附其它元素、页边距、区边界与参考线并显示对齐线，缺省 true。 */
-  declare snap: boolean
   /**
    * 要显示的面板，空格分隔：toolbar palette pages rulers properties issues，pages 是画布右侧的翻页条；不写即全部显示。同名 attribute。
    * 点了面板头的关闭钮时设计器改写它并派发 panels-change。
@@ -526,6 +549,22 @@ export class XhPrintDesigner extends XhReactiveElement {
    * 写了某个位置就只显示列出的命令；写了没登记的命令 id 时抛 TypeError。
    */
   declare commandLayout: DesignerCommandLayout | undefined
+  /**
+   * 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme、print.showGrid；没写的键取条目的缺省值。
+   * 赋值即生效；用户在设置对话框里或用工具栏上的网格、吸附开关改了以后，设计器换成新的一份并派发 settings-change。
+   */
+  declare settings: DesignerSettings | undefined
+  /** 宿主对设置条目的管控：键是条目键或分区 id，hidden 不显示，locked 只读、说明换成「由所在系统管理」。 */
+  declare settingsPolicy: DesignerSettingsPolicy | undefined
+  /**
+   * 设置存在根所在窗口 localStorage 的哪个键下：给了，连上文档时若没赋 settings 就从这里读，用户改了设置就写回去，
+   * 标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。
+   */
+  declare settingsStorageKey: string | undefined
+  /** 设置里主题色的预设：value 是品牌 id（写成设计器根上的 data-brand），color 是色板格子的颜色。不给且没给 registerBrand 时没有主题色这一项。 */
+  declare brands: readonly PropertySwatchOption[] | undefined
+  /** 注册自定义主题色，形状与 @xihan-ui/tokens 的 registerBrand 相同；给了才许在设置里自定义主题色。 */
+  declare registerBrand: ((id: string, color: string) => () => void) | undefined
   readonly #config = new XhConfigController(this)
   readonly #editor = createPrintEditor({ document: createDocument() })
   #extensions: readonly PrintDesignerExtension[] | undefined
@@ -552,7 +591,6 @@ export class XhPrintDesigner extends XhReactiveElement {
   #transactionOperations: PrintOperation[] = []
   #resizeObserver: ResizeObserver | undefined
   #lastMode: PrintDesignerMode = 'design'
-  #lastGrid = 1
   #spacePan = false
   #regions: { readonly key: string, readonly regions: readonly DesignerFrameRegion[] } | undefined
   #palette: { readonly key: string, readonly model: PrintDesignerModel, readonly fields: readonly DataField[] | undefined } | undefined
@@ -562,6 +600,13 @@ export class XhPrintDesigner extends XhReactiveElement {
   #unregisterDrop: (() => void) | undefined
   #hoverId: string | undefined
   #platform: 'mac' | 'other' | undefined
+  #settingsHost: DesignerSettingsHost | undefined
+  #settingsHostOptions: readonly unknown[] = []
+  #settingsSectionsKey = ''
+  #settingsSectionList: readonly DesignerSettingsSection[] = []
+  #settingsDialogKey = ''
+  /** 此刻生效的设置：各分区没写的条目取了缺省值。 */
+  #resolvedSettings: DesignerSettings = {}
 
   /** 是否只读：readonly 移除 attribute 后为 undefined，按不只读处理。 */
   get #readOnly(): boolean {
@@ -572,8 +617,6 @@ export class XhPrintDesigner extends XhReactiveElement {
     super()
     this.readonly = false
     this.mode = 'design'
-    this.grid = 1
-    this.snap = true
     this.#editor.subscribe((change) => {
       if (change.kind === 'selection') {
         if (this.#tableEdit !== undefined && !(change.selection.elements.length === 1 && change.selection.elements[0] === this.#tableEdit))
@@ -655,10 +698,13 @@ export class XhPrintDesigner extends XhReactiveElement {
       leave: () => this.#setOverlayHover(undefined),
     })
     this.#host.assign(this.#extensions ?? NO_EXTENSIONS)
+    this.requestUpdate()
   }
 
   override disconnectedCallback(): void {
     super.disconnectedCallback()
+    this.#settingsHost?.dispose()
+    this.#settingsHost = undefined
     this.#resizeObserver?.disconnect()
     this.#cancelGesture()
     this.#layers?.overlay.cancel()
@@ -696,6 +742,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const layers = this.#ensureLayers()
     const t = this.#translations()
     this.#editor.setExtensions(this.#model().list)
+    this.#syncSettings(layers, t, changed)
     if (['sampleData', 'extensions', 'expressionEngine', 'formatter', 'measurer', 'locale', 'timeZone'].some(name => changed.has(name)))
       this.#layoutStale = true
     if (changed.has('extensions') || changed.has('expressionEngine'))
@@ -813,6 +860,11 @@ export class XhPrintDesigner extends XhReactiveElement {
   reorder(target: ReorderTarget): void {
     if (!this.#readOnly)
       this.#editor.reorder(target)
+  }
+
+  /** 打开设置对话框，给了分区 id 就显示那一页：基础是 general，设计器自己的「画布」是 print。 */
+  openSettings(section?: string): void {
+    this.#ensureLayers().settings.show(section)
   }
 
   /** 按当前登记表与表达式引擎校验模板。 */
@@ -970,7 +1022,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 交给命令与扩展 setup 的上下文。 */
   #context(): PrintDesignerContext {
-    return { designer: this, translations: this.#translations(), commands: this.#commandTexts() }
+    return { designer: this, translations: this.#translations(), commands: this.#commandTexts(), settings: this.#resolvedSettings }
   }
 
   /** 此刻生效的共用命令文案。 */
@@ -1094,6 +1146,85 @@ export class XhPrintDesigner extends XhReactiveElement {
     layers.frame.regions = regions
   }
 
+  /**
+   * 设置：建好设置宿主（主题色预设、注册函数或存储键变了就重建），给了存储键又没赋 settings 时从存储读；settings 变了
+   * 把主题与主题色落到设计器上；算出此刻生效的设置，交给设置对话框。
+   */
+  #syncSettings(layers: Layers, t: PrintDesignerTranslations, changed: PropertyValues): void {
+    const options = [this.brands, this.registerBrand, this.settingsStorageKey]
+    let fresh = false
+    if (!this.#settingsHost || options.some((value, index) => value !== this.#settingsHostOptions[index])) {
+      this.#settingsHost?.dispose()
+      this.#settingsHostOptions = options
+      const storageKey = this.settingsStorageKey
+      this.#settingsHost = storageKey === undefined
+        ? createDesignerSettingsHost({ root: this, brands: this.brands, registerBrand: this.registerBrand })
+        : createDesignerSettingsHost({
+            root: this,
+            brands: this.brands,
+            registerBrand: this.registerBrand,
+            storageKey,
+            onStorageError: detail => emitEvent(this, 'settings-storage-error', detail),
+          })
+      if (storageKey !== undefined && this.settings === undefined)
+        this.settings = this.#settingsHost.load()
+      fresh = true
+    }
+    if (fresh || changed.has('settings'))
+      this.#settingsHost.apply(this.settings ?? {})
+    const sections = [printSettingsSection(t), ...this.#model().settings]
+    const sectionsKey = JSON.stringify(sections)
+    if (sectionsKey !== this.#settingsSectionsKey) {
+      this.#settingsSectionsKey = sectionsKey
+      this.#settingsSectionList = sections
+    }
+    this.#resolvedSettings = resolveSettings(this.#settingsSectionList, this.settings)
+    const dialog = layers.settings
+    const general = { brands: this.brands, customBrand: this.registerBrand !== undefined }
+    // 设计器还没接状态栏与工具栏显示方式，基础分区里这两项不显示
+    const policy: DesignerSettingsPolicy = { 'general.statusBar': 'hidden', 'general.toolbarDisplay': 'hidden', ...this.settingsPolicy }
+    const dialogKey = JSON.stringify([general.brands, general.customBrand, policy])
+    if (dialogKey !== this.#settingsDialogKey) {
+      this.#settingsDialogKey = dialogKey
+      dialog.general = general
+      dialog.policy = policy
+    }
+    if (dialog.sections !== this.#settingsSectionList)
+      dialog.sections = this.#settingsSectionList
+    if (dialog.settings !== this.settings)
+      dialog.settings = this.settings
+  }
+
+  /** 设置对话框里改了一条：换成新的 settings，给了存储键就存起来，再派发 settings-change。 */
+  readonly #onSettingsChange = (event: Event): void => {
+    event.stopPropagation()
+    this.#commitSettings((event as DesignerSettingsEventMap['settings-change']).detail)
+  }
+
+  /** 工具栏上的开关改一条设置：与在设置对话框里改一样。 */
+  #writeSetting(key: string, value: JsonValue): void {
+    this.#commitSettings({ key, value, settings: { ...this.settings, [key]: value } })
+  }
+
+  #commitSettings(detail: { readonly key: string, readonly value: JsonValue | undefined, readonly settings: DesignerSettings }): void {
+    this.settings = detail.settings
+    this.#settingsHost?.save(detail.settings, this.#settingsSectionList)
+    emitEvent(this, 'settings-change', { key: detail.key, value: detail.value, settings: detail.settings })
+  }
+
+  /** 网格线：设置里打开显示且间距大于 0 时画；间距在屏幕上不到 GRID_MIN_PIXELS 时按它的 2、5、10、20、50…倍画。 */
+  #paintGrid(layers: Layers): void {
+    const size = this.#gridSize()
+    const shown = size > 0 && this.#resolvedSettings[PRINT_SETTING_KEYS.showGrid] === true
+    layers.grid.hidden = !shown
+    if (!shown)
+      return
+    let step = size
+    for (let index = 0; step * this.#viewport.zoom < GRID_MIN_PIXELS && index < 30; index++)
+      step *= index % 3 === 1 ? 2.5 : 2
+    layers.grid.style.setProperty('--xh-print-designer-grid', `${step}mm`)
+  }
+
   /** 外框收起了一块面板：外框只认自己的区，设计器自己开关的翻页条与标尺照原样留着。 */
   readonly #onPanelsChange = (event: Event): void => {
     event.stopPropagation()
@@ -1116,8 +1247,15 @@ export class XhPrintDesigner extends XhReactiveElement {
     return this.#config.translations<PrintDesignerTranslations>(PRINT_DESIGNER_TAG, DEFAULT_PRINT_DESIGNER_TRANSLATIONS, this.translations)
   }
 
+  /** 网格间距，mm；设置里写 0 或写坏了为 0，即不吸附网格。 */
+  #gridSize(): number {
+    const size = this.#resolvedSettings[PRINT_SETTING_KEYS.gridSize]
+    return typeof size === 'number' && size > 0 ? size : 0
+  }
+
   #snapValue(value: number): number {
-    return this.grid === false || !(this.grid > 0) ? value : snapToGrid(value, this.grid)
+    const size = this.#gridSize()
+    return size > 0 ? snapToGrid(value, size) : value
   }
 
   /** 纸张坐标落在哪个区：页眉、页脚带区之内为页眉、页脚，其余为正文。 */
@@ -1188,6 +1326,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       layers.overlay.viewport = this.#viewport
       layers.ruler.viewport = this.#viewport
       this.style.setProperty('--xh-print-designer-zoom', String(scale))
+      this.#paintGrid(layers)
     }
     if (notify)
       emitEvent(this, 'viewport-change', { viewport: this.getViewport() })
@@ -1234,7 +1373,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     const watermark = createAuthoredElement(doc, 'div', { 'data-part': 'watermark-layer' })
     const decorations = createAuthoredElement(doc, 'div', { 'data-part': 'decorations' })
     const bandMenus = createAuthoredElement(doc, 'div', { 'data-part': 'band-menus' })
-    paper.append(frames, elements, watermark, decorations, bandMenus)
+    const grid = createAuthoredElement(doc, 'div', { 'data-part': 'grid', 'hidden': true })
+    paper.append(grid, frames, elements, watermark, decorations, bandMenus)
     const world = createAuthoredElement(doc, 'div', { 'data-part': 'world' }, [paper])
     const overlay = createAuthoredElement(doc, 'xh-designer-transform', { 'data-part': 'overlay' }) as XhDesignerTransformElement
     overlay.viewport = this.#viewport
@@ -1270,7 +1410,9 @@ export class XhPrintDesigner extends XhReactiveElement {
     issueSummary.slot = 'issues-actions'
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, palette, workspace, pageStrip.element, properties, issues, issueSummary]) as XhDesignerFrameElement
     frame.addEventListener('panels-change', this.#onPanelsChange)
-    this.append(frame)
+    const settings = createGeneratedElement(doc, 'xh-designer-settings', { 'data-part': 'settings' }) as XhDesignerSettingsElement
+    settings.addEventListener('settings-change', this.#onSettingsChange)
+    this.append(frame, settings)
     const panelHost = createPanelHost<PrintDesignerContext>(frame)
 
     viewport.addEventListener('pointerdown', this.#onPointerDown)
@@ -1287,7 +1429,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, frames, elements, watermark, decorations, bandMenus, preview }
+    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings }
     this.#regions = undefined
     panelHost.assign(this.#model().list, this.#context())
     return this.#layers
@@ -1412,12 +1554,10 @@ export class XhPrintDesigner extends XhReactiveElement {
         this.zoomToActual()
         return
       case 'grid':
-        if (this.grid !== false)
-          this.#lastGrid = this.grid
-        this.grid = this.grid === false ? this.#lastGrid : false
+        this.#writeSetting(PRINT_SETTING_KEYS.showGrid, this.#resolvedSettings[PRINT_SETTING_KEYS.showGrid] !== true)
         return
       case 'snap':
-        this.snap = !this.snap
+        this.#writeSetting(PRINT_SETTING_KEYS.snap, this.#resolvedSettings[PRINT_SETTING_KEYS.snap] === false)
         return
       case 'design':
       case 'preview':
@@ -1470,8 +1610,8 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   #commandChecked(command: Command): boolean {
     if (command === 'grid')
-      return this.grid !== false
-    return command === 'snap' ? this.snap : this.mode === command
+      return this.#resolvedSettings[PRINT_SETTING_KEYS.showGrid] === true
+    return command === 'snap' ? this.#resolvedSettings[PRINT_SETTING_KEYS.snap] !== false : this.mode === command
   }
 
   #renderToolbar(layers: Layers): void {
@@ -1503,6 +1643,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const paper = getPaperSize(page)
     layers.paper.style.width = `${paper.width}mm`
     layers.paper.style.height = `${paper.height}mm`
+    this.#paintGrid(layers)
     const header = page.header[bands.header] ?? page.header.default
     const footer = page.footer[bands.footer] ?? page.footer.default
     const headerRect = getBandRect(page, 'header', header)
@@ -1516,7 +1657,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       return node
     }
     layers.frames.replaceChildren(
-      frame('margins', content),
+      ...(this.#resolvedSettings[PRINT_SETTING_KEYS.showMargins] === false ? [] : [frame('margins', content)]),
       frame('band', headerRect, 'header'),
       frame('band', bodyRect, 'body'),
       frame('band', footerRect, 'footer'),
@@ -2100,8 +2241,9 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 吸附选项：其它元素、页边距、各区边界与参考线；关掉吸附时只吸网格。 */
   #snapOptions(): DesignerSnapOptions | undefined {
-    const grid = this.grid === false || !(this.grid > 0) ? undefined : this.grid
-    if (!this.snap)
+    const size = this.#gridSize()
+    const grid = size > 0 ? size : undefined
+    if (this.#resolvedSettings[PRINT_SETTING_KEYS.snap] === false)
       return grid === undefined ? undefined : { targets: [], grid }
     const page = this.#editor.page
     const bands = this.#editor.bands
@@ -2577,7 +2719,7 @@ export class XhPrintDesigner extends XhReactiveElement {
         return true
       }
     }
-    const step = this.grid === false || !(this.grid > 0) ? 1 : this.grid
+    const step = this.#gridSize() || 1
     const delta = nudgeDelta(event.key, { large: event.shiftKey, step, largeStep: NUDGE_LARGE_STEP })
     if (!delta)
       return false
@@ -2723,6 +2865,7 @@ export function definePrintDesigner(): void {
   defineDesignerShellElement('xh-designer-palette', XhDesignerPaletteElement)
   defineDesignerShellElement('xh-designer-issues', XhDesignerIssuesElement)
   defineDesignerShellElement('xh-designer-properties', XhDesignerPropertiesElement)
+  defineDesignerShellElement('xh-designer-settings', XhDesignerSettingsElement)
   defineXhElement('xh-toolbar', XhToolbarElement)
   defineXhElement('xh-toggle-group', XhToggleGroupElement)
   defineXhElement('xh-button', XhButtonElement)

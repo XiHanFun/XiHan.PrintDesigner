@@ -10,11 +10,13 @@ import type { PrintDesignerTranslations, PrintRuntimeExtension, PrintRuntimeMode
 import type { IconRecord } from '@xihan-ui/core'
 import type { DesignerCommand, DesignerImporter } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
-import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerShellExtension } from '@xihan-ui/designer-shell'
+import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension } from '@xihan-ui/designer-shell'
 import type { XhPrintDesigner } from './print-designer'
 import { ELEMENT_CATEGORIES } from '@xihan-print/core'
 import { createPrintRuntimeModel } from '@xihan-print/runtime'
 import { DesignerExtensionError, extensionCommands, extensionEditors } from '@xihan-ui/designer-kit'
+import { collectSettingsSections } from '@xihan-ui/designer-shell'
+import { PRINT_SETTINGS_SECTION } from './settings'
 import { TABLE_COMMANDS } from './table-edit'
 
 /** 扩展装上时拿到的上下文。 */
@@ -24,6 +26,11 @@ export interface PrintDesignerContext {
   readonly translations: PrintDesignerTranslations
   /** 此刻生效的共用命令文案（designer-shell 语言包的 xh-designer-commands）：撤销、对齐、缩放这些四款都有的命令。 */
   readonly commands: DesignerCommandsTranslations
+  /**
+   * 此刻生效的设置，键是「分区 id.条目 id」：设计器自己的「画布」与各扩展分区里的条目写了用写的、没写取缺省值，
+   * 基础分区（general.*）只有宿主或用户写了的键。
+   */
+  readonly settings: DesignerSettings
 }
 
 /** 设计器的命令：工具栏按钮、右键菜单项与快捷键共用。 */
@@ -46,8 +53,8 @@ export interface PrintPaletteEntry {
   readonly icon?: IconRecord
 }
 
-/** 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、导入器、物料项与 setup。 */
-export interface PrintDesignerExtension extends PrintRuntimeExtension, Pick<DesignerShellExtension<PrintDesignerContext, DesignerPropertyEditor>, 'editors' | 'commands' | 'panels' | 'setup'> {
+/** 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、设置分区、导入器、物料项与 setup。 */
+export interface PrintDesignerExtension extends PrintRuntimeExtension, Pick<DesignerShellExtension<PrintDesignerContext, DesignerPropertyEditor>, 'editors' | 'commands' | 'panels' | 'settings' | 'setup'> {
   /** 导入器：粘贴与拖放共用，按扩展顺序问 accepts，第一个接下的导入；id 不能与别的导入器重名。 */
   readonly importers?: readonly PrintDesignerImporter[]
   /** 本扩展登记的元素的物料项，键是元素类型；只能给本扩展 elements 里的类型。 */
@@ -107,9 +114,11 @@ export interface PrintDesignerModel {
   readonly palette: ReadonlyMap<string, PrintPaletteEntry>
   /** 扩展的物料分组 → 名称。 */
   readonly categories: ReadonlyMap<string, string>
+  /** 各扩展登记的设置分区，按扩展顺序。 */
+  readonly settings: readonly DesignerSettingsSection[]
 }
 
-/** 合出设计器用的模型；任何一处重名都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 */
+/** 合出设计器用的模型；任何一处重名（含设置分区与设计器自己的 print、内建的 general 重名）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 */
 export function createPrintDesignerModel(builtin: PrintDesignerExtension, extensions: readonly PrintDesignerExtension[]): PrintDesignerModel {
   const list = [builtin, ...extensions]
   const runtime = createPrintRuntimeModel(list)
@@ -132,5 +141,7 @@ export function createPrintDesignerModel(builtin: PrintDesignerExtension, extens
       categories.set(category, label)
     }
   }
-  return { list, runtime, editors: extensionEditors<DesignerPropertyEditor>(undefined, all), commands: extensionCommands(all), importers: all.flatMap(extension => extension.importers ?? []), palette, categories }
+  // 设计器自己的「画布」分区占着 print，扩展的分区与它、与内建的 general 或彼此重名都抛错
+  const settings = collectSettingsSections([{ id: builtin.id, settings: [{ id: PRINT_SETTINGS_SECTION, label: PRINT_SETTINGS_SECTION, items: [] }] }, ...extensions]).slice(1)
+  return { list, runtime, editors: extensionEditors<DesignerPropertyEditor>(undefined, all), commands: extensionCommands(all), importers: all.flatMap(extension => extension.importers ?? []), palette, categories, settings }
 }

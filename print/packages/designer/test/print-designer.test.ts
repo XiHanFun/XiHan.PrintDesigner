@@ -913,7 +913,7 @@ describe('<xh-print-designer>', () => {
     const toolbarItems = (): string[] => Array.from(designer.querySelectorAll<HTMLButtonElement>('[data-part="toolbar"] button[data-xh-part="item"]'), item => item.value)
     expect(toolbarItems().slice(-4)).toEqual(['design', 'preview', 'print', '@acme/hello.run'])
     expect(designer.querySelector('[data-part="toolbar"] button[value="@acme/hello.run"]')!.textContent).toBe('Hello 2')
-    expect(designer.querySelector('[data-part="toolbar"] button[value="grid"]')!.getAttribute('aria-pressed')).toBe('true')
+    expect(['grid', 'snap'].map(value => designer.querySelector(`[data-part="toolbar"] button[value="${value}"]`)!.getAttribute('aria-pressed'))).toEqual(['false', 'true'])
 
     const content = designer.querySelector('[data-print-canvas-root] > [data-xh-part="positioner"] > [data-xh-part="content"]')!
     const menuItems = (): string[] => Array.from(content.querySelectorAll('[data-xh-part="item"]'), item => item.getAttribute('value')!)

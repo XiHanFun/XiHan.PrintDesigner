@@ -24,10 +24,13 @@
 | `translations` | — | `Partial<PrintDesignerTranslations> \| undefined` | 元素自己的文案，压在全局配置之上。 |
 | `readonly` | `readonly` | `boolean` | 只读：可以选择、浏览与预览，不能修改。attribute 三态：不写或移除为不只读，写 "false" 为不只读，其余写法为只读。 |
 | `mode` | `mode` | `PrintDesignerMode` | 设计态或预览态，缺省 design；同名 attribute。 |
-| `grid` | — | `number \| false` | 吸附网格边长，mm，缺省 1；false 不吸附网格。 |
-| `snap` | — | `boolean` | 吸附其它元素、页边距、区边界与参考线并显示对齐线，缺省 true。 |
 | `panels` | `panels` | `string \| undefined` | 要显示的面板，空格分隔：toolbar palette pages rulers properties issues，pages 是画布右侧的翻页条；不写即全部显示。同名 attribute。点了面板头的关闭钮时设计器改写它并派发 panels-change。 |
 | `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏与右键菜单的排列：位置（toolbar、menu:blank、menu:element、menu:table）→ 若干组命令 id，内置与扩展的命令可以混排。写了某个位置就只显示列出的命令；写了没登记的命令 id 时抛 TypeError。 |
+| `settings` | — | `DesignerSettings \| undefined` | 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme、print.showGrid；没写的键取条目的缺省值。赋值即生效；用户在设置对话框里或用工具栏上的网格、吸附开关改了以后，设计器换成新的一份并派发 settings-change。 |
+| `settingsPolicy` | — | `DesignerSettingsPolicy \| undefined` | 宿主对设置条目的管控：键是条目键或分区 id，hidden 不显示，locked 只读、说明换成「由所在系统管理」。 |
+| `settingsStorageKey` | `settings-storage-key` | `string \| undefined` | 设置存在根所在窗口 localStorage 的哪个键下：给了，连上文档时若没赋 settings 就从这里读，用户改了设置就写回去，标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。 |
+| `brands` | — | `readonly PropertySwatchOption[] \| undefined` | 设置里主题色的预设：value 是品牌 id（写成设计器根上的 data-brand），color 是色板格子的颜色。不给且没给 registerBrand 时没有主题色这一项。 |
+| `registerBrand` | — | `((id: string, color: string) => () => void) \| undefined` | 注册自定义主题色，形状与 @xihan-ui/tokens 的 registerBrand 相同；给了才许在设置里自定义主题色。 |
 
 ### 存取器
 
@@ -59,6 +62,7 @@
 | `align(mode: AlignMode): void` | 对齐选中的元素；少于两个或只读时什么都不做。 |
 | `distribute(axis: DistributeAxis): void` | 等距分布选中的元素；少于三个或只读时什么都不做。 |
 | `reorder(target: ReorderTarget): void` | 调整选中元素的层级。 |
+| `openSettings(section?: string): void` | 打开设置对话框，给了分区 id 就显示那一页：基础是 general，设计器自己的「画布」是 print。 |
 | `validate(): ValidationIssue[]` | 按当前登记表与表达式引擎校验模板。 |
 | `getViewport(): Viewport` | 视口：屏幕坐标 = 纸张坐标（mm）× zoom × 96 / 25.4 + (x, y)；zoom 为 1 时是实际尺寸。 |
 | `setViewport(viewport: Viewport): void` | 设置视口；此后尺寸变化不再自动适配。 |
@@ -91,6 +95,8 @@
 | `page-change` | `{ pageId: string }` | 当前页面模板变了。 |
 | `mode-change` | `{ mode: PrintDesignerMode }` | 在设计态与预览态之间切换了。 |
 | `panels-change` | `{ panels: string }` | 点了面板头的关闭钮，设计器已收起这块面板：panels 是收起之后要显示的面板（空格分隔），设计器的 panels 已换成它。 |
+| `settings-change` | `{ key: string, value: JsonValue \| undefined, settings: DesignerSettings }` | 改了一条设置（设置对话框里，或工具栏上的网格、吸附开关）：设计器已换成新的 settings 并生效；value 为 undefined 表示删掉这个键、回到缺省值。宿主存起来，下次赋回 settings。 |
+| `settings-storage-error` | `VisualEnvironmentStorageError` | 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 |
 
 ## 类型
 
@@ -136,7 +142,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | --- | --- | --- |
 | `label` | `string` | 设计器的可访问名。 |
 | `canvas` | `string` | 画布区域的可访问名。 |
-| `grid` | `string` | 显示并吸附网格的开关。 |
+| `grid` | `string` | 显示网格的开关。 |
 | `snap` | `string` | 吸附其它元素与参考线的开关。 |
 | `print` | `string` |  |
 | `pages` | `string` | 画布右侧翻页条的可访问名。 |
@@ -173,6 +179,15 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `paletteHelp` | `string` | 物料面板头里的帮助。 |
 | `propertiesHelp` | `string` | 属性面板头里的帮助。 |
 | `issuesHelp` | `string` | 问题列表面板头里的帮助。 |
+| `settingsCanvas` | `string` | 设置对话框里设计器自己那一页（画布偏好）的名称。 |
+| `settingsShowGrid` | `string` |  |
+| `settingsShowGridHint` | `string` |  |
+| `settingsGridSize` | `string` |  |
+| `settingsGridSizeHint` | `string` |  |
+| `settingsSnap` | `string` |  |
+| `settingsSnapHint` | `string` |  |
+| `settingsShowMargins` | `string` |  |
+| `settingsShowMarginsHint` | `string` |  |
 | `propertyGroups` | `Readonly<Record<PropertyGroup, string>>` | 属性分组的名称。 |
 | `propertyNames` | `Readonly<Record<string, string>>` | 属性名：键为 formatJsonPath(path)；「对象种类:路径」覆盖同一路径在该种类上的名字，对象种类是 page、元素种类或 table-column 等表格部位。复合属性拆开后的分项用「复合种类/分项」作键，如 stroke/width、edges/top。 |
 | `propertyOptions` | `Readonly<Record<string, string>>` | select 选项名：键为选项值；「路径=选项值」覆盖该属性上的名字。 |
@@ -292,13 +307,13 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
-| `createPrintDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 |
+| `createPrintDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区与设计器自己的 print、内建的 general 重名）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 |
 | `PRINT_DESIGNER_EXTENSION_ID` | 常量 | 设计器自带的扩展的 id：内置命令，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 |
 | `PRINT_PAGE_STRIP_LAYOUT` | 常量 | 画布右侧翻页条上的命令，排列固定：上一页、页码、下一页，新增、复制、删除页面。 |
 | `PRINT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
 | `PrintDesignerCommand` | 类型 | 设计器的命令：工具栏按钮、右键菜单项与快捷键共用。 |
 | `PrintDesignerContext` | 接口 | 扩展装上时拿到的上下文。 |
-| `PrintDesignerExtension` | 接口 | 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、导入器、物料项与 setup。 |
+| `PrintDesignerExtension` | 接口 | 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、设置分区、导入器、物料项与 setup。 |
 | `PrintDesignerImporter` | 类型 | 导入器：把粘贴或拖放进来的外部内容换成一组元素；返回 undefined 即不放任何元素。 |
 | `PrintDesignerModel` | 接口 | 一组设计器扩展合出的东西：交给 core 函数与预览的列表、运行时的模型、属性编辑器表、命令表、导入器与物料项。 |
 | `PrintImportFragment` | 接口 | 导入的结果：一组元素，整体挪到落点（粘贴时为视口中央）后按粘贴的规则放进当前页面模板。 |
@@ -316,3 +331,11 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | `PrintDesignerMode` | 类型 | 设计态或预览态。 |
 | `PrintSchemaChangeKind` | 类型 | schema-change 的种类：执行操作、撤销、重做，或宿主装载了新模板。 |
 | `XhPrintDesigner` | 类 |  |
+
+### settings
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `PRINT_SETTING_KEYS` | 常量 | 「画布」分区各条目的键，即 settings 里的键（分区 id.条目 id）。 |
+| `PRINT_SETTINGS_SECTION` | 常量 | 设计器自己那个设置分区的 id，扩展不能再用。 |
+| `printSettingsSection` | 函数 | 「画布」分区：网格间距缺省 1 mm，吸附对齐与边距线缺省打开，网格缺省不显示。 |
