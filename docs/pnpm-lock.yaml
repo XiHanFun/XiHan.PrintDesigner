@@ -44,8 +44,8 @@ importers:
         specifier: link:../../XiHan.UI/ui/packages/adapters/web-components
         version: link:../../XiHan.UI/ui/packages/adapters/web-components
       '@xihanfun/vitepress-theme':
-        specifier: ^1.1.0
-        version: 1.1.0(vitepress@2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))
+        specifier: ^1.2.0
+        version: 1.2.0(vitepress@2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))
       vitepress:
         specifier: 2.0.0-alpha.20
         version: 2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1)
@@ -672,8 +672,8 @@ packages:
     peerDependencies:
       vue: ^3.5.0
 
-  '@xihanfun/vitepress-theme@1.1.0':
-    resolution: {integrity: sha512-WTKokoF/zDERh+rE9mS6oGRflhqYKKTTqPesO3ehqaMKUK3ravBDdCgefC5RRDisvOA6ISjiOqeK455aiX3oNQ==}
+  '@xihanfun/vitepress-theme@1.2.0':
+    resolution: {integrity: sha512-uHwxusySwxcJG4vWa0xCoCJIhw84TyDLzrsKAU1oTH0y4OfLKwMpeKp/Rb8SEq05yv08aXSZqAXcaD8oASh6gA==}
     peerDependencies:
       vitepress: ^2.0.0-alpha.20
       vue: ^3.5.0
@@ -2503,7 +2503,7 @@ snapshots:
     dependencies:
       vue: 3.5.44(typescript@6.0.3)
 
-  '@xihanfun/vitepress-theme@1.1.0(vitepress@2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))':
+  '@xihanfun/vitepress-theme@1.2.0(vitepress@2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))':
     dependencies:
       vitepress: 2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1)
       vue: 3.5.44(typescript@6.0.3)

@@ -25,7 +25,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - `sampleData` 是画布上显示用的示例数据，给了就按它显示实际值，不给时字段显示成 <code v-pre>{path}</code> 占位。
 - `data` 是切到预览态与打印时用的数据。
 
-<PrintDemo name="designer" />
+<PrintDemo name="designer" fullscreen />
 
 ## 界面
 
@@ -222,7 +222,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 <<< @/examples/demos/designer-editors.ts#use
 
-<PrintDemo name="designer-editors" />
+<PrintDemo name="designer-editors" fullscreen />
 
 - `setValue(undefined)` 清除这个属性；连续的 `setValue` 合成一步撤销，`commit()` 之后的修改另起一步。
 - `context.target` 是当前全部被编辑的对象，多选时有多个。

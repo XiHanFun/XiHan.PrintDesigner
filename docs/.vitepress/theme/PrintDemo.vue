@@ -7,8 +7,10 @@
 // 示例舞台：在浏览器里载入 examples/demos/<name>.ts 或 <name>.vue。.ts 示例导出 mount，挂到舞台上，卸载时调用它返回的清理函数；
 // .vue 示例是一个组件，直接渲染在舞台里。
 // 舞台里的预览元素按第一张输出页定高度，整页都看得到：示例没有自己设 zoom 时，缩放取适合舞台宽度（不放大）。
+// 写了 fullscreen 的示例可以全屏，全屏时舞台里的设计器长到屏幕底。
 
 import type { Component } from 'vue'
+import { XhFullscreen } from '@xihanfun/vitepress-theme'
 import { markRaw, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 
 interface DemoModule {
@@ -18,7 +20,7 @@ interface DemoModule {
 
 type PreviewElement = HTMLElement & { zoom?: number, readonly updateComplete?: Promise<unknown> }
 
-const props = defineProps<{ name: string }>()
+const props = defineProps<{ name: string, fullscreen?: boolean }>()
 
 const demos = import.meta.glob<DemoModule>('../../examples/demos/*.{ts,vue}')
 const stage = ref<HTMLElement>()
@@ -27,6 +29,7 @@ const missing = ref(false)
 let dispose: (() => void) | undefined
 let unmounted = false
 let observer: ResizeObserver | undefined
+let stopFullscreen: (() => void) | undefined
 /** 舞台替它定过缩放的预览，与定的那个值；示例自己改了缩放以后不再替它定。 */
 const fittedZoom = new WeakMap<PreviewElement, number>()
 
@@ -64,6 +67,23 @@ function fitPreviews(): void {
     void fitPreview(preview)
 }
 
+/** 全屏时舞台里的设计器从自己的顶边长到舞台底，退出全屏后回到样式表给的高度。 */
+function fillDesigners(host: HTMLElement): () => void {
+  const fill = (): void => {
+    const full = document.fullscreenElement?.contains(host) === true
+    const bottom = host.getBoundingClientRect().bottom
+    for (const designer of host.querySelectorAll<HTMLElement>('xh-print-designer'))
+      designer.style.blockSize = full ? `${Math.floor(bottom - designer.getBoundingClientRect().top)}px` : ''
+  }
+  const resize = new ResizeObserver(fill)
+  resize.observe(host)
+  document.addEventListener('fullscreenchange', fill)
+  return () => {
+    resize.disconnect()
+    document.removeEventListener('fullscreenchange', fill)
+  }
+}
+
 onMounted(async () => {
   const load = demos[`../../examples/demos/${props.name}.ts`] ?? demos[`../../examples/demos/${props.name}.vue`]
   if (load === undefined) {
@@ -73,6 +93,8 @@ onMounted(async () => {
   const demo = await load()
   if (unmounted)
     return
+  if (props.fullscreen && stage.value !== undefined)
+    stopFullscreen = fillDesigners(stage.value)
   if (demo.mount !== undefined && stage.value !== undefined)
     dispose = demo.mount(stage.value)
   else if (demo.default !== undefined)
@@ -88,6 +110,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   unmounted = true
   observer?.disconnect()
+  stopFullscreen?.()
   stage.value?.removeEventListener('paginated', fitPreviews)
   dispose?.()
 })
@@ -98,6 +121,11 @@ onBeforeUnmount(() => {
     <p v-if="missing" class="print-demo__missing">
       找不到示例 {{ props.name }}
     </p>
+    <XhFullscreen v-else-if="props.fullscreen">
+      <div ref="stage" class="print-demo__stage">
+        <component :is="component" v-if="component" />
+      </div>
+    </XhFullscreen>
     <div v-else ref="stage" class="print-demo__stage">
       <component :is="component" v-if="component" />
     </div>
