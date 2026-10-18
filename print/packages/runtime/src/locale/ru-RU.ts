@@ -129,6 +129,8 @@ const designer: PrintDesignerLocale = {
   statusZoom: 'Масштаб',
   statusClient: 'Клиент печати',
   statusClientStates: { idle: 'Не подключено', connecting: 'Подключение', open: 'Подключено', reconnecting: 'Переподключение', closed: 'Отключено' },
+  insertToolbar: 'Вставка элементов',
+  insertElement: label => `Добавить «${label}»`,
   propertyGroups: {
     layout: 'Расположение',
     content: 'Содержимое',

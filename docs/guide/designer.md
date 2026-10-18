@@ -29,6 +29,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 | 区 | `panels` 里的名字 | 作用 |
 | --- | --- | --- |
+| 顶栏 | — | 中段是常用元素的插入钮：文本、图片、条码、二维码、表格、线条，点一下加到视口中央；钮上图标下面写元素名。`commandLayout` 写 `{ header: [] }` 就没有顶栏，预览态也收起 |
 | 工具栏 | `toolbar` | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐与等距分布；层级；缩放、网格与吸附开关；设计与预览切换；打印；面板、设置与帮助 |
 | 物料 | `palette` | 点一下把元素加到视口中央，拖到画布上放在落点 |
 | 翻页条 | `pages` | 画布右侧中间的一列：上一页、页码、下一页，新增、复制、删除页面模板。点页码列出全部页面模板，点一项切过去，下面是上移、下移页面 |
@@ -217,7 +218,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 <<< @/examples/snippets/designer-commands.ts#example
 
-- `placement` 是命令缺省出现的位置：工具栏 `toolbar`，或右键菜单 `menu:blank`（画布空白处）、`menu:element`（元素上）、`menu:table`（表格编辑态里）。扩展命令按登记顺序排在内置命令之后，自成一组。
+- `placement` 是命令缺省出现的位置：工具栏 `toolbar`，顶栏 `header`（叠放，图标下面写命令的 `shortLabel`），或右键菜单 `menu:blank`（画布空白处）、`menu:element`（元素上）、`menu:table`（表格编辑态里）。扩展命令按登记顺序排在内置命令之后，自成一组。
 - `shortcut` 写成键数组，`Mod` 在 macOS 上是 ⌘、其余平台是 Ctrl。焦点在画布上、命令此刻可用时生效。
 - 设计器的 `commandLayout` 改写排列：位置 → 若干组命令 id，内置命令与扩展命令可以混排；写了某个位置就只显示列出的命令，写了没登记的命令 id 时抛 `TypeError`。缺省排列是导出的 `PRINT_TOOLBAR_LAYOUT` 与 `printMenuLayout(subject, tableSelected)`，可以在它们的基础上改：
 
@@ -231,6 +232,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 对齐与层级 | `align-left` `align-center` `align-right` `align-top` `align-middle` `align-bottom` `distribute-horizontal` `distribute-vertical` `bring-to-front` `bring-forward` `send-backward` `send-to-back` |
 | 视图 | `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `print` |
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
+| 插入 | `insert:text` `insert:image` `insert:barCode` `insert:matrixCode` `insert:table` `insert:line`：顶栏的插入钮 |
 | 面板、设置与帮助 | `panels` `settings` `help`：designer-shell 内置，排在工具栏末组。「面板」点开菜单开关物料、属性与问题，「设置」打开设置对话框，「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`） |
 | 页面模板 | `previous-page` `page-menu` `next-page` `add-page` `duplicate-page` `remove-page`：固定排在翻页条上（`PRINT_PAGE_STRIP_LAYOUT`），不经 `commandLayout`；`move-page-up` `move-page-down` 在页码菜单里 |
 

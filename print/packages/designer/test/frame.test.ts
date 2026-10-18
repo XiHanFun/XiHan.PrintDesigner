@@ -306,3 +306,45 @@ describe('状态栏', () => {
     expect([frame().showsPanel('status'), frame().showsPanel('palette')]).toEqual([true, false])
   })
 })
+
+describe('顶栏', () => {
+  function header(): HTMLElement | null {
+    return designer.querySelector<HTMLElement>('[slot="header-center"]')
+  }
+
+  function insert(type: string): HTMLButtonElement {
+    return header()!.querySelector<HTMLButtonElement>(`button[value="insert:${type}"]`)!
+  }
+
+  it('中段是叠放的插入钮：文本、图片、条码、二维码、表格、线条，钮上写元素名，名字是「添加…」', async () => {
+    expect(header()!.closest('[data-region="header"]')).not.toBeNull()
+    expect(header()!.getAttribute('data-display')).toBe('stacked')
+    const buttons = Array.from(header()!.querySelectorAll<HTMLButtonElement>('button[data-xh-part="item"]'))
+    expect(buttons.map(button => button.value)).toEqual(['insert:text', 'insert:image', 'insert:barCode', 'insert:matrixCode', 'insert:table', 'insert:line'])
+    expect(buttons.map(button => button.querySelector('[data-part="label"]')!.textContent)).toEqual(['Text', 'Image', 'Barcode', '2D code', 'Table', 'Line'])
+    expect([insert('text').getAttribute('aria-label'), insert('text').hasAttribute('data-icon'), insert('barCode').hasAttribute('data-icon')]).toEqual(['Add "Text"', true, false])
+    expect(header()!.querySelector('[data-xh-part="root"]')!.getAttribute('aria-label')).toBe('Insert elements')
+  })
+
+  it('点了把这种元素加到视口中央并选中；只读时不可用', async () => {
+    insert('table').click()
+    await settle()
+    const added = designer.schema.pages[0]!.elements.at(-1)!
+    expect([added.type, designer.getSelection().elements]).toEqual(['table', [added.id]])
+    designer.readonly = true
+    await settle()
+    expect(insert('table').disabled).toBe(true)
+  })
+
+  it('commandLayout 把 header 排空、或处于预览态时，插入钮从外框里拿掉，顶栏收起', async () => {
+    designer.commandLayout = { header: [] }
+    await settle()
+    expect(header()).toBeNull()
+    designer.commandLayout = undefined
+    await settle()
+    expect(header()).not.toBeNull()
+    designer.mode = 'preview'
+    await settle()
+    expect(header()).toBeNull()
+  })
+})
