@@ -226,6 +226,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 - `setValue(undefined)` 清除这个属性；连续的 `setValue` 合成一步撤销，`commit()` 之后的修改另起一步。
 - `context.target` 是当前全部被编辑的对象，多选时有多个。
+- `context.issues` 是落在这个属性里层的校验问题，路径相对这个属性（如值映射第 2 项的数据值是 `["entries", 1, "value"]`），没有时是空数组。复合编辑器据此把问题标到对应的子项上：子项旁边写出问题文字，子项的控件标无效（`aria-invalid="true"`），并经 `aria-describedby` 接上这段文字；读屏名仍是子项自己的名字。编辑器返回的实例写 `nestedIssues: true` 时，属性行下面不再重复这些问题；不写时，行下显示第一条。设计器自带的值格式（值映射标到那一格，未命中文本、常用格式与表达式标到各自下面）与表格列、表尾行的条目都这样标；四边边框按页签分边，里层问题仍显示在属性行下面。
 
 ### 命令
 

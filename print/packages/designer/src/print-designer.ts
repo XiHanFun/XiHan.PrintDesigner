@@ -99,6 +99,7 @@ import {
   validateDocument,
 } from '@xihan-print/core'
 import { DEFAULT_PRINT_DESIGNER_TRANSLATIONS, definePrintPreview, PRINT_PREVIEW_TAG, renderBox, renderWatermark } from '@xihan-print/runtime'
+import { createCounterIdGenerator } from '@xihan-ui/core'
 import { detectKbdPlatform } from '@xihan-ui/core/hotkey'
 import { formatJsonPath } from '@xihan-ui/core/json'
 import { fillTextTemplate } from '@xihan-ui/core/template'
@@ -159,7 +160,7 @@ import { createPrintClientStatus } from './client-status'
 import { createPrintEditor, elementRect } from './editor'
 import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_FORMAT_LAYOUT, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
-import { borderSidesEditor, valueFormatEditor } from './property-editors'
+import { borderSidesEditor, createIssueText, issuesUnder, valueFormatEditor } from './property-editors'
 import { pageSubject, propertySubjects, TABLE_PART_KINDS } from './property-targets'
 import { PRINT_CLIENT_STATUS_CONTROL, PRINT_SETTING_KEYS, printClientSettingsSection, printSettingsSection } from './settings'
 import { columnBoundaries, planTableCommand, tablePartAt } from './table-edit'
@@ -2316,31 +2317,33 @@ export class XhPrintDesigner extends XhReactiveElement {
     return this.#model().editors
   }
 
-  /** 表格的列或表尾行列成条目，点一下进入表格编辑态并选中该部位。 */
+  /** 表格的列或表尾行列成条目，点一下进入表格编辑态并选中该部位；某一列或某一行里的问题写在它的条目下面。 */
   #partList(kind: 'column' | 'footerRow'): DesignerPropertyEditor {
     return (initial) => {
       const doc = this.ownerDocument
+      const ids = createCounterIdGenerator('xh-print-part-list')
       const list = createAuthoredElement(doc, 'div', { 'data-part': 'part-list', 'role': 'group' })
       const render = (context: typeof initial): void => {
         const tableId = context.target.length === 1 ? context.target[0]!.id : undefined
         const items = Array.isArray(context.value) ? context.value as readonly { id?: unknown, title?: unknown }[] : []
         const t = this.#translations()
-        list.replaceChildren(...items.map((item, index) => {
+        list.replaceChildren(...items.flatMap((item, index) => {
           const id = String(item.id)
           const title = typeof item.title === 'string' && item.title !== '' ? item.title : undefined
           const text = kind === 'column' ? title ?? t.newColumnTitle(index + 1) : `${t.tableParts.footerRow} ${index + 1}`
-          const button = createAuthoredElement(doc, 'xh-button', { 'variant': 'ghost', 'size': 'sm', 'full-width': true, 'data-part': 'part-item' }, [
-            createAuthoredElement(doc, 'button', { 'data-xh-part': 'root', 'type': 'button', 'disabled': tableId === undefined }, [text]),
-          ])
+          const face = createAuthoredElement(doc, 'button', { 'data-xh-part': 'root', 'type': 'button', 'disabled': tableId === undefined }, [text])
+          const button = createAuthoredElement(doc, 'xh-button', { 'variant': 'ghost', 'size': 'sm', 'full-width': true, 'data-part': 'part-item' }, [face])
           button.addEventListener('click', () => {
             if (tableId !== undefined)
               this.#selectTablePart(tableId, kind === 'column' ? { kind, elementId: tableId, columnId: id } : { kind, elementId: tableId, rowId: id })
           })
-          return button
+          const issue = createIssueText(doc, ids.scopeId())
+          issue.show(issuesUnder(context.issues, [index])[0]?.message, { focusable: face, ariaInvalid: true })
+          return [button, issue.element]
         }))
       }
       render(initial)
-      return { element: list, update: render }
+      return { element: list, update: render, nestedIssues: true }
     }
   }
 
