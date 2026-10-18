@@ -148,7 +148,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileMinusIcon, FilePlusIcon, GridIcon, MagnetIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, PrinterIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SquareDashedIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SquareDashedIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -368,6 +368,16 @@ const ICONS: Readonly<Record<Command, IconRecord>> = {
   'split-cell': TableCellsSplitIcon,
 }
 
+/** 顶栏插入钮：常用的内置元素与图标，按这个次序排；条码暂时没有图标。 */
+const QUICK_INSERTS: readonly { readonly type: PrintElementType, readonly icon?: IconRecord }[] = [
+  { type: 'text', icon: TypeIcon },
+  { type: 'image', icon: ImageIcon },
+  { type: 'barCode' },
+  { type: 'matrixCode', icon: QrCodeIcon },
+  { type: 'table', icon: TableIcon },
+  { type: 'line', icon: MinusIcon },
+]
+
 /** 会删掉内容的内置命令，按钮与菜单项按危险语气显示。 */
 const DESTRUCTIVE: ReadonlySet<Command> = new Set<Command>(['delete', 'remove-page', 'remove-column', 'remove-footer-row'])
 
@@ -436,6 +446,8 @@ interface Layers {
   readonly properties: XhDesignerPropertiesElement
   readonly toolbar: HTMLElement
   readonly commandBar: CommandToolbar<PrintDesignerContext>
+  /** 顶栏中段的插入钮。 */
+  readonly headerBar: CommandToolbar<PrintDesignerContext>
   /** 画布右侧中间的竖排翻页条。 */
   readonly pageStrip: CommandToolbar<PrintDesignerContext>
   readonly workspace: HTMLElement
@@ -773,6 +785,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#syncProperties(layers, t)
     this.#syncFrameRegions(layers, t)
     this.#renderToolbar(layers)
+    this.#renderHeader(layers, t)
     this.#renderPageStrip(layers, t)
     this.#renderStatus(layers, t)
     layers.panelHost.update(this.#context())
@@ -1019,7 +1032,20 @@ export class XhPrintDesigner extends XhReactiveElement {
       helpUrl: () => PRINT_DESIGNER_HELP_URL,
       icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon },
     })
-    return [...builtin, this.#pageMenu(), ...shell]
+    return [...builtin, ...this.#quickInserts(), this.#pageMenu(), ...shell]
+  }
+
+  /** 顶栏的插入钮：每种常用元素一条，按钮上图标下面写元素名，点了加到视口中央；只读或不在设计态时不可用。 */
+  #quickInserts(): PrintDesignerCommand[] {
+    return QUICK_INSERTS.map(({ type, icon }): PrintDesignerCommand => ({
+      id: `insert:${type}`,
+      label: ({ translations }) => translations.insertElement(elementName(translations, this.#model(), type)),
+      shortLabel: ({ translations }) => elementName(translations, this.#model(), type),
+      ...(icon === undefined ? {} : { icon }),
+      placement: ['header'],
+      enabled: () => !this.#readOnly && this.mode === 'design',
+      run: () => void this.addElement(type),
+    }))
   }
 
   /** 翻页条上的页码：点开菜单，上半是全部页面模板（单选），下半是上移、下移页面。 */
@@ -1392,6 +1418,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     const bar = { platform: this.#kbdPlatform() }
     const commandBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
     const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'command-bar' }, [commandBar.element])
+    const headerBar = createCommandToolbar<PrintDesignerContext>(doc, { ...bar, display: 'stacked' })
+    headerBar.element.slot = 'header-center'
     const pageStrip = createCommandToolbar<PrintDesignerContext>(doc, { ...bar, orientation: 'vertical' })
     pageStrip.element.slot = 'canvas-end'
 
@@ -1464,7 +1492,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, selectionStatus, clientStatus, zoomStatus }
+    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, selectionStatus, clientStatus, zoomStatus }
     this.#regions = undefined
     panelHost.assign(this.#model().list, this.#context())
     return this.#layers
@@ -1655,6 +1683,19 @@ export class XhPrintDesigner extends XhReactiveElement {
     // 按钮的显示方式只取设置的 general.toolbarDisplay：换方式不重铺按钮，放不下的按新宽度收进「更多」
     layers.commandBar.setDisplay(toolbarDisplayOf(this.#resolvedSettings))
     layers.commandBar.update(arrangeCommands('toolbar', commands, PRINT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, context.commands.toolbar)
+  }
+
+  /** 顶栏中段的插入钮：commandLayout 把 header 排空、或处于预览态时从外框里拿掉，顶栏随之收起。 */
+  #renderHeader(layers: Layers, t: PrintDesignerTranslations): void {
+    const { commands } = this.#model()
+    const header = this.mode === 'preview' ? [] : arrangeCommands('header', commands, [], this.commandLayout)
+    if (header.length === 0) {
+      layers.headerBar.element.remove()
+      return
+    }
+    layers.headerBar.update(header, commands, this.#context(), t.insertToolbar)
+    if (!layers.headerBar.element.isConnected)
+      layers.frame.append(layers.headerBar.element)
   }
 
   /** 画布右侧的翻页条：panels 里没有 pages 或处于预览态时收起。 */

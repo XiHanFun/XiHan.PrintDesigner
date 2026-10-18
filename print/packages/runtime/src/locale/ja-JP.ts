@@ -116,6 +116,8 @@ const designer: PrintDesignerLocale = {
   statusZoom: 'ズーム',
   statusClient: '印刷クライアント',
   statusClientStates: { idle: '未接続', connecting: '接続中', open: '接続済み', reconnecting: '再接続中', closed: '切断' },
+  insertToolbar: '要素を挿入',
+  insertElement: label => `「${label}」を追加`,
   propertyGroups: {
     layout: 'レイアウト',
     content: '内容',

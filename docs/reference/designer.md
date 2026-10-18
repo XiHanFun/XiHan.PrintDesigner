@@ -191,6 +191,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `statusZoom` | `string` | 状态栏右段缩放一项的标签。 |
 | `statusClient` | `string` | 状态栏右段打印客户端一项的标签。 |
 | `statusClientStates` | `Readonly<Record<PrintClientState, string>>` | 打印客户端连接状态的说法。 |
+| `insertToolbar` | `string` | 顶栏插入钮那一条工具栏的名字。 |
 | `propertyGroups` | `Readonly<Record<PropertyGroup, string>>` | 属性分组的名称。 |
 | `propertyNames` | `Readonly<Record<string, string>>` | 属性名：键为 formatJsonPath(path)；「对象种类:路径」覆盖同一路径在该种类上的名字，对象种类是 page、元素种类或 table-column 等表格部位。复合属性拆开后的分项用「复合种类/分项」作键，如 stroke/width、edges/top。 |
 | `propertyOptions` | `Readonly<Record<string, string>>` | select 选项名：键为选项值；「路径=选项值」覆盖该属性上的名字。 |
@@ -216,6 +217,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `measure(width: string, height: string): string` | 拖动元素时显示的尺寸，入参是格式化后的宽与高（mm）。 |
 | `statusElements(count: number): string` | 状态栏左段没有选中时的值：当前页面模板上可见的元素个数。 |
 | `statusGeometry(x: string, y: string, width: string, height: string): string` | 状态栏左段选中一个元素时的值：入参是格式化后的位置与尺寸（mm）。 |
+| `insertElement(label: string): string` | 顶栏插入钮的名字，label 是元素种类的名称。 |
 | `issue(issue: SchemaIssue): string` | 校验问题与分页诊断的说明，按问题码与参数生成。 |
 | `propertyPart(parent: string, part: string): string` | 复合属性拆开后分项的名字，如「页边距 · 上」。 |
 | `selectedCount(count: number): string` | 属性面板在选中多个元素时标题下的一行。 |

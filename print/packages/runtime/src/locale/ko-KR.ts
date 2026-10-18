@@ -119,6 +119,8 @@ const designer: PrintDesignerLocale = {
   statusZoom: '확대/축소',
   statusClient: '인쇄 클라이언트',
   statusClientStates: { idle: '연결 안 됨', connecting: '연결 중', open: '연결됨', reconnecting: '다시 연결 중', closed: '연결 끊김' },
+  insertToolbar: '요소 삽입',
+  insertElement: label => `'${label}' 추가`,
   propertyGroups: {
     layout: '레이아웃',
     content: '내용',

@@ -120,6 +120,10 @@ export interface PrintDesignerTranslations {
   readonly statusClient: string
   /** 打印客户端连接状态的说法。 */
   readonly statusClientStates: Readonly<Record<PrintClientState, string>>
+  /** 顶栏插入钮那一条工具栏的名字。 */
+  readonly insertToolbar: string
+  /** 顶栏插入钮的名字，label 是元素种类的名称。 */
+  readonly insertElement: (label: string) => string
   /** 校验问题与分页诊断的说明，按问题码与参数生成。 */
   readonly issue: (issue: SchemaIssue) => string
   /** 属性分组的名称。 */

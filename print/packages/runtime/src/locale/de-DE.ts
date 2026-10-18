@@ -116,6 +116,8 @@ const designer: PrintDesignerLocale = {
   statusZoom: 'Zoom',
   statusClient: 'Druckclient',
   statusClientStates: { idle: 'Nicht verbunden', connecting: 'Verbindet', open: 'Verbunden', reconnecting: 'Verbindet erneut', closed: 'Getrennt' },
+  insertToolbar: 'Elemente einfügen',
+  insertElement: label => `„${label}“ hinzufügen`,
   propertyGroups: {
     layout: 'Layout',
     content: 'Inhalt',
