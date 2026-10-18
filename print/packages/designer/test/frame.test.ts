@@ -296,7 +296,8 @@ describe('状态栏', () => {
     const second = client('connecting')
     designer.printClient = second as never
     await settle()
-    expect([first.listeners, second.listeners, status().value]).toEqual([0, 1, 'Connecting'])
+    // 状态栏一份、设置对话框「本地客户端」一页的连接状态一份
+    expect([first.listeners, second.listeners, status().value]).toEqual([0, 2, 'Connecting'])
     designer.printClient = undefined
     await settle()
     expect([second.listeners, status().element.hidden]).toEqual([0, true])

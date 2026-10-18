@@ -103,8 +103,8 @@ export interface PrintDesignerTranslations {
   readonly propertiesHelp: string
   /** 问题列表面板头里的帮助。 */
   readonly issuesHelp: string
-  /** 设置对话框里设计器自己那一页（画布偏好）的名称。 */
-  readonly settingsCanvas: string
+  /** 设置对话框里设计器自己那一页（打印方式与画布偏好）的名称。 */
+  readonly settingsPrint: string
   readonly settingsShowGrid: string
   readonly settingsShowGridHint: string
   readonly settingsGridSize: string
@@ -113,6 +113,19 @@ export interface PrintDesignerTranslations {
   readonly settingsSnapHint: string
   readonly settingsShowMargins: string
   readonly settingsShowMarginsHint: string
+  /** 「打印」页里打印方式一项：经本地打印客户端，还是浏览器的打印对话框。 */
+  readonly settingsVia: string
+  readonly settingsViaHint: string
+  readonly settingsViaOptions: Readonly<Record<'client' | 'browser', string>>
+  /** 设置对话框里「本地客户端」那一页的名称。 */
+  readonly settingsClient: string
+  /** 「本地客户端」页里连接状态一项。 */
+  readonly settingsClientStatus: string
+  readonly settingsClientStatusHint: string
+  /** 连接状态的三种说法：已连接；未连接；最近一次测试连接没找到客户端时是未安装。 */
+  readonly settingsClientStates: Readonly<Record<'connected' | 'disconnected' | 'missing', string>>
+  readonly settingsClientTest: string
+  readonly settingsClientDownload: string
   /** 状态栏左段没有选中时的值：当前页面模板上可见的元素个数。 */
   readonly statusElements: (count: number) => string
   /** 状态栏左段选中一个元素时的值：入参是格式化后的位置与尺寸（mm）。 */

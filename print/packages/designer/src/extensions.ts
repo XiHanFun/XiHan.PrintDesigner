@@ -16,7 +16,7 @@ import { ELEMENT_CATEGORIES } from '@xihan-print/core'
 import { createPrintRuntimeModel } from '@xihan-print/runtime'
 import { DesignerExtensionError, extensionCommands, extensionEditors } from '@xihan-ui/designer-kit'
 import { collectSettingsSections } from '@xihan-ui/designer-shell'
-import { PRINT_SETTINGS_SECTION } from './settings'
+import { PRINT_CLIENT_SETTINGS_SECTION, PRINT_SETTINGS_SECTION } from './settings'
 import { TABLE_COMMANDS } from './table-edit'
 
 /** 扩展装上时拿到的上下文。 */
@@ -156,7 +156,8 @@ export function createPrintDesignerModel(builtin: PrintDesignerExtension, extens
       categories.set(category, label)
     }
   }
-  // 设计器自己的「画布」分区占着 print，扩展的分区与它、与内建的 general 或彼此重名都抛错
-  const settings = collectSettingsSections([{ id: builtin.id, settings: [{ id: PRINT_SETTINGS_SECTION, label: PRINT_SETTINGS_SECTION, items: [] }] }, ...extensions]).slice(1)
+  // 设计器自己的「打印」「本地客户端」两个分区占着 print 与 printClient，扩展的分区与它们、与内建的 general 或彼此重名都抛错
+  const own = [PRINT_SETTINGS_SECTION, PRINT_CLIENT_SETTINGS_SECTION].map(id => ({ id, label: id, items: [] }))
+  const settings = collectSettingsSections([{ id: builtin.id, settings: own }, ...extensions]).slice(own.length)
   return { list, runtime, editors: extensionEditors<DesignerPropertyEditor>(undefined, all), commands: extensionCommands(all), importers: all.flatMap(extension => extension.importers ?? []), palette, categories, settings }
 }

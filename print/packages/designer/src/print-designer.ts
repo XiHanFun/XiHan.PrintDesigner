@@ -81,6 +81,7 @@ import type { FieldPaletteNode, FieldPlacement, FieldPlacementDefaults } from '.
 import type { CompositeEditorHost } from './property-editors'
 import type { ExpandedDescriptor } from './property-expand'
 import type { PropertySubject } from './property-targets'
+import type { PrintVia } from './settings'
 import type { TableCommand } from './table-edit'
 import {
   createDocument,
@@ -154,12 +155,13 @@ import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } 
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhExpressionInputElement, XhFieldArrayElement, XhFieldElement, XhFormatInputElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
+import { createPrintClientStatus } from './client-status'
 import { createPrintEditor, elementRect } from './editor'
 import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_FORMAT_LAYOUT, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { borderSidesEditor, valueFormatEditor } from './property-editors'
 import { pageSubject, propertySubjects, TABLE_PART_KINDS } from './property-targets'
-import { PRINT_SETTING_KEYS, printSettingsSection } from './settings'
+import { PRINT_CLIENT_STATUS_CONTROL, PRINT_SETTING_KEYS, printClientSettingsSection, printSettingsSection } from './settings'
 import { columnBoundaries, planTableCommand, tablePartAt } from './table-edit'
 
 /** 设计器的标签名。 */
@@ -550,6 +552,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     mode: { type: String },
     panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     printClient: { attribute: false },
+    clientDownloadUrl: { attribute: 'client-download-url', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     commandLayout: { attribute: false },
     settings: { attribute: false },
     settingsPolicy: { attribute: false },
@@ -570,8 +573,13 @@ export class XhPrintDesigner extends XhReactiveElement {
   declare formatter: ValueFormatter | undefined
   /** 文字度量器；缺省用所在文档的 Canvas 度量器。 */
   declare measurer: TextMeasurer | undefined
-  /** 本地打印客户端：给了时打印先交给它静默打印，连不上客户端才退回浏览器打印。 */
+  /**
+   * 本地打印客户端：给了时打印先交给它静默打印，连不上客户端才退回浏览器打印；设置里的打印方式选了浏览器时直接用浏览器打印。
+   * 给了它，设置对话框才有打印方式一项与「本地客户端」一页。
+   */
   declare printClient: PrintClient | undefined
+  /** 设置对话框「本地客户端」一页里「下载客户端」链接的地址，缺省 PRINT_CLIENT_DOWNLOAD_URL；attribute 为 client-download-url。 */
+  declare clientDownloadUrl: string | undefined
   /** 交给格式化器的区域，只决定小数点与千分位符号；同名 attribute。 */
   declare locale: string | undefined
   /** 交给格式化器的时区：`UTC`、`±HH:mm` 或 IANA 名称；attribute 为 time-zone。 */
@@ -652,6 +660,12 @@ export class XhPrintDesigner extends XhReactiveElement {
   #resolvedSettings: DesignerSettings = {}
   /** 正在听连接状态的打印客户端与退订函数。 */
   #clientWatch: { readonly client: PrintClient, readonly off: () => void } | undefined
+  /** 设置对话框「本地客户端」一页的连接状态：换了 printClient 时跟着状态栏一起重新订阅。 */
+  readonly #clientStatus = createPrintClientStatus({
+    document: () => this.ownerDocument,
+    client: () => this.printClient,
+    translations: () => this.#translations(),
+  })
 
   /** 是否只读：readonly 移除 attribute 后为 undefined，按不只读处理。 */
   get #readOnly(): boolean {
@@ -752,6 +766,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#settingsHost = undefined
     this.#clientWatch?.off()
     this.#clientWatch = undefined
+    this.#clientStatus.detach()
     this.#resizeObserver?.disconnect()
     this.#cancelGesture()
     this.#layers?.overlay.cancel()
@@ -1372,7 +1387,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     }
     if (fresh || changed.has('settings'))
       this.#settingsHost.apply(this.settings ?? {})
-    const sections = [printSettingsSection(t), ...this.#model().settings]
+    const client = this.printClient !== undefined
+    const sections = [printSettingsSection(t, { client }), ...(client ? [printClientSettingsSection(t, { downloadUrl: this.clientDownloadUrl })] : []), ...this.#model().settings]
     const sectionsKey = JSON.stringify(sections)
     if (sectionsKey !== this.#settingsSectionsKey) {
       this.#settingsSectionsKey = sectionsKey
@@ -1632,6 +1648,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     zoomStatus.element.slot = 'status-end'
     frame.append(selectionStatus.element, clientStatus.element, zoomStatus.element)
     const settings = createGeneratedElement(doc, 'xh-designer-settings', { 'data-part': 'settings' }) as XhDesignerSettingsElement
+    settings.editors = { [PRINT_CLIENT_STATUS_CONTROL]: this.#clientStatus.editor }
     settings.addEventListener('settings-change', this.#onSettingsChange)
     this.append(frame, settings)
     const panelHost = createPanelHost<PrintDesignerContext>(frame)
@@ -1905,13 +1922,14 @@ export class XhPrintDesigner extends XhReactiveElement {
     layers.clientStatus.update({ label: t.statusClient, value: t.statusClientStates[state], ...(tone === undefined ? {} : { tone }) })
   }
 
-  /** 换了 printClient 就退订旧的、订阅新的：连接状态变了当场刷新那一项，不等下一轮更新。 */
+  /** 换了 printClient 就退订旧的、订阅新的：连接状态变了当场刷新那一项，不等下一轮更新；设置对话框里的连接状态一并重订。 */
   #watchClient(layers: Layers): void {
     const client = this.printClient
     if (this.#clientWatch?.client === client)
       return
     this.#clientWatch?.off()
     this.#clientWatch = client === undefined ? undefined : { client, off: client.on('state', () => this.#renderClientStatus(layers, this.#translations())) }
+    this.#clientStatus.refresh()
   }
 
   /** 当前页面模板在文档里的序号。 */
@@ -2107,7 +2125,12 @@ export class XhPrintDesigner extends XhReactiveElement {
       preview.locale = this.locale
     if (this.timeZone !== undefined)
       preview.timeZone = this.timeZone
-    preview.printClient = this.printClient
+    preview.printClient = this.#printVia() === 'client' ? this.printClient : undefined
+  }
+
+  /** 打印方式：给了 printClient、设置里又没选浏览器时经本地客户端，否则用浏览器打印。 */
+  #printVia(): PrintVia {
+    return this.printClient !== undefined && this.settings?.[PRINT_SETTING_KEYS.via] !== 'browser' ? 'client' : 'browser'
   }
 
   /** 新元素按缺省尺寸、以 center 为中心、左上角吸附网格后的外框；类型未登记时为 undefined。 */

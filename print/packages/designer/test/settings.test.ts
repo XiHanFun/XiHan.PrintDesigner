@@ -11,8 +11,8 @@ import type { TextMeasurer } from '@xihan-ui/viz'
 import type { PrintDesignerContext, PrintDesignerExtension, XhPrintDesigner } from '../src'
 import { createDocument, createElementRegistry, createPage } from '@xihan-print/core'
 import { DesignerExtensionError } from '@xihan-ui/designer-kit'
-import { afterEach, describe, expect, it } from 'vitest'
-import { definePrintDesigner, PRINT_SETTING_KEYS, PRINT_SETTINGS_SECTION } from '../src'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { definePrintDesigner, PRINT_CLIENT_DOWNLOAD_URL, PRINT_CLIENT_SETTINGS_SECTION, PRINT_SETTING_KEYS, PRINT_SETTINGS_SECTION } from '../src'
 
 const registry = createElementRegistry()
 
@@ -75,12 +75,12 @@ function toolbarButton(designer: XhPrintDesigner, value: string): HTMLButtonElem
 }
 
 describe('设置', () => {
-  it('openSettings 打开设置对话框：基础在前、画布在后，画布分区列出网格、吸附与边距线', async () => {
+  it('openSettings 打开设置对话框：基础在前、打印在后，打印分区列出网格、吸附与边距线；没给 printClient 时没有打印方式', async () => {
     const designer = await mount()
     designer.openSettings(PRINT_SETTINGS_SECTION)
     await settle(designer)
     expect(pages()).toEqual(['general', 'print'])
-    expect(Object.values(PRINT_SETTING_KEYS).map(key => row(key) !== null)).toEqual([true, true, true, true])
+    expect(Object.values(PRINT_SETTING_KEYS).map(key => row(key) !== null)).toEqual([false, true, true, true, true])
     expect(row('general.theme')).not.toBeNull()
     expect([PRINT_SETTINGS_SECTION, Object.values(PRINT_SETTING_KEYS).every(key => key.startsWith(`${PRINT_SETTINGS_SECTION}.`))]).toEqual(['print', true])
   })
@@ -203,7 +203,7 @@ describe('设置', () => {
     expect(row('general.toolbarDisplay')).not.toBeNull()
   })
 
-  it('扩展登记的设置分区放进对话框；分区 id 与 print、general 或彼此重名时赋值即抛错', async () => {
+  it('扩展登记的设置分区放进对话框；分区 id 与 print、printClient、general 或彼此重名时赋值即抛错', async () => {
     const section = { id: 'acme', label: 'Acme', order: 200, items: [{ path: ['token'], label: 'Token', control: { kind: 'text' as const, secret: true } }] }
     const designer = await mount(element => (element.extensions = [{ id: 'acme', settings: [section] }]))
     designer.openSettings('acme')
@@ -211,10 +211,140 @@ describe('设置', () => {
     expect(pages()).toEqual(['general', 'print', 'acme'])
     expect(row('acme.token')!.querySelector('xh-password-input')).not.toBeNull()
     const before = designer.extensions
-    for (const id of ['print', 'general']) {
+    for (const id of ['print', PRINT_CLIENT_SETTINGS_SECTION, 'general']) {
       const assign = (): unknown => (designer.extensions = [{ id: 'acme', settings: [{ ...section, id }] }])
       expect(assign).toThrow(DesignerExtensionError)
     }
     expect(designer.extensions).toBe(before)
+  })
+})
+
+/** 一个假的打印客户端：connect 按给的结果连上或抛错，连上时派发 state；printSheets 只记次数。 */
+function fakeClient(connect: () => Promise<void> = async () => {}): { readonly client: NonNullable<XhPrintDesigner['printClient']>, readonly printed: () => number } {
+  const listeners = new Set<(state: string) => void>()
+  let printed = 0
+  const fake = {
+    state: 'idle' as string,
+    on: (type: string, listener: (state: string) => void) => {
+      if (type === 'state')
+        listeners.add(listener)
+      return () => void listeners.delete(listener)
+    },
+    connect: async () => {
+      await connect()
+      fake.state = 'open'
+      for (const listener of listeners)
+        listener('open')
+      return {}
+    },
+    printSheets: (result: { readonly sheets: readonly unknown[] }) => {
+      printed++
+      return { id: 'j', status: undefined, done: Promise.resolve({ jobId: 'j', state: 'completed' as const, sheets: result.sheets.length }), onStatus: () => () => undefined, cancel: async () => false }
+    },
+  }
+  return { client: fake as unknown as NonNullable<XhPrintDesigner['printClient']>, printed: () => printed }
+}
+
+describe('本地客户端', () => {
+  function status(): { state: string, download: boolean, href: string | null } {
+    const item = row('printClient.status')!
+    const download = item.querySelector<HTMLElement>('[data-part="client-download"]')!
+    return { state: item.querySelector('[data-part="client-state"]')!.textContent!.trim(), download: !download.hidden, href: download.querySelector('a')!.getAttribute('href') }
+  }
+
+  function test(): void {
+    row('printClient.status')!.querySelector<HTMLButtonElement>('[data-part="client-test"] button')!.click()
+  }
+
+  it('给了 printClient：打印分区第一条是打印方式，缺省本地客户端；多出「本地客户端」一页，写未连接与下载链接', async () => {
+    const { client } = fakeClient()
+    const designer = await mount(element => (element.printClient = client))
+    designer.openSettings(PRINT_CLIENT_SETTINGS_SECTION)
+    await settle(designer)
+    expect(pages()).toEqual(['general', 'print', 'printClient'])
+    const via = row(PRINT_SETTING_KEYS.via)!
+    expect([via.parentElement!.firstElementChild === via, via.querySelector('[aria-pressed="true"], [aria-checked="true"], [data-state="on"]')?.textContent?.trim()]).toEqual([true, 'Local client'])
+    expect(status()).toEqual({ state: 'Not connected', download: true, href: PRINT_CLIENT_DOWNLOAD_URL })
+    designer.clientDownloadUrl = 'https://intranet.example/print-client'
+    await settle(designer)
+    designer.openSettings(PRINT_CLIENT_SETTINGS_SECTION)
+    await settle(designer)
+    expect(status().href).toBe('https://intranet.example/print-client')
+  })
+
+  it('测试连接：连上了写已连接、收起下载链接；没找到客户端（CLIENT_UNAVAILABLE）写未安装，别的错误写未连接', async () => {
+    let failure: { code: string } | undefined = { code: 'CLIENT_UNAVAILABLE' }
+    const { client } = fakeClient(async () => {
+      if (failure !== undefined)
+        throw Object.assign(new Error(failure.code), failure)
+    })
+    const designer = await mount(element => (element.printClient = client))
+    designer.openSettings(PRINT_CLIENT_SETTINGS_SECTION)
+    await settle(designer)
+    test()
+    await vi.waitFor(() => expect(status().state).toBe('Not installed'))
+    expect(status().download).toBe(true)
+    failure = { code: 'CONSENT_DENIED' }
+    test()
+    await vi.waitFor(() => expect(status().state).toBe('Not connected'))
+    failure = undefined
+    test()
+    await vi.waitFor(() => expect(status().state).toBe('Connected'))
+    expect(status().download).toBe(false)
+  })
+
+  it('换掉 printClient：连接状态改订新的，旧的退订；设计器断开时也退订', async () => {
+    const counted = (): { readonly client: NonNullable<XhPrintDesigner['printClient']>, readonly listeners: () => number } => {
+      const listeners = new Set<() => void>()
+      const fake = {
+        state: 'idle',
+        on: (_type: string, listener: () => void) => {
+          listeners.add(listener)
+          return () => void listeners.delete(listener)
+        },
+      }
+      return { client: fake as unknown as NonNullable<XhPrintDesigner['printClient']>, listeners: () => listeners.size }
+    }
+    const first = counted()
+    const designer = await mount(element => (element.printClient = first.client))
+    designer.openSettings(PRINT_CLIENT_SETTINGS_SECTION)
+    await settle(designer)
+    // 状态栏一份、设置对话框的连接状态一份
+    expect(first.listeners()).toBe(2)
+    const second = counted()
+    designer.printClient = second.client
+    await settle(designer)
+    expect([first.listeners(), second.listeners()]).toEqual([0, 2])
+    designer.remove()
+    expect(second.listeners()).toBe(0)
+  })
+
+  it('打印方式选浏览器：print() 不交给客户端，走浏览器的打印对话框', async () => {
+    const observer = new MutationObserver((records) => {
+      for (const node of records.flatMap(record => Array.from(record.addedNodes))) {
+        if (node instanceof HTMLIFrameElement) {
+          node.addEventListener('load', () => {
+            const win = node.contentWindow!
+            win.print = () => void win.dispatchEvent(new Event('afterprint'))
+          })
+        }
+      }
+    })
+    observer.observe(document.body, { childList: true })
+    try {
+      const { client, printed } = fakeClient()
+      const designer = await mount((element) => {
+        element.printClient = client
+        element.settings = { [PRINT_SETTING_KEYS.via]: 'browser' }
+      })
+      expect((await designer.print()).via).toBe('browser')
+      designer.settings = {}
+      await settle(designer)
+      expect((await designer.print()).via).toBe('client')
+      expect(printed()).toBe(1)
+    }
+    finally {
+      observer.disconnect()
+    }
   })
 })
