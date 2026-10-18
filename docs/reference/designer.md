@@ -28,7 +28,6 @@
 | `snap` | — | `boolean` | 吸附其它元素、页边距、区边界与参考线并显示对齐线，缺省 true。 |
 | `panels` | `panels` | `string \| undefined` | 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。 |
 | `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏与右键菜单的排列：位置（toolbar、menu:blank、menu:element、menu:table）→ 若干组命令 id，内置与扩展的命令可以混排。写了某个位置就只显示列出的命令；写了没登记的命令 id 时抛 TypeError。 |
-| `toolbarDisplay` | `toolbar-display` | `CommandToolbarDisplay \| undefined` | 工具栏与页签旁命令栏的按钮怎么显示：icon（缺省）只显示图标、text 只显示文字、both 图标加文字；没有图标的命令在 icon 档照样显示文字。attribute 为 toolbar-display，其余写法按 icon。 |
 
 ### 存取器
 

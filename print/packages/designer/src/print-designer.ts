@@ -485,7 +485,6 @@ export class XhPrintDesigner extends XhReactiveElement {
     panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     printClient: { attribute: false },
     commandLayout: { attribute: false },
-    toolbarDisplay: { type: String, attribute: 'toolbar-display' },
   }
 
   /** 预览分页用的数据。 */
@@ -523,11 +522,6 @@ export class XhPrintDesigner extends XhReactiveElement {
    * 写了某个位置就只显示列出的命令；写了没登记的命令 id 时抛 TypeError。
    */
   declare commandLayout: DesignerCommandLayout | undefined
-  /**
-   * 工具栏与页签旁命令栏的按钮怎么显示：icon（缺省）只显示图标、text 只显示文字、both 图标加文字；
-   * 没有图标的命令在 icon 档照样显示文字。attribute 为 toolbar-display，其余写法按 icon。
-   */
-  declare toolbarDisplay: CommandToolbarDisplay | undefined
   readonly #config = new XhConfigController(this)
   readonly #editor = createPrintEditor({ document: createDocument() })
   #extensions: readonly PrintDesignerExtension[] | undefined
@@ -958,9 +952,9 @@ export class XhPrintDesigner extends XhReactiveElement {
     return this.#config.translations<DesignerCommandsTranslations>('xh-designer-commands', DESIGNER_COMMANDS_EN_US)
   }
 
-  /** 此刻的工具栏显示方式，写法不认得时按 icon。 */
+  /** 工具栏与页签旁命令栏按钮的显示方式。 */
   #toolbarDisplay(): CommandToolbarDisplay {
-    return this.toolbarDisplay === 'text' || this.toolbarDisplay === 'both' ? this.toolbarDisplay : 'icon'
+    return 'icon'
   }
 
   #kbdPlatform(): 'mac' | 'other' {
@@ -1419,13 +1413,11 @@ export class XhPrintDesigner extends XhReactiveElement {
   #renderToolbar(layers: Layers): void {
     const { commands } = this.#model()
     const context = this.#context()
-    layers.commandBar.setDisplay(this.#toolbarDisplay())
     layers.commandBar.update(arrangeCommands('toolbar', commands, PRINT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, context.commands.toolbar)
   }
 
   #renderPages(layers: Layers, t: PrintDesignerTranslations): void {
     const { commands } = this.#model()
-    layers.pageBar.setDisplay(this.#toolbarDisplay())
     layers.pageBar.update([PRINT_PAGE_COMMANDS], commands, this.#context(), t.pages)
     const doc = this.ownerDocument
     const pages = this.#editor.document.pages
