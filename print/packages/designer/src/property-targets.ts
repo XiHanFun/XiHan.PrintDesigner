@@ -103,6 +103,12 @@ function subject(
  * 按当前选择取编辑对象：表格编辑态下是选中的部位，选中元素时是这些元素，什么都没选时是当前页面设置。
  * 表格部位里相对行的字段从表格的数组字段往下列。
  */
+/** 当前页面模板的页面设置。 */
+export function pageSubject(editor: PrintEditor, keep: KeepComposite): PropertySubject {
+  const { document, page } = editor
+  return subject('page', page.id, page, pageProperties(), ['pages', document.pages.indexOf(page)], keep, {}, changes => ({ type: 'updatePage', pageId: page.id, changes }))
+}
+
 export function propertySubjects(editor: PrintEditor, editingTable: string | undefined, keep: KeepComposite): PropertySubject[] {
   const { document, selection } = editor
   const context: ExpandContext = {}
@@ -133,6 +139,5 @@ export function propertySubjects(editor: PrintEditor, editingTable: string | und
       return [subject(element.type, element.id, element, prototype.properties, found.path, keep, context, changes => ({ type: 'updateElement', id: element.id, changes }))]
     })
   }
-  const page = editor.page
-  return [subject('page', page.id, page, pageProperties(), ['pages', document.pages.indexOf(page)], keep, context, changes => ({ type: 'updatePage', pageId: page.id, changes }))]
+  return [pageSubject(editor, keep)]
 }
