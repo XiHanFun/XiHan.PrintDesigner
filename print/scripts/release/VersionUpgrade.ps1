@@ -215,7 +215,14 @@ Write-Output "========================================"
 Write-Output " 接下来（脚本不做，请手工确认后执行）"
 Write-Output "========================================"
 Write-Output "1. 检查改动：git status / git diff（三个包的 package.json 与 CHANGELOG.md、.changeset/）"
-Write-Output "2. 补文档站 docs/changelog.md 的 v$newVersion 一节，跑工作区与文档站的门禁"
+# 文档站的更新日志页在首发那一笔新建
+$changelogPath = Join-Path $workspaceRoot '..\docs\changelog.md'
+if (Test-Path $changelogPath) {
+    Write-Output "2. 补文档站 docs/changelog.md 的 v$newVersion 一节，跑工作区与文档站的门禁"
+}
+else {
+    Write-Output "2. 新建文档站 docs/changelog.md（首发）并加进导航，写 v$newVersion 一节，跑工作区与文档站的门禁"
+}
 Write-Output "3. 提交：git commit -m `"build: v$newVersion`""
 Write-Output "4. 合进 main：release.yml 只放行 main 历史里的标签"
 Write-Output "5. 打标签并推送：git tag v$newVersion; git push origin v$newVersion"
