@@ -366,6 +366,7 @@ const designer: PrintDesignerLocale = {
     'unknown-control': () => '未知的編輯方式',
     'duplicate-key': p => `鍵 ${text(p.key)} 重複`,
     'duplicate-id': p => `識別碼 ${text(p.id)} 重複`,
+    'duplicate-value': () => '選項的值重複',
     'json.circular': () => '資料有循環參照',
     'schema.unsupportedVersion': p => `不支援範本版本 ${text(p.version)}（應為 ${text(p.supported)}）`,
     'field.empty': () => '沒有繫結欄位',

@@ -379,6 +379,7 @@ const designer: PrintDesignerLocale = {
     'unknown-control': () => 'Неизвестный тип редактора',
     'duplicate-key': p => `Ключ «${text(p.key)}» повторяется`,
     'duplicate-id': p => `Идентификатор «${text(p.id)}» повторяется`,
+    'duplicate-value': () => 'Повторяющееся значение варианта',
     'json.circular': () => 'Данные содержат циклическую ссылку',
     'schema.unsupportedVersion': p => `Версия шаблона ${text(p.version)} не поддерживается (ожидается ${text(p.supported)})`,
     'field.empty': () => 'Поле не привязано',

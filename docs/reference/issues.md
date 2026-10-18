@@ -22,6 +22,7 @@
 | `unknown-control` | 错误 | 未知的编辑方式 | — |
 | `duplicate-key` | 错误 | 键 {key} 重复 | `key` |
 | `duplicate-id` | 错误 | 标识 {id} 重复 | `id` |
+| `duplicate-value` | 错误 | 选项的值重复 | — |
 | `json.circular` | 错误 | 数据有循环引用 | — |
 | `schema.unsupportedVersion` | 错误 | 不支持模板版本 {version}（应为 {supported}） | `version`、`supported` |
 | `field.empty` | 警告 | 没有绑定字段 | — |

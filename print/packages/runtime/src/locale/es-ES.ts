@@ -377,6 +377,7 @@ const designer: PrintDesignerLocale = {
     'unknown-control': () => 'Tipo de editor desconocido',
     'duplicate-key': p => `Clave duplicada ${quoted(p.key)}`,
     'duplicate-id': p => `Identificador duplicado ${quoted(p.id)}`,
+    'duplicate-value': () => 'Valor de opción duplicado',
     'json.circular': () => 'Los datos contienen una referencia circular',
     'schema.unsupportedVersion': p => `No se admite la versión ${text(p.version)} de la plantilla (se esperaba ${text(p.supported)})`,
     'field.empty': () => 'No hay ningún campo vinculado',

@@ -366,6 +366,7 @@ const designer: PrintDesignerLocale = {
     'unknown-control': () => '不明な編集方法です',
     'duplicate-key': p => `キー ${text(p.key)} が重複しています`,
     'duplicate-id': p => `ID ${text(p.id)} が重複しています`,
+    'duplicate-value': () => '選択肢の値が重複しています',
     'json.circular': () => 'データに循環参照があります',
     'schema.unsupportedVersion': p => `テンプレートのバージョン ${text(p.version)} はサポートされていません（${text(p.supported)} である必要があります）`,
     'field.empty': () => 'フィールドがバインドされていません',

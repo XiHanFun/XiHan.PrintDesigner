@@ -366,6 +366,7 @@ const designer: PrintDesignerLocale = {
     'unknown-control': () => 'Unbekannter Editortyp',
     'duplicate-key': p => `Doppelter Schlüssel ${text(p.key)}`,
     'duplicate-id': p => `Doppelte ID ${text(p.id)}`,
+    'duplicate-value': () => 'Doppelter Optionswert',
     'json.circular': () => 'Die Daten enthalten einen Zirkelbezug',
     'schema.unsupportedVersion': p => `Die Vorlagenversion ${text(p.version)} wird nicht unterstützt (erwartet: ${text(p.supported)})`,
     'field.empty': () => 'Kein Feld gebunden',
