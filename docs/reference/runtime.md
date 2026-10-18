@@ -152,6 +152,12 @@ print() 的选项：浏览器打印时的标题，以及交给本地打印客户
 
 ## 全部导出
 
+### designer-locale
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `DEFAULT_PRINT_DESIGNER_TRANSLATIONS` | 常量 | 设计器的内建英文文案，与 printEnUS 里设计器的那份相同。 |
+
 ### extensions
 
 | 名称 | 种类 | 说明 |
@@ -234,4 +240,13 @@ print() 的选项：浏览器打印时的标题，以及交给本地打印客户
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
-| `printZhCN` | 常量 | 打印预览与设计器的中文文案。 |
+| `printDeDE` | 常量 | 打印的德语文案：预览、设计器与 designer-shell 零件。 |
+| `printEnUS` | 常量 | 打印的英文文案：预览、设计器与 designer-shell 零件。 |
+| `printEsES` | 常量 | 打印的西班牙语文案：预览、设计器与 designer-shell 零件。 |
+| `printFrFR` | 常量 | 打印的法语文案：预览、设计器与 designer-shell 零件。 |
+| `printJaJP` | 常量 | 打印的日语文案：预览、设计器与 designer-shell 零件。 |
+| `printKoKR` | 常量 | 打印的韩语文案：预览、设计器与 designer-shell 零件。 |
+| `printPtBR` | 常量 | 打印的巴西葡萄牙语文案：预览、设计器与 designer-shell 零件。 |
+| `printRuRU` | 常量 | 打印的俄语文案：预览、设计器与 designer-shell 零件。 |
+| `printZhCN` | 常量 | 打印的简体中文文案：预览、设计器与 designer-shell 零件。 |
+| `printZhTW` | 常量 | 打印的繁体中文文案：预览、设计器与 designer-shell 零件。 |

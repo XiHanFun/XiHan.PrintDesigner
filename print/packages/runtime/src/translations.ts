@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 打印产品各元素的文案键：预览与设计器的文案类型集中在这里，并补进 UI 的 XhTranslationOverrides。
+// 打印产品各元素的文案键：预览与设计器的文案类型集中在这里，并补进 UI 的 XhTranslationOverrides；预览的英文缺省也在这里。
 
 import type { ElementCategory, ElementRegion, PageBandKey, PrintElementType, PropertyGroup, PropertyUnit } from '@xihan-print/core'
 import type { SchemaIssue } from '@xihan-ui/designer-kit/schema'
@@ -14,6 +14,12 @@ export interface PrintPreviewTranslations {
   readonly label: string
   /** 一张输出页的可访问名；position 从 1 开始，count 为输出页总数。 */
   readonly sheetLabel: (position: number, count: number) => string
+}
+
+/** 预览元素的内建英文文案，与 printEnUS 里预览的那份相同。 */
+export const DEFAULT_PRINT_PREVIEW_TRANSLATIONS: PrintPreviewTranslations = {
+  label: 'Print preview',
+  sheetLabel: (position, count) => `Page ${position} of ${count}`,
 }
 
 /** 表格编辑态里可以选中的部位。 */

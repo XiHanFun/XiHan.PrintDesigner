@@ -24,6 +24,7 @@ import { createPrintRuntimeModel } from './extensions'
 import { PrintRuntimeError, resolvePaginateOptions } from './options'
 import { printSheets } from './print'
 import { renderSheets } from './render/sheets'
+import { DEFAULT_PRINT_PREVIEW_TRANSLATIONS } from './translations'
 
 /** 预览元素的标签名。 */
 export const PRINT_PREVIEW_TAG = 'xh-print-preview'
@@ -42,11 +43,6 @@ export interface PrintPreviewEventMap {
   'paginated': CustomEvent<{ readonly sheets: number, readonly diagnostics: readonly PaginationDiagnostic[] }>
   /** 分页失败，已清空预览。 */
   'pagination-error': CustomEvent<PaginationErrorDetail>
-}
-
-const DEFAULT_TRANSLATIONS: PrintPreviewTranslations = {
-  label: 'Print preview',
-  sheetLabel: (position, count) => `Page ${position} of ${count}`,
 }
 
 /** 影响分页结果的属性，任一变化都重新分页。 */
@@ -241,7 +237,7 @@ export class XhPrintPreview extends XhReactiveElement {
     const sheets = this.#sheets
     if (root === undefined || sheets === undefined)
       return
-    const t = this.#config.translations<PrintPreviewTranslations>(PRINT_PREVIEW_TAG, DEFAULT_TRANSLATIONS, this.translations)
+    const t = this.#config.translations<PrintPreviewTranslations>(PRINT_PREVIEW_TAG, DEFAULT_PRINT_PREVIEW_TRANSLATIONS, this.translations)
     root.setAttribute('aria-label', t.label)
     const items = Array.from(sheets.children)
     items.forEach((sheet, index) => {

@@ -5,6 +5,7 @@
 
 // 导出 @xihan-print/runtime 的公共接口。元素不在 import 时注册，调用 definePrintPreview() 才注册。
 
+export { DEFAULT_PRINT_DESIGNER_TRANSLATIONS } from './designer-locale'
 export { createPrintRuntimeModel } from './extensions'
 export type { PrintElementRenderContext, PrintElementRenderer, PrintRuntimeExtension, PrintRuntimeModel } from './extensions'
 export { mergePaginationResults } from './merge'

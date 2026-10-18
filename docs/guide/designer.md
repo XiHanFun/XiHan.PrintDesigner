@@ -99,7 +99,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ## 语言包
 
-界面文字缺省是英文。把 XiHan.UI 的中文语言包与打印的中文语言包合并后全局设置，设计器、它内部的零件与预览都换成中文，见[快速开始](../quickstart#中文界面)。
+界面文字缺省是英文。把 XiHan.UI 与打印同一语言的语言包合并后全局设置，设计器、它内部的零件与预览都换成这种语言，见[快速开始](../quickstart#界面语言)。
 
 只改一个实例的几处文案时，给它的 `translations` 属性，压在全局语言包之上：
 

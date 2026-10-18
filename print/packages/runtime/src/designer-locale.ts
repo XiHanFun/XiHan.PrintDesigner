@@ -1,0 +1,466 @@
+/*
+ * Copyright (c) 2021-Present XiHanFun and contributors.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+// 设计器的英文文案与一种语言的文案形状：属性名与选项名的键以英文表为准，问题说明按内建问题码各写一条。
+
+import type { PaginationDiagnosticCode, ValidationIssueCode } from '@xihan-print/core'
+import type { RichTextIssueCode } from '@xihan-ui/core/rich-text'
+import type { PrintDesignerTranslations } from './translations'
+
+const PROPERTY_NAMES = {
+  'x': 'X',
+  'y': 'Y',
+  'width': 'Width',
+  'height': 'Height',
+  'rotation': 'Rotation',
+  'content': 'Content',
+  'style.fontFamily': 'Font',
+  'style.fontSize': 'Font size',
+  'style.bold': 'Bold',
+  'style.italic': 'Italic',
+  'style.underline': 'Underline',
+  'style.lineThrough': 'Strikethrough',
+  'style.color': 'Text color',
+  'style.align': 'Horizontal align',
+  'style.verticalAlign': 'Vertical align',
+  'style.lineHeight': 'Line height',
+  'style.letterSpacing': 'Letter spacing',
+  'wrap': 'Wrap text',
+  'overflow': 'Overflow',
+  'box.background': 'Background',
+  'box.border': 'Border',
+  'box.padding': 'Padding',
+  'name': 'Name',
+  'locked': 'Locked',
+  'previewOnly': 'Preview only',
+  'format': 'Format',
+  'barCode:format': 'Symbology',
+  'matrixCode:format': 'Symbology',
+  'numeral': 'Numerals',
+  'source': 'Source',
+  'fit': 'Fit',
+  'dataField': 'Data field',
+  'columns': 'Columns',
+  'header.visible': 'Show header',
+  'header.repeat': 'Repeat header on each page',
+  'header.height': 'Header row height',
+  'header.style': 'Header style',
+  'body.rowHeight': 'Row height',
+  'body.rowHeightMode': 'Row height mode',
+  'body.style': 'Body style',
+  'footerRows': 'Footer rows',
+  'maxRowsPerPage': 'Max rows per page',
+  'fillEmptyRows': 'Fill with empty rows',
+  'border.stroke': 'Border line',
+  'border.outer': 'Outer border',
+  'border.horizontal': 'Horizontal lines',
+  'border.vertical': 'Vertical lines',
+  'direction': 'Direction',
+  'stroke': 'Stroke',
+  'fill': 'Fill',
+  'radius': 'Corner radius',
+  'showText': 'Show text',
+  'textStyle.fontFamily': 'Text font',
+  'textStyle.fontSize': 'Text size',
+  'color': 'Color',
+  'level': 'Error correction',
+  'quietZone': 'Quiet zone',
+  'background': 'Background',
+  'paper': 'Paper',
+  'orientation': 'Orientation',
+  'margins': 'Margins',
+  'header.default.height': 'Header height',
+  'header.first.height': 'First page header height',
+  'header.last.height': 'Last page header height',
+  'header.odd.height': 'Odd page header height',
+  'header.even.height': 'Even page header height',
+  'header.singleSheet': 'Single-page header',
+  'footer.default.height': 'Footer height',
+  'footer.first.height': 'First page footer height',
+  'footer.last.height': 'Last page footer height',
+  'footer.odd.height': 'Odd page footer height',
+  'footer.even.height': 'Even page footer height',
+  'footer.singleSheet': 'Single-page footer',
+  'numbering.continuous': 'Continue from previous page template',
+  'numbering.start': 'Start at',
+  'watermark': 'Watermark',
+  'title': 'Title',
+  'cellType': 'Cell type',
+  'barCodeFormat': 'Barcode symbology',
+  'align': 'Align',
+  'visible': 'Show',
+  'repeat': 'Repeat on each page',
+  'style': 'Style',
+  'rowHeight': 'Row height',
+  'rowHeightMode': 'Row height mode',
+  'placement': 'Show on',
+  'colSpan': 'Column span',
+  'table-column:width': 'Column width',
+  'table-header:height': 'Row height',
+  'table-footer-row:height': 'Row height',
+  'stroke/width': 'Width',
+  'stroke/style': 'Style',
+  'stroke/color': 'Color',
+  'edges/top': 'Top',
+  'edges/right': 'Right',
+  'edges/bottom': 'Bottom',
+  'edges/left': 'Left',
+  'borderSides/top': 'Top border',
+  'borderSides/right': 'Right border',
+  'borderSides/bottom': 'Bottom border',
+  'borderSides/left': 'Left border',
+  'cellStyle/fontFamily': 'Font',
+  'cellStyle/fontSize': 'Font size',
+  'cellStyle/bold': 'Bold',
+  'cellStyle/italic': 'Italic',
+  'cellStyle/color': 'Text color',
+  'cellStyle/background': 'Background',
+  'cellStyle/align': 'Horizontal align',
+  'cellStyle/verticalAlign': 'Vertical align',
+  'cellStyle/padding': 'Side padding',
+  'cellStyle/lineHeight': 'Line height',
+  'paper/preset': 'Size',
+  'paper/width': 'Width',
+  'paper/height': 'Height',
+  'watermark/text': 'Text',
+  'watermark/fontFamily': 'Font',
+  'watermark/fontSize': 'Font size',
+  'watermark/color': 'Color',
+  'watermark/opacity': 'Opacity',
+  'watermark/rotation': 'Rotation',
+  'watermark/gapX': 'Horizontal spacing',
+  'watermark/gapY': 'Vertical spacing',
+  'content/text': 'Text',
+  'content/field': 'Field',
+  'content/emptyText': 'Text when empty',
+  'content/template': 'Template',
+  'content/expression': 'Expression',
+  'content/format': 'Format',
+  'content/url': 'URL',
+  'content/source': 'Content format',
+  'content/fn': 'Summary',
+  'content/scope': 'Summary range',
+}
+
+const PROPERTY_OPTIONS = {
+  'left': 'Left',
+  'center': 'Center',
+  'right': 'Right',
+  'justify': 'Justify',
+  'top': 'Top',
+  'middle': 'Middle',
+  'bottom': 'Bottom',
+  'clip': 'Clip',
+  'shrink': 'Shrink to fit',
+  'visible': 'Show all',
+  'roman-upper': 'Roman (I, II)',
+  'roman-lower': 'Roman (i, ii)',
+  'cn-lower': 'Chinese (一, 二)',
+  'cn-upper': 'Chinese (壹, 贰)',
+  'contain': 'Contain',
+  'cover': 'Cover',
+  'fill': 'Stretch',
+  'none': 'Original size',
+  'fixed': 'Fixed',
+  'minimum': 'At least',
+  'horizontal': 'Horizontal',
+  'vertical': 'Vertical',
+  'diagonalDown': 'Diagonal down',
+  'diagonalUp': 'Diagonal up',
+  'portrait': 'Portrait',
+  'landscape': 'Landscape',
+  'first': 'First page',
+  'last': 'Last page',
+  'text': 'Text',
+  'image': 'Image',
+  'barCode': 'Barcode',
+  'matrixCode': '2D code',
+  'everyPage': 'Every page',
+  'lastPage': 'Last page only',
+  'solid': 'Solid',
+  'dashed': 'Dashed',
+  'dotted': 'Dotted',
+  'double': 'Double',
+  'custom': 'Custom',
+  'static': 'Fixed text',
+  'html': 'HTML',
+  'document': 'Rich text document',
+  'field': 'Field',
+  'template': 'Template',
+  'expression': 'Expression',
+  'rowNumber': 'Row number',
+  'aggregate': 'Summary',
+  'sum': 'Sum',
+  'avg': 'Average',
+  'count': 'Count',
+  'min': 'Minimum',
+  'max': 'Maximum',
+  'page': 'This page',
+  'cumulative': 'Up to this page',
+  'all': 'All',
+}
+
+/** 内建属性名对照表的键：formatJsonPath(path)、「对象种类:路径」或「复合种类/分项」。 */
+export type PrintPropertyNameKey = keyof typeof PROPERTY_NAMES
+
+/** 内建选项名对照表的键：选项值。 */
+export type PrintPropertyOptionKey = keyof typeof PROPERTY_OPTIONS
+
+/** 内建的问题码：校验问题码与分页诊断码。 */
+export type PrintBuiltinIssueCode = ValidationIssueCode | PaginationDiagnosticCode
+
+/** 一个问题码的说明，入参是问题的参数。 */
+export type PrintIssueText = (params: Readonly<Record<string, unknown>>) => string
+
+/**
+ * 设计器一种语言的全部文案。属性名与选项名的键与英文表同一组；issueTexts 按内建问题码各写一条说明，
+ * 认不出的问题码（扩展的问题码）原样显示。
+ */
+export interface PrintDesignerLocale extends Omit<PrintDesignerTranslations, 'propertyNames' | 'propertyOptions' | 'issue'> {
+  readonly propertyNames: Readonly<Record<PrintPropertyNameKey, string>>
+  readonly propertyOptions: Readonly<Record<PrintPropertyOptionKey, string>>
+  readonly issueTexts: Readonly<Record<PrintBuiltinIssueCode, PrintIssueText>>
+}
+
+/** 富文本文档结构问题的说明，键为 @xihan-ui/core/rich-text 的问题码。 */
+export type PrintRichTextIssueTexts = Readonly<Record<RichTextIssueCode, string>>
+
+/** 一种语言的设计器文案换成设计器读的形状：问题说明按码查表，查不到时原样给出问题码。 */
+export function printDesignerTranslations(locale: PrintDesignerLocale): PrintDesignerTranslations {
+  const { issueTexts, ...rest } = locale
+  return {
+    ...rest,
+    issue: issue => Object.hasOwn(issueTexts, issue.code) ? issueTexts[issue.code as PrintBuiltinIssueCode](issue.params ?? {}) : issue.code,
+  }
+}
+
+/** 问题参数写成文字：数组按 separator 连接。 */
+export function issueParam(value: unknown, separator: string): string {
+  return Array.isArray(value) ? value.join(separator) : String(value ?? '')
+}
+
+/** 以毫米计的问题参数保留一位小数。 */
+export function issueMillimeters(value: unknown): string {
+  return String(Math.round(Number(value) * 10) / 10)
+}
+
+const REGIONS: Readonly<Record<string, string>> = { header: 'header', body: 'body', footer: 'footer' }
+
+const RICH_TEXT_ISSUES: PrintRichTextIssueTexts = {
+  'invalid-document': 'Rich text is not a { blocks: [...] } document',
+  'unknown-block': 'Rich text has an unknown block',
+  'unknown-inline': 'Rich text has unknown inline content',
+  'unknown-mark': 'Rich text has an unknown style',
+  'unknown-key': 'Rich text has an extra property',
+  'missing': 'Rich text is missing a required value',
+  'invalid-value': 'Rich text has an invalid value',
+  'unsafe-link': 'Rich text link address is not allowed',
+  'conflicting-marks': 'Rich text has both superscript and subscript on',
+  'list-too-deep': 'Rich text lists are nested more than three levels',
+}
+
+function text(value: unknown): string {
+  return issueParam(value, ', ')
+}
+
+const mm = issueMillimeters
+
+function range(params: Readonly<Record<string, unknown>>): string {
+  const parts: string[] = []
+  if (params.min !== undefined)
+    parts.push(`at least ${text(params.min)}`)
+  if (params.exclusiveMin !== undefined)
+    parts.push(`greater than ${text(params.exclusiveMin)}`)
+  if (params.max !== undefined)
+    parts.push(`at most ${text(params.max)}`)
+  return parts.length === 0 ? 'Out of range' : `Must be ${parts.join(' and ')}`
+}
+
+const ISSUE_TEXTS: PrintDesignerLocale['issueTexts'] = {
+  'required': () => 'Required value is missing',
+  'invalid-type': p => p.expected === undefined ? 'Wrong type' : `Expected ${text(p.expected)}`,
+  'invalid-value': () => 'Invalid value',
+  'out-of-range': range,
+  'not-integer': () => 'Must be a whole number',
+  'invalid-option': () => 'Not one of the allowed options',
+  'invalid-color': () => 'Not a valid color',
+  'empty': () => 'Must not be empty',
+  'unknown-key': p => `Unknown property ${text(p.key)}`,
+  'unknown-control': () => 'Unknown property control',
+  'duplicate-key': p => `Duplicate key ${text(p.key)}`,
+  'duplicate-id': p => `Duplicate id ${text(p.id)}`,
+  'json.circular': () => 'Contains a circular reference',
+  'schema.unsupportedVersion': p => `Template version ${text(p.version)} is not supported (expected ${text(p.supported)})`,
+  'field.empty': () => 'No field is bound',
+  'field.invalidPath': p => `Invalid field path ${text(p.field)}`,
+  'template.unclosedPlaceholder': () => 'The template has an unclosed {{',
+  'template.emptyPlaceholder': () => 'The template has an empty {{}}',
+  'template.invalidPath': () => 'The template has an invalid field path',
+  'expression.invalid': () => 'Invalid expression',
+  'format.duplicateMapValue': p => `Value ${text(p.value)} is mapped more than once`,
+  'format.invalidOption': () => 'Invalid format option',
+  'format.conflict': () => 'Format options conflict with each other',
+  'document.noPages': () => 'The template has no pages',
+  'page.presetMismatch': p => `Paper size does not match ${text(p.preset)}`,
+  'page.noContentArea': () => 'The margins leave no room for content',
+  'page.bandsOverflow': () => 'Header and footer are taller than the content area',
+  'watermark.emptyText': () => 'Watermark text is empty',
+  'element.unknownType': p => `Unknown element type ${text(p.type)}`,
+  'element.tooSmall': p => `Smaller than the minimum size ${mm(p.minWidth)} × ${mm(p.minHeight)} mm`,
+  'element.outsidePaper': () => 'Extends beyond the paper',
+  'element.outsideBand': p => `Extends beyond the ${REGIONS[text(p.region)] ?? text(p.region)}`,
+  'element.flowInBand': () => 'Flowing elements can only be placed in the body',
+  'element.flowOutsideBody': () => 'Flowing element extends beyond the body',
+  'line.zeroLength': () => 'The line has zero length',
+  'shape.invisible': () => 'The shape has neither stroke nor fill',
+  'image.emptySource': () => 'Image source is empty',
+  'image.unsafeSource': () => 'Image source is not allowed',
+  'table.noColumns': () => 'The table has no columns',
+  'table.duplicateColumnId': p => `Duplicate column id ${text(p.id)}`,
+  'table.duplicateRowId': p => `Duplicate footer row id ${text(p.id)}`,
+  'table.columnWidthMismatch': p => `Columns add up to ${mm(p.columnsWidth)} mm but the table is ${mm(p.width)} mm wide`,
+  'table.unknownColumn': p => `Footer cell refers to missing column ${text(p.columnId)}`,
+  'table.cellSpanOverflow': p => `Spans ${text(p.colSpan)} columns but only ${text(p.available)} remain`,
+  'table.cellOverlap': () => 'Footer cell overlaps another cell',
+  'table.aggregateFieldMissing': p => `Summary ${text(p.fn)} needs a field`,
+  'table.rowExceedsBody': p => `Header and one row need ${mm(p.required)} mm but the body is ${mm(p.available)} mm`,
+  'barCode.invalidValue': p => `Content cannot be encoded as ${text(p.format)}`,
+  'matrixCode.invalidValue': p => `Content cannot be encoded as ${text(p.format)}`,
+  'matrixCode.invalidLevel': p => `Error correction level ${text(p.level)} does not apply to ${text(p.format)}`,
+  'matrixCode.levelIgnored': p => `${text(p.format)} has no error correction level; it is ignored`,
+  'matrixCode.notSquare': () => '2D code is not square',
+  'pageNumber.noToken': () => 'Page number format has no {{$page}} or {{$pages}}',
+  'pageNumber.unknownToken': p => `Unknown variable ${text(p.token)} in page number format`,
+  'richText.invalidDocument': p => RICH_TEXT_ISSUES[text(p.code) as RichTextIssueCode] ?? 'Rich text is malformed',
+  'richText.empty': () => 'Rich text has no content',
+  'data.notArray': p => `Field ${text(p.field)} is not a list`,
+  'data.notScalar': p => p.field === undefined ? 'Value is not a single value' : `Field ${text(p.field)} is not a single value`,
+  'format.unavailable': () => 'No formatter is available',
+  'format.failed': () => 'Formatting failed',
+  'expression.unavailable': () => 'No expression engine is available',
+  'expression.failed': () => 'Expression evaluation failed',
+  'text.overflow': p => p.fontSize === undefined ? 'Text overflows its box' : `Text overflows its box at ${text(p.fontSize)} pt`,
+  'table.rowOverflow': p => `Row ${Number(p.dataIndex) + 1} does not fit on one page`,
+  'richText.droppedContent': p => `Removed ${text(p.names)} from the HTML in field ${text(p.field)}`,
+  'richText.invalidData': p => `Field ${text(p.field)} is not a valid rich text document`,
+  'element.overflow': () => 'Content overflows its box',
+  'layout.sheetLimit': p => `More than ${text(p.limit)} pages`,
+}
+
+/** 设计器的英文文案，各语言包按它对键。 */
+export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
+  label: 'Print designer',
+  canvas: 'Canvas',
+  toolbar: 'Designer actions',
+  undo: 'Undo',
+  redo: 'Redo',
+  cut: 'Cut',
+  copy: 'Copy',
+  paste: 'Paste',
+  duplicate: 'Duplicate',
+  delete: 'Delete',
+  selectAll: 'Select all',
+  alignLeft: 'Align left',
+  alignCenter: 'Align centers horizontally',
+  alignRight: 'Align right',
+  alignTop: 'Align top',
+  alignMiddle: 'Align centers vertically',
+  alignBottom: 'Align bottom',
+  distributeHorizontal: 'Distribute horizontally',
+  distributeVertical: 'Distribute vertically',
+  bringToFront: 'Bring to front',
+  bringForward: 'Bring forward',
+  sendBackward: 'Send backward',
+  sendToBack: 'Send to back',
+  zoomIn: 'Zoom in',
+  zoomOut: 'Zoom out',
+  zoomToFit: 'Zoom to fit',
+  zoomToActual: 'Actual size',
+  grid: 'Grid',
+  snap: 'Snap',
+  design: 'Design',
+  preview: 'Preview',
+  print: 'Print',
+  pages: 'Page templates',
+  addPage: 'Add page',
+  removePage: 'Remove page',
+  movePageLeft: 'Move page left',
+  movePageRight: 'Move page right',
+  pageTitle: position => `Page ${position}`,
+  regions: { header: 'Header', body: 'Body', footer: 'Footer' },
+  bandVariants: { default: 'Default', first: 'First page', last: 'Last page', odd: 'Odd pages', even: 'Even pages' },
+  bandVariant: region => `${region === 'header' ? 'Header' : 'Footer'} variant`,
+  addBandVariant: 'Add variant',
+  removeBandVariant: 'Remove variant',
+  resizeBand: region => `Resize ${region}`,
+  categories: { text: 'Text', media: 'Media', data: 'Data', shape: 'Shapes', code: 'Codes' },
+  elements: {
+    text: 'Text',
+    longText: 'Long text',
+    richText: 'Rich text',
+    table: 'Table',
+    image: 'Image',
+    line: 'Line',
+    rect: 'Rectangle',
+    ellipse: 'Ellipse',
+    barCode: 'Barcode',
+    matrixCode: '2D code',
+    pageNumber: 'Page number',
+  },
+  elementLabel: (type, name) => `${type} ${name}`,
+  tableParts: { column: 'Column', header: 'Header', body: 'Body', footerRow: 'Footer row', footerCell: 'Footer cell' },
+  editTable: 'Edit table',
+  exitTableEdit: 'Exit table editing',
+  insertColumnLeft: 'Insert column left',
+  insertColumnRight: 'Insert column right',
+  removeColumn: 'Remove column',
+  moveColumnLeft: 'Move column left',
+  moveColumnRight: 'Move column right',
+  insertFooterRowAbove: 'Insert footer row above',
+  insertFooterRowBelow: 'Insert footer row below',
+  removeFooterRow: 'Remove footer row',
+  mergeCellRight: 'Merge with right cell',
+  splitCell: 'Split cell',
+  resizeColumn: title => `Resize column ${title}`,
+  newColumnTitle: position => `Column ${position}`,
+  measure: (width, height) => `${width} × ${height} mm`,
+  palette: 'Elements',
+  properties: 'Properties',
+  issues: 'Problems',
+  propertyGroups: {
+    layout: 'Layout',
+    content: 'Content',
+    data: 'Data',
+    text: 'Text',
+    table: 'Table',
+    code: 'Code',
+    appearance: 'Appearance',
+    behavior: 'Behavior',
+    page: 'Page',
+    paper: 'Paper',
+    bands: 'Header and footer',
+    numbering: 'Page numbers',
+    watermark: 'Watermark',
+  },
+  propertyNames: PROPERTY_NAMES,
+  propertyPart: (parent, part) => `${parent} · ${part}`,
+  propertyOptions: PROPERTY_OPTIONS,
+  units: { mm: 'mm', pt: 'pt', deg: '°', ratio: '×', count: '' },
+  pageSettings: 'Page settings',
+  selectedCount: count => `${count} elements selected`,
+  pageNumberInsert: 'Insert',
+  pageNumberTokens: { page: 'Current page', pages: 'Total pages' },
+  pageNumberSample: text => `Preview: ${text}`,
+  valueFormatKind: 'Format type',
+  valueFormatKinds: { none: 'No format', format: 'Common format', map: 'Value map', expression: 'Expression' },
+  valueMapColumns: { value: 'Value', text: 'Display text' },
+  valueMapCell: (index, column) => `${column} of entry ${index}`,
+  valueMapAdd: 'Add entry',
+  valueMapFallback: 'Text when nothing matches',
+  issueTexts: ISSUE_TEXTS,
+}
+
+/** 设计器的内建英文文案，与 printEnUS 里设计器的那份相同。 */
+export const DEFAULT_PRINT_DESIGNER_TRANSLATIONS: PrintDesignerTranslations = /* @__PURE__ */ printDesignerTranslations(PRINT_DESIGNER_EN_US)
