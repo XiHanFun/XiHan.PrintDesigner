@@ -982,8 +982,8 @@ describe('<xh-print-designer>', () => {
     const frame = designer.querySelector('xh-designer-frame')!
     const element = frame.querySelector('section[slot="acme-stamps"]')!
     expect(element).not.toBeNull()
-    expect(frame.regions!.map(region => region.name)).toEqual(['toolbar', 'pages', 'palette', 'canvas', 'properties', 'issues', 'acme-stamps'])
-    expect(frame.regions!.find(region => region.name === 'properties')!.label).toBe('Properties')
+    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'pages', 'palette', 'canvas', 'properties', 'issues', 'status', 'acme-stamps'])
+    expect(frame.regions!.find(region => region.name === 'properties')!.title).toBe('Properties')
     designer.select({ elements: ['a'] })
     await designer.updateComplete
     expect(updates.at(-1)).toEqual(['a'])
@@ -1000,7 +1000,7 @@ describe('<xh-print-designer>', () => {
     designer.extensions = []
     await designer.updateComplete
     expect([element.isConnected, destroyed]).toEqual([false, 1])
-    expect(frame.regions!.map(region => region.name)).toEqual(['toolbar', 'pages', 'palette', 'canvas', 'properties', 'issues'])
+    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'pages', 'palette', 'canvas', 'properties', 'issues', 'status'])
   })
 
   it('选中表格后回车进入表格编辑态：点表头选中列，Esc 退出', async () => {

@@ -98,6 +98,9 @@ const designer: PrintDesignerLocale = {
   fieldGroup: '필드',
   properties: '속성',
   issues: '문제',
+  paletteHelp: '요소나 필드를 페이지로 끌어 놓거나, 클릭하여 보기 가운데에 놓습니다.',
+  propertiesHelp: '선택한 요소나 표 부분을 편집합니다. 아무것도 선택하지 않으면 페이지 설정을 편집합니다.',
+  issuesHelp: '템플릿을 검사하여 찾은 문제입니다. 클릭하면 문제가 있는 페이지나 요소로 이동합니다.',
   propertyGroups: {
     layout: '레이아웃',
     content: '내용',

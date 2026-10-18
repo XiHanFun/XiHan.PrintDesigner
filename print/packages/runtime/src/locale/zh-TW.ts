@@ -95,6 +95,9 @@ const designer: PrintDesignerLocale = {
   fieldGroup: '欄位',
   properties: '屬性',
   issues: '問題',
+  paletteHelp: '把元件或欄位拖到頁面上，或點一下放到檢視區中央。',
+  propertiesHelp: '編輯選取的元件或表格部位；什麼都沒選取時編輯頁面設定。',
+  issuesHelp: '檢查範本發現的問題；點一條轉到它所在的頁面或元件。',
   propertyGroups: {
     layout: '版面配置',
     content: '內容',

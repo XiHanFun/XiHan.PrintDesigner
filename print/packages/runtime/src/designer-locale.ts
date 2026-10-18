@@ -403,6 +403,9 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   fieldGroup: 'Fields',
   properties: 'Properties',
   issues: 'Problems',
+  paletteHelp: 'Drag an element or field onto the page, or click it to place it in the middle of the view.',
+  propertiesHelp: 'Edit the selected elements or table parts. With nothing selected, edit the page settings.',
+  issuesHelp: 'Problems found when checking the template. Click one to go to the page or element it is on.',
   propertyGroups: {
     layout: 'Layout',
     content: 'Content',

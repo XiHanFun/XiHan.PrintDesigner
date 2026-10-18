@@ -38,6 +38,8 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 工具栏与页签旁的命令栏只显示图标，按钮的名字与快捷键报给读屏，悬停或键盘聚焦到按钮时提示命令的文字与快捷键；会删掉内容的命令按危险色显示。
 
+物料、属性与问题是外框里的卡片：面板头写标题，属性面板的标题下面写正在编辑的对象，「?」里是这块面板的用法。点面板头的「×」收起这块面板，设计器随之改写 `panels` 并派发 `panels-change { panels }`，宿主存起来、下次赋回即可。
+
 扩展登记的面板也放进外框，`panels` 里写它的区名同样能开关，见下文「面板」。各区的属性见[元素](../reference/elements)，属性面板的分组与中文名与它一致。
 
 ## 字段物料
@@ -107,7 +109,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - 给 `schema` 赋值即装载新模板：清空撤销历史与选择，重新适配视口，并派发 `kind` 为 `load` 的 `schema-change`。读取 `schema` 得到当前模板。
 - `dirty` 表示有没有未保存的修改，变化时派发 `dirty-change`；撤销回到保存时的状态，`dirty` 也回到 `false`。
 - `issues-change` 在模板改动后带上全部校验问题，宿主可以据此拦住有错误的模板，不让保存。
-- 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`。
+- 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`、`panels-change`。
 
 也可以用方法操作：`execute(operations)` 执行一组编辑操作并记为一步撤销（操作见 `@xihan-print/core` 的 `PrintOperation`），`addElement`、`select`、`copy`、`paste`、`align`、`reorder`、`zoomToFit`、`scrollToElement` 等与界面上的命令一致。`print()` 按当前模板与 `data` 打印，给了 `printClient` 时交给本地打印客户端。
 

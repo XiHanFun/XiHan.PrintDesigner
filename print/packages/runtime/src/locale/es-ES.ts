@@ -106,6 +106,9 @@ const designer: PrintDesignerLocale = {
   fieldGroup: 'Campos',
   properties: 'Propiedades',
   issues: 'Problemas',
+  paletteHelp: 'Arrastra un elemento o campo a la página o haz clic en él para colocarlo en el centro de la vista.',
+  propertiesHelp: 'Edita los elementos o partes de tabla seleccionados. Si no hay nada seleccionado, edita la configuración de página.',
+  issuesHelp: 'Problemas encontrados al comprobar la plantilla. Haz clic en uno para ir a la página o al elemento donde está.',
   propertyGroups: {
     layout: 'Disposición',
     content: 'Contenido',

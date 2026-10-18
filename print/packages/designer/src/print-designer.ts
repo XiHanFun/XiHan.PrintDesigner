@@ -42,6 +42,7 @@ import type {
   CommandToolbarDisplay,
   DesignerCommandLayout,
   DesignerCommandsTranslations,
+  DesignerFrameEventMap,
   DesignerFrameRegion,
   DesignerGuides,
   DesignerIssueItem,
@@ -119,6 +120,7 @@ import {
   createPanelHost,
   defineDesignerShellElement,
   DESIGNER_COMMANDS_EN_US,
+  DESIGNER_FRAME_REGIONS,
   importSources,
   parseDesignerPanels,
   registerDropTarget,
@@ -181,6 +183,8 @@ export interface PrintDesignerEventMap {
   'page-change': CustomEvent<{ pageId: string }>
   /** 在设计态与预览态之间切换了。 */
   'mode-change': CustomEvent<{ mode: PrintDesignerMode }>
+  /** 点了面板头的关闭钮，设计器已收起这块面板：panels 是收起之后要显示的面板（空格分隔），设计器的 panels 已换成它。 */
+  'panels-change': CustomEvent<{ panels: string }>
 }
 
 /** 剪贴板载荷的结构版本。 */
@@ -369,17 +373,11 @@ const NO_GUIDES: DesignerGuides = { x: [], y: [] }
 /** 属性面板自带编辑器的编辑方式。 */
 const BUILTIN_CONTROLS: ReadonlySet<string> = new Set(BUILTIN_CONTROL_KINDS)
 
-/** 外框的命名区：上方是工具栏与页面模板页签，左侧物料，中间画布；label 是分隔条名称里的区名。 */
-function frameRegions(t: PrintDesignerTranslations): DesignerFrameRegion[] {
-  return [
-    { name: 'toolbar', position: 'top' },
-    { name: 'pages', position: 'top' },
-    { name: 'palette', position: 'start', size: 16, label: t.palette },
-    { name: 'canvas', position: 'center' },
-    { name: 'properties', position: 'end', size: 22, label: t.properties },
-    { name: 'issues', position: 'bottom', size: 22, label: t.issues },
-  ]
-}
+/** 外框的内置区：缺省的区，工具栏下面多一行页面模板页签。 */
+const FRAME_REGIONS: readonly DesignerFrameRegion[] = DESIGNER_FRAME_REGIONS.flatMap(region => region.name === 'toolbar' ? [region, { name: 'pages', position: 'top' as const }] : [region])
+
+/** 不是外框的区、由设计器自己开关的面板。 */
+const OWN_PANELS: readonly string[] = ['rulers']
 
 /** 物料面板里字段那一组的 id。 */
 const FIELD_GROUP_ID = 'fields'
@@ -515,7 +513,10 @@ export class XhPrintDesigner extends XhReactiveElement {
   declare grid: number | false
   /** 吸附其它元素、页边距、区边界与参考线并显示对齐线，缺省 true。 */
   declare snap: boolean
-  /** 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。 */
+  /**
+   * 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。
+   * 点了面板头的关闭钮时设计器改写它并派发 panels-change。
+   */
   declare panels: string | undefined
   /**
    * 工具栏与右键菜单的排列：位置（toolbar、menu:blank、menu:element、menu:table）→ 若干组命令 id，内置与扩展的命令可以混排。
@@ -703,10 +704,10 @@ export class XhPrintDesigner extends XhReactiveElement {
       emitEvent(this, 'mode-change', { mode: this.mode })
     }
     layers.frame.panels = this.#framePanels()
-    this.#syncFrameRegions(layers, t)
     this.#syncPalette(layers, t)
     this.#syncIssues(layers, t)
     this.#syncProperties(layers, t)
+    this.#syncFrameRegions(layers, t)
     this.#renderToolbar(layers)
     this.#renderPages(layers, t)
     layers.panelHost.update(this.#context())
@@ -1044,14 +1045,39 @@ export class XhPrintDesigner extends XhReactiveElement {
     })
   }
 
-  /** 外框的区：内置区带上文案，扩展面板的区按扩展顺序排在后面。 */
+  /**
+   * 外框的区：工具栏、页签与画布带上区名（分隔条的无障碍名称）；物料、属性与问题画成卡片，面板头写标题与帮助，
+   * 属性面板的副标题是当前编辑的对象。扩展面板的区按扩展顺序排在后面。
+   */
   #syncFrameRegions(layers: Layers, t: PrintDesignerTranslations): void {
-    const regions = [...frameRegions(t), ...this.#model().list.flatMap(extension => (extension.panels ?? []).map(panel => panel.region))]
+    const heading = layers.properties.heading
+    const own: Readonly<Record<string, Partial<DesignerFrameRegion>>> = {
+      toolbar: { label: this.#commandTexts().toolbar },
+      pages: { label: t.pages },
+      palette: { title: t.palette, help: t.paletteHelp },
+      canvas: { label: t.canvas },
+      properties: { title: t.properties, ...(heading === undefined ? {} : { subtitle: heading }), help: t.propertiesHelp },
+      issues: { title: t.issues, help: t.issuesHelp },
+    }
+    const regions = [
+      ...FRAME_REGIONS.map(region => ({ ...region, ...own[region.name] })),
+      ...this.#model().list.flatMap(extension => (extension.panels ?? []).map(panel => panel.region)),
+    ]
     const key = JSON.stringify(regions)
     if (this.#regions?.key === key)
       return
     this.#regions = { key, regions }
     layers.frame.regions = regions
+  }
+
+  /** 外框收起了一块面板：外框只认自己的区，设计器自己开关的标尺照原样留着。 */
+  readonly #onPanelsChange = (event: Event): void => {
+    event.stopPropagation()
+    const frame = (event as DesignerFrameEventMap['panels-change']).detail.panels.split(' ').filter(Boolean)
+    const shown = parseDesignerPanels(this.panels)
+    const panels = [...frame, ...OWN_PANELS.filter(panel => shown === undefined || shown.has(panel))].join(' ')
+    this.panels = panels
+    emitEvent(this, 'panels-change', { panels })
   }
 
   /** 交给外框的 panels：预览态只留工具栏。 */
@@ -1201,12 +1227,12 @@ export class XhPrintDesigner extends XhReactiveElement {
     ])
     menu.addEventListener('select', this.#onMenuSelect)
     this.#fillMenu(menuContent, 'blank')
-    const palette = createAuthoredElement(doc, 'xh-designer-palette', { 'slot': 'palette', 'data-part': 'palette', 'collapsible': true }) as XhDesignerPaletteElement
+    const palette = createAuthoredElement(doc, 'xh-designer-palette', { 'slot': 'palette', 'data-part': 'palette', 'collapsible': true, 'headless': true }) as XhDesignerPaletteElement
     palette.addEventListener('item-activate', this.#onPaletteActivate)
-    const issues = createAuthoredElement(doc, 'xh-designer-issues', { 'slot': 'issues', 'data-part': 'issues' }) as XhDesignerIssuesElement
+    const issues = createAuthoredElement(doc, 'xh-designer-issues', { 'slot': 'issues', 'data-part': 'issues', 'headless': true }) as XhDesignerIssuesElement
     issues.addEventListener('issue-activate', this.#onIssueActivate)
     issues.addEventListener('issue-hover', this.#onIssueHover)
-    const properties = createAuthoredElement(doc, 'xh-designer-properties', { 'slot': 'properties', 'data-part': 'properties', 'collapsible': true, 'toggle-limit': 4 }) as XhDesignerPropertiesElement
+    const properties = createAuthoredElement(doc, 'xh-designer-properties', { 'slot': 'properties', 'data-part': 'properties', 'collapsible': true, 'toggle-limit': 4, 'headless': true }) as XhDesignerPropertiesElement
     properties.addEventListener('property-change', this.#onPropertyChange)
     properties.addEventListener('property-commit', this.#onPropertyCommit)
     const preview = createAuthoredElement(doc, 'div', { 'data-part': 'preview', 'hidden': true })
@@ -1216,8 +1242,9 @@ export class XhPrintDesigner extends XhReactiveElement {
     ruler.addEventListener('guides-change', this.#onGuidesChange)
     const workspace = createAuthoredElement(doc, 'div', { 'data-part': 'workspace' }, [ruler, menu, preview])
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, pages, palette, workspace, properties, issues]) as XhDesignerFrameElement
+    frame.addEventListener('panels-change', this.#onPanelsChange)
     this.append(frame)
-    const panelHost = createPanelHost<PrintDesignerContext>(frame, { regions: frameRegions(this.#translations()) })
+    const panelHost = createPanelHost<PrintDesignerContext>(frame, { regions: FRAME_REGIONS })
 
     viewport.addEventListener('pointerdown', this.#onPointerDown)
     viewport.addEventListener('dblclick', this.#onDoubleClick)

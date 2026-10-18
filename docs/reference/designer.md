@@ -26,7 +26,7 @@
 | `mode` | `mode` | `PrintDesignerMode` | 设计态或预览态，缺省 design；同名 attribute。 |
 | `grid` | — | `number \| false` | 吸附网格边长，mm，缺省 1；false 不吸附网格。 |
 | `snap` | — | `boolean` | 吸附其它元素、页边距、区边界与参考线并显示对齐线，缺省 true。 |
-| `panels` | `panels` | `string \| undefined` | 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。 |
+| `panels` | `panels` | `string \| undefined` | 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。点了面板头的关闭钮时设计器改写它并派发 panels-change。 |
 | `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏与右键菜单的排列：位置（toolbar、menu:blank、menu:element、menu:table）→ 若干组命令 id，内置与扩展的命令可以混排。写了某个位置就只显示列出的命令；写了没登记的命令 id 时抛 TypeError。 |
 
 ### 存取器
@@ -90,6 +90,7 @@
 | `import-error` | `{ importer: string, source: DesignerImportSource, error: unknown }` | 导入器没能导入粘贴或拖放进来的内容：它抛了错，或给出的元素没有通过校验；importer 是导入器的 id。 |
 | `page-change` | `{ pageId: string }` | 当前页面模板变了。 |
 | `mode-change` | `{ mode: PrintDesignerMode }` | 在设计态与预览态之间切换了。 |
+| `panels-change` | `{ panels: string }` | 点了面板头的关闭钮，设计器已收起这块面板：panels 是收起之后要显示的面板（空格分隔），设计器的 panels 已换成它。 |
 
 ## 类型
 
@@ -166,6 +167,9 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `fieldGroup` | `string` | 物料面板里按 fields 列出的字段那一组的名称。 |
 | `properties` | `string` | 属性面板的标题。 |
 | `issues` | `string` | 问题列表的标题。 |
+| `paletteHelp` | `string` | 物料面板头里的帮助。 |
+| `propertiesHelp` | `string` | 属性面板头里的帮助。 |
+| `issuesHelp` | `string` | 问题列表面板头里的帮助。 |
 | `propertyGroups` | `Readonly<Record<PropertyGroup, string>>` | 属性分组的名称。 |
 | `propertyNames` | `Readonly<Record<string, string>>` | 属性名：键为 formatJsonPath(path)；「对象种类:路径」覆盖同一路径在该种类上的名字，对象种类是 page、元素种类或 table-column 等表格部位。复合属性拆开后的分项用「复合种类/分项」作键，如 stroke/width、edges/top。 |
 | `propertyOptions` | `Readonly<Record<string, string>>` | select 选项名：键为选项值；「路径=选项值」覆盖该属性上的名字。 |
