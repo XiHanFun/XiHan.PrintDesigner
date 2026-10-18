@@ -46,7 +46,10 @@ export interface PrintDesignerTranslations {
   readonly removePage: string
   readonly movePageUp: string
   readonly movePageDown: string
-  /** 翻页条上页码按钮的名字：第几个、共几个与页面名称（没有名称时是 pageTitle），position 从 1 开始。 */
+  /**
+   * 翻页条上页码按钮的名字：含按钮上写的「第几个 / 共几个」，再加页面名称（没有名称时是 pageTitle），position 从 1 开始。
+   * 按钮上看得见的字要包含在名字里。
+   */
   readonly pagePosition: (position: number, count: number, name: string) => string
   /** 没有名称的页面模板的标题，position 从 1 开始。 */
   readonly pageTitle: (position: number) => string
@@ -129,6 +132,8 @@ export interface PrintDesignerTranslations {
   readonly alignTextLeft: string
   readonly alignTextCenter: string
   readonly alignTextRight: string
+  /** 格式工具条上字号菜单的名字：含按钮上写的字号，选中的几处字号不一时是 —。 */
+  readonly fontSizeMenu: (size: string) => string
   /** 工具栏上「对齐与分布」菜单的名字。 */
   readonly alignMenu: string
   /** 工具栏上「层级」菜单的名字。 */

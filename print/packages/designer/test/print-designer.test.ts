@@ -1038,7 +1038,7 @@ describe('<xh-print-designer>', () => {
     add.click()
     expect([designer.schema.pages.length, designer.activePageId]).toEqual([2, 'page-1'])
     await designer.updateComplete
-    expect(designer.querySelector('[slot="canvas-end"] button[value="page-menu"]')!.getAttribute('aria-label')).toBe('Page 2 of 2: Page 2')
+    expect(designer.querySelector('[slot="canvas-end"] button[value="page-menu"]')!.getAttribute('aria-label')).toBe('Page 2 / 2: Page 2')
     const values = Array.from(designer.querySelectorAll('[data-part="band-menu"][data-region="footer"] [value]'), item => item.getAttribute('value'))
     expect(values).toEqual(['show:default', 'add:first', 'add:last', 'add:odd', 'add:even'])
   })

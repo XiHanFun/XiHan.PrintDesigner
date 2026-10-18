@@ -59,7 +59,7 @@ const designer: PrintDesignerLocale = {
   duplicatePage: 'Duplicar página',
   movePageUp: 'Mover página para cima',
   movePageDown: 'Mover página para baixo',
-  pagePosition: (position, count, name) => `Página ${position} de ${count}: ${name}`,
+  pagePosition: (position, count, name) => `Página ${position} / ${count}: ${name}`,
   pageTitle: position => `Página ${position}`,
   regions: REGION_NAMES,
   bandVariants: { default: 'Padrão', first: 'Primeira página', last: 'Última página', odd: 'Páginas ímpares', even: 'Páginas pares' },
@@ -125,6 +125,7 @@ const designer: PrintDesignerLocale = {
   alignTextLeft: 'Alinhar texto à esquerda',
   alignTextCenter: 'Centralizar texto',
   alignTextRight: 'Alinhar texto à direita',
+  fontSizeMenu: size => `Tamanho da fonte: ${size}`,
   alignMenu: 'Alinhar e distribuir',
   layerMenu: 'Organizar',
   propertyGroups: {
