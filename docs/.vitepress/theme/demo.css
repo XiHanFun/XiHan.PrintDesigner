@@ -50,6 +50,12 @@
   block-size: clamp(640px, calc(100vh - 160px), 860px);
 }
 
+/* 全屏时舞台占满组件下方的高度，设计器的高度由舞台按剩下的空间写在元素上 */
+.xh-fullscreen[data-fullscreen] .print-demo__stage {
+  flex: 1 1 0;
+  min-block-size: 0;
+}
+
 /* 示例里宿主自己写的原生下拉框 */
 .print-demo select[data-xh-part='control'] {
   inline-size: 100%;

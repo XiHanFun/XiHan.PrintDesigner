@@ -1,6 +1,6 @@
 minimumReleaseAgeExcludePrune: true
 minimumReleaseAgeExclude:
-  - '@xihanfun/vitepress-theme@1.1.0'
+  - '@xihanfun/vitepress-theme@1.2.0'
 
 trustPolicy: no-downgrade
 shellEmulator: true
