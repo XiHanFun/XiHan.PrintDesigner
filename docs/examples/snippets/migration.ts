@@ -4,7 +4,7 @@
  */
 
 // 存量模板里的 HTML 元素迁移成富文本：写死的 HTML 解析成文档，绑定字段改成打印时再解析，
-// 其余写法记进报告人工改写；全程不执行模板里的代码。
+// 其余写法记进报告人工改写；全程不执行模板里的代码。报告的形状只是示例，不在打印的发布包里。
 
 // #region example
 import type { RichTextContent } from '@xihan-print/core'
