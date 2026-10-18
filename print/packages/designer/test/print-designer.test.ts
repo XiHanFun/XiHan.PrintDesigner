@@ -752,9 +752,12 @@ describe('<xh-print-designer>', () => {
     pick(3)
     await settle()
     const expression = editor.querySelector<Control>('xh-expression-input')!
-    expect([visible(), typeof expression.check]).toEqual([['xh-expression-input'], 'function'])
+    // 刚换成表达式时表达式是空的：问题写在输入框下面，输入框标无效
+    expect([visible(), typeof expression.check, expression.hasAttribute('invalid')]).toEqual([['xh-expression-input', 'editor-issue'], 'function', true])
     expression.dispatchEvent(new CustomEvent('value-change', { detail: { value: 'value * 2' }, bubbles: true }))
     expect(format()).toEqual({ kind: 'expression', expression: 'value * 2' })
+    await settle()
+    expect([visible(), expression.hasAttribute('invalid')]).toEqual([['xh-expression-input'], false])
 
     pick(0)
     expect(format()).toBeUndefined()
@@ -1099,5 +1102,67 @@ describe('打印客户端', () => {
 
     expect(outcome).toMatchObject({ sheets: 1, via: 'client' })
     expect(calls).toEqual([{ sheets: 1, printer: 'Office' }])
+  })
+})
+
+describe('复合编辑器里层的问题', () => {
+  type Control = HTMLElement & { updateComplete?: Promise<unknown> }
+
+  async function settle(): Promise<void> {
+    const panel = designer.querySelector('xh-designer-properties')!
+    for (let round = 0; round < 3; round++) {
+      await designer.updateComplete
+      await panel.updateComplete
+    }
+  }
+
+  function change(path: (string | number)[], value: unknown, target: { kind: string, id: string }): void {
+    designer.querySelector('xh-designer-properties')!.dispatchEvent(new CustomEvent('property-change', { detail: { path, value, targets: [target], merge: 'm' } }))
+  }
+
+  /** 一个子项控件上读屏看得到的：名字、aria-invalid 与描述文字。 */
+  function announced(input: HTMLElement | null): (string | null)[] {
+    const describedBy = input?.getAttribute('aria-describedby') ?? null
+    return [input?.getAttribute('aria-label') ?? null, input?.getAttribute('aria-invalid') ?? null, describedBy === null ? null : document.getElementById(describedBy)?.textContent ?? '']
+  }
+
+  it('值映射里重复的那一项：问题标在那一格，名字不变、aria-invalid 与描述落在那一格的输入框上，属性行下不重复；改掉以后收回', async () => {
+    designer.select({ elements: ['a'] })
+    await settle()
+    change(['content', 'format'], { kind: 'map', entries: [{ value: 'A', text: '甲' }, { value: 'A', text: '乙' }] }, { kind: 'text', id: 'a' })
+    await settle()
+    const row = designer.querySelector<HTMLElement>('[data-path="content.format"]')!
+    const cells = Array.from(row.querySelectorAll<Control>('[data-xh-part="table"] > [data-xh-part="item"] [data-xh-part="item-cell"] > xh-text-field'))
+    await Promise.all(cells.map(cell => cell.updateComplete))
+    const inputs = cells.map(cell => cell.querySelector<HTMLElement>('input'))
+    const label = (input: HTMLElement | null): string | null => input?.closest('xh-text-field')?.getAttribute('aria-label') ?? null
+    expect(cells.map(cell => cell.hasAttribute('invalid'))).toEqual([false, false, true, false])
+    const [, invalid, text] = announced(inputs[2]!)
+    expect([label(inputs[2]!), invalid, text]).toEqual(['Value of entry 2', 'true', 'Value A is mapped more than once'])
+    expect([inputs[0]!.getAttribute('aria-invalid'), inputs[0]!.hasAttribute('aria-describedby')]).toEqual(['false', false])
+    expect(row.querySelector(':scope > [data-part="property-error"]')!.textContent).toBe('')
+
+    change(['content', 'format'], { kind: 'map', entries: [{ value: 'A', text: '甲' }, { value: 'B', text: '乙' }] }, { kind: 'text', id: 'a' })
+    await settle()
+    await cells[2]!.updateComplete
+    expect([cells[2]!.hasAttribute('invalid'), inputs[2]!.getAttribute('aria-invalid'), inputs[2]!.hasAttribute('aria-describedby')]).toEqual([false, 'false', false])
+    expect(Array.from(row.querySelectorAll<HTMLElement>('[data-part="editor-issue"]'), issue => issue.hidden)).not.toContain(false)
+  })
+
+  it('表格列里的问题写在那一列的条目下面，条目的按钮带 aria-invalid 与描述；属性行下不重复', async () => {
+    const table = designer.schema.pages[0]!.elements.find(element => element.id === 't') as { columns: { id: string, content: object }[] }
+    designer.select({ elements: ['t'] })
+    await settle()
+    // 各列先绑上字段，只留下第 2 列与第 1 列重复的列 id 这一个问题
+    const columns = table.columns.map(column => ({ ...column, content: { kind: 'field', field: 'name' } }))
+    change(['columns'], columns.map((column, index) => (index === 1 ? { ...column, id: columns[0]!.id } : column)), { kind: 'table', id: 't' })
+    await settle()
+    const row = designer.querySelector<HTMLElement>('[data-path="columns"]')!
+    const buttons = Array.from(row.querySelectorAll<HTMLElement>('[data-part="part-item"] button'))
+    expect(buttons.map(button => button.getAttribute('aria-invalid'))).toEqual(buttons.map((_, index) => (index === 1 ? 'true' : null)))
+    const describedBy = buttons[1]!.getAttribute('aria-describedby')!
+    expect(document.getElementById(describedBy)!.textContent).toContain(columns[0]!.id)
+    expect(buttons[1]!.closest('[data-part="part-item"]')!.nextElementSibling!.id).toBe(describedBy)
+    expect(row.querySelector(':scope > [data-part="property-error"]')!.textContent).toBe('')
   })
 })
