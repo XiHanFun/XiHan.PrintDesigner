@@ -22,7 +22,7 @@
 | `locale` | `locale` | `string \| undefined` | 交给格式化器的区域，只决定小数点与千分位符号；同名 attribute。 |
 | `timeZone` | `time-zone` | `string \| undefined` | 交给格式化器的时区：`UTC`、`±HH:mm` 或 IANA 名称；attribute 为 time-zone。 |
 | `translations` | — | `Partial<PrintDesignerTranslations> \| undefined` | 元素自己的文案，压在全局配置之上。 |
-| `readonly` | `readonly` | `boolean` | 只读：可以选择、浏览与预览，不能修改。 |
+| `readonly` | `readonly` | `boolean` | 只读：可以选择、浏览与预览，不能修改。attribute 三态：不写或移除为不只读，写 "false" 为不只读，其余写法为只读。 |
 | `mode` | `mode` | `PrintDesignerMode` | 设计态或预览态，缺省 design；同名 attribute。 |
 | `grid` | — | `number \| false` | 吸附网格边长，mm，缺省 1；false 不吸附网格。 |
 | `snap` | — | `boolean` | 吸附其它元素、页边距、区边界与参考线并显示对齐线，缺省 true。 |

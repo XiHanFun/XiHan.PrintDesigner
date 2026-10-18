@@ -15,6 +15,7 @@ import type { PrintDesignerExtension, XhPrintDesigner } from '../src'
 import { behaviorProperties, createBuiltinElementPrototypes, createDocument, createElementRegistry, createPage, layoutProperties, property } from '@xihan-print/core'
 import { printZhCN } from '@xihan-print/runtime/locale'
 import { CLIPBOARD_FORMAT, clipboardMimeType, DesignerExtensionError } from '@xihan-ui/designer-kit'
+import { BOOLEAN_CONVERTER } from '@xihan-ui/web-components/authoring'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { definePrintDesigner, PRINT_DESIGNER_EXTENSION_ID } from '../src'
 
@@ -381,6 +382,28 @@ describe('<xh-print-designer>', () => {
     expect(palette.readonly).toBe(true)
     palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'rect', payload: undefined } }))
     expect(designer.schema.pages[0]!.elements).toHaveLength(3)
+  })
+
+  it('readonly attribute 三态：写 "false" 不只读，空串只读，移除后回到不只读', async () => {
+    const declared = (designer.constructor as unknown as { elementProperties: Map<string, { type?: unknown, converter?: unknown }> }).elementProperties
+    expect([...declared].filter(([, options]) => options.type === Boolean).map(([name]) => name)).toEqual([])
+    expect(declared.get('readonly')?.converter).toBe(BOOLEAN_CONVERTER)
+    const palette = designer.querySelector('xh-designer-palette')!
+    const state = (): [boolean | undefined, boolean, boolean | undefined] => [designer.readonly, designer.hasAttribute('data-readonly'), palette.readonly]
+    designer.setAttribute('readonly', 'false')
+    await designer.updateComplete
+    expect(state()).toEqual([false, false, false])
+    designer.setAttribute('readonly', '')
+    await designer.updateComplete
+    expect(state()).toEqual([true, true, true])
+    designer.removeAttribute('readonly')
+    await designer.updateComplete
+    expect(state()).toEqual([undefined, false, false])
+    designer.requestUpdate()
+    await designer.updateComplete
+    expect(state()).toEqual([undefined, false, false])
+    palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'rect', payload: undefined } }))
+    expect(designer.schema.pages[0]!.elements.at(-1)!.type).toBe('rect')
   })
 
   it('问题列表：校验问题配上文案与所在对象，点选即选中元素，悬停时框出元素；中文语言包带问题文案', async () => {
