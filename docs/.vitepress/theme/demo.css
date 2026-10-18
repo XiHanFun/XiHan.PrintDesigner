@@ -3,7 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-/* 示例舞台：边框与留白只用 @xihan-ui 设计令牌；舞台里 VitePress .vp-doc 写在这些标签上的正文排版退回浏览器默认。 */
+/*
+ * 示例舞台：边框与留白只用 @xihan-ui 设计令牌。舞台里 VitePress .vp-doc 写在这些标签上的正文排版撤掉：
+ * 用 revert-layer 退回 UI 层里的值，没有 UI 样式的标签再回到浏览器缺省；写 revert 会连 UI 层里零件的样式一起盖掉。
+ */
 
 .print-demo {
   margin-block: var(--xh-space-4);
@@ -15,19 +18,19 @@
 }
 
 .vp-doc .print-demo__stage :where(h1, h2, h3, h4, h5, h6, p, blockquote, ul, ol, li, table, tr, th, td, hr, a, code) {
-  margin: revert;
-  padding: revert;
-  border: revert;
-  background: revert;
-  color: revert;
-  font: revert;
-  letter-spacing: revert;
-  line-height: revert;
-  text-align: revert;
-  list-style: revert;
-  text-decoration: revert;
-  display: revert;
-  overflow: revert;
+  margin: revert-layer;
+  padding: revert-layer;
+  border: revert-layer;
+  background: revert-layer;
+  color: revert-layer;
+  font: revert-layer;
+  letter-spacing: revert-layer;
+  line-height: revert-layer;
+  text-align: revert-layer;
+  list-style: revert-layer;
+  text-decoration: revert-layer;
+  display: revert-layer;
+  overflow: revert-layer;
 }
 
 .print-demo__missing {
@@ -35,16 +38,16 @@
   color: var(--xh-fg-danger);
 }
 
-/* 示例里的预览区给定高度，输出页多时在区内滚动 */
+/* 示例里的预览区：舞台按第一张输出页算出高度，整页都看得到，输出页多时在区内滚动；30rem 是算出之前的占位 */
 .print-demo xh-print-preview {
   block-size: 30rem;
   border: var(--xh-stroke-thin) solid var(--xh-border-subtle);
   border-radius: var(--xh-radius-md);
 }
 
-/* 示例里的设计器给定高度 */
+/* 示例里的设计器：1440×900 下滚到视野里时状态栏也看得到，面板内容多时在面板自己里面滚动 */
 .print-demo xh-print-designer {
-  block-size: 36rem;
+  block-size: clamp(640px, calc(100vh - 160px), 860px);
 }
 
 /* 示例里宿主自己写的原生下拉框 */

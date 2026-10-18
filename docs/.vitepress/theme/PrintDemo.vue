@@ -6,6 +6,7 @@
 
 // 示例舞台：在浏览器里载入 examples/demos/<name>.ts 或 <name>.vue。.ts 示例导出 mount，挂到舞台上，卸载时调用它返回的清理函数；
 // .vue 示例是一个组件，直接渲染在舞台里。
+// 舞台里的预览元素按第一张输出页定高度，整页都看得到：示例没有自己设 zoom 时，缩放取适合舞台宽度（不放大）。
 
 import type { Component } from 'vue'
 import { markRaw, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
@@ -15,6 +16,8 @@ interface DemoModule {
   default?: Component
 }
 
+type PreviewElement = HTMLElement & { zoom?: number, readonly updateComplete?: Promise<unknown> }
+
 const props = defineProps<{ name: string }>()
 
 const demos = import.meta.glob<DemoModule>('../../examples/demos/*.{ts,vue}')
@@ -23,6 +26,43 @@ const component = shallowRef<Component>()
 const missing = ref(false)
 let dispose: (() => void) | undefined
 let unmounted = false
+let observer: ResizeObserver | undefined
+/** 舞台替它定过缩放的预览，与定的那个值；示例自己改了缩放以后不再替它定。 */
+const fittedZoom = new WeakMap<PreviewElement, number>()
+
+/** 舞台里不在设计器里的预览元素。 */
+function previews(): PreviewElement[] {
+  return Array.from(stage.value?.querySelectorAll<PreviewElement>('xh-print-preview') ?? []).filter(preview => preview.closest('xh-print-designer') === null)
+}
+
+/** 一个预览：先按需定缩放，再把高度写成第一张输出页的高度加上下留白。 */
+async function fitPreview(preview: PreviewElement): Promise<void> {
+  const sheet = preview.querySelector<HTMLElement>('[data-part="sheet"]')
+  if (sheet === null || preview.clientWidth === 0)
+    return
+  const current = preview.zoom ?? 1
+  const owned = preview.zoom === undefined || fittedZoom.get(preview) === preview.zoom
+  const box = preview.getBoundingClientRect()
+  const rect = sheet.getBoundingClientRect()
+  // 输出页列表四周的留白随缩放一起变，与输出页顶边到预览内容顶边的距离相同
+  const inset = rect.top - box.top - preview.clientTop + preview.scrollTop
+  if (owned) {
+    const zoom = Math.min(1, Math.floor(preview.clientWidth / ((rect.width + 2 * inset) / current) * 1000) / 1000)
+    fittedZoom.set(preview, zoom)
+    if (Math.abs(zoom - current) > 0.001) {
+      preview.zoom = zoom
+      await preview.updateComplete
+      requestAnimationFrame(() => void fitPreview(preview))
+      return
+    }
+  }
+  preview.style.blockSize = `${Math.ceil(2 * inset + rect.height)}px`
+}
+
+function fitPreviews(): void {
+  for (const preview of previews())
+    void fitPreview(preview)
+}
 
 onMounted(async () => {
   const load = demos[`../../examples/demos/${props.name}.ts`] ?? demos[`../../examples/demos/${props.name}.vue`]
@@ -37,10 +77,18 @@ onMounted(async () => {
     dispose = demo.mount(stage.value)
   else if (demo.default !== undefined)
     component.value = markRaw(demo.default)
+  // 预览排完一次分页就重算；舞台变宽变窄时也重算
+  stage.value?.addEventListener('paginated', fitPreviews)
+  if (stage.value !== undefined && typeof ResizeObserver !== 'undefined') {
+    observer = new ResizeObserver(fitPreviews)
+    observer.observe(stage.value)
+  }
 })
 
 onBeforeUnmount(() => {
   unmounted = true
+  observer?.disconnect()
+  stage.value?.removeEventListener('paginated', fitPreviews)
   dispose?.()
 })
 </script>
