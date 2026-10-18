@@ -17,7 +17,7 @@ export default defineConfig({
     alias: [
       { find: /^@xihan-print\/core$/, replacement: local('core/src/index.ts') },
       { find: /^@xihan-print\/runtime$/, replacement: local('runtime/src/index.ts') },
-      { find: /^@xihan-print\/runtime\/locale$/, replacement: local('runtime/src/locale.ts') },
+      { find: /^@xihan-print\/runtime\/locale$/, replacement: local('runtime/src/locale/index.ts') },
       { find: /^@xihan-print\/runtime\/client$/, replacement: local('runtime/src/client/index.ts') },
       { find: /^@xihan-print\/runtime\/style\.css$/, replacement: local('runtime/style.css') },
       { find: /^@xihan-print\/designer$/, replacement: local('designer/src/index.ts') },
