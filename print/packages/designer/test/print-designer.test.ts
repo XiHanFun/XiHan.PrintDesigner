@@ -910,10 +910,10 @@ describe('<xh-print-designer>', () => {
       }],
     }]
     await designer.updateComplete
-    const toolbarItems = (): string[] => Array.from(designer.querySelectorAll<HTMLButtonElement>('[data-part="toolbar"] button[data-xh-part="item"]'), item => item.value)
+    const toolbarItems = (): string[] => Array.from(designer.querySelectorAll<HTMLButtonElement>('[data-part="command-bar"] button[data-xh-part="item"]'), item => item.value)
     expect(toolbarItems().slice(-4)).toEqual(['design', 'preview', 'print', '@acme/hello.run'])
-    expect(designer.querySelector('[data-part="toolbar"] button[value="@acme/hello.run"]')!.textContent).toBe('Hello 2')
-    expect(['grid', 'snap'].map(value => designer.querySelector(`[data-part="toolbar"] button[value="${value}"]`)!.getAttribute('aria-pressed'))).toEqual(['false', 'true'])
+    expect(designer.querySelector('[data-part="command-bar"] button[value="@acme/hello.run"]')!.textContent).toBe('Hello 2')
+    expect(['grid', 'snap'].map(value => designer.querySelector(`[data-part="command-bar"] button[value="${value}"]`)!.getAttribute('aria-pressed'))).toEqual(['false', 'true'])
 
     const content = designer.querySelector('[data-print-canvas-root] > [data-xh-part="positioner"] > [data-xh-part="content"]')!
     const menuItems = (): string[] => Array.from(content.querySelectorAll('[data-xh-part="item"]'), item => item.getAttribute('value')!)
@@ -951,12 +951,12 @@ describe('<xh-print-designer>', () => {
   })
 
   it('工具栏：内置命令带图标，名字与快捷键写在按钮上，会删掉内容的命令带危险语气，共用命令取 designer-shell 的文案；工具栏与翻页条都只显示图标', async () => {
-    const bars: Record<string, string> = { toolbar: '[data-part="toolbar"] > xh-tooltip', strip: '[slot="canvas-end"]' }
+    const bars: Record<string, string> = { toolbar: '[data-part="command-bar"] > xh-tooltip', strip: '[slot="canvas-end"]' }
     const button = (bar: string, value: string): HTMLButtonElement => designer.querySelector<HTMLButtonElement>(`${bars[bar]} button[value="${value}"]`)!
     expect(button('toolbar', 'undo').hasAttribute('data-icon')).toBe(true)
     expect([button('toolbar', 'undo').getAttribute('aria-label'), button('toolbar', 'undo').getAttribute('aria-keyshortcuts')]).toEqual(['Undo', 'Control+Z'])
     expect([button('toolbar', 'duplicate').getAttribute('aria-label'), button('toolbar', 'zoom-in').getAttribute('aria-keyshortcuts')]).toEqual(['Duplicate', 'Plus'])
-    expect(designer.querySelector('[data-part="toolbar"] [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('Designer actions')
+    expect(designer.querySelector('[data-part="command-bar"] [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('Designer actions')
     expect([button('toolbar', 'delete').getAttribute('data-tone'), button('strip', 'remove-page').getAttribute('data-tone'), button('strip', 'remove-page').getAttribute('aria-label')]).toEqual(['danger', 'danger', 'Delete page'])
     expect((printZhCN.translations!['xh-designer-commands'] as { duplicate: string }).duplicate).toBe('创建副本')
 
@@ -1046,7 +1046,7 @@ describe('<xh-print-designer>', () => {
   it('外框按 panels 显示工具栏与翻页条，画布总是显示', async () => {
     const region = (name: string): Element | null => designer.querySelector(`[data-part="frame"] [data-part="region"][data-region="${name}"]`)
     const strip = (): HTMLElement => designer.querySelector<HTMLElement>('[slot="canvas-end"]')!
-    expect(region('toolbar')!.contains(designer.querySelector('[data-part="toolbar"]'))).toBe(true)
+    expect(region('toolbar')!.contains(designer.querySelector('[data-part="command-bar"]'))).toBe(true)
     expect(region('canvas')!.contains(viewport())).toBe(true)
     expect(strip().hidden).toBe(false)
     designer.panels = 'pages'

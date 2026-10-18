@@ -1363,7 +1363,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const doc = this.ownerDocument
     const bar = { display: this.#toolbarDisplay(), platform: this.#kbdPlatform() }
     const commandBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
-    const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'toolbar' }, [commandBar.element])
+    const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'command-bar' }, [commandBar.element])
     const pageStrip = createCommandToolbar<PrintDesignerContext>(doc, { ...bar, orientation: 'vertical' })
     pageStrip.element.slot = 'canvas-end'
 
