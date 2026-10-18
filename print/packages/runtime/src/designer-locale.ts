@@ -364,7 +364,7 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   duplicatePage: 'Duplicate page',
   movePageUp: 'Move page up',
   movePageDown: 'Move page down',
-  pagePosition: (position, count, name) => `Page ${position} of ${count}: ${name}`,
+  pagePosition: (position, count, name) => `Page ${position} / ${count}: ${name}`,
   pageTitle: position => `Page ${position}`,
   regions: { header: 'Header', body: 'Body', footer: 'Footer' },
   bandVariants: { default: 'Default', first: 'First page', last: 'Last page', odd: 'Odd pages', even: 'Even pages' },
@@ -430,6 +430,7 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   alignTextLeft: 'Align text left',
   alignTextCenter: 'Center text',
   alignTextRight: 'Align text right',
+  fontSizeMenu: size => `Font size: ${size}`,
   alignMenu: 'Align and distribute',
   layerMenu: 'Arrange',
   propertyGroups: {

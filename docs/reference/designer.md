@@ -213,7 +213,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 
 | 方法 | 说明 |
 | --- | --- |
-| `pagePosition(position: number, count: number, name: string): string` | 翻页条上页码按钮的名字：第几个、共几个与页面名称（没有名称时是 pageTitle），position 从 1 开始。 |
+| `pagePosition(position: number, count: number, name: string): string` | 翻页条上页码按钮的名字：含按钮上写的「第几个 / 共几个」，再加页面名称（没有名称时是 pageTitle），position 从 1 开始。按钮上看得见的字要包含在名字里。 |
 | `pageTitle(position: number): string` | 没有名称的页面模板的标题，position 从 1 开始。 |
 | `bandVariant(region: 'header' \| 'footer'): string` | 选择当前编辑的页眉或页脚变体的控件的可访问名。 |
 | `resizeBand(region: 'header' \| 'footer'): string` | 拖动调整页眉或页脚高度的把手的可访问名。 |
@@ -224,6 +224,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `statusElements(count: number): string` | 状态栏左段没有选中时的值：当前页面模板上可见的元素个数。 |
 | `statusGeometry(x: string, y: string, width: string, height: string): string` | 状态栏左段选中一个元素时的值：入参是格式化后的位置与尺寸（mm）。 |
 | `insertElement(label: string): string` | 顶栏插入钮的名字，label 是元素种类的名称。 |
+| `fontSizeMenu(size: string): string` | 格式工具条上字号菜单的名字：含按钮上写的字号，选中的几处字号不一时是 —。 |
 | `issue(issue: SchemaIssue): string` | 校验问题与分页诊断的说明，按问题码与参数生成。 |
 | `propertyPart(parent: string, part: string): string` | 复合属性拆开后分项的名字，如「页边距 · 上」。 |
 | `selectedCount(count: number): string` | 属性面板在选中多个元素时标题下的一行。 |

@@ -69,7 +69,7 @@ const designer: PrintDesignerLocale = {
   duplicatePage: 'Дублировать страницу',
   movePageUp: 'Переместить страницу вверх',
   movePageDown: 'Переместить страницу вниз',
-  pagePosition: (position, count, name) => `Страница ${position} из ${count}: ${name}`,
+  pagePosition: (position, count, name) => `Страница ${position} / ${count}: ${name}`,
   pageTitle: position => `Страница ${position}`,
   regions: REGION_NAMES,
   bandVariants: { default: 'По умолчанию', first: 'Первая страница', last: 'Последняя страница', odd: 'Нечётные страницы', even: 'Чётные страницы' },
@@ -135,6 +135,7 @@ const designer: PrintDesignerLocale = {
   alignTextLeft: 'Выровнять текст по левому краю',
   alignTextCenter: 'Выровнять текст по центру',
   alignTextRight: 'Выровнять текст по правому краю',
+  fontSizeMenu: size => `Размер шрифта: ${size}`,
   alignMenu: 'Выравнивание и распределение',
   layerMenu: 'Порядок',
   propertyGroups: {

@@ -56,7 +56,7 @@ const designer: PrintDesignerLocale = {
   duplicatePage: '复制页面',
   movePageUp: '上移页面',
   movePageDown: '下移页面',
-  pagePosition: (position, count, name) => `第 ${position} 页，共 ${count} 页：${name}`,
+  pagePosition: (position, count, name) => `${position} / ${count} 页：${name}`,
   pageTitle: position => `第 ${position} 页`,
   regions: REGION_NAMES,
   bandVariants: { default: '默认', first: '首页', last: '末页', odd: '奇数页', even: '偶数页' },
@@ -122,6 +122,7 @@ const designer: PrintDesignerLocale = {
   alignTextLeft: '文字左对齐',
   alignTextCenter: '文字居中',
   alignTextRight: '文字右对齐',
+  fontSizeMenu: size => `字号：${size}`,
   alignMenu: '对齐与分布',
   layerMenu: '层级',
   propertyGroups: {

@@ -59,7 +59,7 @@ const designer: PrintDesignerLocale = {
   duplicatePage: '페이지 복제',
   movePageUp: '페이지를 위로 이동',
   movePageDown: '페이지를 아래로 이동',
-  pagePosition: (position, count, name) => `${count}페이지 중 ${position}페이지: ${name}`,
+  pagePosition: (position, count, name) => `${position} / ${count} 페이지: ${name}`,
   pageTitle: position => `${position}페이지`,
   regions: REGION_NAMES,
   bandVariants: { default: '기본', first: '첫 페이지', last: '마지막 페이지', odd: '홀수 페이지', even: '짝수 페이지' },
@@ -125,6 +125,7 @@ const designer: PrintDesignerLocale = {
   alignTextLeft: '텍스트 왼쪽 맞춤',
   alignTextCenter: '텍스트 가운데 맞춤',
   alignTextRight: '텍스트 오른쪽 맞춤',
+  fontSizeMenu: size => `글꼴 크기: ${size}`,
   alignMenu: '정렬 및 분포',
   layerMenu: '배치 순서',
   propertyGroups: {

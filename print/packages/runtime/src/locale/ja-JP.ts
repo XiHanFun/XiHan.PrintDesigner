@@ -56,7 +56,7 @@ const designer: PrintDesignerLocale = {
   duplicatePage: 'ページを複製',
   movePageUp: 'ページを上へ移動',
   movePageDown: 'ページを下へ移動',
-  pagePosition: (position, count, name) => `${count} ページ中 ${position} ページ目：${name}`,
+  pagePosition: (position, count, name) => `${position} / ${count} ページ：${name}`,
   pageTitle: position => `${position} ページ目`,
   regions: REGION_NAMES,
   bandVariants: { default: '既定', first: '最初のページ', last: '最後のページ', odd: '奇数ページ', even: '偶数ページ' },
@@ -122,6 +122,7 @@ const designer: PrintDesignerLocale = {
   alignTextLeft: '文字を左揃え',
   alignTextCenter: '文字を中央揃え',
   alignTextRight: '文字を右揃え',
+  fontSizeMenu: size => `フォントサイズ：${size}`,
   alignMenu: '整列と分布',
   layerMenu: '重なり順',
   propertyGroups: {

@@ -1094,16 +1094,16 @@ export class XhPrintDesigner extends XhReactiveElement {
       if (targets.length > 0)
         this.#editor.execute(targets.map((target): PrintOperation => ({ type: 'updateElement', id: target.id, changes: [{ path: ['style', key], value }] })))
     }
-    const sizeName = (t: PrintDesignerTranslations): string => t.propertyNames['style.fontSize'] ?? 'Font size'
     const uniformSize = (): number | undefined => {
       const sizes = new Set(this.#formatTargets().map(target => target.style.fontSize))
       return sizes.size === 1 ? [...sizes][0] : undefined
     }
+    const sizeText = (): string => String(uniformSize() ?? '—')
     return [
       {
         id: 'font-size',
-        label: ({ translations }) => sizeName(translations),
-        shortLabel: () => String(uniformSize() ?? '—'),
+        label: ({ translations }) => translations.fontSizeMenu(sizeText()),
+        shortLabel: sizeText,
         enabled,
         menu: () => FONT_SIZES.map(size => ({ value: String(size), label: String(size), checked: uniformSize() === size, group: 'font-size' })),
         select: value => write('fontSize', Number(value)),

@@ -6,10 +6,12 @@
 // @vitest-environment jsdom
 
 import type { PrintDocument } from '@xihan-print/core'
+import type { DiagnosticRecord } from '@xihan-ui/core'
 import type { DesignerFrameRegion, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
 import type { TextMeasurer } from '@xihan-ui/viz'
 import type { XhPrintDesigner } from '../src'
 import { createDocument, createElementRegistry, createPage } from '@xihan-print/core'
+import { onDiagnostic, resetDiagnostics, setDiagnosticsConsoleOutput, setDiagnosticsDedupe, setDiagnosticsLevel } from '@xihan-ui/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { definePrintDesigner, PRINT_DESIGNER_HELP_URL } from '../src'
 
@@ -113,24 +115,30 @@ describe('翻页条', () => {
     return strip().querySelector<HTMLButtonElement>(`button[value="${value}"]`)!
   }
 
+  /** 页码按钮上看得见的字与它的名字。 */
+  function pageButton(): (string | null)[] {
+    const item = button('page-menu')
+    return [item.querySelector('[data-part="label"]')!.textContent, item.getAttribute('aria-label')]
+  }
+
   async function twoPages(): Promise<void> {
     const second = createPage({ id: 'q', name: '明细页' })
     designer.schema = createDocument({ pages: [sample().pages[0]!, second] })
     await settle()
   }
 
-  it('竖排落在画布区右侧中间：上一页、页码、下一页，新增、复制、删除页面；页码按钮写第几页、共几页与页面名称', async () => {
+  it('竖排落在画布区右侧中间：上一页、页码、下一页，新增、复制、删除页面；页码按钮上写「第几个 / 共几个」，名字再加页面名称', async () => {
     await twoPages()
     expect(strip().closest('[data-region="canvas"]')).not.toBeNull()
     expect(strip().getAttribute('data-orientation')).toBe('vertical')
     const groups = Array.from(strip().querySelectorAll('[data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), item => item.value))
     expect(groups).toEqual([['previous-page', 'page-menu', 'next-page'], ['add-page', 'duplicate-page', 'remove-page']])
-    expect(button('page-menu').getAttribute('aria-label')).toBe('Page 1 of 2: Page 1')
+    expect(pageButton()).toEqual(['1 / 2', 'Page 1 / 2: Page 1'])
     expect([button('previous-page').disabled, button('next-page').disabled]).toEqual([true, false])
     button('next-page').click()
     await settle()
     expect(designer.activePageId).toBe('q')
-    expect(button('page-menu').getAttribute('aria-label')).toBe('Page 2 of 2: 明细页')
+    expect(pageButton()).toEqual(['2 / 2', 'Page 2 / 2: 明细页'])
     expect([button('previous-page').disabled, button('next-page').disabled, button('remove-page').getAttribute('data-tone')]).toEqual([false, true, 'danger'])
   })
 
@@ -138,7 +146,7 @@ describe('翻页条', () => {
     await twoPages()
     button('page-menu').click()
     await settle()
-    const menu = document.querySelector('[aria-label="Page 1 of 2: Page 1"][role="menu"]')!
+    const menu = document.querySelector('[aria-label="Page 1 / 2: Page 1"][role="menu"]')!
     const items = Array.from(menu.querySelectorAll('[role="menuitemradio"], [role="menuitem"]'), item => [item.getAttribute('role'), item.textContent?.trim(), item.getAttribute('aria-checked')])
     expect(items).toEqual([
       ['menuitemradio', 'Page 1', 'true'],
@@ -427,12 +435,14 @@ describe('格式工具条', () => {
     expect([style().bold, style().align]).toEqual([false, 'left'])
   })
 
-  it('字号是菜单命令：列出常用字号，当前的打勾，选中一项写进去', async () => {
+  it('字号是菜单命令：按钮上写当前字号，名字是「字号：当前字号」；列出常用字号，当前的打勾，选中一项写进去', async () => {
     designer.select({ elements: ['a'] })
     await settle()
+    const size = String(style().fontSize)
+    expect([button('font-size').querySelector('[data-part="label"]')!.textContent, button('font-size').getAttribute('aria-label')]).toEqual([size, `Font size: ${size}`])
     button('font-size').click()
     await settle()
-    const menu = document.querySelector('[role="menu"][aria-label="Font size"]')!
+    const menu = document.querySelector(`[role="menu"][aria-label="Font size: ${size}"]`)!
     const current = menu.querySelector('[role="menuitemradio"][aria-checked="true"]')
     expect(current?.textContent?.trim()).toBe(String(style().fontSize))
     Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitemradio"]')).find(item => item.textContent?.trim() === '14')!.click()
@@ -471,5 +481,28 @@ describe('对齐与层级菜单', () => {
     await settle()
     const left = designer.schema.pages[0]!.elements.filter(element => element.id === 'a' || element.id === rect.id).map(element => element.x)
     expect(new Set(left).size).toBe(1)
+  })
+})
+
+describe('短文字', () => {
+  it('翻页条、顶栏与格式工具条上看得见的短文字都在按钮的名字里：不报 designer-commands 告警', async () => {
+    const seen: DiagnosticRecord[] = []
+    resetDiagnostics()
+    setDiagnosticsConsoleOutput(false)
+    setDiagnosticsLevel('warn')
+    setDiagnosticsDedupe(false)
+    const off = onDiagnostic(record => void seen.push(record))
+    try {
+      designer.schema = createDocument({ pages: [sample().pages[0]!, createPage({ id: 'q', name: '明细页' })] })
+      await settle()
+      designer.select({ elements: ['a'] })
+      await settle()
+      expect(designer.querySelector('[data-xh-part="item"][value="font-size"]')).not.toBeNull()
+      expect(seen.filter(record => record.scope === 'designer-commands').map(record => record.detail)).toEqual([])
+    }
+    finally {
+      off()
+      resetDiagnostics()
+    }
   })
 })
