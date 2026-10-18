@@ -76,9 +76,9 @@ describe('collectDocumentFields', () => {
     page.watermark = { text: '{{company}} 内部', fontSize: 20, color: '#999999', opacity: 0.2, rotation: 30, gapX: 20, gapY: 20 } as never
     expect(collectDocumentFields(documentOf(page))).toEqual([
       { name: 'company', kind: 'value' },
-      { name: 'photo', kind: 'value' },
+      { name: 'photo', kind: 'value', content: 'image' },
       { name: 'notes', kind: 'value' },
-      { name: 'lines', kind: 'list', children: [{ name: 'sku', kind: 'value' }] },
+      { name: 'lines', kind: 'list', children: [{ name: 'sku', kind: 'value', content: 'barcode' }] },
       { name: 'orderNo', kind: 'value' },
     ])
   })
@@ -112,5 +112,65 @@ describe('collectDocumentFields', () => {
       { name: 'flowName', kind: 'value' },
     ])
     expect(collectDocumentFields(doc)).toEqual([])
+  })
+  it('value 字段带上 content：图片记 image，条码与二维码直接取的字段记 barcode、qrcode，表格里图片与码类列同样；模板与表达式里的不记；几种引用取文字以外先出现的那一种', () => {
+    const table = simpleTable('t', 60, {
+      columns: [
+        { id: 'p', title: '图', width: 20, align: 'left', content: { kind: 'field', field: 'pic' }, cellType: 'image' },
+        { id: 's', title: '码', width: 30, align: 'left', content: { kind: 'field', field: 'sku' }, cellType: 'barCode', barCodeFormat: 'code128' },
+        { id: 'q', title: '二维码', width: 20, align: 'left', content: { kind: 'template', template: 'x{{code}}' }, cellType: 'matrixCode' },
+        { id: 'n', title: '名', width: 30, align: 'left', content: { kind: 'field', field: 'name' }, cellType: 'text' },
+      ],
+      footerRows: [],
+    } as never)
+    const page = squarePage('p', [
+      text('a', { kind: 'field', field: 'logo' }),
+      registry.createElement('image', { id: 'img', x: 0, y: 10, overrides: { source: { kind: 'field', field: 'logo' } } }),
+      registry.createElement('barCode', { id: 'bc', x: 0, y: 20, overrides: { content: { kind: 'field', field: 'orderNo' } } }),
+      registry.createElement('matrixCode', { id: 'qr', x: 0, y: 30, overrides: { content: { kind: 'field', field: 'orderNo' } } }),
+      registry.createElement('matrixCode', { id: 'qr2', x: 0, y: 40, overrides: { content: { kind: 'field', field: 'url' } } }),
+      registry.createElement('barCode', { id: 'bc2', x: 0, y: 50, overrides: { content: { kind: 'expression', expression: 'prefix + serial' } } }),
+      table,
+    ])
+    expect(collectDocumentFields(documentOf(page))).toEqual([
+      { name: 'logo', kind: 'value', content: 'image' },
+      { name: 'orderNo', kind: 'value', content: 'barcode' },
+      { name: 'url', kind: 'value', content: 'qrcode' },
+      { name: 'prefix', kind: 'value' },
+      { name: 'serial', kind: 'value' },
+      {
+        name: 'items',
+        kind: 'list',
+        children: [
+          { name: 'pic', kind: 'value', content: 'image' },
+          { name: 'sku', kind: 'value', content: 'barcode' },
+          { name: 'code', kind: 'value' },
+          { name: 'name', kind: 'value' },
+        ],
+      },
+    ])
+  })
+
+  it('扩展元素的 fields 钩子给的 content 一并汇总；写 text 不占位，之后的图片引用照样记 image', () => {
+    const stamp: ExtensionElementPrototype = {
+      type: 'stamp',
+      category: 'data',
+      order: 9,
+      flow: false,
+      minSize: { width: 10, height: 10 },
+      defaults: { type: 'stamp', width: 20, height: 20 },
+      properties: [...layoutProperties({ rotation: false }), ...behaviorProperties()],
+      layout: () => null,
+      fields: (_element, context) => [
+        ...context.field('seal').map(reference => ({ ...reference, content: 'text' as const })),
+        ...context.field('seal').map(reference => ({ ...reference, content: 'image' as const })),
+        ...context.field('signer').map(reference => ({ ...reference, content: 'qrcode' as const })),
+      ],
+    }
+    const element = { id: 's', type: 'stamp', x: 0, y: 0, width: 20, height: 20 } as unknown as PrintElement
+    expect(collectDocumentFields(documentOf(squarePage('p', [element])), { extensions: [{ id: '@acme/stamp', elements: [stamp] }] })).toEqual([
+      { name: 'seal', kind: 'value', content: 'image' },
+      { name: 'signer', kind: 'value', content: 'qrcode' },
+    ])
   })
 })

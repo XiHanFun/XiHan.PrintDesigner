@@ -4,7 +4,7 @@
  */
 
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
-import type { Rect, Size } from '@xihan-ui/designer-kit'
+import type { DataFieldContent, Rect, Size } from '@xihan-ui/designer-kit'
 import type { PropertyControl as KitPropertyControl, PropertyDescriptor as KitPropertyDescriptor } from '@xihan-ui/designer-kit/properties'
 import type { TextContent, TextStyle } from '../schema/common'
 import type { ElementBase, ExtensionElement, PrintElement, PrintElementOf, PrintElementType } from '../schema/elements'
@@ -119,6 +119,8 @@ export interface ElementPrototype<TElement extends ElementBase<string> = PrintEl
 export interface ElementFieldReference {
   readonly path: JsonPath
   readonly rows?: readonly ElementFieldReference[]
+  /** 字段的值在元素里当什么用：图片地址 image、一维条码的内容 barcode、二维码的内容 qrcode；当文字用时不写。 */
+  readonly content?: DataFieldContent
 }
 
 /** 列字段引用时拿到的帮手：把常见的内容来源换成引用，扩展元素不必自己解析模板串与表达式。 */

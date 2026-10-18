@@ -6,7 +6,7 @@
 // 列出一份模板引用了哪些数据字段：按元素原型的 fields 钩子收集引用，再合成去重的字段树。
 
 import type { JsonPath } from '@xihan-ui/core/json'
-import type { DataField } from '@xihan-ui/designer-kit'
+import type { DataField, DataFieldContent } from '@xihan-ui/designer-kit'
 import type { PrintCoreExtension } from './extensions'
 import type { ElementFieldReference, ElementFieldsContext } from './registry/types'
 import type { TextContent } from './schema/common'
@@ -76,6 +76,8 @@ export interface CollectDocumentFieldsOptions {
 
 interface FieldNode {
   kind: 'value' | 'object' | 'list'
+  /** 字段的值当什么用：先出现的文字以外那一种。 */
+  content?: DataFieldContent
   readonly children: Map<string, FieldNode>
 }
 
@@ -103,6 +105,8 @@ function addReference(level: Map<string, FieldNode>, reference: ElementFieldRefe
     node = nodeAt(current, segment)
     current = node.children
   }
+  if (node !== undefined && node.content === undefined && reference.content !== undefined && reference.content !== 'text')
+    node.content = reference.content
   if (node === undefined || reference.rows === undefined)
     return
   node.kind = 'list'
@@ -114,7 +118,7 @@ function addReference(level: Map<string, FieldNode>, reference: ElementFieldRefe
 
 function toDataFields(level: Map<string, FieldNode>): DataField[] {
   return [...level].map(([name, node]): DataField => (node.kind === 'value'
-    ? { name, kind: 'value' }
+    ? { name, kind: 'value', ...(node.content === undefined ? {} : { content: node.content }) }
     : { name, kind: node.kind, children: toDataFields(node.children) }))
 }
 
@@ -125,6 +129,11 @@ function toDataFields(level: Map<string, FieldNode>): DataField[] {
  * 各列与表尾），以及页面水印里的 `{{path}}`。表格的 dataField 记成 list，列与汇总里的行内字段挂在它的 children 下；
  * 路径里的数字下标同样把前一段记成 list。表达式里的路径经 @xihan-ui/expression 的语法取，模板串经 @xihan-ui/core/template；
  * 以 $ 开头的宿主变量不算字段。字段按在模板里首次出现的顺序排；只知道路径，所以不带 label 与 type。
+ *
+ * value 字段带上 content：被图片的字段来源引用记 image；被条码、二维码的内容直接取用记 barcode、qrcode，
+ * 表格里单元格类型为图片、条码、二维码的列同样；模板串与表达式里的字段只是内容的一部分，不记。
+ * 一个字段被几种元素引用时取文字以外的那一种；文字以外的种类有冲突时取在模板里先出现的那一种。
+ * 扩展元素的 fields 钩子在引用上给 content 即一并汇总。
  */
 export function collectDocumentFields(document: PrintDocument, options: CollectDocumentFieldsOptions = {}): DataField[] {
   const elements = createPrintModel(options.extensions).elements
