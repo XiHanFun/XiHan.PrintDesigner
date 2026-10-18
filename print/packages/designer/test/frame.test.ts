@@ -348,3 +348,40 @@ describe('顶栏', () => {
     expect(header()).toBeNull()
   })
 })
+
+describe('页面设置', () => {
+  type SetupPanel = HTMLElement & { targets?: readonly { kind: string, descriptors: readonly { group: string, path: readonly unknown[] }[] }[], readonly?: boolean }
+
+  function button(): HTMLButtonElement {
+    return designer.querySelector<HTMLButtonElement>('[data-part="command-bar"] button[value="page-setup"]')!
+  }
+
+  it('工具栏上的弹层命令：点开锚在按钮上的弹层，里面只列纸张一组（纸张、方向、页边距），改了记一步撤销', async () => {
+    expect([button().hasAttribute('data-icon'), button().getAttribute('aria-label')]).toEqual([true, 'Page settings'])
+    button().click()
+    await settle()
+    const panel = document.querySelector<SetupPanel>('[data-part="page-setup"]')!
+    expect(panel).not.toBeNull()
+    expect(panel.targets![0]!.kind).toBe('page')
+    expect(new Set(panel.targets![0]!.descriptors.map(descriptor => descriptor.group))).toEqual(new Set(['paper']))
+    expect(panel.targets![0]!.descriptors.some(descriptor => descriptor.path[0] === 'orientation')).toBe(true)
+    panel.dispatchEvent(new CustomEvent('property-change', { detail: { path: ['orientation'], value: 'landscape', targets: [{ kind: 'page', id: 'p' }], merge: 'orientation' }, bubbles: true }))
+    panel.dispatchEvent(new CustomEvent('property-commit', { bubbles: true }))
+    await settle()
+    expect(designer.schema.pages[0]!.orientation).toBe('landscape')
+    designer.undo()
+    expect(designer.schema.pages[0]!.orientation).toBe('portrait')
+  })
+
+  it('只读时照常打开、字段只读；预览态不可用', async () => {
+    designer.readonly = true
+    await settle()
+    button().click()
+    await settle()
+    expect(document.querySelector<SetupPanel>('[data-part="page-setup"]')!.readonly).toBe(true)
+    designer.readonly = false
+    designer.mode = 'preview'
+    await settle()
+    expect(button().disabled).toBe(true)
+  })
+})

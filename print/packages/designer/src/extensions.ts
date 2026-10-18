@@ -75,7 +75,7 @@ export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom', 'distribute-horizontal', 'distribute-vertical'],
   ['bring-to-front', 'bring-forward', 'send-backward', 'send-to-back'],
   ['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual', 'grid', 'snap'],
-  ['design', 'preview', 'print'],
+  ['design', 'preview', 'page-setup', 'print'],
   ['panels', 'settings', 'help'],
 ]
 

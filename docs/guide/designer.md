@@ -30,7 +30,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 区 | `panels` 里的名字 | 作用 |
 | --- | --- | --- |
 | 顶栏 | — | 中段是常用元素的插入钮：文本、图片、条码、二维码、表格、线条，点一下加到视口中央；钮上图标下面写元素名。`commandLayout` 写 `{ header: [] }` 就没有顶栏，预览态也收起 |
-| 工具栏 | `toolbar` | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐与等距分布；层级；缩放、网格与吸附开关；设计与预览切换；打印；面板、设置与帮助 |
+| 工具栏 | `toolbar` | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐与等距分布；层级；缩放、网格与吸附开关；设计与预览切换；页面设置；打印；面板、设置与帮助。「页面设置」点开一个弹层，改当前页面模板的纸张、方向与页边距，与属性面板里「纸张」一组是同一批属性 |
 | 物料 | `palette` | 点一下把元素加到视口中央，拖到画布上放在落点 |
 | 翻页条 | `pages` | 画布右侧中间的一列：上一页、页码、下一页，新增、复制、删除页面模板。点页码列出全部页面模板，点一项切过去，下面是上移、下移页面 |
 | 标尺 | `rulers` | 毫米标尺；从标尺拖出参考线，参考线存进页面模板，只用于对位、不打印 |
@@ -230,7 +230,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | --- | --- |
 | 编辑 | `undo` `redo` `cut` `copy` `paste` `duplicate` `delete` `select-all` |
 | 对齐与层级 | `align-left` `align-center` `align-right` `align-top` `align-middle` `align-bottom` `distribute-horizontal` `distribute-vertical` `bring-to-front` `bring-forward` `send-backward` `send-to-back` |
-| 视图 | `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `print` |
+| 视图 | `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `page-setup` `print` |
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
 | 插入 | `insert:text` `insert:image` `insert:barCode` `insert:matrixCode` `insert:table` `insert:line`：顶栏的插入钮 |
 | 面板、设置与帮助 | `panels` `settings` `help`：designer-shell 内置，排在工具栏末组。「面板」点开菜单开关物料、属性与问题，「设置」打开设置对话框，「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`） |

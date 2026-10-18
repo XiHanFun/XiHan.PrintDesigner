@@ -148,7 +148,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SquareDashedIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SquareDashedIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -157,7 +157,7 @@ import { createPrintEditor, elementRect } from './editor'
 import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { borderSidesEditor, valueFormatEditor } from './property-editors'
-import { propertySubjects, TABLE_PART_KINDS } from './property-targets'
+import { pageSubject, propertySubjects, TABLE_PART_KINDS } from './property-targets'
 import { PRINT_SETTING_KEYS, printSettingsSection } from './settings'
 import { columnBoundaries, planTableCommand, tablePartAt } from './table-edit'
 
@@ -1032,7 +1032,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       helpUrl: () => PRINT_DESIGNER_HELP_URL,
       icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon },
     })
-    return [...builtin, ...this.#quickInserts(), this.#pageMenu(), ...shell]
+    return [...builtin, ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell]
   }
 
   /** 顶栏的插入钮：每种常用元素一条，按钮上图标下面写元素名，点了加到视口中央；只读或不在设计态时不可用。 */
@@ -1046,6 +1046,45 @@ export class XhPrintDesigner extends XhReactiveElement {
       enabled: () => !this.#readOnly && this.mode === 'design',
       run: () => void this.addElement(type),
     }))
+  }
+
+  /**
+   * 页面设置：工具栏上的弹层命令，弹层里是当前页面模板的纸张、方向与页边距，用一份属性零件铺，与属性面板共用描述与文案；
+   * 改动与属性面板里一样记撤销。只读时照常打开、字段只读，预览态不可用。
+   */
+  #pageSetup(): PrintDesignerCommand {
+    return {
+      id: 'page-setup',
+      label: ({ translations }) => translations.pageSettings,
+      icon: FileIcon,
+      placement: ['toolbar'],
+      enabled: () => this.mode === 'design',
+      panel: () => {
+        const panel = createAuthoredElement(this.ownerDocument, 'xh-designer-properties', { 'data-part': 'page-setup', 'headless': true }) as XhDesignerPropertiesElement
+        let subject = pageSubject(this.#editor, (kind, descriptor) => resolvePropertyEditor(this.#propertyEditors(), kind, descriptor) !== undefined)
+        panel.addEventListener('property-change', (event) => {
+          event.stopPropagation()
+          const { path, value, merge } = (event as DesignerPropertiesEventMap['property-change']).detail
+          if (!this.#readOnly)
+            this.#editor.execute([subject.write(path, value)], { merge, mergeWithin: Number.POSITIVE_INFINITY })
+        })
+        panel.addEventListener('property-commit', (event) => {
+          event.stopPropagation()
+          this.#editor.seal()
+        })
+        const render = (): void => {
+          const t = this.#translations()
+          subject = pageSubject(this.#editor, (kind, descriptor) => resolvePropertyEditor(this.#propertyEditors(), kind, descriptor) !== undefined)
+          panel.editors = this.#propertyEditors()
+          this.#labelProperties(panel, 'page', t)
+          panel.groupOrder = ['paper']
+          panel.targets = [{ kind: subject.kind, id: subject.id, value: subject.value, descriptors: subject.descriptors.filter(descriptor => descriptor.group === 'paper') }]
+          panel.readonly = this.#readOnly
+        }
+        render()
+        return { element: panel, update: render }
+      },
+    }
   }
 
   /** 翻页条上的页码：点开菜单，上半是全部页面模板（单选），下半是上移、下移页面。 */
@@ -2059,6 +2098,11 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#panelInputs = inputs
     panel.editors = editors
     panel.dataFields = this.fields
+    this.#labelProperties(panel, kind, t)
+  }
+
+  /** 属性零件的分组次序与文案：分组名、属性名（对象种类上的压过通用的，拆开的分项写成「父项 · 分项」）、选项名与单位。 */
+  #labelProperties(panel: XhDesignerPropertiesElement, kind: string, t: PrintDesignerTranslations): void {
     panel.groupOrder = kind === 'page' ? PAGE_PROPERTY_GROUPS : PROPERTY_GROUPS
     panel.groupLabel = group => t.propertyGroups[group as PropertyGroup] ?? group
     panel.labelOf = (descriptor) => {
