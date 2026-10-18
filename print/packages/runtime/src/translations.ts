@@ -114,6 +114,8 @@ export interface PrintDesignerTranslations {
   readonly measure: (width: string, height: string) => string
   /** 物料面板的标题。 */
   readonly palette: string
+  /** 物料面板里按 fields 列出的字段那一组的名称。 */
+  readonly fieldGroup: string
   /** 属性面板的标题。 */
   readonly properties: string
   /** 问题列表的标题。 */

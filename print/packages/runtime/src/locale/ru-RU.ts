@@ -132,6 +132,7 @@ const designer: PrintDesignerLocale = {
   newColumnTitle: position => `Столбец ${position}`,
   measure: (width, height) => `${width} × ${height} mm`,
   palette: 'Элементы',
+  fieldGroup: 'Поля',
   properties: 'Свойства',
   issues: 'Проблемы',
   propertyGroups: {

@@ -130,6 +130,7 @@ const designer: PrintDesignerLocale = {
   newColumnTitle: position => `Columna ${position}`,
   measure: (width, height) => `${width} × ${height} mm`,
   palette: 'Elementos',
+  fieldGroup: 'Campos',
   properties: 'Propiedades',
   issues: 'Problemas',
   propertyGroups: {

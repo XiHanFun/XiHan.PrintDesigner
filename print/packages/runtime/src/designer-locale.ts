@@ -427,6 +427,7 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   newColumnTitle: position => `Column ${position}`,
   measure: (width, height) => `${width} × ${height} mm`,
   palette: 'Elements',
+  fieldGroup: 'Fields',
   properties: 'Properties',
   issues: 'Problems',
   propertyGroups: {

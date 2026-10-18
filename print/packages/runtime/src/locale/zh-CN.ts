@@ -119,6 +119,7 @@ const designer: PrintDesignerLocale = {
   newColumnTitle: position => `列 ${position}`,
   measure: (width, height) => `${width} × ${height} mm`,
   palette: '物料',
+  fieldGroup: '字段',
   properties: '属性',
   issues: '问题',
   propertyGroups: {

@@ -190,6 +190,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `mergeCellRight` | `string` |  |
 | `splitCell` | `string` |  |
 | `palette` | `string` | 物料面板的标题。 |
+| `fieldGroup` | `string` | 物料面板里按 fields 列出的字段那一组的名称。 |
 | `properties` | `string` | 属性面板的标题。 |
 | `issues` | `string` | 问题列表的标题。 |
 | `propertyGroups` | `Readonly<Record<PropertyGroup, string>>` | 属性分组的名称。 |
