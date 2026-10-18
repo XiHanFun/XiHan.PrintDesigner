@@ -5,7 +5,7 @@
 
 import type { Rect } from '@xihan-ui/designer-kit'
 import type { PropertyCondition } from '@xihan-ui/designer-kit/properties'
-import type { Stroke, TextStyle } from '../schema/common'
+import type { Stroke, TextContent, TextStyle } from '../schema/common'
 import type {
   BarCodeElement,
   EllipseElement,
@@ -19,8 +19,8 @@ import type {
   TableElement,
   TextElement,
 } from '../schema/elements'
-import type { CellStyle, TableColumn } from '../schema/table'
-import type { AnyElementPrototype, ElementPrototype } from './types'
+import type { CellStyle, TableCellContent, TableColumn } from '../schema/table'
+import type { AnyElementPrototype, ElementFieldReference, ElementFieldsContext, ElementPrototype } from './types'
 import { nestProperties } from '@xihan-ui/designer-kit/properties'
 import { NUMERAL_STYLES } from '@xihan-ui/expression'
 import { BAR_CODE_FORMATS, MATRIX_CODE_FORMATS } from '@xihan-ui/headless'
@@ -104,6 +104,46 @@ function resizeTable(element: TableElement, bounds: Rect): TableElement {
   return next
 }
 
+/** 文本、长文本、条码与二维码的内容来源引用的字段。 */
+function contentFields(element: { content: TextContent }, context: ElementFieldsContext): readonly ElementFieldReference[] {
+  return context.text(element.content)
+}
+
+/** 富文本从字段读内容时引用那个字段。 */
+function richTextFields(element: RichTextElement, context: ElementFieldsContext): readonly ElementFieldReference[] {
+  return element.content.kind === 'field' ? context.field(element.content.field) : []
+}
+
+/** 图片从字段读地址时引用那个字段。 */
+function imageFields(element: ImageElement, context: ElementFieldsContext): readonly ElementFieldReference[] {
+  return element.source.kind === 'field' ? context.field(element.source.field) : []
+}
+
+/** 表体单元格引用的行内字段。 */
+function cellFields(content: TableCellContent, context: ElementFieldsContext): readonly ElementFieldReference[] {
+  switch (content.kind) {
+    case 'field':
+      return context.field(content.field)
+    case 'template':
+      return context.template(content.template)
+    case 'expression':
+      return context.expression(content.expression)
+    default:
+      return []
+  }
+}
+
+/** 表格引用的字段：dataField 是列表，各列与汇总的行内字段相对它的一行；表尾的文本内容相对数据根。 */
+function tableFields(element: TableElement, context: ElementFieldsContext): readonly ElementFieldReference[] {
+  const cells = element.footerRows.flatMap(row => row.cells)
+  const rows = [
+    ...element.columns.flatMap(column => cellFields(column.content, context)),
+    ...cells.flatMap(cell => (cell.content.kind === 'aggregate' && cell.content.field !== undefined ? context.field(cell.content.field) : [])),
+  ]
+  const footer = cells.flatMap(cell => (cell.content.kind === 'aggregate' ? [] : context.text(cell.content)))
+  return [...context.field(element.dataField).map(reference => ({ ...reference, rows })), ...footer]
+}
+
 function textPrototype(): ElementPrototype<TextElement> {
   return {
     type: 'text',
@@ -121,6 +161,7 @@ function textPrototype(): ElementPrototype<TextElement> {
       overflow: 'clip',
       rotation: 0,
     },
+    fields: contentFields,
     properties: [
       ...layoutProperties({ rotation: true }),
       property(['content'], 'content', { kind: 'textContent' }),
@@ -147,6 +188,7 @@ function longTextPrototype(): ElementPrototype<LongTextElement> {
       content: { kind: 'static', text: '' },
       style: defaultTextStyle({ lineHeight: 1.5 }),
     },
+    fields: contentFields,
     properties: [
       ...layoutProperties({ rotation: false }),
       property(['content'], 'content', { kind: 'textContent' }),
@@ -171,6 +213,7 @@ function richTextPrototype(): ElementPrototype<RichTextElement> {
       content: { kind: 'static', document: { blocks: [{ type: 'paragraph', runs: [] }] } },
       style: defaultTextStyle({ lineHeight: 1.5 }),
     },
+    fields: richTextFields,
     properties: [
       ...layoutProperties({ rotation: false }),
       property(['content'], 'content', { kind: 'richTextContent' }),
@@ -222,6 +265,7 @@ function imagePrototype(): ElementPrototype<ImageElement> {
       fit: 'contain',
       rotation: 0,
     },
+    fields: imageFields,
     properties: [
       ...layoutProperties({ rotation: true }),
       property(['source'], 'content', { kind: 'imageSource' }),
@@ -260,6 +304,7 @@ function tablePrototype(): ElementPrototype<TableElement> {
       fillEmptyRows: false,
       border: { stroke: defaultStroke(0.2), outer: true, horizontal: true, vertical: true },
     },
+    fields: tableFields,
     properties: [
       ...layoutProperties({ rotation: false }),
       property(['dataField'], 'data', { kind: 'dataField', kinds: ['list'] }),
@@ -373,6 +418,7 @@ function barCodePrototype(): ElementPrototype<BarCodeElement> {
       color: '#000000',
       rotation: 0,
     },
+    fields: contentFields,
     properties: [
       ...layoutProperties({ rotation: true }),
       property(['format'], 'code', { kind: 'select', options: choices(BAR_CODE_FORMATS) }),
@@ -405,6 +451,7 @@ function matrixCodePrototype(): ElementPrototype<MatrixCodeElement> {
       quietZone: 1,
       rotation: 0,
     },
+    fields: contentFields,
     properties: [
       ...layoutProperties({ rotation: true }),
       property(['content'], 'content', { kind: 'textContent' }),

@@ -6,7 +6,7 @@
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
 import type { Rect, Size } from '@xihan-ui/designer-kit'
 import type { PropertyControl as KitPropertyControl, PropertyDescriptor as KitPropertyDescriptor } from '@xihan-ui/designer-kit/properties'
-import type { TextStyle } from '../schema/common'
+import type { TextContent, TextStyle } from '../schema/common'
 import type { ElementBase, ExtensionElement, PrintElement, PrintElementOf, PrintElementType } from '../schema/elements'
 import type { ElementRegion } from '../traverse'
 import type { ExtensionIssueCode, IssueParams, ValidationIssueCode } from '../validation/issues'
@@ -105,6 +105,32 @@ export interface ElementPrototype<TElement extends ElementBase<string> = PrintEl
    * 只有跨页的扩展元素用它，内置的长文本、富文本与表格另有排法。
    */
   prepare?: (element: TElement, context: ElementFlowContext) => ExtensionFlowContent
+  /**
+   * 元素引用了哪些数据字段，交给 collectDocumentFields 汇总；没给即不引用。
+   * 内置元素与扩展元素都走它，扩展元素给了它，汇总时才不会漏掉收费包里的元素。
+   */
+  fields?: (element: TElement, context: ElementFieldsContext) => readonly ElementFieldReference[]
+}
+
+/**
+ * 元素引用的一个数据字段。path 相对数据根，在列表的一行里（rows）时相对那一行；路径里的数字下标表示前一段是列表。
+ * 给了 rows 即表示 path 是列表（如表格的 dataField），rows 是相对列表一行的引用。
+ */
+export interface ElementFieldReference {
+  readonly path: JsonPath
+  readonly rows?: readonly ElementFieldReference[]
+}
+
+/** 列字段引用时拿到的帮手：把常见的内容来源换成引用，扩展元素不必自己解析模板串与表达式。 */
+export interface ElementFieldsContext {
+  /** 一个字段路径（formatJsonPath 的写法）；写法不对时为空。 */
+  readonly field: (path: string) => readonly ElementFieldReference[]
+  /** `{{path}}` 模板串里的占位；以 $ 开头的宿主变量（如 $page）不算字段。 */
+  readonly template: (source: string) => readonly ElementFieldReference[]
+  /** 受限表达式里引用的变量与成员路径；解析不了时为空，以 $ 开头的宿主变量不算字段。 */
+  readonly expression: (source: string) => readonly ElementFieldReference[]
+  /** 文本内容来源：字段、模板与表达式各按上面的规则，固定文本没有引用。 */
+  readonly text: (content: TextContent) => readonly ElementFieldReference[]
 }
 
 /** 扩展元素排版时拿到的上下文。 */
