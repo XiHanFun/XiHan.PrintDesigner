@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { Rect } from '@xihan-ui/designer-kit'
+import type { DataFieldContent, Rect } from '@xihan-ui/designer-kit'
 import type { PropertyCondition } from '@xihan-ui/designer-kit/properties'
 import type { Stroke, TextContent, TextStyle } from '../schema/common'
 import type {
@@ -114,9 +114,27 @@ function richTextFields(element: RichTextElement, context: ElementFieldsContext)
   return element.content.kind === 'field' ? context.field(element.content.field) : []
 }
 
-/** 图片从字段读地址时引用那个字段。 */
+/** 给一组引用标上字段的值当什么用。 */
+function asContent(references: readonly ElementFieldReference[], content: DataFieldContent): readonly ElementFieldReference[] {
+  return references.map(reference => ({ ...reference, content }))
+}
+
+/** 图片从字段读地址时引用那个字段，标成 image。 */
 function imageFields(element: ImageElement, context: ElementFieldsContext): readonly ElementFieldReference[] {
-  return element.source.kind === 'field' ? context.field(element.source.field) : []
+  return element.source.kind === 'field' ? asContent(context.field(element.source.field), 'image') : []
+}
+
+/** 条码与二维码的内容引用的字段；内容直接取一个字段时标成对应的种类，模板串与表达式里的字段只是内容的一部分，不标。 */
+function codeFields(content: DataFieldContent) {
+  return (element: { content: TextContent }, context: ElementFieldsContext): readonly ElementFieldReference[] =>
+    element.content.kind === 'field' ? asContent(context.field(element.content.field), content) : context.text(element.content)
+}
+
+/** 表格列的单元格类型对应的字段种类；文字列不标。 */
+const CELL_CONTENT: Readonly<Partial<Record<TableColumn['cellType'], DataFieldContent>>> = {
+  image: 'image',
+  barCode: 'barcode',
+  matrixCode: 'qrcode',
 }
 
 /** 表体单元格引用的行内字段。 */
@@ -137,7 +155,11 @@ function cellFields(content: TableCellContent, context: ElementFieldsContext): r
 function tableFields(element: TableElement, context: ElementFieldsContext): readonly ElementFieldReference[] {
   const cells = element.footerRows.flatMap(row => row.cells)
   const rows = [
-    ...element.columns.flatMap(column => cellFields(column.content, context)),
+    ...element.columns.flatMap((column) => {
+      const references = cellFields(column.content, context)
+      const content = CELL_CONTENT[column.cellType]
+      return content !== undefined && column.content.kind === 'field' ? asContent(references, content) : references
+    }),
     ...cells.flatMap(cell => (cell.content.kind === 'aggregate' && cell.content.field !== undefined ? context.field(cell.content.field) : [])),
   ]
   const footer = cells.flatMap(cell => (cell.content.kind === 'aggregate' ? [] : context.text(cell.content)))
@@ -418,7 +440,7 @@ function barCodePrototype(): ElementPrototype<BarCodeElement> {
       color: '#000000',
       rotation: 0,
     },
-    fields: contentFields,
+    fields: codeFields('barcode'),
     properties: [
       ...layoutProperties({ rotation: true }),
       property(['format'], 'code', { kind: 'select', options: choices(BAR_CODE_FORMATS) }),
@@ -451,7 +473,7 @@ function matrixCodePrototype(): ElementPrototype<MatrixCodeElement> {
       quietZone: 1,
       rotation: 0,
     },
-    fields: contentFields,
+    fields: codeFields('qrcode'),
     properties: [
       ...layoutProperties({ rotation: true }),
       property(['content'], 'content', { kind: 'textContent' }),

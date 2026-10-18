@@ -147,7 +147,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 <<< @/examples/snippets/extension-element.ts#element
 
 - 属性描述可以用 `layoutProperties`、`behaviorProperties` 与 `property` 拼，和内置元素用的是同一套。
-- 引用了数据字段的元素给 `fields`：返回它引用的字段，`collectDocumentFields` 汇总模板字段时才不会漏掉它。上下文带 `field`、`template`、`expression` 与 `text` 四个帮手，分别把字段路径、<code v-pre>{{path}}</code> 模板串、表达式与文本内容来源换成引用，与内置元素同一套解析；引用的是列表时给 `rows`，里面是相对列表一行的引用。
+- 引用了数据字段的元素给 `fields`：返回它引用的字段，`collectDocumentFields` 汇总模板字段时才不会漏掉它。上下文带 `field`、`template`、`expression` 与 `text` 四个帮手，分别把字段路径、<code v-pre>{{path}}</code> 模板串、表达式与文本内容来源换成引用，与内置元素同一套解析；引用的是列表时给 `rows`，里面是相对列表一行的引用。字段的值在元素里当图片地址、条码或二维码的内容用时，在引用上写 `content`（`image`、`barcode`、`qrcode`），汇总时一并记进字段树。
 - 不跨页的元素没给 `layout`、跨页的元素没给 `prepare`（见下文）时，赋值时抛 `TypeError`。
 - `palette` 给自己元素的物料项：名称与图标（`@xihan-ui/core` 的 `IconRecord`）。名称也用在画布与属性面板的可访问名和问题列表里，不给时显示类型名。`palette` 里写了不是本扩展登记的元素类型时，赋值时抛 `TypeError`。
 - 原型的 `category` 可以是内置分组（`text`、`media`、`data`、`shape`、`code`），也可以是新的分组。新分组排在内置分组之后，按首次登记的顺序；名称写在扩展的 `categories` 里，没写时显示分组名。分组名与内置分组或别的扩展写的重名时，抛 `DesignerExtensionError`。
