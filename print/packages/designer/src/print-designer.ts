@@ -93,6 +93,7 @@ import {
   createExtensionHost,
   decodeClipboard,
   encodeClipboard,
+  findImporter,
   fitRect,
   hitTest,
   nudgeDelta,
@@ -111,6 +112,7 @@ import {
   createCommandToolbar,
   createPanelHost,
   defineDesignerShellElement,
+  importSources,
   parseDesignerPanels,
   registerDropTarget,
   renderCommandMenu,
@@ -404,19 +406,6 @@ function frameRegions(t: PrintDesignerTranslations): DesignerFrameRegion[] {
     { name: 'properties', position: 'end', size: 22, label: t.properties },
     { name: 'issues', position: 'bottom', size: 22, label: t.issues },
   ]
-}
-
-/** 导入时依次查看的文本类型。 */
-const IMPORT_TEXT_TYPES = ['text/uri-list', 'text/html', 'text/plain'] as const
-
-/** 剪贴板或拖放带来的内容，按文件、链接、HTML、纯文本的顺序列成导入来源。 */
-function importSources(data: DataTransfer, kind: 'clipboard' | 'drop'): DesignerImportSource[] {
-  const files = Array.from(data.files, (file): DesignerImportSource => ({ kind, mime: file.type, name: file.name, file }))
-  const texts = IMPORT_TEXT_TYPES.flatMap((mime): DesignerImportSource[] => {
-    const text = data.getData(mime)
-    return text === '' ? [] : [{ kind, mime, text }]
-  })
-  return [...files, ...texts]
 }
 
 function isPaletteDrag(payload: unknown): payload is DesignerPaletteDragPayload {
@@ -2594,15 +2583,11 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 依次把来源交给导入器，按扩展顺序第一个接下的导入；没有导入器接下时返回 false。 */
   #import(sources: readonly DesignerImportSource[], at: Point): boolean {
-    const { importers } = this.#model()
-    for (const source of sources) {
-      const importer = importers.find(item => item.accepts(source))
-      if (importer !== undefined) {
-        void this.#runImport(importer, source, at)
-        return true
-      }
-    }
-    return false
+    const found = findImporter(this.#model().importers, sources)
+    if (found === undefined)
+      return false
+    void this.#runImport(found.importer, found.source, at)
+    return true
   }
 
   /** 导入并放下：元素整体挪到以 at 为中心，校验通过后按粘贴的规则放进当前页面模板；出错时派发 import-error。 */
