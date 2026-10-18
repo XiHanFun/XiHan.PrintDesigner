@@ -29,7 +29,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 | 区 | `panels` 里的名字 | 作用 |
 | --- | --- | --- |
-| 工具栏 | `toolbar` | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐与等距分布；层级；缩放、网格与吸附开关；设计与预览切换；打印 |
+| 工具栏 | `toolbar` | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐与等距分布；层级；缩放、网格与吸附开关；设计与预览切换；打印；面板、设置与帮助 |
 | 物料 | `palette` | 点一下把元素加到视口中央，拖到画布上放在落点 |
 | 翻页条 | `pages` | 画布右侧中间的一列：上一页、页码、下一页，新增、复制、删除页面模板。点页码列出全部页面模板，点一项切过去，下面是上移、下移页面 |
 | 标尺 | `rulers` | 毫米标尺；从标尺拖出参考线，参考线存进页面模板，只用于对位、不打印 |
@@ -212,7 +212,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ### 命令
 
-扩展的 `commands` 登记命令，工具栏按钮、右键菜单项与快捷键共用一条。命令 id 用扩展 id 加点加名字；`label`、`enabled` 与 `run` 收到 `{ designer, translations, commands }`（`commands` 是四款设计器共用的命令文案，如 `commands.undo`），`label` 也可以直接写成文字；给了 `checked` 的是开关式命令，工具栏按钮显示按下状态：
+扩展的 `commands` 登记命令，工具栏按钮、右键菜单项与快捷键共用一条。命令 id 用扩展 id 加点加名字；`label`、`enabled` 与 `run` 收到 `{ designer, translations, commands, settings, frame }`（`commands` 是四款设计器共用的命令文案，如 `commands.undo`；`settings` 是生效的设置；`frame` 是设计器的外框），`label` 也可以直接写成文字；给了 `checked` 的是开关式命令，工具栏按钮显示按下状态：
 
 <<< @/examples/snippets/designer-commands.ts#example
 
@@ -230,6 +230,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 对齐与层级 | `align-left` `align-center` `align-right` `align-top` `align-middle` `align-bottom` `distribute-horizontal` `distribute-vertical` `bring-to-front` `bring-forward` `send-backward` `send-to-back` |
 | 视图 | `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `print` |
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
+| 面板、设置与帮助 | `panels` `settings` `help`：designer-shell 内置，排在工具栏末组。「面板」点开菜单开关物料、属性与问题，「设置」打开设置对话框，「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`） |
 | 页面模板 | `previous-page` `page-menu` `next-page` `add-page` `duplicate-page` `remove-page`：固定排在翻页条上（`PRINT_PAGE_STRIP_LAYOUT`），不经 `commandLayout`；`move-page-up` `move-page-down` 在页码菜单里 |
 
 ### 面板

@@ -128,6 +128,7 @@ import {
   defineDesignerShellElement,
   DESIGNER_COMMANDS_EN_US,
   DESIGNER_FRAME_REGIONS,
+  designerShellCommands,
   importSources,
   parseDesignerPanels,
   registerDropTarget,
@@ -144,13 +145,13 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileMinusIcon, FilePlusIcon, GridIcon, MagnetIcon, MaximizeIcon, PencilIcon, PrinterIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SquareDashedIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileMinusIcon, FilePlusIcon, GridIcon, MagnetIcon, MaximizeIcon, PanelLeftIcon, PencilIcon, PrinterIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SquareDashedIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhExpressionInputElement, XhFieldArrayElement, XhFieldElement, XhFormatInputElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createPrintEditor, elementRect } from './editor'
-import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
+import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { borderSidesEditor, valueFormatEditor } from './property-editors'
 import { propertySubjects, TABLE_PART_KINDS } from './property-targets'
@@ -996,7 +997,15 @@ export class XhPrintDesigner extends XhReactiveElement {
         run: () => this.#run(id),
       }
     })
-    return [...builtin, this.#pageMenu()]
+    // designer-shell 内置的面板、设置与帮助，排在工具栏末组
+    const shell = designerShellCommands<PrintDesignerContext>({
+      translations: context => context.commands,
+      frame: context => context.frame,
+      openSettings: ({ designer }) => designer.openSettings(),
+      helpUrl: () => PRINT_DESIGNER_HELP_URL,
+      icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon },
+    })
+    return [...builtin, this.#pageMenu(), ...shell]
   }
 
   /** 翻页条上的页码：点开菜单，上半是全部页面模板（单选），下半是上移、下移页面。 */
@@ -1022,7 +1031,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 交给命令与扩展 setup 的上下文。 */
   #context(): PrintDesignerContext {
-    return { designer: this, translations: this.#translations(), commands: this.#commandTexts(), settings: this.#resolvedSettings }
+    return { designer: this, translations: this.#translations(), commands: this.#commandTexts(), settings: this.#resolvedSettings, frame: this.#layers?.frame }
   }
 
   /** 此刻生效的共用命令文案。 */

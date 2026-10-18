@@ -10,8 +10,8 @@ import type { DesignerFrameRegion, XhDesignerFrameElement } from '@xihan-ui/desi
 import type { TextMeasurer } from '@xihan-ui/viz'
 import type { XhPrintDesigner } from '../src'
 import { createDocument, createElementRegistry, createPage } from '@xihan-print/core'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { definePrintDesigner } from '../src'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { definePrintDesigner, PRINT_DESIGNER_HELP_URL } from '../src'
 
 const registry = createElementRegistry()
 
@@ -178,5 +178,50 @@ describe('翻页条', () => {
     frame().querySelector<HTMLButtonElement>('[data-region="palette"] [data-part="panel-close"]')!.click()
     await settle()
     expect([designer.panels!.split(' ').includes('pages'), strip().hidden]).toEqual([true, false])
+  })
+})
+
+describe('工具栏末组', () => {
+  function toolbarItem(value: string): HTMLButtonElement {
+    return designer.querySelector<HTMLButtonElement>(`[data-part="command-bar"] button[value="${value}"]`)!
+  }
+
+  it('末组是 designer-shell 内置的面板、设置与帮助：设置打开设置对话框，帮助在新窗口打开文档站的设计器一页', async () => {
+    const groups = Array.from(designer.querySelectorAll('[data-part="command-bar"] [data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), button => button.value))
+    expect(groups.at(-1)).toEqual(['panels', 'settings', 'help'])
+    expect(['panels', 'settings', 'help'].map(value => [toolbarItem(value).disabled, toolbarItem(value).hasAttribute('data-icon')])).toEqual([[false, true], [false, true], [false, true]])
+    toolbarItem('settings').click()
+    await designer.updateComplete
+    expect(designer.querySelector<HTMLElement & { open?: boolean }>('xh-designer-settings')!.open).toBe(true)
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    try {
+      toolbarItem('help').click()
+      expect(open).toHaveBeenCalledWith(PRINT_DESIGNER_HELP_URL, '_blank', 'noopener,noreferrer')
+    }
+    finally {
+      open.mockRestore()
+    }
+  })
+
+  it('「面板」点开一张锚在按钮上的菜单，列出物料、属性与问题，勾选的显示；点一项开关它并派发 panels-change', async () => {
+    const button = toolbarItem('panels')
+    button.click()
+    await settle()
+    type MenuHost = HTMLElement & { open?: boolean, anchor?: HTMLElement | null, collection?: readonly { value: string }[], checkboxValue?: readonly string[] }
+    const menu = designer.querySelector<MenuHost>('[data-part="command-bar"] xh-menu')!
+    expect([menu.open, menu.anchor]).toEqual([true, button])
+    expect(menu.collection!.map(item => item.value)).toEqual(['item:palette', 'item:properties', 'item:issues'])
+    expect(menu.checkboxValue).toEqual(['item:palette', 'item:properties', 'item:issues'])
+    const seen: string[] = []
+    designer.addEventListener('panels-change', event => seen.push((event as CustomEvent<{ panels: string }>).detail.panels))
+    document.querySelector<HTMLElement>('[data-scope="menu"][data-part="item"][data-value="item:palette"]')!.click()
+    await settle()
+    expect(seen).toEqual([designer.panels])
+    expect(designer.panels!.split(' ')).toEqual(expect.arrayContaining(['pages', 'rulers']))
+    expect([designer.panels!.split(' ').includes('palette'), frame().showsPanel('palette')]).toEqual([false, false])
+    expect(menu.checkboxValue).toEqual(['item:properties', 'item:issues'])
+    document.querySelector<HTMLElement>('[data-scope="menu"][data-part="item"][data-value="item:palette"]')!.click()
+    await settle()
+    expect([designer.panels!.split(' ').includes('palette'), frame().showsPanel('palette')]).toEqual([true, true])
   })
 })
