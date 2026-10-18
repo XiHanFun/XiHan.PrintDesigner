@@ -68,12 +68,14 @@ export interface PrintDesignerExtension extends PrintRuntimeExtension, Pick<Desi
 /** 设计器自带的扩展的 id：内置命令，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 */
 export const PRINT_DESIGNER_EXTENSION_ID = '@xihan-print/designer'
 
-/** 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 */
+/**
+ * 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。
+ * 对齐、分布与层级各收进一个菜单（align-menu、layer-menu），单条命令照样能经 commandLayout 排上工具栏。
+ */
 export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'duplicate', 'delete'],
-  ['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom', 'distribute-horizontal', 'distribute-vertical'],
-  ['bring-to-front', 'bring-forward', 'send-backward', 'send-to-back'],
+  ['align-menu', 'layer-menu'],
   ['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual', 'grid', 'snap'],
   ['design', 'preview', 'page-setup', 'print'],
   ['panels', 'settings', 'help'],

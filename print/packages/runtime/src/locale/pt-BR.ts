@@ -125,6 +125,8 @@ const designer: PrintDesignerLocale = {
   alignTextLeft: 'Alinhar texto à esquerda',
   alignTextCenter: 'Centralizar texto',
   alignTextRight: 'Alinhar texto à direita',
+  alignMenu: 'Alinhar e distribuir',
+  layerMenu: 'Organizar',
   propertyGroups: {
     layout: 'Layout',
     content: 'Conteúdo',

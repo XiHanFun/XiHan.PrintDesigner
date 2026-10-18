@@ -452,3 +452,24 @@ describe('格式工具条', () => {
     expect(bar()).toBeNull()
   })
 })
+
+describe('对齐与层级菜单', () => {
+  it('工具栏上「对齐与分布」「层级」是菜单，条目就是对应的内置命令；没选中时不可用，选中后执行条目', async () => {
+    const button = (value: string): HTMLButtonElement => designer.querySelector<HTMLButtonElement>(`[data-part="command-bar"] button[value="${value}"]`)!
+    expect([button('align-menu').disabled, button('layer-menu').disabled]).toEqual([true, true])
+    expect(designer.querySelector('[data-part="command-bar"] button[value="align-left"]')).toBeNull()
+    const rect = designer.addElement('rect', { x: 120, y: 120 })
+    designer.select({ elements: ['a', rect.id] })
+    await settle()
+    expect([button('align-menu').disabled, button('layer-menu').disabled]).toEqual([false, false])
+    button('align-menu').click()
+    await settle()
+    const menu = document.querySelector('[role="menu"][aria-label="Align and distribute"]')!
+    const items = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]'))
+    expect(items.map(item => item.textContent?.trim())).toEqual(['Align left', 'Align centers horizontally', 'Align right', 'Align top', 'Align centers vertically', 'Align bottom', 'Distribute horizontally', 'Distribute vertically'])
+    items[0]!.click()
+    await settle()
+    const left = designer.schema.pages[0]!.elements.filter(element => element.id === 'a' || element.id === rect.id).map(element => element.x)
+    expect(new Set(left).size).toBe(1)
+  })
+})

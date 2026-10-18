@@ -133,6 +133,8 @@ const designer: PrintDesignerLocale = {
   alignTextLeft: 'Alinear texto a la izquierda',
   alignTextCenter: 'Centrar texto',
   alignTextRight: 'Alinear texto a la derecha',
+  alignMenu: 'Alinear y distribuir',
+  layerMenu: 'Organizar',
   propertyGroups: {
     layout: 'Disposición',
     content: 'Contenido',
