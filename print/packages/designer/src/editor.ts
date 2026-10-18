@@ -84,6 +84,8 @@ export interface PrintAddElementInit {
   readonly x: number
   readonly y: number
   readonly region?: ElementRegion
+  /** 压在元素种类缺省值之上的顶层属性，如绑定的字段；id、type 与位置不受它影响。 */
+  readonly overrides?: Readonly<Record<string, unknown>>
 }
 
 export interface PrintEditor {
@@ -362,7 +364,7 @@ export function createPrintEditor(options: PrintEditorOptions): PrintEditor {
       const prototype = elements.get(type)!
       const region = prototype.flow ? 'body' : init.region ?? 'body'
       const id = nextFreeId(`${type}-`, taken())
-      const element = elements.createElement(type as PrintElement['type'], { id, x: init.x, y: init.y })
+      const element = elements.createElement(type as PrintElement['type'], { id, x: init.x, y: init.y, ...(init.overrides === undefined ? {} : { overrides: init.overrides }) })
       history.execute([{ type: 'addElement', container: containerOf(region), element }], options)
       setSelection({ elements: [id] })
       return element

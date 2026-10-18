@@ -12,7 +12,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 <<< @/examples/demos/designer.ts#setup
 
-把模板交给 `schema`，可绑定的字段树交给 `fields`，属性面板里选字段时就从这棵树里选：
+把模板交给 `schema`，可绑定的字段树交给 `fields`：属性面板里选字段时从这棵树里选，物料面板也多出「字段」一组，字段可以直接拖上画布（见下文「字段物料」）：
 
 <<< @/examples/demos/designer.ts#fields
 
@@ -37,6 +37,23 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 问题 | `issues` | 校验问题列表，点一下切到问题所在的页面模板并定位到元素 |
 
 扩展登记的面板也放进外框，`panels` 里写它的区名同样能开关，见下文「面板」。各区的属性见[元素](../reference/elements)，属性面板的分组与中文名与它一致。
+
+## 字段物料
+
+给了 `fields` 时，物料面板最后多出「字段」一组，按字段树显示：带子字段的可以展开、收起，键盘与读屏按树的约定，搜索也能按字段名称与路径找。点一下把绑好字段的元素加到视口中央，拖到画布上放在落点：
+
+| 字段 | 生成 |
+| --- | --- |
+| `value`，`content` 不写或为 `text` | 文本，内容绑定这个字段 |
+| `value`，`content` 为 `image` | 图片，地址取这个字段 |
+| `value`，`content` 为 `barcode` | 条码（缺省码制），内容绑定这个字段 |
+| `value`，`content` 为 `qrcode` | 二维码，内容绑定这个字段 |
+| `list` | 表格：`dataField` 指向它，各列取它的 `value` 子字段（进入对象、不进入嵌套的列表），列标题取字段名称，列宽均分表格宽度；`content` 为图片、条码、二维码的子字段对应同类单元格 |
+| `object` | 不生成元素，只作分组 |
+
+- 字段写了 `label` 时，新元素的名称就是它；条目上同时显示字段路径。
+- 列表的子字段相对数组的一行，只作浏览、不能拖出：要放行里的字段，先放表格，再在属性面板里改列。
+- `content` 是 XiHan.UI 字段树 `DataField` 的可选项，说明这个值代表什么；`type` 是数据类型，与生成哪种元素无关。
 
 页码的格式是一行文本，行尾的「插入」菜单把当前页码 <code v-pre>{{$page}}</code> 或总页数 <code v-pre>{{$pages}}</code> 插到光标处，下面按第 1 页、共 3 页显示示例，数字写法跟着「数字写法」一栏。
 

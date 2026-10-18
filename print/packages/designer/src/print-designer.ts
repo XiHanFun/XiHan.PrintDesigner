@@ -13,6 +13,7 @@
 // 粘贴与拖放进来的外部内容交给扩展的导入器换成元素。
 
 import type {
+  BarCodeFormat,
   DesignLayout,
   ElementCategory,
   ElementContainerRef,
@@ -45,6 +46,7 @@ import type {
   DesignerPaletteDragPayload,
   DesignerPaletteEventMap,
   DesignerPaletteGroup,
+  DesignerPaletteItem,
   DesignerPanelHost,
   DesignerPropertiesEventMap,
   DesignerPropertyDescriptor,
@@ -63,6 +65,7 @@ import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { PrintClipboard, PrintSelection, PrintTablePart } from './editor'
 import type { PrintDesignerCommand, PrintDesignerContext, PrintDesignerExtension, PrintDesignerImporter, PrintDesignerModel, PrintMenuSubject } from './extensions'
+import type { FieldPaletteNode, FieldPlacement, FieldPlacementDefaults } from './field-palette'
 import type { CompositeEditorHost } from './property-editors'
 import type { ExpandedDescriptor } from './property-expand'
 import type { PropertySubject } from './property-targets'
@@ -131,6 +134,7 @@ import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitE
 import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhExpressionInputElement, XhFieldArrayElement, XhFieldElement, XhFormatInputElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createPrintEditor, elementRect } from './editor'
 import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_PAGE_COMMANDS, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
+import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { borderSidesEditor, valueFormatEditor } from './property-editors'
 import { propertySubjects, TABLE_PART_KINDS } from './property-targets'
 import { columnBoundaries, planTableCommand, tablePartAt } from './table-edit'
@@ -308,6 +312,24 @@ function frameRegions(t: PrintDesignerTranslations): DesignerFrameRegion[] {
   ]
 }
 
+/** 物料面板里字段那一组的 id。 */
+const FIELD_GROUP_ID = 'fields'
+
+/** 字段物料条目：说明写字段路径，与名称相同时不写；能放上画布的带着生成元素的参数，其余只作浏览。 */
+function fieldItem(node: FieldPaletteNode): DesignerPaletteItem {
+  return {
+    id: node.id,
+    label: node.label,
+    ...(node.path === node.label ? {} : { description: node.path }),
+    ...(node.placement === undefined ? { browseOnly: true } : { payload: node.placement }),
+    ...(node.children === undefined ? {} : { children: node.children.map(fieldItem) }),
+  }
+}
+
+function isFieldPlacement(payload: unknown): payload is FieldPlacement {
+  return typeof payload === 'object' && payload !== null && typeof (payload as { type?: unknown }).type === 'string' && typeof (payload as { overrides?: unknown }).overrides === 'object'
+}
+
 function isPaletteDrag(payload: unknown): payload is DesignerPaletteDragPayload {
   return typeof payload === 'object' && payload !== null && (payload as { source?: unknown }).source === 'palette' && typeof (payload as { id?: unknown }).id === 'string'
 }
@@ -460,7 +482,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   #lastGrid = 1
   #spacePan = false
   #regions: { readonly key: string, readonly regions: readonly DesignerFrameRegion[] } | undefined
-  #palette: { readonly key: string, readonly model: PrintDesignerModel } | undefined
+  #palette: { readonly key: string, readonly model: PrintDesignerModel, readonly fields: readonly DataField[] | undefined } | undefined
   #listed: { readonly issues: readonly ValidationIssue[], readonly key: string } | undefined
   #subjects: PropertySubject[] = []
   #panelInputs: readonly unknown[] = []
@@ -1544,41 +1566,68 @@ export class XhPrintDesigner extends XhReactiveElement {
     layers.palette.readonly = this.#readOnly
     const model = this.#model()
     const groups = model.runtime.elements.groupByCategory()
-    const key = JSON.stringify([t.categories, t.elements])
-    if (key === this.#palette?.key && model === this.#palette.model)
+    const key = JSON.stringify([t.categories, t.elements, t.fieldGroup])
+    const fields = this.fields
+    if (key === this.#palette?.key && model === this.#palette.model && fields === this.#palette.fields)
       return
-    this.#palette = { key, model }
-    layers.palette.groups = groups.map((group): DesignerPaletteGroup => ({
-      id: group.category,
-      label: categoryName(t, model, group.category),
-      items: group.prototypes.map((prototype) => {
-        const icon = model.palette.get(prototype.type)?.icon
-        return { id: prototype.type, label: elementName(t, model, prototype.type), ...(icon === undefined ? {} : { icon }) }
-      }),
-    }))
+    this.#palette = { key, model, fields }
+    const fieldItems = fieldPaletteNodes(fields ?? [], this.#fieldDefaults()).map(fieldItem)
+    layers.palette.groups = [
+      ...groups.map((group): DesignerPaletteGroup => ({
+        id: group.category,
+        label: categoryName(t, model, group.category),
+        items: group.prototypes.map((prototype) => {
+          const icon = model.palette.get(prototype.type)?.icon
+          return { id: prototype.type, label: elementName(t, model, prototype.type), ...(icon === undefined ? {} : { icon }) }
+        }),
+      })),
+      ...(fieldItems.length === 0 ? [] : [{ id: FIELD_GROUP_ID, label: t.fieldGroup, items: fieldItems }]),
+    ]
+  }
+
+  /** 字段生成表格时的列宽合计与条码列的码制，取内置表格与条码的缺省值。 */
+  #fieldDefaults(): FieldPlacementDefaults {
+    const table = this.#editor.elements.get('table')!.defaults as { width: number }
+    const barCode = this.#editor.elements.get('barCode')!.defaults as { format: BarCodeFormat }
+    return { tableWidth: table.width, barCodeFormat: barCode.format }
+  }
+
+  /** 拖动或点选的物料要新建的元素：字段条目取它带的参数，元素条目取元素种类；放不上画布时为 undefined。 */
+  #palettePlacement(id: string, payload: unknown): FieldPlacement | undefined {
+    if (id.startsWith(FIELD_ITEM_PREFIX))
+      return isFieldPlacement(payload) && this.#editor.elements.has(payload.type) ? payload : undefined
+    return this.#editor.elements.has(id) ? { type: id as FieldPlacement['type'], overrides: {} } : undefined
+  }
+
+  /** 按物料新建元素并选中：at 是元素中心的纸张坐标（mm），缺省放在视口中央。 */
+  #addFromPalette(placement: FieldPlacement, at?: Point): void {
+    const center = at ?? this.#viewportCenter()
+    const placed = this.#placement(placement.type, center)!
+    this.#editor.addElement(placement.type, { x: placed.x, y: placed.y, region: this.#regionAt(center), overrides: placement.overrides })
   }
 
   readonly #onPaletteActivate = (event: Event): void => {
-    const { id } = (event as DesignerPaletteEventMap['item-activate']).detail
-    if (!this.#readOnly && this.mode === 'design' && this.#editor.elements.has(id))
-      this.addElement(id)
+    const { id, payload } = (event as DesignerPaletteEventMap['item-activate']).detail
+    const placement = this.#readOnly || this.mode !== 'design' ? undefined : this.#palettePlacement(id, payload)
+    if (placement !== undefined)
+      this.#addFromPalette(placement)
   }
 
   /** 物料拖到画布上：按落点画出新元素的外框，藏起跟手预览。 */
   #dropOver(point: Point, payload: unknown): DropOver {
-    const placed = !this.#readOnly && this.mode === 'design' && isPaletteDrag(payload)
-      ? this.#placement(payload.id, this.clientToWorld(point.x, point.y))
-      : undefined
+    const placement = !this.#readOnly && this.mode === 'design' && isPaletteDrag(payload) ? this.#palettePlacement(payload.id, payload.payload) : undefined
+    const placed = placement === undefined ? undefined : this.#placement(placement.type, this.clientToWorld(point.x, point.y))
     this.#setOverlayHover(placed)
     return placed === undefined ? { accept: false } : { accept: true, ghost: 'hide' }
   }
 
   #drop(point: Point, payload: unknown): void {
     this.#setOverlayHover(undefined)
-    if (!isPaletteDrag(payload) || this.#readOnly || this.mode !== 'design' || !this.#editor.elements.has(payload.id))
+    const placement = !this.#readOnly && this.mode === 'design' && isPaletteDrag(payload) ? this.#palettePlacement(payload.id, payload.payload) : undefined
+    if (placement === undefined)
       return
     this.#stopAutoFit()
-    this.addElement(payload.id, this.clientToWorld(point.x, point.y))
+    this.#addFromPalette(placement, this.clientToWorld(point.x, point.y))
     this.#layers?.viewport.focus({ preventScroll: true })
   }
 

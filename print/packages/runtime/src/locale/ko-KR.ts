@@ -122,6 +122,7 @@ const designer: PrintDesignerLocale = {
   newColumnTitle: position => `열 ${position}`,
   measure: (width, height) => `${width} × ${height} mm`,
   palette: '요소',
+  fieldGroup: '필드',
   properties: '속성',
   issues: '문제',
   propertyGroups: {

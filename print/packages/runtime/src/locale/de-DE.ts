@@ -119,6 +119,7 @@ const designer: PrintDesignerLocale = {
   newColumnTitle: position => `Spalte ${position}`,
   measure: (width, height) => `${width} × ${height} mm`,
   palette: 'Elemente',
+  fieldGroup: 'Felder',
   properties: 'Eigenschaften',
   issues: 'Probleme',
   propertyGroups: {

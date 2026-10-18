@@ -384,6 +384,83 @@ describe('<xh-print-designer>', () => {
     expect(designer.schema.pages[0]!.elements).toHaveLength(3)
   })
 
+  it('字段物料：按 fields 列出字段一组，点选按字段的种类与内容生成绑好字段的元素，放在视口中央', async () => {
+    const palette = designer.querySelector('xh-designer-palette')!
+    expect(palette.groups!.map(group => group.id)).not.toContain('fields')
+    designer.fields = [
+      { name: 'no', label: '单号', kind: 'value' },
+      { name: 'customer', label: '客户', kind: 'object', children: [{ name: 'logo', label: '标志', kind: 'value', content: 'image' }] },
+      { name: 'items', label: '明细', kind: 'list', children: [{ name: 'sku', label: '货号', kind: 'value', content: 'barcode' }, { name: 'qty', kind: 'value' }] },
+      { name: 'trace', kind: 'value', content: 'qrcode' },
+    ]
+    await designer.updateComplete
+    const group = palette.groups!.at(-1)!
+    expect([group.id, group.label]).toEqual(['fields', 'Fields'])
+    const items = group.items as readonly { id: string, label: string, description?: string, payload?: unknown, children?: readonly { id: string, payload?: unknown }[] }[]
+    expect(items.map(item => [item.id, item.label, item.description])).toEqual([['field:no', '单号', 'no'], ['field:customer', '客户', 'customer'], ['field:items', '明细', 'items'], ['field:trace', 'trace', undefined]])
+    expect([items[1]!.payload, (items[1] as { browseOnly?: boolean }).browseOnly]).toEqual([undefined, true])
+    expect(items[2]!.children!.map(child => [child.id, child.payload, (child as { browseOnly?: boolean }).browseOnly])).toEqual([['field:items.sku', undefined, true], ['field:items.qty', undefined, true]])
+
+    const activate = (item: { id: string, payload?: unknown }): PrintElement => {
+      palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: item.id, payload: item.payload } }))
+      return designer.schema.pages[0]!.elements.at(-1)!
+    }
+    const count = designer.schema.pages[0]!.elements.length
+    const text = activate(items[0]!) as PrintElement & { content: unknown, name?: string }
+    expect([text.type, text.name, text.content, designer.getSelection().elements]).toEqual(['text', '单号', { kind: 'field', field: 'no' }, [text.id]])
+    const plain = designer.addElement('text')
+    expect([text.x, text.y]).toEqual([plain.x, plain.y])
+    expect((activate(items[1]!.children![0]! as never) as PrintElement & { source: unknown })).toMatchObject({ type: 'image', source: { kind: 'field', field: 'customer.logo' } })
+    const table = activate(items[2]!) as PrintElement & { dataField: string, columns: { title: string, content: unknown, cellType: string }[] }
+    expect([table.type, table.dataField, table.columns.map(column => [column.title, column.content, column.cellType])]).toEqual(['table', 'items', [['货号', { kind: 'field', field: 'sku' }, 'barCode'], ['qty', { kind: 'field', field: 'qty' }, 'text']]])
+    expect(activate(items[3]!)).toMatchObject({ type: 'matrixCode', content: { kind: 'field', field: 'trace' } })
+    expect(designer.schema.pages[0]!.elements).toHaveLength(count + 5)
+    activate(items[1]!)
+    activate(items[2]!.children![0]!)
+    expect(designer.schema.pages[0]!.elements).toHaveLength(count + 5)
+    designer.readonly = true
+    await designer.updateComplete
+    activate(items[0]!)
+    expect(designer.schema.pages[0]!.elements).toHaveLength(count + 5)
+  })
+
+  it('字段物料拖到画布上在落点新建绑好字段的元素；只作浏览的条目拖不出', async () => {
+    designer.fields = [
+      { name: 'no', label: '单号', kind: 'value' },
+      { name: 'items', kind: 'list', children: [{ name: 'qty', kind: 'value' }] },
+    ]
+    await designer.updateComplete
+    const palette = designer.querySelector('xh-designer-palette')!
+    await palette.updateComplete
+    const row = (id: string): HTMLElement => palette.querySelector<HTMLElement>(`[data-scope="tree"][data-id="${id}"]`)!
+    const pointer = (target: EventTarget, type: string, x: number, y: number): void => {
+      target.dispatchEvent(new PointerEvent(type, { pointerId: 1, isPrimary: true, button: 0, clientX: x, clientY: y, bubbles: true }))
+    }
+    const drag = (source: HTMLElement, x: number, y: number): void => {
+      pointer(source, 'pointerdown', 2, 2)
+      pointer(document, 'pointermove', x, y)
+      pointer(document, 'pointermove', x + 1, y)
+      pointer(document, 'pointerup', x + 1, y)
+    }
+    const surface = viewport()
+    const original = document.elementFromPoint
+    document.elementFromPoint = (() => surface) as typeof document.elementFromPoint
+    try {
+      const count = designer.schema.pages[0]!.elements.length
+      drag(row('field:no'), 300, 260)
+      const added = designer.schema.pages[0]!.elements.at(-1)! as PrintElement & { content: unknown }
+      const point = designer.clientToWorld(301, 260)
+      expect([added.type, added.content]).toEqual(['text', { kind: 'field', field: 'no' }])
+      expect(Math.abs(added.x + added.width / 2 - point.x)).toBeLessThanOrEqual(1)
+      expect(Math.abs(added.y + added.height / 2 - point.y)).toBeLessThanOrEqual(1)
+      drag(row('field:items.qty'), 300, 260)
+      expect(designer.schema.pages[0]!.elements).toHaveLength(count + 1)
+    }
+    finally {
+      document.elementFromPoint = original
+    }
+  })
+
   it('readonly attribute 三态：写 "false" 不只读，空串只读，移除后回到不只读', async () => {
     const declared = (designer.constructor as unknown as { elementProperties: Map<string, { type?: unknown, converter?: unknown }> }).elementProperties
     expect([...declared].filter(([, options]) => options.type === Boolean).map(([name]) => name)).toEqual([])
