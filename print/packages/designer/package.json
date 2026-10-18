@@ -61,6 +61,7 @@
     "@xihan-ui/designer-shell": "catalog:",
     "@xihan-ui/expression": "catalog:",
     "@xihan-ui/headless": "catalog:",
+    "@xihan-ui/icons": "catalog:",
     "@xihan-ui/pointer": "catalog:",
     "@xihan-ui/viz": "catalog:",
     "@xihan-ui/web-components": "catalog:"

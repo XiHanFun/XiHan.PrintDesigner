@@ -29,12 +29,14 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 | 区 | `panels` 里的名字 | 作用 |
 | --- | --- | --- |
-| 工具栏 | `toolbar` | 撤销重做；剪切、复制、粘贴、再制、删除；对齐与等距分布；层级；缩放、网格与吸附开关；设计与预览切换；打印 |
+| 工具栏 | `toolbar` | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐与等距分布；层级；缩放、网格与吸附开关；设计与预览切换；打印 |
 | 物料 | `palette` | 点一下把元素加到视口中央，拖到画布上放在落点 |
 | 页面 | `pages` | 页面模板的页签：新增、删除、左右移动 |
 | 标尺 | `rulers` | 毫米标尺；从标尺拖出参考线，参考线存进页面模板，只用于对位、不打印 |
 | 属性 | `properties` | 编辑选中的元素，多选时只显示共同的属性；没有选中时编辑页面设置；表格编辑态里编辑选中的表格部位 |
 | 问题 | `issues` | 校验问题列表，点一下切到问题所在的页面模板并定位到元素 |
+
+工具栏与页签旁的命令栏缺省只显示图标，`toolbar-display` attribute（property 为 `toolbarDisplay`）换成 `text` 只显示文字或 `both` 图标加文字，两条命令栏一起换。按钮的名字与快捷键报给读屏，悬停或键盘聚焦到按钮时提示命令的文字与快捷键；会删掉内容的命令按危险色显示。
 
 扩展登记的面板也放进外框，`panels` 里写它的区名同样能开关，见下文「面板」。各区的属性见[元素](../reference/elements)，属性面板的分组与中文名与它一致。
 
@@ -81,7 +83,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | Ctrl / ⌘ + Z | 撤销 |
 | Ctrl / ⌘ + Shift + Z，Ctrl / ⌘ + Y | 重做 |
 | Ctrl / ⌘ + C、X、V | 复制、剪切、粘贴，走系统剪贴板 |
-| Ctrl / ⌘ + D | 再制 |
+| Ctrl / ⌘ + D | 创建副本 |
 | Ctrl / ⌘ + A | 全选当前页面模板里看得见的元素 |
 | Ctrl / ⌘ + S | 派发 `save` |
 | Ctrl / ⌘ + ]、[ | 上移一层、下移一层 |
@@ -187,7 +189,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ### 命令
 
-扩展的 `commands` 登记命令，工具栏按钮、右键菜单项与快捷键共用一条。命令 id 用扩展 id 加点加名字；`label`、`enabled` 与 `run` 收到 `{ designer, translations }`，`label` 也可以直接写成文字；给了 `checked` 的是开关式命令，工具栏按钮显示按下状态：
+扩展的 `commands` 登记命令，工具栏按钮、右键菜单项与快捷键共用一条。命令 id 用扩展 id 加点加名字；`label`、`enabled` 与 `run` 收到 `{ designer, translations, commands }`（`commands` 是四款设计器共用的命令文案，如 `commands.undo`），`label` 也可以直接写成文字；给了 `checked` 的是开关式命令，工具栏按钮显示按下状态：
 
 <<< @/examples/snippets/designer-commands.ts#example
 

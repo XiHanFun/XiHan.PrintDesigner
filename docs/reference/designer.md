@@ -28,6 +28,7 @@
 | `snap` | — | `boolean` | 吸附其它元素、页边距、区边界与参考线并显示对齐线，缺省 true。 |
 | `panels` | `panels` | `string \| undefined` | 要显示的面板，空格分隔：toolbar palette pages rulers properties issues；不写即全部显示。同名 attribute。 |
 | `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏与右键菜单的排列：位置（toolbar、menu:blank、menu:element、menu:table）→ 若干组命令 id，内置与扩展的命令可以混排。写了某个位置就只显示列出的命令；写了没登记的命令 id 时抛 TypeError。 |
+| `toolbarDisplay` | `toolbar-display` | `CommandToolbarDisplay \| undefined` | 工具栏与页签旁命令栏的按钮怎么显示：icon（缺省）只显示图标、text 只显示文字、both 图标加文字；没有图标的命令在 icon 档照样显示文字。attribute 为 toolbar-display，其余写法按 icon。 |
 
 ### 存取器
 
@@ -135,35 +136,8 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | --- | --- | --- |
 | `label` | `string` | 设计器的可访问名。 |
 | `canvas` | `string` | 画布区域的可访问名。 |
-| `toolbar` | `string` | 工具栏的可访问名。 |
-| `undo` | `string` |  |
-| `redo` | `string` |  |
-| `cut` | `string` |  |
-| `copy` | `string` |  |
-| `paste` | `string` |  |
-| `duplicate` | `string` |  |
-| `delete` | `string` |  |
-| `selectAll` | `string` |  |
-| `alignLeft` | `string` |  |
-| `alignCenter` | `string` | 各自的中心落到同一条竖直中线上。 |
-| `alignRight` | `string` |  |
-| `alignTop` | `string` |  |
-| `alignMiddle` | `string` | 各自的中心落到同一条水平中线上。 |
-| `alignBottom` | `string` |  |
-| `distributeHorizontal` | `string` |  |
-| `distributeVertical` | `string` |  |
-| `bringToFront` | `string` |  |
-| `bringForward` | `string` |  |
-| `sendBackward` | `string` |  |
-| `sendToBack` | `string` |  |
-| `zoomIn` | `string` |  |
-| `zoomOut` | `string` |  |
-| `zoomToFit` | `string` |  |
-| `zoomToActual` | `string` |  |
 | `grid` | `string` | 显示并吸附网格的开关。 |
 | `snap` | `string` | 吸附其它元素与参考线的开关。 |
-| `design` | `string` | 切到设计态。 |
-| `preview` | `string` | 切到预览态。 |
 | `print` | `string` |  |
 | `pages` | `string` | 页面模板页签的可访问名。 |
 | `addPage` | `string` |  |

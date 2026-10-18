@@ -40,6 +40,7 @@ overrides:
   '@xihan-ui/designer-shell': link:../../XiHan.UI/ui/packages/features/designer-shell
   '@xihan-ui/expression': link:../../XiHan.UI/ui/packages/engine/expression
   '@xihan-ui/headless': link:../../XiHan.UI/ui/packages/engine/headless
+  '@xihan-ui/icons': link:../../XiHan.UI/ui/packages/design/icons
   '@xihan-ui/pointer': link:../../XiHan.UI/ui/packages/engine/pointer
   '@xihan-ui/styles': link:../../XiHan.UI/ui/packages/design/styles
   '@xihan-ui/viz': link:../../XiHan.UI/ui/packages/engine/viz
@@ -112,6 +113,9 @@ importers:
       '@xihan-ui/headless':
         specifier: link:../../../../XiHan.UI/ui/packages/engine/headless
         version: link:../../../../XiHan.UI/ui/packages/engine/headless
+      '@xihan-ui/icons':
+        specifier: link:../../../../XiHan.UI/ui/packages/design/icons
+        version: link:../../../../XiHan.UI/ui/packages/design/icons
       '@xihan-ui/pointer':
         specifier: link:../../../../XiHan.UI/ui/packages/engine/pointer
         version: link:../../../../XiHan.UI/ui/packages/engine/pointer
