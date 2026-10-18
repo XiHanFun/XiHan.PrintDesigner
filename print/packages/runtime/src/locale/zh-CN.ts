@@ -111,6 +111,11 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: '拖动时吸附其它元素、页边距、区边界与参考线，并显示对齐线。',
   settingsShowMargins: '显示边距线',
   settingsShowMarginsHint: '在页面上框出页边距以内的范围。',
+  statusElements: count => `${count} 个元素`,
+  statusGeometry: (x, y, width, height) => `X ${x} · Y ${y} · ${width} × ${height} mm`,
+  statusZoom: '缩放',
+  statusClient: '打印客户端',
+  statusClientStates: { idle: '未连接', connecting: '连接中', open: '已连接', reconnecting: '重连中', closed: '已断开' },
   propertyGroups: {
     layout: '布局',
     content: '内容',

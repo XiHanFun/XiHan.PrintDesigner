@@ -111,6 +111,11 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: 'Beim Ziehen an anderen Elementen, den Seitenrändern, Bereichsgrenzen und Hilfslinien einrasten und Ausrichtungslinien anzeigen.',
   settingsShowMargins: 'Ränder anzeigen',
   settingsShowMarginsHint: 'Den Bereich innerhalb der Seitenränder umranden.',
+  statusElements: count => `${count} ${count === 1 ? 'Element' : 'Elemente'}`,
+  statusGeometry: (x, y, width, height) => `X ${x} · Y ${y} · ${width} × ${height} mm`,
+  statusZoom: 'Zoom',
+  statusClient: 'Druckclient',
+  statusClientStates: { idle: 'Nicht verbunden', connecting: 'Verbindet', open: 'Verbunden', reconnecting: 'Verbindet erneut', closed: 'Getrennt' },
   propertyGroups: {
     layout: 'Layout',
     content: 'Inhalt',

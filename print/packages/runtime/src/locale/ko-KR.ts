@@ -114,6 +114,11 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: '끄는 동안 다른 요소, 여백, 영역 경계, 안내선에 스냅하고 정렬선을 표시합니다.',
   settingsShowMargins: '여백선 표시',
   settingsShowMarginsHint: '페이지 여백 안쪽 범위를 테두리로 표시합니다.',
+  statusElements: count => `요소 ${count}개`,
+  statusGeometry: (x, y, width, height) => `X ${x} · Y ${y} · ${width} × ${height} mm`,
+  statusZoom: '확대/축소',
+  statusClient: '인쇄 클라이언트',
+  statusClientStates: { idle: '연결 안 됨', connecting: '연결 중', open: '연결됨', reconnecting: '다시 연결 중', closed: '연결 끊김' },
   propertyGroups: {
     layout: '레이아웃',
     content: '내용',

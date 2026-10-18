@@ -24,7 +24,7 @@
 | `translations` | — | `Partial<PrintDesignerTranslations> \| undefined` | 元素自己的文案，压在全局配置之上。 |
 | `readonly` | `readonly` | `boolean` | 只读：可以选择、浏览与预览，不能修改。attribute 三态：不写或移除为不只读，写 "false" 为不只读，其余写法为只读。 |
 | `mode` | `mode` | `PrintDesignerMode` | 设计态或预览态，缺省 design；同名 attribute。 |
-| `panels` | `panels` | `string \| undefined` | 要显示的面板，空格分隔：toolbar palette pages rulers properties issues，pages 是画布右侧的翻页条；不写即全部显示。同名 attribute。点了面板头的关闭钮时设计器改写它并派发 panels-change。 |
+| `panels` | `panels` | `string \| undefined` | 要显示的面板，空格分隔：toolbar palette pages rulers properties issues status，pages 是画布右侧的翻页条、status 是状态栏；不写即全部显示。同名 attribute。点了面板头的关闭钮时设计器改写它并派发 panels-change。 |
 | `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏与右键菜单的排列：位置（toolbar、menu:blank、menu:element、menu:table）→ 若干组命令 id，内置与扩展的命令可以混排。写了某个位置就只显示列出的命令；写了没登记的命令 id 时抛 TypeError。 |
 | `settings` | — | `DesignerSettings \| undefined` | 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme、print.showGrid；没写的键取条目的缺省值。赋值即生效；用户在设置对话框里或用工具栏上的网格、吸附开关改了以后，设计器换成新的一份并派发 settings-change。 |
 | `settingsPolicy` | — | `DesignerSettingsPolicy \| undefined` | 宿主对设置条目的管控：键是条目键或分区 id，hidden 不显示，locked 只读、说明换成「由所在系统管理」。 |
@@ -188,6 +188,9 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `settingsSnapHint` | `string` |  |
 | `settingsShowMargins` | `string` |  |
 | `settingsShowMarginsHint` | `string` |  |
+| `statusZoom` | `string` | 状态栏右段缩放一项的标签。 |
+| `statusClient` | `string` | 状态栏右段打印客户端一项的标签。 |
+| `statusClientStates` | `Readonly<Record<PrintClientState, string>>` | 打印客户端连接状态的说法。 |
 | `propertyGroups` | `Readonly<Record<PropertyGroup, string>>` | 属性分组的名称。 |
 | `propertyNames` | `Readonly<Record<string, string>>` | 属性名：键为 formatJsonPath(path)；「对象种类:路径」覆盖同一路径在该种类上的名字，对象种类是 page、元素种类或 table-column 等表格部位。复合属性拆开后的分项用「复合种类/分项」作键，如 stroke/width、edges/top。 |
 | `propertyOptions` | `Readonly<Record<string, string>>` | select 选项名：键为选项值；「路径=选项值」覆盖该属性上的名字。 |
@@ -211,6 +214,8 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `resizeColumn(title: string): string` | 拖动调整列宽的把手的可访问名。 |
 | `newColumnTitle(position: number): string` | 新插入的列的标题，position 从 1 开始。 |
 | `measure(width: string, height: string): string` | 拖动元素时显示的尺寸，入参是格式化后的宽与高（mm）。 |
+| `statusElements(count: number): string` | 状态栏左段没有选中时的值：当前页面模板上可见的元素个数。 |
+| `statusGeometry(x: string, y: string, width: string, height: string): string` | 状态栏左段选中一个元素时的值：入参是格式化后的位置与尺寸（mm）。 |
 | `issue(issue: SchemaIssue): string` | 校验问题与分页诊断的说明，按问题码与参数生成。 |
 | `propertyPart(parent: string, part: string): string` | 复合属性拆开后分项的名字，如「页边距 · 上」。 |
 | `selectedCount(count: number): string` | 属性面板在选中多个元素时标题下的一行。 |

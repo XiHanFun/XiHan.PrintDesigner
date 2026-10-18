@@ -111,6 +111,11 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: 'ドラッグ中にほかの要素、余白、領域の境界、ガイドにスナップし、整列線を表示します。',
   settingsShowMargins: '余白線を表示',
   settingsShowMarginsHint: 'ページの余白の内側を枠で示します。',
+  statusElements: count => `${count} 個の要素`,
+  statusGeometry: (x, y, width, height) => `X ${x} · Y ${y} · ${width} × ${height} mm`,
+  statusZoom: 'ズーム',
+  statusClient: '印刷クライアント',
+  statusClientStates: { idle: '未接続', connecting: '接続中', open: '接続済み', reconnecting: '再接続中', closed: '切断' },
   propertyGroups: {
     layout: 'レイアウト',
     content: '内容',
