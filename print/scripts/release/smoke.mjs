@@ -14,12 +14,11 @@
 //
 // smoke/package.json 列出宿主要装的包，版本留空：本仓的公开包按 --version 或打包结果填，@xihan-ui/* 与开发依赖按
 // pnpm-workspace.yaml 的 catalog 填。
-import { execFileSync } from 'node:child_process'
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join, resolve } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { publishablePackages } from './packages.mjs'
+import { publishablePackages, run } from './packages.mjs'
 
 const TEMPLATE_DIR = 'scripts/release/smoke'
 const NPM_RETRIES = 12
@@ -39,10 +38,6 @@ if ((version === undefined) === !pack) {
   process.exit(1)
 }
 
-function run(command, args, cwd, capture = false) {
-  return execFileSync(command, args, { cwd, stdio: capture ? 'pipe' : 'inherit', encoding: 'utf8', shell: process.platform === 'win32' })
-}
-
 /** pnpm-workspace.yaml 的 catalog：包名 → 范围。 */
 function readCatalog() {
   const text = readFileSync('pnpm-workspace.yaml', 'utf8')
@@ -59,7 +54,7 @@ function readCatalog() {
 /** 在 dir 里 pnpm pack，打包结果放进 destination，返回文件名。 */
 function packInto(dir, destination) {
   const before = new Set(readdirSync(destination))
-  run('pnpm', ['pack', '--pack-destination', destination], dir, true)
+  run('pnpm', ['pack', '--pack-destination', destination], { cwd: dir, capture: true })
   const created = readdirSync(destination).filter(name => !before.has(name) && name.endsWith('.tgz'))
   if (created.length !== 1)
     throw new Error(`在 ${dir} 打包后没有找到唯一的新 .tgz`)
@@ -93,7 +88,7 @@ function uiDependencies(manifest) {
 async function waitForNpm(name, wanted) {
   for (let attempt = 1; attempt <= NPM_RETRIES; attempt++) {
     try {
-      run('npm', ['view', `${name}@${wanted}`, 'version'], undefined, true)
+      run('npm', ['view', `${name}@${wanted}`, 'version'], { capture: true })
       return
     }
     catch {
@@ -164,10 +159,10 @@ try {
     manifest.overrides = overrides
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
 
-  run('npm', ['install', '--no-audit', '--no-fund', '--loglevel=error'], project)
-  run('npx', ['tsc', '--noEmit', '-p', '.'], project)
-  run('npx', ['vite', 'build', '--logLevel', 'error'], project)
-  run('node', ['node-check.mjs'], project)
+  run('npm', ['install', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: project })
+  run('npx', ['tsc', '--noEmit', '-p', '.'], { cwd: project })
+  run('npx', ['vite', 'build', '--logLevel', 'error'], { cwd: project })
+  run('node', ['node-check.mjs'], { cwd: project })
   console.log(`[smoke] 通过：${packages.map(pkg => `${pkg.name}@${version ?? pkg.version}`).join('、')} 装得上、类型检查与打包都过、Node 侧导入正常`)
 }
 catch (error) {
