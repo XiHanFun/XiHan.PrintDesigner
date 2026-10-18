@@ -27,6 +27,7 @@ import {
   createPage,
   createPrintModel,
   findElement,
+  PAGE_BAND_KEYS,
   validateDocument,
 } from '@xihan-print/core'
 import { alignRects, createHistory, createIdAllocator, distributeRects, nextFreeId, remapIds } from '@xihan-ui/designer-kit'
@@ -139,6 +140,8 @@ export interface PrintEditor {
   readonly duplicate: (options?: ExecuteOptions & { readonly offset?: number }) => PrintSelection
   /** 在 index 处（缺省末尾）新增一张页面模板并切到它。 */
   readonly addPage: (index?: number, options?: ExecuteOptions) => PrintPage
+  /** 复制页面模板：页面与其中的元素换新 id，放在原页之后并切到它；页面不存在时抛错。 */
+  readonly duplicatePage: (pageId: string, options?: ExecuteOptions) => PrintPage
   /** 删除页面模板；只剩一张时不删并返回 false。 */
   readonly removePage: (pageId: string, options?: ExecuteOptions) => boolean
   readonly movePage: (pageId: string, index: number, options?: ExecuteOptions) => void
@@ -451,6 +454,35 @@ export function createPrintEditor(options: PrintEditorOptions): PrintEditor {
     addPage: (index, options) => {
       const page = createPage({ id: nextFreeId('page-', taken()) })
       history.execute([{ type: 'addPage', page, ...(index === undefined ? {} : { index }) }], options)
+      editor.setActivePage(page.id)
+      return page
+    },
+    duplicatePage: (pageId, options) => {
+      const pages = history.document.pages
+      const index = pages.findIndex(page => page.id === pageId)
+      if (index < 0)
+        throw new Error(`[print-designer] page "${pageId}" does not exist`)
+      const used = taken()
+      const page = clone(pages[index]!)
+      page.id = nextFreeId('page-', used)
+      const allocators = new Map<string, ReturnType<typeof createIdAllocator>>()
+      const renew = (elements: readonly PrintElement[]): PrintElement[] => elements.map((element) => {
+        let allocator = allocators.get(element.type)
+        if (allocator === undefined) {
+          allocator = createIdAllocator(`${element.type}-`, used)
+          allocators.set(element.type, allocator)
+        }
+        return { ...element, id: allocator.next() }
+      })
+      page.elements = renew(page.elements)
+      for (const set of [page.header, page.footer]) {
+        for (const key of PAGE_BAND_KEYS) {
+          const band = set[key]
+          if (band !== undefined)
+            band.elements = renew(band.elements)
+        }
+      }
+      history.execute([{ type: 'addPage', page, index: index + 1 }], options)
       editor.setActivePage(page.id)
       return page
     },

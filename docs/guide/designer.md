@@ -31,12 +31,12 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | --- | --- | --- |
 | 工具栏 | `toolbar` | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐与等距分布；层级；缩放、网格与吸附开关；设计与预览切换；打印 |
 | 物料 | `palette` | 点一下把元素加到视口中央，拖到画布上放在落点 |
-| 页面 | `pages` | 页面模板的页签：新增、删除、左右移动 |
+| 翻页条 | `pages` | 画布右侧中间的一列：上一页、页码、下一页，新增、复制、删除页面模板。点页码列出全部页面模板，点一项切过去，下面是上移、下移页面 |
 | 标尺 | `rulers` | 毫米标尺；从标尺拖出参考线，参考线存进页面模板，只用于对位、不打印 |
 | 属性 | `properties` | 编辑选中的元素，多选时只显示共同的属性；没有选中时编辑页面设置；表格编辑态里编辑选中的表格部位 |
 | 问题 | `issues` | 校验问题列表，点一下切到问题所在的页面模板并定位到元素；错误、警告数在面板头上，点一下只看或不看这一级 |
 
-工具栏与页签旁的命令栏只显示图标，按钮的名字与快捷键报给读屏，悬停或键盘聚焦到按钮时提示命令的文字与快捷键；会删掉内容的命令按危险色显示。
+工具栏与翻页条只显示图标，按钮的名字与快捷键报给读屏，悬停或键盘聚焦到按钮时提示命令的文字与快捷键；会删掉内容的命令按危险色显示。
 
 物料、属性与问题是外框里的卡片：面板头写标题，属性面板的标题下面写正在编辑的对象，「?」里是这块面板的用法。点面板头的「×」收起这块面板，设计器随之改写 `panels` 并派发 `panels-change { panels }`，宿主存起来、下次赋回即可。
 
@@ -209,7 +209,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 对齐与层级 | `align-left` `align-center` `align-right` `align-top` `align-middle` `align-bottom` `distribute-horizontal` `distribute-vertical` `bring-to-front` `bring-forward` `send-backward` `send-to-back` |
 | 视图 | `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `print` |
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
-| 页面模板 | `add-page` `remove-page` `move-page-left` `move-page-right`：固定排在页面模板的页签旁，不经 `commandLayout` |
+| 页面模板 | `previous-page` `page-menu` `next-page` `add-page` `duplicate-page` `remove-page`：固定排在翻页条上（`PRINT_PAGE_STRIP_LAYOUT`），不经 `commandLayout`；`move-page-up` `move-page-down` 在页码菜单里 |
 
 ### 面板
 

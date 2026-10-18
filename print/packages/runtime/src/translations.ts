@@ -36,12 +36,17 @@ export interface PrintDesignerTranslations {
   /** 吸附其它元素与参考线的开关。 */
   readonly snap: string
   readonly print: string
-  /** 页面模板页签的可访问名。 */
+  /** 画布右侧翻页条的可访问名。 */
   readonly pages: string
+  readonly previousPage: string
+  readonly nextPage: string
   readonly addPage: string
+  readonly duplicatePage: string
   readonly removePage: string
-  readonly movePageLeft: string
-  readonly movePageRight: string
+  readonly movePageUp: string
+  readonly movePageDown: string
+  /** 翻页条上页码按钮的名字：第几个、共几个与页面名称（没有名称时是 pageTitle），position 从 1 开始。 */
+  readonly pagePosition: (position: number, count: number, name: string) => string
   /** 没有名称的页面模板的标题，position 从 1 开始。 */
   readonly pageTitle: (position: number) => string
   /** 页眉、正文、页脚的名称。 */

@@ -62,7 +62,7 @@ describe('外框卡片', () => {
       ['Properties', 'string'],
       ['Problems', 'string'],
     ])
-    expect([region('toolbar').title, region('pages').title, region('canvas').title]).toEqual([undefined, undefined, undefined])
+    expect([region('toolbar').title, region('canvas').title]).toEqual([undefined, undefined])
     expect([region('palette').size, region('properties').size, region('issues').size]).toEqual([18, 24, 28])
     designer.select({ elements: ['a'] })
     await settle()
@@ -101,5 +101,82 @@ describe('问题计数', () => {
     expect(summary).not.toBeNull()
     expect(designer.querySelector('xh-designer-issues')!.querySelector('[data-part="filter"]')).toBeNull()
     expect(summary.textContent).toContain('1 warning')
+  })
+})
+
+describe('翻页条', () => {
+  function strip(): HTMLElement {
+    return designer.querySelector<HTMLElement>('[slot="canvas-end"]')!
+  }
+
+  function button(value: string): HTMLButtonElement {
+    return strip().querySelector<HTMLButtonElement>(`button[value="${value}"]`)!
+  }
+
+  async function twoPages(): Promise<void> {
+    const second = createPage({ id: 'q', name: '明细页' })
+    designer.schema = createDocument({ pages: [sample().pages[0]!, second] })
+    await settle()
+  }
+
+  it('竖排落在画布区右侧中间：上一页、页码、下一页，新增、复制、删除页面；页码按钮写第几页、共几页与页面名称', async () => {
+    await twoPages()
+    expect(strip().closest('[data-region="canvas"]')).not.toBeNull()
+    expect(strip().getAttribute('data-orientation')).toBe('vertical')
+    const groups = Array.from(strip().querySelectorAll('[data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), item => item.value))
+    expect(groups).toEqual([['previous-page', 'page-menu', 'next-page'], ['add-page', 'duplicate-page', 'remove-page']])
+    expect(button('page-menu').getAttribute('aria-label')).toBe('Page 1 of 2: Page 1')
+    expect([button('previous-page').disabled, button('next-page').disabled]).toEqual([true, false])
+    button('next-page').click()
+    await settle()
+    expect(designer.activePageId).toBe('q')
+    expect(button('page-menu').getAttribute('aria-label')).toBe('Page 2 of 2: 明细页')
+    expect([button('previous-page').disabled, button('next-page').disabled, button('remove-page').getAttribute('data-tone')]).toEqual([false, true, 'danger'])
+  })
+
+  it('页码菜单：上半是全部页面模板（单选，当前那个打勾），下半是上移、下移；选中一项切过去', async () => {
+    await twoPages()
+    button('page-menu').click()
+    await settle()
+    const menu = document.querySelector('[aria-label="Page 1 of 2: Page 1"][role="menu"]')!
+    const items = Array.from(menu.querySelectorAll('[role="menuitemradio"], [role="menuitem"]'), item => [item.getAttribute('role'), item.textContent?.trim(), item.getAttribute('aria-checked')])
+    expect(items).toEqual([
+      ['menuitemradio', 'Page 1', 'true'],
+      ['menuitemradio', '明细页', 'false'],
+      ['menuitem', 'Move page up', null],
+      ['menuitem', 'Move page down', null],
+    ])
+    menu.querySelectorAll<HTMLElement>('[role="menuitemradio"]')[1]!.click()
+    await settle()
+    expect(designer.activePageId).toBe('q')
+  })
+
+  it('复制页面：放在当前页之后并切过去，元素换了新 id，可以撤销；只读时增、复制、删、移都不可用，翻页照常', async () => {
+    await twoPages()
+    button('duplicate-page').click()
+    await settle()
+    expect(designer.schema.pages.map(page => page.id)).toEqual(['p', 'page-1', 'q'])
+    expect([designer.activePageId, designer.schema.pages[1]!.elements.map(element => element.id)]).toEqual(['page-1', ['text-1']])
+    designer.undo()
+    await settle()
+    expect(designer.schema.pages.map(page => page.id)).toEqual(['p', 'q'])
+    designer.readonly = true
+    await settle()
+    expect(['previous-page', 'next-page', 'add-page', 'duplicate-page', 'remove-page'].map(value => button(value).disabled)).toEqual([true, false, true, true, true])
+  })
+
+  it('预览态与 panels 不含 pages 时翻页条收起；收起面板时 pages 照原样留着', async () => {
+    designer.mode = 'preview'
+    await settle()
+    expect(strip().hidden).toBe(true)
+    designer.mode = 'design'
+    designer.panels = 'toolbar palette properties issues'
+    await settle()
+    expect(strip().hidden).toBe(true)
+    designer.panels = undefined
+    await settle()
+    frame().querySelector<HTMLButtonElement>('[data-region="palette"] [data-part="panel-close"]')!.click()
+    await settle()
+    expect([designer.panels!.split(' ').includes('pages'), strip().hidden]).toEqual([true, false])
   })
 })
