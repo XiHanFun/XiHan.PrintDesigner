@@ -135,6 +135,8 @@ const designer: PrintDesignerLocale = {
   alignTextLeft: 'Выровнять текст по левому краю',
   alignTextCenter: 'Выровнять текст по центру',
   alignTextRight: 'Выровнять текст по правому краю',
+  alignMenu: 'Выравнивание и распределение',
+  layerMenu: 'Порядок',
   propertyGroups: {
     layout: 'Расположение',
     content: 'Содержимое',

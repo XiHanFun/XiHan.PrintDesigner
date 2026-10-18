@@ -129,6 +129,10 @@ export interface PrintDesignerTranslations {
   readonly alignTextLeft: string
   readonly alignTextCenter: string
   readonly alignTextRight: string
+  /** 工具栏上「对齐与分布」菜单的名字。 */
+  readonly alignMenu: string
+  /** 工具栏上「层级」菜单的名字。 */
+  readonly layerMenu: string
   /** 校验问题与分页诊断的说明，按问题码与参数生成。 */
   readonly issue: (issue: SchemaIssue) => string
   /** 属性分组的名称。 */

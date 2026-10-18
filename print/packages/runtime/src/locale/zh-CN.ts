@@ -122,6 +122,8 @@ const designer: PrintDesignerLocale = {
   alignTextLeft: '文字左对齐',
   alignTextCenter: '文字居中',
   alignTextRight: '文字右对齐',
+  alignMenu: '对齐与分布',
+  layerMenu: '层级',
   propertyGroups: {
     layout: '布局',
     content: '内容',

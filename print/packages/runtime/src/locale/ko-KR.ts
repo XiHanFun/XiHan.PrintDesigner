@@ -125,6 +125,8 @@ const designer: PrintDesignerLocale = {
   alignTextLeft: '텍스트 왼쪽 맞춤',
   alignTextCenter: '텍스트 가운데 맞춤',
   alignTextRight: '텍스트 오른쪽 맞춤',
+  alignMenu: '정렬 및 분포',
+  layerMenu: '배치 순서',
   propertyGroups: {
     layout: '레이아웃',
     content: '내용',

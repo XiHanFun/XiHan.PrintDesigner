@@ -430,6 +430,8 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   alignTextLeft: 'Align text left',
   alignTextCenter: 'Center text',
   alignTextRight: 'Align text right',
+  alignMenu: 'Align and distribute',
+  layerMenu: 'Arrange',
   propertyGroups: {
     layout: 'Layout',
     content: 'Content',

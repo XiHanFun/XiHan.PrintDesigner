@@ -1054,7 +1054,29 @@ export class XhPrintDesigner extends XhReactiveElement {
       helpUrl: () => PRINT_DESIGNER_HELP_URL,
       icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon },
     })
-    return [...builtin, ...this.#formatCommands(), ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell]
+    return [...builtin, ...this.#arrangeMenus(), ...this.#formatCommands(), ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell]
+  }
+
+  /** 工具栏上的「对齐与分布」「层级」两个菜单：条目就是对应的内置命令，按它们的文字、图标与可用状态铺，选中即执行。 */
+  #arrangeMenus(): PrintDesignerCommand[] {
+    const aligns = Object.keys(ALIGN)
+    const orders = Object.keys(REORDER)
+    return [
+      {
+        id: 'align-menu',
+        label: ({ translations }) => translations.alignMenu,
+        icon: AlignObjectsLeftIcon,
+        enabled: () => [...aligns, 'distribute-horizontal'].some(id => this.#commandEnabled(id as Command)),
+        menu: () => [...aligns, 'separator', 'distribute-horizontal', 'distribute-vertical'],
+      },
+      {
+        id: 'layer-menu',
+        label: ({ translations }) => translations.layerMenu,
+        icon: BringToFrontIcon,
+        enabled: () => orders.some(id => this.#commandEnabled(id as Command)),
+        menu: () => orders,
+      },
+    ]
   }
 
   /**
