@@ -126,7 +126,9 @@ internal sealed class SettingsForm : Form
 
     private Button RemoveButton(ListBox list, string accessibleName)
     {
-        var button = new Button { Text = "删除", AutoSize = true, AccessibleName = accessibleName };
+        var button = new Button { Text = "删除", AutoSize = true, AccessibleName = accessibleName, Enabled = false };
+        // 选中的是自己加进来的来源才能删；策略里的来源与没选中时删除钮不可用
+        list.SelectedIndexChanged += (_, _) => button.Enabled = list.SelectedItem is OriginItem { FromPolicy: false };
         button.Click += (_, _) =>
         {
             if (list.SelectedItem is OriginItem { FromPolicy: false } item)
@@ -144,14 +146,8 @@ internal sealed class SettingsForm : Form
     private void Refill()
     {
         _autoStart.Checked = _host.AutoStart.IsEnabled;
-        _allowed.Items.Clear();
-        foreach (var origin in _host.Policy.AllowedOrigins)
-            _allowed.Items.Add(new OriginItem(origin, FromPolicy: true));
-        foreach (var origin in _host.Lists.Allowed)
-            _allowed.Items.Add(new OriginItem(origin, FromPolicy: false));
-        _denied.Items.Clear();
-        foreach (var origin in _host.Lists.Denied)
-            _denied.Items.Add(new OriginItem(origin, FromPolicy: false));
+        Fill(_allowed, [.. _host.Policy.AllowedOrigins.Select(origin => new OriginItem(origin, FromPolicy: true)), .. _host.Lists.Allowed.Select(origin => new OriginItem(origin, FromPolicy: false))]);
+        Fill(_denied, [.. _host.Lists.Denied.Select(origin => new OriginItem(origin, FromPolicy: false))]);
         _about.Text = string.Join(Environment.NewLine,
             $"曦寒打印客户端 {ClientHost.ProductVersion}",
             _host.Info.Renderer is { } renderer ? $"WebView2 运行时 {renderer}" : "没有 WebView2 运行时",
@@ -160,6 +156,21 @@ internal sealed class SettingsForm : Form
             $"设置：{_host.Paths.SettingsDirectory}",
             $"日志：{_host.Paths.LogDirectory}",
             $"策略：{_host.Paths.PolicyFile}");
+    }
+
+    /// <summary>
+    /// 换上一张名单的条目；原来选中的来源还在名单里时照旧选中它
+    /// </summary>
+    private static void Fill(ListBox list, IReadOnlyList<OriginItem> items)
+    {
+        var selected = (list.SelectedItem as OriginItem)?.Origin;
+        list.BeginUpdate();
+        list.Items.Clear();
+        foreach (var item in items)
+            list.Items.Add(item);
+        if (selected is not null)
+            list.SelectedItem = items.FirstOrDefault(item => item.Origin == selected);
+        list.EndUpdate();
     }
 
     /// <summary>
