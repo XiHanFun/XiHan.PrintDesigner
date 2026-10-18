@@ -36,7 +36,52 @@ jobs:
         run: pnpm lint
       - name: Build
         run: pnpm build
+      - name: 产物契约（publint + attw）
+        run: pnpm gate:publish
+      - name: 发版脚本自检（锁步同版、标签对账）
+        run: |
+          node scripts/release/check-version-lock.mjs
+          node scripts/release/check-release-tag.mjs
       - name: Typecheck
         run: pnpm typecheck
       - name: Test
         run: pnpm test
+
+  docs:
+    name: 文档站
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: print/package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: |
+            print/pnpm-lock.yaml
+            docs/pnpm-lock.yaml
+      # 文档站以 link: 引用 print/packages 下的三个包，示例要渲染就得先有 dist
+      - run: pnpm install --frozen-lockfile
+      - name: 构建打印各包
+        run: pnpm build
+      - name: 装文档站依赖
+        working-directory: docs
+        run: pnpm install --frozen-lockfile
+      - name: 参考页与源码一致
+        working-directory: docs
+        run: pnpm gate:gen
+      - name: 示例模板校验并试排
+        working-directory: docs
+        run: pnpm check:examples
+      - name: 文档站 Lint
+        working-directory: docs
+        run: pnpm lint
+      - name: 示例类型检查
+        working-directory: docs
+        run: pnpm typecheck
+      - name: 构建文档站（站内死链会让构建失败）
+        working-directory: docs
+        run: pnpm build

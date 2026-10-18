@@ -13,13 +13,21 @@
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
     "lint": "oxlint . && eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "changeset": "changeset",
+    "version": "changeset version",
+    "gate:publish": "node scripts/release/check-publish.mjs",
+    "release": "pnpm build && changeset publish --no-git-tag",
+    "smoke": "node scripts/release/smoke.mjs"
   },
   "devDependencies": {
     "@antfu/eslint-config": "catalog:",
+    "@arethetypeswrong/cli": "catalog:",
+    "@changesets/cli": "catalog:",
     "@types/node": "catalog:",
     "eslint": "catalog:",
     "oxlint": "catalog:",
+    "publint": "catalog:",
     "tsdown": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

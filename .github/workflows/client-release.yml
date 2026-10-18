@@ -1,6 +1,7 @@
 name: Client Release
 
 # 推 client-v<版本> 标签时编译、签名安装包，建一个草稿 Release；发布草稿与更新 main 上的 client/update.json 由维护者手动完成
+# 只放行 main 历史里的标签；npm 包走另一条线（v<版本> 标签，release.yml），两边的版本号各自独立
 on:
   push:
     tags: ['client-v*']
@@ -13,8 +14,30 @@ defaults:
     working-directory: client
 
 jobs:
+  guard:
+    name: 核对标签
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: 只放行 main 上的客户端标签
+        run: |
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+            echo "::error::标签 $GITHUB_REF_NAME 指向的提交 $GITHUB_SHA 不在 main 的历史里，拒绝发布。先把要发布的提交合进 main，再在 main 上打标签。"
+            exit 1
+          fi
+          echo "标签 $GITHUB_REF_NAME 在 main 上，放行"
+
   release:
     name: 发布安装包
+    needs: guard
     runs-on: windows-latest
     timeout-minutes: 40
     env:
