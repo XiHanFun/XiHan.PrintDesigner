@@ -119,6 +119,11 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: 'Pendant le glisser, aimante aux autres éléments, aux marges, aux bords des zones et aux repères, et affiche les lignes d’alignement.',
   settingsShowMargins: 'Afficher les marges',
   settingsShowMarginsHint: 'Encadre la zone à l’intérieur des marges de la page.',
+  statusElements: count => `${count} ${count === 1 ? 'élément' : 'éléments'}`,
+  statusGeometry: (x, y, width, height) => `X ${x} · Y ${y} · ${width} × ${height} mm`,
+  statusZoom: 'Zoom',
+  statusClient: 'Client d’impression',
+  statusClientStates: { idle: 'Non connecté', connecting: 'Connexion', open: 'Connecté', reconnecting: 'Reconnexion', closed: 'Déconnecté' },
   propertyGroups: {
     layout: 'Disposition',
     content: 'Contenu',

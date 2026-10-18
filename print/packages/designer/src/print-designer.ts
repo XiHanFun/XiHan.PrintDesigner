@@ -33,8 +33,8 @@ import type {
   ValidationIssue,
 } from '@xihan-print/core'
 import type { PrintDesignerTranslations, PrintOutcome, PrintPreviewPrintOptions } from '@xihan-print/runtime'
-import type { PrintClient } from '@xihan-print/runtime/client'
-import type { IconRecord } from '@xihan-ui/core'
+import type { PrintClient, PrintClientState } from '@xihan-print/runtime/client'
+import type { IconRecord, Tone } from '@xihan-ui/core'
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { AlignMode, DataField, DesignerImportSource, DistributeAxis, ExecuteOptions, ExtensionHost, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
@@ -64,6 +64,7 @@ import type {
   DesignerSettingsPolicy,
   DesignerSettingsSection,
   DesignerSnapOptions,
+  DesignerStatusItem,
   DesignerTransformEventMap,
   DesignerTransformItem,
   DropOver,
@@ -125,9 +126,11 @@ import {
   createCommandToolbar,
   createDesignerSettingsHost,
   createPanelHost,
+  createStatusItem,
   defineDesignerShellElement,
   DESIGNER_COMMANDS_EN_US,
   DESIGNER_FRAME_REGIONS,
+  DESIGNER_SETTING_KEYS,
   designerShellCommands,
   importSources,
   parseDesignerPanels,
@@ -453,6 +456,12 @@ interface Layers {
   readonly preview: HTMLElement
   /** 设置对话框。 */
   readonly settings: XhDesignerSettingsElement
+  /** 状态栏左段：选中的对象。 */
+  readonly selectionStatus: DesignerStatusItem
+  /** 状态栏右段：打印客户端的连接状态，没给 printClient 时收起。 */
+  readonly clientStatus: DesignerStatusItem
+  /** 状态栏右段：缩放，点了回到实际尺寸。 */
+  readonly zoomStatus: DesignerStatusItem
 }
 
 interface Gesture {
@@ -541,7 +550,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   /** 设计态或预览态，缺省 design；同名 attribute。 */
   declare mode: PrintDesignerMode
   /**
-   * 要显示的面板，空格分隔：toolbar palette pages rulers properties issues，pages 是画布右侧的翻页条；不写即全部显示。同名 attribute。
+   * 要显示的面板，空格分隔：toolbar palette pages rulers properties issues status，pages 是画布右侧的翻页条、status 是状态栏；不写即全部显示。同名 attribute。
    * 点了面板头的关闭钮时设计器改写它并派发 panels-change。
    */
   declare panels: string | undefined
@@ -608,6 +617,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   #settingsDialogKey = ''
   /** 此刻生效的设置：各分区没写的条目取了缺省值。 */
   #resolvedSettings: DesignerSettings = {}
+  /** 正在听连接状态的打印客户端与退订函数。 */
+  #clientWatch: { readonly client: PrintClient, readonly off: () => void } | undefined
 
   /** 是否只读：readonly 移除 attribute 后为 undefined，按不只读处理。 */
   get #readOnly(): boolean {
@@ -706,6 +717,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     super.disconnectedCallback()
     this.#settingsHost?.dispose()
     this.#settingsHost = undefined
+    this.#clientWatch?.off()
+    this.#clientWatch = undefined
     this.#resizeObserver?.disconnect()
     this.#cancelGesture()
     this.#layers?.overlay.cancel()
@@ -761,6 +774,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#syncFrameRegions(layers, t)
     this.#renderToolbar(layers)
     this.#renderPageStrip(layers, t)
+    this.#renderStatus(layers, t)
     layers.panelHost.update(this.#context())
     layers.viewport.setAttribute('aria-label', t.canvas)
     const preview = this.mode === 'preview'
@@ -1185,8 +1199,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#resolvedSettings = resolveSettings(this.#settingsSectionList, this.settings)
     const dialog = layers.settings
     const general = { brands: this.brands, customBrand: this.registerBrand !== undefined }
-    // 设计器还没接状态栏，基础分区里这一项不显示
-    const policy: DesignerSettingsPolicy = { 'general.statusBar': 'hidden', ...this.settingsPolicy }
+    const policy: DesignerSettingsPolicy = { ...this.settingsPolicy }
     const dialogKey = JSON.stringify([general.brands, general.customBrand, policy])
     if (dialogKey !== this.#settingsDialogKey) {
       this.#settingsDialogKey = dialogKey
@@ -1234,17 +1247,27 @@ export class XhPrintDesigner extends XhReactiveElement {
     event.stopPropagation()
     const frame = (event as DesignerFrameEventMap['panels-change']).detail.panels.split(' ').filter(Boolean)
     const shown = parseDesignerPanels(this.panels)
-    const panels = [...frame, ...OWN_PANELS.filter(panel => shown === undefined || shown.has(panel))].join(' ')
+    // 设置里关了状态栏时外框不知道有 status，设计器自己的 panels 照原样留着它
+    const kept = this.#statusBarOff() ? [...OWN_PANELS, 'status'] : OWN_PANELS
+    const panels = [...frame, ...kept.filter(panel => shown === undefined || shown.has(panel))].join(' ')
     this.panels = panels
     emitEvent(this, 'panels-change', { panels })
   }
 
-  /** 交给外框的 panels：预览态只留工具栏。 */
+  /** 交给外框的 panels：预览态只留工具栏；设置里关了状态栏时去掉 status。 */
   #framePanels(): string | undefined {
-    if (this.mode !== 'preview')
-      return this.panels
     const shown = parseDesignerPanels(this.panels)
-    return shown === undefined || shown.has('toolbar') ? 'toolbar' : ''
+    if (this.mode === 'preview')
+      return shown === undefined || shown.has('toolbar') ? 'toolbar' : ''
+    if (!this.#statusBarOff())
+      return this.panels
+    const names = shown === undefined ? (this.#regions?.regions ?? DESIGNER_FRAME_REGIONS).map(region => region.name) : [...shown]
+    return names.filter(name => name !== 'status').join(' ')
+  }
+
+  /** 设置里关掉了状态栏。 */
+  #statusBarOff(): boolean {
+    return this.#resolvedSettings[DESIGNER_SETTING_KEYS.statusBar] === false
   }
 
   #translations(): PrintDesignerTranslations {
@@ -1331,6 +1354,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       layers.ruler.viewport = this.#viewport
       this.style.setProperty('--xh-print-designer-zoom', String(scale))
       this.#paintGrid(layers)
+      this.#renderZoomStatus(layers, this.#translations())
     }
     if (notify)
       emitEvent(this, 'viewport-change', { viewport: this.getViewport() })
@@ -1414,6 +1438,13 @@ export class XhPrintDesigner extends XhReactiveElement {
     issueSummary.slot = 'issues-actions'
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, palette, workspace, pageStrip.element, properties, issues, issueSummary]) as XhDesignerFrameElement
     frame.addEventListener('panels-change', this.#onPanelsChange)
+    const selectionStatus = createStatusItem(doc, { value: '' })
+    selectionStatus.element.slot = 'status-start'
+    const clientStatus = createStatusItem(doc, { value: '' })
+    clientStatus.element.slot = 'status-end'
+    const zoomStatus = createStatusItem(doc, { value: '', action: () => this.zoomToActual() })
+    zoomStatus.element.slot = 'status-end'
+    frame.append(selectionStatus.element, clientStatus.element, zoomStatus.element)
     const settings = createGeneratedElement(doc, 'xh-designer-settings', { 'data-part': 'settings' }) as XhDesignerSettingsElement
     settings.addEventListener('settings-change', this.#onSettingsChange)
     this.append(frame, settings)
@@ -1433,7 +1464,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings }
+    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, selectionStatus, clientStatus, zoomStatus }
     this.#regions = undefined
     panelHost.assign(this.#model().list, this.#context())
     return this.#layers
@@ -1635,6 +1666,53 @@ export class XhPrintDesigner extends XhReactiveElement {
       const { commands } = this.#model()
       layers.pageStrip.update(PRINT_PAGE_STRIP_LAYOUT, commands, this.#context(), t.pages)
     }
+  }
+
+  /**
+   * 状态栏：左段没有选中时写当前页面模板与它上面的元素个数，选中一个写元素种类与位置尺寸（mm），选中多个写个数；
+   * 右段写打印客户端的连接状态（给了 printClient 时）与缩放。
+   */
+  #renderStatus(layers: Layers, t: PrintDesignerTranslations): void {
+    const ids = this.#editor.selection.elements
+    const visible = this.#editor.visibleElements()
+    const single = ids.length === 1 ? visible.find(item => item.element.id === ids[0])?.element : undefined
+    if (ids.length > 1) {
+      layers.selectionStatus.update({ value: t.selectedCount(ids.length) })
+    }
+    else if (single !== undefined) {
+      layers.selectionStatus.update({ label: elementName(t, this.#model(), single.type), value: t.statusGeometry(this.#formatMm(single.x), this.#formatMm(single.y), this.#formatMm(single.width), this.#formatMm(single.height)) })
+    }
+    else {
+      const index = this.#pageIndex()
+      layers.selectionStatus.update({ label: this.#editor.page.name ?? t.pageTitle(index + 1), value: t.statusElements(visible.length) })
+    }
+    this.#watchClient(layers)
+    this.#renderClientStatus(layers, t)
+    this.#renderZoomStatus(layers, t)
+  }
+
+  #renderZoomStatus(layers: Layers, t: PrintDesignerTranslations): void {
+    layers.zoomStatus.update({ label: t.statusZoom, value: `${Math.round(this.#viewport.zoom / PX_PER_MM * 100)}%` })
+  }
+
+  /** 打印客户端一项：没给 printClient 时收起；连上时带 success 语气，正在连或重连时带 warning。 */
+  #renderClientStatus(layers: Layers, t: PrintDesignerTranslations): void {
+    const client = this.printClient
+    layers.clientStatus.element.hidden = client === undefined
+    if (client === undefined)
+      return
+    const state: PrintClientState = client.state
+    const tone: Tone | undefined = state === 'open' ? 'success' : state === 'connecting' || state === 'reconnecting' ? 'warning' : undefined
+    layers.clientStatus.update({ label: t.statusClient, value: t.statusClientStates[state], ...(tone === undefined ? {} : { tone }) })
+  }
+
+  /** 换了 printClient 就退订旧的、订阅新的：连接状态变了当场刷新那一项，不等下一轮更新。 */
+  #watchClient(layers: Layers): void {
+    const client = this.printClient
+    if (this.#clientWatch?.client === client)
+      return
+    this.#clientWatch?.off()
+    this.#clientWatch = client === undefined ? undefined : { client, off: client.on('state', () => this.#renderClientStatus(layers, this.#translations())) }
   }
 
   /** 当前页面模板在文档里的序号。 */

@@ -122,6 +122,11 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: 'Al arrastrar, se ajusta a otros elementos, los márgenes, los bordes de las regiones y las guías, y muestra líneas de alineación.',
   settingsShowMargins: 'Mostrar márgenes',
   settingsShowMarginsHint: 'Enmarca el área dentro de los márgenes de la página.',
+  statusElements: count => `${count} ${count === 1 ? 'elemento' : 'elementos'}`,
+  statusGeometry: (x, y, width, height) => `X ${x} · Y ${y} · ${width} × ${height} mm`,
+  statusZoom: 'Zoom',
+  statusClient: 'Cliente de impresión',
+  statusClientStates: { idle: 'Sin conexión', connecting: 'Conectando', open: 'Conectado', reconnecting: 'Reconectando', closed: 'Desconectado' },
   propertyGroups: {
     layout: 'Disposición',
     content: 'Contenido',

@@ -124,6 +124,11 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: 'При перетаскивании привязывает к другим элементам, полям, границам областей и направляющим и показывает линии выравнивания.',
   settingsShowMargins: 'Показывать поля',
   settingsShowMarginsHint: 'Обводит область внутри полей страницы.',
+  statusElements: count => `Элементов: ${count}`,
+  statusGeometry: (x, y, width, height) => `X ${x} · Y ${y} · ${width} × ${height} mm`,
+  statusZoom: 'Масштаб',
+  statusClient: 'Клиент печати',
+  statusClientStates: { idle: 'Не подключено', connecting: 'Подключение', open: 'Подключено', reconnecting: 'Переподключение', closed: 'Отключено' },
   propertyGroups: {
     layout: 'Расположение',
     content: 'Содержимое',

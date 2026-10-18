@@ -419,6 +419,11 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   settingsSnapHint: 'While dragging, snap to other elements, the margins, region edges and guides, and show alignment lines.',
   settingsShowMargins: 'Show margins',
   settingsShowMarginsHint: 'Outline the area inside the page margins.',
+  statusElements: count => `${count} ${count === 1 ? 'element' : 'elements'}`,
+  statusGeometry: (x, y, width, height) => `X ${x} · Y ${y} · ${width} × ${height} mm`,
+  statusZoom: 'Zoom',
+  statusClient: 'Print client',
+  statusClientStates: { idle: 'Not connected', connecting: 'Connecting', open: 'Connected', reconnecting: 'Reconnecting', closed: 'Disconnected' },
   propertyGroups: {
     layout: 'Layout',
     content: 'Content',

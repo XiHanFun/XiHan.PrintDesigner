@@ -1086,6 +1086,8 @@ describe('打印客户端', () => {
   it('给了 printClient 时 print() 经预览交给客户端，带上打印选项', async () => {
     const calls: Array<{ sheets: number, printer: string | undefined }> = []
     const client = {
+      state: 'idle' as const,
+      on: () => () => undefined,
       printSheets: (result: { readonly sheets: readonly unknown[] }, options: { readonly printer?: string } = {}) => {
         calls.push({ sheets: result.sheets.length, printer: options.printer })
         return { id: 'j', status: undefined, done: Promise.resolve({ jobId: 'j', state: 'completed' as const, sheets: result.sheets.length }), onStatus: () => () => undefined, cancel: async () => false }

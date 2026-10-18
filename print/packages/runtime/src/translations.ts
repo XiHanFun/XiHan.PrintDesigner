@@ -7,6 +7,7 @@
 
 import type { ElementCategory, ElementRegion, PageBandKey, PrintElementType, PropertyGroup, PropertyUnit } from '@xihan-print/core'
 import type { SchemaIssue } from '@xihan-ui/designer-kit/schema'
+import type { PrintClientState } from './client/client'
 
 /** 预览元素的文案。 */
 export interface PrintPreviewTranslations {
@@ -109,6 +110,16 @@ export interface PrintDesignerTranslations {
   readonly settingsSnapHint: string
   readonly settingsShowMargins: string
   readonly settingsShowMarginsHint: string
+  /** 状态栏左段没有选中时的值：当前页面模板上可见的元素个数。 */
+  readonly statusElements: (count: number) => string
+  /** 状态栏左段选中一个元素时的值：入参是格式化后的位置与尺寸（mm）。 */
+  readonly statusGeometry: (x: string, y: string, width: string, height: string) => string
+  /** 状态栏右段缩放一项的标签。 */
+  readonly statusZoom: string
+  /** 状态栏右段打印客户端一项的标签。 */
+  readonly statusClient: string
+  /** 打印客户端连接状态的说法。 */
+  readonly statusClientStates: Readonly<Record<PrintClientState, string>>
   /** 校验问题与分页诊断的说明，按问题码与参数生成。 */
   readonly issue: (issue: SchemaIssue) => string
   /** 属性分组的名称。 */

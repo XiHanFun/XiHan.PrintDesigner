@@ -111,6 +111,11 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: '拖曳時貼齊其他元件、頁邊距、區域邊界與參考線，並顯示對齊線。',
   settingsShowMargins: '顯示邊距線',
   settingsShowMarginsHint: '在頁面上框出頁邊距以內的範圍。',
+  statusElements: count => `${count} 個元件`,
+  statusGeometry: (x, y, width, height) => `X ${x} · Y ${y} · ${width} × ${height} mm`,
+  statusZoom: '縮放',
+  statusClient: '列印用戶端',
+  statusClientStates: { idle: '未連線', connecting: '連線中', open: '已連線', reconnecting: '重新連線中', closed: '已中斷' },
   propertyGroups: {
     layout: '版面配置',
     content: '內容',

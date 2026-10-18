@@ -225,3 +225,84 @@ describe('工具栏末组', () => {
     expect([designer.panels!.split(' ').includes('palette'), frame().showsPanel('palette')]).toEqual([true, true])
   })
 })
+
+describe('状态栏', () => {
+  function item(slot: string, index = 0): { label: string | null, value: string | null, tone: string | null, element: HTMLElement } {
+    const element = designer.querySelectorAll<HTMLElement>(`[slot="${slot}"]`)[index]!
+    const label = element.querySelector<HTMLElement>('[data-part="status-label"]')!
+    const value = element.querySelector<HTMLElement>('[data-part="status-value"]')!
+    return { label: label.hidden ? null : label.textContent, value: value.textContent, tone: value.getAttribute('data-tone'), element }
+  }
+
+  it('左段：没有选中写页面与元素个数，选中一个写种类与位置尺寸，选中多个写个数', async () => {
+    expect([item('status-start').label, item('status-start').value]).toEqual(['Page 1', '1 element'])
+    designer.select({ elements: ['a'] })
+    await settle()
+    expect([item('status-start').label, item('status-start').value]).toEqual(['Text', 'X 10 · Y 30 · 40 × 10 mm'])
+    designer.addElement('rect', { x: 120, y: 120 })
+    designer.select({ elements: ['a', 'rect-1'] })
+    await settle()
+    expect([item('status-start').label, item('status-start').value]).toEqual([null, '2 elements selected'])
+  })
+
+  it('右段：缩放写百分比，点了回到实际尺寸；视口一变当场刷新', async () => {
+    const zoom = (): ReturnType<typeof item> => item('status-end', 1)
+    expect(zoom().label).toBe('Zoom')
+    designer.setViewport({ x: 0, y: 0, zoom: 2 })
+    expect(zoom().value).toBe('200%')
+    designer.setViewport({ x: 0, y: 0, zoom: 1 })
+    expect(zoom().value).toBe('100%')
+    // jsdom 里视口没有尺寸，zoomToActual 什么都不做，只核对点了会调它
+    const actual = vi.spyOn(designer, 'zoomToActual')
+    zoom().element.querySelector('button')!.click()
+    expect(actual).toHaveBeenCalledOnce()
+  })
+
+  it('右段：给了 printClient 才显示连接状态，状态变了当场刷新；换掉客户端时退订旧的', async () => {
+    const client = (initial: string): { state: string, emit: (state: string) => void, listeners: number, on: (type: string, listener: () => void) => () => void } => {
+      const listeners = new Set<() => void>()
+      const fake = {
+        state: initial,
+        get listeners() { return listeners.size },
+        emit(state: string) {
+          fake.state = state
+          listeners.forEach(listener => listener())
+        },
+        on(_type: string, listener: () => void) {
+          listeners.add(listener)
+          return () => void listeners.delete(listener)
+        },
+      }
+      return fake
+    }
+    const status = (): ReturnType<typeof item> => item('status-end', 0)
+    expect(status().element.hidden).toBe(true)
+    const first = client('idle')
+    designer.printClient = first as never
+    await settle()
+    expect([status().element.hidden, status().label, status().value]).toEqual([false, 'Print client', 'Not connected'])
+    first.emit('open')
+    expect([status().value, status().tone]).toEqual(['Connected', 'success'])
+    first.emit('reconnecting')
+    expect([status().value, status().tone]).toEqual(['Reconnecting', 'warning'])
+    const second = client('connecting')
+    designer.printClient = second as never
+    await settle()
+    expect([first.listeners, second.listeners, status().value]).toEqual([0, 1, 'Connecting'])
+    designer.printClient = undefined
+    await settle()
+    expect([second.listeners, status().element.hidden]).toEqual([0, true])
+  })
+
+  it('设置里关掉状态栏时外框收起状态栏，收起别的面板时 status 照原样留着，再打开状态栏又回来', async () => {
+    designer.settings = { 'general.statusBar': false }
+    await settle()
+    expect(frame().showsPanel('status')).toBe(false)
+    frame().querySelector<HTMLButtonElement>('[data-region="palette"] [data-part="panel-close"]')!.click()
+    await settle()
+    expect(designer.panels!.split(' ')).toEqual(expect.arrayContaining(['status', 'pages', 'rulers']))
+    designer.settings = {}
+    await settle()
+    expect([frame().showsPanel('status'), frame().showsPanel('palette')]).toEqual([true, false])
+  })
+})
