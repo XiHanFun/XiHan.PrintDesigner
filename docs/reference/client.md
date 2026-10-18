@@ -146,6 +146,15 @@ declare function shouldFallBack(error: unknown): boolean
 | `CAPABILITY_UNSUPPORTED` | 客户端 | 请求了客户端没有的能力 | 否 |
 | `INTERNAL` | 客户端 | 未预期的异常 | 否 |
 
+## 提醒码
+
+HTML 通道的任务照常完成、但有宿主应当知道的情况时，`JobStatus` 的 `warnings` 里带若干条提醒（`ClientWarningPayload`），`code` 为下表之一，`details` 带补充信息。
+
+| 提醒码 | 说明 |
+| --- | --- |
+| `PAPER_UNCHECKED` | 驱动没有报纸张能力，或读不出驱动会留下哪种纸，没有核对纸张就照常下发了 |
+| `PAPER_FITTED` | 按 fitToNearestPaper 把某组改用了最接近的纸张：比纸大的内容按 scale 等比缩小，比纸小的原大居中 |
+
 ## 打印选项与结果
 
 ### ClientPrintOptions {#clientprintoptions}
@@ -162,6 +171,7 @@ declare function shouldFallBack(error: unknown): boolean
 | `pageRanges?` | `string` | 页码范围，如 1-3,5。 |
 | `dialog?` | `boolean` | 弹系统打印对话框，缺省静默打印。 |
 | `timeoutMs?` | `number` | 交给打印池的期限，毫秒。 |
+| `fitToNearestPaper?` | `boolean` | 打印机没有某组的纸张、驱动也不接受这个尺寸时，改用最接近的纸张，比纸大的内容等比缩小到放得下，比纸小的原大居中；缺省 false，这时整个任务以 PAPER_UNSUPPORTED 失败。 |
 
 ### PrintClientDocumentOptions {#printclientdocumentoptions}
 
@@ -191,6 +201,7 @@ declare function shouldFallBack(error: unknown): boolean
 | `sheets?` | `number` | HTML 通道交给打印池的页数。 |
 | `bytes?` | `number` | 原始通道写出的字节数，或导出的 PDF 大小。 |
 | `error?` | `ClientErrorPayload` |  |
+| `warnings?` | `readonly ClientWarningPayload[]` | HTML 通道完成时的提醒，如没能核对纸张、按 fitToNearestPaper 换了纸；没有时缺省。 |
 
 ## 打印机与客户端信息
 
@@ -381,6 +392,8 @@ declare function buildClientDocument(result: PaginationResult, options?: ClientD
 | `ClientPrintOptions` | 接口 | 交给客户端的打印选项。 |
 | `ClientResource` | 接口 | 随任务带去的一份资源，data 为 base64。 |
 | `ClientSheetGroup` | 接口 | 连续的若干张同尺寸输出页。 |
+| `ClientWarningCode` | 类型 | 客户端在完成的任务里给出的提醒码。 |
+| `ClientWarningPayload` | 接口 | 任务照常完成、但宿主应当知道的情况，code 取 ClientWarningCode。 |
 | `ClientWelcome` | 接口 | 握手成功后客户端的回复。 |
 | `DEFAULT_PORTS` | 常量 | 客户端监听的端口，按顺序探测。 |
 | `JobState` | 类型 | 任务状态。 |

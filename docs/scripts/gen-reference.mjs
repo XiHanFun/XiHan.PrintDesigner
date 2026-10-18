@@ -854,6 +854,8 @@ function clientPage() {
   const documentFile = packageSource('runtime', 'src', 'client', 'document.ts')
   const root = packageSource('runtime', 'src')
   const clientCodes = csharpCodes(join(repoDir, 'client', 'src', 'XiHan.PrintClient.Core', 'Protocol', 'PrintErrorCodes.cs'))
+  const warningCodes = csharpCodes(join(repoDir, 'client', 'src', 'XiHan.PrintClient.Core', 'Protocol', 'PrintWarningCodes.cs'))
+  const warningRows = literalUnion(protocol, 'ClientWarningCode').map(item => [item, warningCodes.get(item)])
   const fallbackCodes = stringArray(errors, 'FALLBACK_CODES')
   const sdkDoc = jsdoc(declaration(protocol, 'SdkErrorCode').node)
   const sdkCodes = new Map([...sdkDoc.matchAll(/^- (\w+)：(.+?)[；。]?$/gm)].map(match => [match[1], match[2]]))
@@ -864,6 +866,10 @@ function clientPage() {
   for (const [item, , doc] of codeRows) {
     if (doc === undefined)
       throw new Error(`[gen-reference] no description for error code ${item}`)
+  }
+  for (const [item, doc] of warningRows) {
+    if (doc === undefined)
+      throw new Error(`[gen-reference] no description for warning code ${item}`)
   }
   const constants = ['DEFAULT_PORTS', 'SUB_PROTOCOL', 'PROTOCOL_VERSION', 'PROTOCOL_MINOR'].map((name) => {
     const { statement } = declaration(protocol, name)
@@ -884,6 +890,9 @@ function clientPage() {
     '## 错误码',
     `出错时抛出或以 ${code('PrintClientError')} 拒绝，${code('code')} 为下表之一，${code('details')} 带补充信息。「SDK」一栏的码在浏览器里产生，其余由客户端给出。`,
     table(['错误码', '出自', '说明', '退回浏览器打印'], codeRows.map(([item, origin, doc]) => [code(item, true), origin, prose(doc, true), fallbackCodes.includes(item) ? '是' : '否'])),
+    '## 提醒码',
+    `HTML 通道的任务照常完成、但有宿主应当知道的情况时，${code('JobStatus')} 的 ${code('warnings')} 里带若干条提醒（${code('ClientWarningPayload')}），${code('code')} 为下表之一，${code('details')} 带补充信息。`,
+    table(['提醒码', '说明'], warningRows.map(([item, doc]) => [code(item, true), prose(doc, true)])),
     '## 打印选项与结果',
     interfaceSection(protocol, 'ClientPrintOptions'),
     interfaceSection(client, 'PrintClientDocumentOptions'),

@@ -30,14 +30,14 @@ public sealed class ProtocolReaderTests
             {"type":"print.html","id":"r-2","jobId":"job_1","printer":"Kitchen",
              "document":{"html":"<p>hi</p>","resources":[{"id":"0","type":"font/woff2","data":"{{{Base64("font")}}}"}],
                          "sheets":[{"widthMm":210,"heightMm":297,"count":2},{"widthMm":148,"heightMm":210,"count":1}]},
-             "options":{"copies":2,"duplex":"long-edge","pageRanges":"1-2,3"}}
+             "options":{"copies":2,"duplex":"long-edge","pageRanges":"1-2,3","fitToNearestPaper":true}}
             """;
 
         var request = Assert.IsType<PrintHtmlRequest>(Read(json).Request);
 
         Assert.Equal(("job_1", "Kitchen", 3), (request.JobId, request.Printer, request.Document.SheetCount));
         Assert.Equal("font", Encoding.UTF8.GetString(request.Document.Resources[0].Data));
-        Assert.Equal((2, DuplexMode.LongEdge, ColorMode.Color, true, false), (request.Options.Copies, request.Options.Duplex, request.Options.Color, request.Options.Collate, request.Options.Dialog));
+        Assert.Equal((2, DuplexMode.LongEdge, ColorMode.Color, true, false, true), (request.Options.Copies, request.Options.Duplex, request.Options.Color, request.Options.Collate, request.Options.Dialog, request.Options.FitToNearestPaper));
     }
 
     [Fact]

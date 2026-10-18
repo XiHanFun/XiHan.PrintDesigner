@@ -9,11 +9,12 @@ using Microsoft.Web.WebView2.Core;
 using XiHan.PrintClient.Core.Printing;
 using XiHan.PrintClient.Core.Protocol;
 using XiHan.PrintClient.Core.Server;
+using XiHan.PrintClient.Windows.Printing;
 
 namespace XiHan.PrintClient.Windows.Rendering;
 
 /// <summary>
-/// 经 WebView2 渲染 HTML 文档：打印时按纸张分组，每组设成该组纸张的尺寸单独交给打印池；
+/// 经 WebView2 渲染 HTML 文档：打印时先按打印机的纸张能力核对各组纸张，再按纸张分组，每组设成核对出的纸张单独交给打印池；
 /// 导出 PDF 时按文档里各页的 @page 尺寸一次导出。所有 WebView2 调用都转到创建时的界面线程上执行
 /// </summary>
 public sealed class WebView2PrintEngine : IHtmlPrintEngine
@@ -24,14 +25,16 @@ public sealed class WebView2PrintEngine : IHtmlPrintEngine
     private readonly SynchronizationContext _ui;
     private readonly nint _parentWindow;
     private readonly IPrintDialog? _dialog;
+    private readonly IPaperCatalog _papers;
     private readonly IClientLog _log;
 
-    private WebView2PrintEngine(CoreWebView2Environment environment, SynchronizationContext ui, nint parentWindow, IPrintDialog? dialog, IClientLog log)
+    private WebView2PrintEngine(CoreWebView2Environment environment, SynchronizationContext ui, nint parentWindow, IPrintDialog? dialog, IPaperCatalog papers, IClientLog log)
     {
         _environment = environment;
         _ui = ui;
         _parentWindow = parentWindow;
         _dialog = dialog;
+        _papers = papers;
         _log = log;
         Version = environment.BrowserVersionString;
     }
@@ -51,7 +54,8 @@ public sealed class WebView2PrintEngine : IHtmlPrintEngine
     /// <param name="userDataFolder">渲染数据目录</param>
     /// <param name="dialog">系统打印对话框；为 null 时不支持 dialog 选项</param>
     /// <param name="log">日志</param>
-    public static async Task<WebView2PrintEngine> CreateAsync(nint parentWindow, string userDataFolder, IPrintDialog? dialog = null, IClientLog? log = null)
+    /// <param name="papers">下发前核对纸张用的纸张能力，缺省经 winspool 查</param>
+    public static async Task<WebView2PrintEngine> CreateAsync(nint parentWindow, string userDataFolder, IPrintDialog? dialog = null, IClientLog? log = null, IPaperCatalog? papers = null)
     {
         var ui = SynchronizationContext.Current ?? throw new InvalidOperationException("要在界面线程上创建渲染引擎");
         log ??= NullClientLog.Instance;
@@ -71,11 +75,11 @@ public sealed class WebView2PrintEngine : IHtmlPrintEngine
         };
         var environment = await CoreWebView2Environment.CreateAsync(null, userDataFolder, options);
         log.Write(LogLevel.Information, $"WebView2 运行时 {environment.BrowserVersionString}");
-        return new WebView2PrintEngine(environment, ui, parentWindow, dialog, log);
+        return new WebView2PrintEngine(environment, ui, parentWindow, dialog, papers ?? new WindowsPrinterCatalog(), log);
     }
 
     /// <inheritdoc />
-    public Task<int> PrintAsync(PrintDocument document, string printer, PrintOptions options, CancellationToken cancellationToken)
+    public Task<HtmlPrintResult> PrintAsync(PrintDocument document, string printer, PrintOptions options, CancellationToken cancellationToken)
     {
         return OnUiAsync(() => PrintOnUiAsync(document, printer, options, cancellationToken));
     }
@@ -86,7 +90,7 @@ public sealed class WebView2PrintEngine : IHtmlPrintEngine
         return OnUiAsync(() => ExportOnUiAsync(document, options, cancellationToken));
     }
 
-    private async Task<int> PrintOnUiAsync(PrintDocument document, string printer, PrintOptions options, CancellationToken cancellationToken)
+    private async Task<HtmlPrintResult> PrintOnUiAsync(PrintDocument document, string printer, PrintOptions options, CancellationToken cancellationToken)
     {
         if (options.Dialog)
         {
@@ -97,6 +101,9 @@ public sealed class WebView2PrintEngine : IHtmlPrintEngine
             options = choice.Options;
         }
         var selection = Select(document, options);
+        var plan = await Task.Run(() => PaperCheck.Plan(_papers, printer, document, selection, options.FitToNearestPaper), cancellationToken);
+        foreach (var warning in plan.Warnings)
+            _log.Write(LogLevel.Warning, warning.Message);
 
         await using var page = await PrintPage.OpenAsync(_environment, _parentWindow, document, RenderTimeout, cancellationToken);
         var start = 0;
@@ -108,7 +115,7 @@ public sealed class WebView2PrintEngine : IHtmlPrintEngine
             if (ranges is not null)
             {
                 await page.ShowAsync(start, group.Count, cancellationToken);
-                var settings = Settings(page.CreatePrintSettings(), printer, options, group, ranges);
+                var settings = Settings(page.CreatePrintSettings(), printer, options, plan.Groups[index]!, ranges);
                 CoreWebView2PrintStatus status;
                 try
                 {
@@ -138,7 +145,7 @@ public sealed class WebView2PrintEngine : IHtmlPrintEngine
             start += group.Count;
         }
         _log.Write(LogLevel.Debug, $"已交给 {printer} 共 {printed} 页，分 {document.Sheets.Count} 组");
-        return printed;
+        return new HtmlPrintResult(printed, plan.Warnings);
     }
 
     private async Task<byte[]> ExportOnUiAsync(PrintDocument document, PrintOptions options, CancellationToken cancellationToken)
@@ -183,14 +190,15 @@ public sealed class WebView2PrintEngine : IHtmlPrintEngine
     }
 
     /// <summary>
-    /// 一组纸张的打印设置：纸张设成该组的实际尺寸，页边距为 0，打印背景，不加页眉页脚
+    /// 一组纸张的打印设置：纸张宽高与方向按核对的结果，页边距为 0，原大，打印背景，不加页眉页脚
     /// </summary>
-    private static CoreWebView2PrintSettings Settings(CoreWebView2PrintSettings settings, string printer, PrintOptions options, SheetGroup group, string ranges)
+    private static CoreWebView2PrintSettings Settings(CoreWebView2PrintSettings settings, string printer, PrintOptions options, PaperFeed paper, string ranges)
     {
         settings.PrinterName = printer;
         settings.MediaSize = CoreWebView2PrintMediaSize.Custom;
-        settings.PageWidth = group.WidthMm / MillimetersPerInch;
-        settings.PageHeight = group.HeightMm / MillimetersPerInch;
+        settings.Orientation = paper.Landscape ? CoreWebView2PrintOrientation.Landscape : CoreWebView2PrintOrientation.Portrait;
+        settings.PageWidth = paper.WidthMm / MillimetersPerInch;
+        settings.PageHeight = paper.HeightMm / MillimetersPerInch;
         settings.MarginTop = 0;
         settings.MarginBottom = 0;
         settings.MarginLeft = 0;

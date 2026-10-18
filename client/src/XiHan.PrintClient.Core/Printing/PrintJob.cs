@@ -87,6 +87,11 @@ public sealed class PrintJob
     public long? Bytes { get; internal set; }
 
     /// <summary>
+    /// HTML 通道完成时的提醒；没有时为 null
+    /// </summary>
+    public IReadOnlyList<ProtocolWarning>? Warnings { get; internal set; }
+
+    /// <summary>
     /// 受理的时间
     /// </summary>
     public DateTimeOffset CreatedAt { get; internal set; }
@@ -146,6 +151,7 @@ public sealed class PrintJob
         Sheets = Sheets,
         Bytes = Bytes,
         Error = Error,
+        Warnings = Warnings,
     };
 
     /// <summary>

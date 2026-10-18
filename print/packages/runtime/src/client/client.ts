@@ -6,7 +6,7 @@
 import type { PaginationResult, PrintDocument } from '@xihan-print/core'
 import type { PrintRenderOptions } from '../options'
 import type { ClientDocumentOptions } from './document'
-import type { ClientErrorPayload, ClientPrintOptions, ClientWelcome, JobState, JobStatus, PrinterInfo } from './protocol'
+import type { ClientErrorPayload, ClientPrintOptions, ClientWarningPayload, ClientWelcome, JobState, JobStatus, PrinterInfo } from './protocol'
 import { paginateDocument } from '../print'
 import { toBase64 } from './base64'
 import { buildClientDocument } from './document'
@@ -347,7 +347,7 @@ class Client implements PrintClient {
     }
     const document = await buildClientDocument(result, documentOptions)
     const printOptions: Record<string, unknown> = {}
-    for (const key of ['copies', 'collate', 'duplex', 'color', 'pageRanges', 'dialog', 'timeoutMs'] as const) {
+    for (const key of ['copies', 'collate', 'duplex', 'color', 'pageRanges', 'dialog', 'timeoutMs', 'fitToNearestPaper'] as const) {
       if (options[key] !== undefined)
         printOptions[key] = options[key]
     }
@@ -700,6 +700,8 @@ class Client implements PrintClient {
       status.bytes = message.bytes
     if (message.error !== undefined)
       status.error = message.error
+    if (Array.isArray(message.warnings) && message.warnings.length > 0)
+      status.warnings = message.warnings as ClientWarningPayload[]
     job.update(status)
     if (FINAL.has(state))
       this.#jobs.delete(job.id)

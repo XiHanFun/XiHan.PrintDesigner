@@ -101,7 +101,7 @@ internal sealed class ClientHost : IClientEnvironment, IAsyncDisposable
         Log.Write(LogLevel.Information, $"曦寒打印客户端 {ProductVersion} 启动");
         try
         {
-            Engine = await WebView2PrintEngine.CreateAsync(_window.Handle, Paths.RendererDataDirectory, dialog, Log);
+            Engine = await WebView2PrintEngine.CreateAsync(_window.Handle, Paths.RendererDataDirectory, dialog, Log, Printers);
         }
         catch (WebView2RuntimeNotFoundException error)
         {

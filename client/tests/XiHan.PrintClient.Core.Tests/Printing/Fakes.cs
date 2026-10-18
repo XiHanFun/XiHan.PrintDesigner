@@ -184,15 +184,17 @@ internal sealed class FakeBackend : IHtmlPrintEngine, IRawPrinter
 
     public byte[] Pdf { get; set; } = [0x25, 0x50, 0x44, 0x46];
 
+    public IReadOnlyList<ProtocolWarning> Warnings { get; set; } = [];
+
     public TaskCompletionSource Hold(string printerOrPdf)
     {
         return _holds.GetOrAdd(printerOrPdf, _ => new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously));
     }
 
-    public async Task<int> PrintAsync(PrintDocument document, string printer, PrintOptions options, CancellationToken cancellationToken)
+    public async Task<HtmlPrintResult> PrintAsync(PrintDocument document, string printer, PrintOptions options, CancellationToken cancellationToken)
     {
         await RunAsync("html:" + printer, printer, cancellationToken);
-        return document.SheetCount;
+        return new HtmlPrintResult(document.SheetCount, Warnings);
     }
 
     public async Task<byte[]> ExportPdfAsync(PrintDocument document, PrintOptions options, CancellationToken cancellationToken)
