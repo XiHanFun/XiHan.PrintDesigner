@@ -324,13 +324,14 @@ describe('顶栏', () => {
     return header()!.querySelector<HTMLButtonElement>(`button[value="insert:${type}"]`)!
   }
 
-  it('中段是叠放的插入钮：文本、图片、条码、二维码、表格、线条，钮上写元素名，名字是「添加…」', async () => {
+  it('中段是叠放的插入钮：文本、图片、条码、二维码、表格、线条，钮上图标下面写元素名，名字是「添加…」', async () => {
     expect(header()!.closest('[data-region="header"]')).not.toBeNull()
     expect(header()!.getAttribute('data-display')).toBe('stacked')
     const buttons = Array.from(header()!.querySelectorAll<HTMLButtonElement>('button[data-xh-part="item"]'))
     expect(buttons.map(button => button.value)).toEqual(['insert:text', 'insert:image', 'insert:barCode', 'insert:matrixCode', 'insert:table', 'insert:line'])
     expect(buttons.map(button => button.querySelector('[data-part="label"]')!.textContent)).toEqual(['Text', 'Image', 'Barcode', '2D code', 'Table', 'Line'])
-    expect([insert('text').getAttribute('aria-label'), insert('text').hasAttribute('data-icon'), insert('barCode').hasAttribute('data-icon')]).toEqual(['Add "Text"', true, false])
+    expect(insert('text').getAttribute('aria-label')).toBe('Add "Text"')
+    expect(buttons.every(button => button.hasAttribute('data-icon'))).toBe(true)
     expect(header()!.querySelector('[data-xh-part="root"]')!.getAttribute('aria-label')).toBe('Insert elements')
   })
 

@@ -149,7 +149,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, ItalicIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, ItalicIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -369,11 +369,11 @@ const ICONS: Readonly<Record<Command, IconRecord>> = {
   'split-cell': TableCellsSplitIcon,
 }
 
-/** 顶栏插入钮：常用的内置元素与图标，按这个次序排；条码暂时没有图标。 */
-const QUICK_INSERTS: readonly { readonly type: PrintElementType, readonly icon?: IconRecord }[] = [
+/** 顶栏插入钮：常用的内置元素与图标，按这个次序排。 */
+const QUICK_INSERTS: readonly { readonly type: PrintElementType, readonly icon: IconRecord }[] = [
   { type: 'text', icon: TypeIcon },
   { type: 'image', icon: ImageIcon },
-  { type: 'barCode' },
+  { type: 'barCode', icon: BarcodeIcon },
   { type: 'matrixCode', icon: QrCodeIcon },
   { type: 'table', icon: TableIcon },
   { type: 'line', icon: MinusIcon },
@@ -1158,7 +1158,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       id: `insert:${type}`,
       label: ({ translations }) => translations.insertElement(elementName(translations, this.#model(), type)),
       shortLabel: ({ translations }) => elementName(translations, this.#model(), type),
-      ...(icon === undefined ? {} : { icon }),
+      icon,
       placement: ['header'],
       enabled: () => !this.#readOnly && this.mode === 'design',
       run: () => void this.addElement(type),
