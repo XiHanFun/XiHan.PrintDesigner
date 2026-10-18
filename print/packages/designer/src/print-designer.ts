@@ -33,12 +33,15 @@ import type {
 } from '@xihan-print/core'
 import type { PrintDesignerTranslations, PrintOutcome, PrintPreviewPrintOptions } from '@xihan-print/runtime'
 import type { PrintClient } from '@xihan-print/runtime/client'
+import type { IconRecord } from '@xihan-ui/core'
 import type { JsonValue } from '@xihan-ui/core/json'
 import type { AlignMode, DataField, DesignerImportSource, DistributeAxis, ExecuteOptions, ExtensionHost, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
 import type {
   CommandToolbar,
+  CommandToolbarDisplay,
   DesignerCommandLayout,
+  DesignerCommandsTranslations,
   DesignerFrameRegion,
   DesignerGuides,
   DesignerIssueItem,
@@ -115,6 +118,7 @@ import {
   createCommandToolbar,
   createPanelHost,
   defineDesignerShellElement,
+  DESIGNER_COMMANDS_EN_US,
   importSources,
   parseDesignerPanels,
   registerDropTarget,
@@ -128,6 +132,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
+import { AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, ArrowLeftIcon, ArrowRightIcon, BringForwardIcon, BringToFrontIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileMinusIcon, FilePlusIcon, GridIcon, MagnetIcon, MaximizeIcon, PencilIcon, PrinterIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SquareDashedIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -225,7 +230,8 @@ const REORDER: Readonly<Record<string, ReorderTarget>> = {
   'send-to-back': 'back',
 }
 
-const LABELS: Readonly<Record<Command, StringKey>> = {
+/** 四款共用的命令：文案取 designer-shell 语言包里 xh-designer-commands 那一桶。 */
+const SHARED_LABELS = {
   'undo': 'undo',
   'redo': 'redo',
   'cut': 'cut',
@@ -250,10 +256,16 @@ const LABELS: Readonly<Record<Command, StringKey>> = {
   'zoom-in': 'zoomIn',
   'zoom-to-fit': 'zoomToFit',
   'zoom-to-actual': 'zoomToActual',
-  'grid': 'grid',
-  'snap': 'snap',
   'design': 'design',
   'preview': 'preview',
+} as const satisfies Partial<Record<Command, keyof DesignerCommandsTranslations>>
+
+type SharedCommand = keyof typeof SHARED_LABELS
+
+/** 打印自己的命令：文案取打印的语言包。 */
+const LABELS: Readonly<Record<Exclude<Command, SharedCommand>, StringKey>> = {
+  'grid': 'grid',
+  'snap': 'snap',
   'print': 'print',
   'edit-table': 'editTable',
   'exit-table-edit': 'exitTableEdit',
@@ -271,6 +283,63 @@ const LABELS: Readonly<Record<Command, StringKey>> = {
   'remove-footer-row': 'removeFooterRow',
   'merge-cell-right': 'mergeCellRight',
   'split-cell': 'splitCell',
+}
+
+/** 每条内置命令的图标。 */
+const ICONS: Readonly<Record<Command, IconRecord>> = {
+  'undo': UndoIcon,
+  'redo': RedoIcon,
+  'cut': ScissorsIcon,
+  'copy': CopyIcon,
+  'paste': ClipboardIcon,
+  'duplicate': CopyPlusIcon,
+  'delete': TrashIcon,
+  'select-all': SquareDashedIcon,
+  'align-left': AlignObjectsLeftIcon,
+  'align-center': AlignObjectsCenterIcon,
+  'align-right': AlignObjectsRightIcon,
+  'align-top': AlignObjectsTopIcon,
+  'align-middle': AlignObjectsMiddleIcon,
+  'align-bottom': AlignObjectsBottomIcon,
+  'distribute-horizontal': DistributeHorizontalIcon,
+  'distribute-vertical': DistributeVerticalIcon,
+  'bring-to-front': BringToFrontIcon,
+  'bring-forward': BringForwardIcon,
+  'send-backward': SendBackwardIcon,
+  'send-to-back': SendToBackIcon,
+  'zoom-out': ZoomOutIcon,
+  'zoom-in': ZoomInIcon,
+  'zoom-to-fit': MaximizeIcon,
+  'zoom-to-actual': ZoomResetIcon,
+  'grid': GridIcon,
+  'snap': MagnetIcon,
+  'design': PencilIcon,
+  'preview': EyeIcon,
+  'print': PrinterIcon,
+  'edit-table': TableIcon,
+  'exit-table-edit': XIcon,
+  'add-page': FilePlusIcon,
+  'remove-page': FileMinusIcon,
+  'move-page-left': ArrowLeftIcon,
+  'move-page-right': ArrowRightIcon,
+  'insert-column-left': TableColumnInsertLeftIcon,
+  'insert-column-right': TableColumnInsertRightIcon,
+  'remove-column': TableColumnRemoveIcon,
+  'move-column-left': ArrowLeftIcon,
+  'move-column-right': ArrowRightIcon,
+  'insert-footer-row-above': TableRowInsertAboveIcon,
+  'insert-footer-row-below': TableRowInsertBelowIcon,
+  'remove-footer-row': TableRowRemoveIcon,
+  'merge-cell-right': TableCellsMergeIcon,
+  'split-cell': TableCellsSplitIcon,
+}
+
+/** 会删掉内容的内置命令，按钮与菜单项按危险语气显示。 */
+const DESTRUCTIVE: ReadonlySet<Command> = new Set<Command>(['delete', 'remove-page', 'remove-column', 'remove-footer-row'])
+
+/** 一条内置命令的文字：共用命令取共用文案，其余取打印的文案。 */
+function builtinLabel(id: Command, context: PrintDesignerContext): string {
+  return id in SHARED_LABELS ? context.commands[SHARED_LABELS[id as SharedCommand]] : context.translations[LABELS[id as Exclude<Command, SharedCommand>]]
 }
 
 /** 内置命令的快捷键；Backspace 删除、Ctrl / ⌘ + Y 重做这些别名由按键处理直接接住。 */
@@ -416,6 +485,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     printClient: { attribute: false },
     commandLayout: { attribute: false },
+    toolbarDisplay: { type: String, attribute: 'toolbar-display' },
   }
 
   /** 预览分页用的数据。 */
@@ -453,6 +523,11 @@ export class XhPrintDesigner extends XhReactiveElement {
    * 写了某个位置就只显示列出的命令；写了没登记的命令 id 时抛 TypeError。
    */
   declare commandLayout: DesignerCommandLayout | undefined
+  /**
+   * 工具栏与页签旁命令栏的按钮怎么显示：icon（缺省）只显示图标、text 只显示文字、both 图标加文字；
+   * 没有图标的命令在 icon 档照样显示文字。attribute 为 toolbar-display，其余写法按 icon。
+   */
+  declare toolbarDisplay: CommandToolbarDisplay | undefined
   readonly #config = new XhConfigController(this)
   readonly #editor = createPrintEditor({ document: createDocument() })
   #extensions: readonly PrintDesignerExtension[] | undefined
@@ -638,9 +713,9 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#syncPalette(layers, t)
     this.#syncIssues(layers, t)
     this.#syncProperties(layers, t)
-    this.#renderToolbar(layers, t)
+    this.#renderToolbar(layers)
     this.#renderPages(layers, t)
-    layers.panelHost.update({ designer: this, translations: t })
+    layers.panelHost.update(this.#context())
     layers.viewport.setAttribute('aria-label', t.canvas)
     const preview = this.mode === 'preview'
     this.#placeCanvas(layers, preview)
@@ -858,12 +933,14 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 设计器自带的命令：可用与否、选中状态与执行都取设计器此刻的状态。 */
   #builtinCommands(): PrintDesignerCommand[] {
-    return (Object.keys(LABELS) as Command[]).map((id): PrintDesignerCommand => {
+    return (Object.keys(ICONS) as Command[]).map((id): PrintDesignerCommand => {
       const shortcut = SHORTCUTS[id]
       return {
         id,
-        label: ({ translations }) => translations[LABELS[id]],
+        label: context => builtinLabel(id, context),
+        icon: ICONS[id],
         ...(shortcut === undefined ? {} : { shortcut }),
+        ...(DESTRUCTIVE.has(id) ? { tone: 'danger' as const } : {}),
         ...(TOGGLES.has(id) ? { checked: () => this.#commandChecked(id) } : {}),
         enabled: () => this.#commandEnabled(id),
         run: () => this.#run(id),
@@ -873,7 +950,17 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 交给命令与扩展 setup 的上下文。 */
   #context(): PrintDesignerContext {
-    return { designer: this, translations: this.#translations() }
+    return { designer: this, translations: this.#translations(), commands: this.#commandTexts() }
+  }
+
+  /** 此刻生效的共用命令文案。 */
+  #commandTexts(): DesignerCommandsTranslations {
+    return this.#config.translations<DesignerCommandsTranslations>('xh-designer-commands', DESIGNER_COMMANDS_EN_US)
+  }
+
+  /** 此刻的工具栏显示方式，写法不认得时按 icon。 */
+  #toolbarDisplay(): CommandToolbarDisplay {
+    return this.toolbarDisplay === 'text' || this.toolbarDisplay === 'both' ? this.toolbarDisplay : 'icon'
   }
 
   #kbdPlatform(): 'mac' | 'other' {
@@ -1091,9 +1178,10 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (this.#layers?.frame.parentElement === this)
       return this.#layers
     const doc = this.ownerDocument
-    const commandBar = createCommandToolbar<PrintDesignerContext>(doc)
+    const bar = { display: this.#toolbarDisplay(), platform: this.#kbdPlatform() }
+    const commandBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
     const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'toolbar' }, [commandBar.element])
-    const pageBar = createCommandToolbar<PrintDesignerContext>(doc)
+    const pageBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
     const pages = createAuthoredElement(doc, 'div', { 'slot': 'pages', 'data-part': 'pages' }, [pageBar.element])
 
     const paper = createAuthoredElement(doc, 'div', { 'data-part': 'paper' })
@@ -1328,14 +1416,17 @@ export class XhPrintDesigner extends XhReactiveElement {
     return command === 'snap' ? this.snap : this.mode === command
   }
 
-  #renderToolbar(layers: Layers, t: PrintDesignerTranslations): void {
+  #renderToolbar(layers: Layers): void {
     const { commands } = this.#model()
-    layers.commandBar.update(arrangeCommands('toolbar', commands, PRINT_TOOLBAR_LAYOUT, this.commandLayout), commands, { designer: this, translations: t }, t.toolbar)
+    const context = this.#context()
+    layers.commandBar.setDisplay(this.#toolbarDisplay())
+    layers.commandBar.update(arrangeCommands('toolbar', commands, PRINT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, context.commands.toolbar)
   }
 
   #renderPages(layers: Layers, t: PrintDesignerTranslations): void {
     const { commands } = this.#model()
-    layers.pageBar.update([PRINT_PAGE_COMMANDS], commands, { designer: this, translations: t }, t.pages)
+    layers.pageBar.setDisplay(this.#toolbarDisplay())
+    layers.pageBar.update([PRINT_PAGE_COMMANDS], commands, this.#context(), t.pages)
     const doc = this.ownerDocument
     const pages = this.#editor.document.pages
     const active = this.#editor.activePageId
@@ -1444,7 +1535,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       })
       if (current !== 'default' && !this.#readOnly) {
         items.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'separator' }))
-        items.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'item', 'value': 'remove' }, [createAuthoredElement(doc, 'span', { 'data-xh-part': 'item-text' }, [t.removeBandVariant])]))
+        items.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'item', 'value': 'remove', 'data-tone': 'danger' }, [createAuthoredElement(doc, 'span', { 'data-xh-part': 'item-text' }, [t.removeBandVariant])]))
       }
       const rect = region === 'header' ? headerRect : footerRect
       const menu = createAuthoredElement(doc, 'xh-menu', { 'size': 'sm', 'data-part': 'band-menu', 'data-region': region }, [

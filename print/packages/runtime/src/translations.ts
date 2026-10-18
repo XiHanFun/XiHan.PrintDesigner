@@ -31,42 +31,10 @@ export interface PrintDesignerTranslations {
   readonly label: string
   /** 画布区域的可访问名。 */
   readonly canvas: string
-  /** 工具栏的可访问名。 */
-  readonly toolbar: string
-  readonly undo: string
-  readonly redo: string
-  readonly cut: string
-  readonly copy: string
-  readonly paste: string
-  readonly duplicate: string
-  readonly delete: string
-  readonly selectAll: string
-  readonly alignLeft: string
-  /** 各自的中心落到同一条竖直中线上。 */
-  readonly alignCenter: string
-  readonly alignRight: string
-  readonly alignTop: string
-  /** 各自的中心落到同一条水平中线上。 */
-  readonly alignMiddle: string
-  readonly alignBottom: string
-  readonly distributeHorizontal: string
-  readonly distributeVertical: string
-  readonly bringToFront: string
-  readonly bringForward: string
-  readonly sendBackward: string
-  readonly sendToBack: string
-  readonly zoomIn: string
-  readonly zoomOut: string
-  readonly zoomToFit: string
-  readonly zoomToActual: string
   /** 显示并吸附网格的开关。 */
   readonly grid: string
   /** 吸附其它元素与参考线的开关。 */
   readonly snap: string
-  /** 切到设计态。 */
-  readonly design: string
-  /** 切到预览态。 */
-  readonly preview: string
   readonly print: string
   /** 页面模板页签的可访问名。 */
   readonly pages: string

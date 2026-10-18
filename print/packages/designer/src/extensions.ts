@@ -10,7 +10,7 @@ import type { PrintDesignerTranslations, PrintRuntimeExtension, PrintRuntimeMode
 import type { IconRecord } from '@xihan-ui/core'
 import type { DesignerCommand, DesignerImporter } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
-import type { DesignerCommandTable, DesignerPropertyEditor, DesignerShellExtension } from '@xihan-ui/designer-shell'
+import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerShellExtension } from '@xihan-ui/designer-shell'
 import type { XhPrintDesigner } from './print-designer'
 import { ELEMENT_CATEGORIES } from '@xihan-print/core'
 import { createPrintRuntimeModel } from '@xihan-print/runtime'
@@ -22,6 +22,8 @@ export interface PrintDesignerContext {
   readonly designer: XhPrintDesigner
   /** 此刻生效的设计器文案。 */
   readonly translations: PrintDesignerTranslations
+  /** 此刻生效的共用命令文案（designer-shell 语言包的 xh-designer-commands）：撤销、对齐、缩放这些四款都有的命令。 */
+  readonly commands: DesignerCommandsTranslations
 }
 
 /** 设计器的命令：工具栏按钮、右键菜单项与快捷键共用。 */

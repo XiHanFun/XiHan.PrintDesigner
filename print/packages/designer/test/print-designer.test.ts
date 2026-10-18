@@ -950,6 +950,25 @@ describe('<xh-print-designer>', () => {
     expect(menuItems()).toEqual(['insert-column-left', 'insert-column-right', 'remove-column', 'move-column-left', 'move-column-right', 'insert-footer-row-above', 'insert-footer-row-below', 'remove-footer-row', 'merge-cell-right', 'split-cell', 'exit-table-edit'])
   })
 
+  it('工具栏：内置命令带图标，名字与快捷键写在按钮上，会删掉内容的命令带危险语气，共用命令取 designer-shell 的文案；toolbar-display 两条命令栏一起换', async () => {
+    const button = (bar: string, value: string): HTMLButtonElement => designer.querySelector<HTMLButtonElement>(`[data-part="${bar}"] button[value="${value}"]`)!
+    expect(button('toolbar', 'undo').hasAttribute('data-icon')).toBe(true)
+    expect([button('toolbar', 'undo').getAttribute('aria-label'), button('toolbar', 'undo').getAttribute('aria-keyshortcuts')]).toEqual(['Undo', 'Control+Z'])
+    expect([button('toolbar', 'duplicate').getAttribute('aria-label'), button('toolbar', 'zoom-in').getAttribute('aria-keyshortcuts')]).toEqual(['Duplicate', 'Plus'])
+    expect(designer.querySelector('[data-part="toolbar"] [data-xh-part="root"]')!.getAttribute('aria-label')).toBe('Designer actions')
+    expect([button('toolbar', 'delete').getAttribute('data-tone'), button('pages', 'remove-page').getAttribute('data-tone'), button('pages', 'remove-page').getAttribute('aria-label')]).toEqual(['danger', 'danger', 'Delete page'])
+    expect((printZhCN.translations!['xh-designer-commands'] as { duplicate: string }).duplicate).toBe('创建副本')
+
+    const display = (): (string | null)[] => ['toolbar', 'pages'].map(bar => designer.querySelector(`[data-part="${bar}"] > xh-tooltip`)!.getAttribute('data-display'))
+    expect(display()).toEqual(['icon', 'icon'])
+    designer.setAttribute('toolbar-display', 'both')
+    await designer.updateComplete
+    expect(display()).toEqual(['both', 'both'])
+    designer.setAttribute('toolbar-display', 'large')
+    await designer.updateComplete
+    expect(display()).toEqual(['icon', 'icon'])
+  })
+
   it('扩展面板放进外框的命名区，状态变化时刷新、panels 能开关；区名重名时抛错；去掉扩展时撤掉', async () => {
     const updates: unknown[] = []
     let destroyed = 0
