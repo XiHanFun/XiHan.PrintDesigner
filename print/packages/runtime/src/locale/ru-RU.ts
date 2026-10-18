@@ -131,6 +131,10 @@ const designer: PrintDesignerLocale = {
   statusClientStates: { idle: 'Не подключено', connecting: 'Подключение', open: 'Подключено', reconnecting: 'Переподключение', closed: 'Отключено' },
   insertToolbar: 'Вставка элементов',
   insertElement: label => `Добавить «${label}»`,
+  formatToolbar: 'Формат текста',
+  alignTextLeft: 'Выровнять текст по левому краю',
+  alignTextCenter: 'Выровнять текст по центру',
+  alignTextRight: 'Выровнять текст по правому краю',
   propertyGroups: {
     layout: 'Расположение',
     content: 'Содержимое',

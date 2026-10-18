@@ -30,6 +30,7 @@ import type {
   ReorderTarget,
   TableElement,
   TableLayoutBox,
+  TextStyle,
   ValidationIssue,
 } from '@xihan-print/core'
 import type { PrintDesignerTranslations, PrintOutcome, PrintPreviewPrintOptions } from '@xihan-print/runtime'
@@ -148,13 +149,13 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SquareDashedIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, ItalicIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhExpressionInputElement, XhFieldArrayElement, XhFieldElement, XhFormatInputElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createPrintEditor, elementRect } from './editor'
-import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
+import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_FORMAT_LAYOUT, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { borderSidesEditor, valueFormatEditor } from './property-editors'
 import { pageSubject, propertySubjects, TABLE_PART_KINDS } from './property-targets'
@@ -378,6 +379,24 @@ const QUICK_INSERTS: readonly { readonly type: PrintElementType, readonly icon?:
   { type: 'line', icon: MinusIcon },
 ]
 
+/** 格式工具条上的四种字形开关：命令 id、文字样式里的开关与图标。 */
+const FORMAT_FLAGS: readonly { readonly id: string, readonly flag: 'bold' | 'italic' | 'underline' | 'lineThrough', readonly icon: IconRecord }[] = [
+  { id: 'text-bold', flag: 'bold', icon: BoldIcon },
+  { id: 'text-italic', flag: 'italic', icon: ItalicIcon },
+  { id: 'text-underline', flag: 'underline', icon: UnderlineIcon },
+  { id: 'text-line-through', flag: 'lineThrough', icon: StrikethroughIcon },
+]
+
+/** 格式工具条上的三种水平对齐。 */
+const TEXT_ALIGNS: readonly { readonly id: string, readonly align: 'left' | 'center' | 'right', readonly label: 'alignTextLeft' | 'alignTextCenter' | 'alignTextRight', readonly icon: IconRecord }[] = [
+  { id: 'text-align-left', align: 'left', label: 'alignTextLeft', icon: AlignLeftIcon },
+  { id: 'text-align-center', align: 'center', label: 'alignTextCenter', icon: AlignCenterIcon },
+  { id: 'text-align-right', align: 'right', label: 'alignTextRight', icon: AlignRightIcon },
+]
+
+/** 字号菜单里的字号，pt。 */
+const FONT_SIZES: readonly number[] = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24, 28, 36, 48, 72]
+
 /** 会删掉内容的内置命令，按钮与菜单项按危险语气显示。 */
 const DESTRUCTIVE: ReadonlySet<Command> = new Set<Command>(['delete', 'remove-page', 'remove-column', 'remove-footer-row'])
 
@@ -446,6 +465,8 @@ interface Layers {
   readonly properties: XhDesignerPropertiesElement
   readonly toolbar: HTMLElement
   readonly commandBar: CommandToolbar<PrintDesignerContext>
+  /** 选中文字类元素时浮在选中框上方的格式工具条。 */
+  readonly formatBar: CommandToolbar<PrintDesignerContext>
   /** 顶栏中段的插入钮。 */
   readonly headerBar: CommandToolbar<PrintDesignerContext>
   /** 画布右侧中间的竖排翻页条。 */
@@ -786,6 +807,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#syncFrameRegions(layers, t)
     this.#renderToolbar(layers)
     this.#renderHeader(layers, t)
+    this.#renderFormatBar(layers, t)
     this.#renderPageStrip(layers, t)
     this.#renderStatus(layers, t)
     layers.panelHost.update(this.#context())
@@ -1032,7 +1054,80 @@ export class XhPrintDesigner extends XhReactiveElement {
       helpUrl: () => PRINT_DESIGNER_HELP_URL,
       icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon },
     })
-    return [...builtin, ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell]
+    return [...builtin, ...this.#formatCommands(), ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell]
+  }
+
+  /**
+   * 格式工具条上的命令：字号（菜单）、粗体、斜体、下划线、删除线与左中右对齐，作用于选中的文字类元素（带文字样式的）。
+   * 开关与对齐在所有对象都是这样时显示按下；点了对每个对象写同一个值，记一步撤销。
+   */
+  #formatCommands(): PrintDesignerCommand[] {
+    const enabled = (): boolean => !this.#readOnly && this.mode === 'design' && this.#formatTargets().length > 0
+    const all = (test: (style: TextStyle) => boolean): boolean => {
+      const targets = this.#formatTargets()
+      return targets.length > 0 && targets.every(target => test(target.style))
+    }
+    const write = (key: string, value: JsonValue): void => {
+      const targets = this.#formatTargets()
+      if (targets.length > 0)
+        this.#editor.execute(targets.map((target): PrintOperation => ({ type: 'updateElement', id: target.id, changes: [{ path: ['style', key], value }] })))
+    }
+    const sizeName = (t: PrintDesignerTranslations): string => t.propertyNames['style.fontSize'] ?? 'Font size'
+    const uniformSize = (): number | undefined => {
+      const sizes = new Set(this.#formatTargets().map(target => target.style.fontSize))
+      return sizes.size === 1 ? [...sizes][0] : undefined
+    }
+    return [
+      {
+        id: 'font-size',
+        label: ({ translations }) => sizeName(translations),
+        shortLabel: () => String(uniformSize() ?? '—'),
+        enabled,
+        menu: () => FONT_SIZES.map(size => ({ value: String(size), label: String(size), checked: uniformSize() === size, group: 'font-size' })),
+        select: value => write('fontSize', Number(value)),
+      },
+      ...FORMAT_FLAGS.map(({ id, flag, icon }): PrintDesignerCommand => ({
+        id,
+        label: ({ translations }) => translations.propertyNames[`style.${flag}`] ?? flag,
+        icon,
+        enabled,
+        checked: () => all(style => style[flag] === true),
+        run: () => write(flag, !all(style => style[flag] === true)),
+      })),
+      ...TEXT_ALIGNS.map(({ id, align, label, icon }): PrintDesignerCommand => ({
+        id,
+        label: ({ translations }) => translations[label],
+        icon,
+        enabled,
+        checked: () => all(style => style.align === align),
+        run: () => write('align', align),
+      })),
+    ]
+  }
+
+  /** 格式工具条作用的对象：设计态、不在表格编辑态时，选中的可见元素里带文字样式的。 */
+  #formatTargets(): { readonly id: string, readonly style: TextStyle }[] {
+    if (this.mode !== 'design' || this.#tableEdit !== undefined)
+      return []
+    const selected = new Set(this.#editor.selection.elements)
+    return this.#editor.visibleElements().flatMap(({ element }) => {
+      const style = (element as { style?: unknown }).style
+      return selected.has(element.id) && typeof style === 'object' && style !== null && typeof (style as { bold?: unknown }).bold === 'boolean'
+        ? [{ id: element.id, style: style as TextStyle }]
+        : []
+    })
+  }
+
+  /** 格式工具条：选中了文字类元素、可编辑时放进变换覆盖层（slot="toolbar"），否则拿掉；位置与收起由覆盖层管。 */
+  #renderFormatBar(layers: Layers, t: PrintDesignerTranslations): void {
+    if (this.#readOnly || this.#formatTargets().length === 0) {
+      layers.formatBar.element.remove()
+      return
+    }
+    const { commands } = this.#model()
+    layers.formatBar.update(PRINT_FORMAT_LAYOUT, commands, this.#context(), t.formatToolbar)
+    if (!layers.formatBar.element.isConnected)
+      layers.overlay.append(layers.formatBar.element)
   }
 
   /** 顶栏的插入钮：每种常用元素一条，按钮上图标下面写元素名，点了加到视口中央；只读或不在设计态时不可用。 */
@@ -1457,6 +1552,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     const bar = { platform: this.#kbdPlatform() }
     const commandBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
     const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'command-bar' }, [commandBar.element])
+    const formatBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
+    formatBar.element.slot = 'toolbar'
     const headerBar = createCommandToolbar<PrintDesignerContext>(doc, { ...bar, display: 'stacked' })
     headerBar.element.slot = 'header-center'
     const pageStrip = createCommandToolbar<PrintDesignerContext>(doc, { ...bar, orientation: 'vertical' })
@@ -1531,7 +1628,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, selectionStatus, clientStatus, zoomStatus }
+    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, formatBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, selectionStatus, clientStatus, zoomStatus }
     this.#regions = undefined
     panelHost.assign(this.#model().list, this.#context())
     return this.#layers
@@ -2831,6 +2928,12 @@ export class XhPrintDesigner extends XhReactiveElement {
     const target = event.target instanceof Element ? event.target : undefined
     if (target && target !== this.#layers?.viewport && (target.closest('input, textarea, select, [contenteditable]') || this.#fromPanel(target)))
       return
+    if (event.altKey && event.key === 'F10') {
+      // Alt+F10 把焦点交给格式工具条，在工具条里按 Esc 回到这里
+      if (this.#layers?.overlay.focusToolbar())
+        event.preventDefault()
+      return
+    }
     if (event.key === 'Escape') {
       if (this.#gesture)
         this.#cancelGesture()

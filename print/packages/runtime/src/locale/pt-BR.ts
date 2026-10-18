@@ -121,6 +121,10 @@ const designer: PrintDesignerLocale = {
   statusClientStates: { idle: 'Não conectado', connecting: 'Conectando', open: 'Conectado', reconnecting: 'Reconectando', closed: 'Desconectado' },
   insertToolbar: 'Inserir elementos',
   insertElement: label => `Adicionar "${label}"`,
+  formatToolbar: 'Formato do texto',
+  alignTextLeft: 'Alinhar texto à esquerda',
+  alignTextCenter: 'Centralizar texto',
+  alignTextRight: 'Alinhar texto à direita',
   propertyGroups: {
     layout: 'Layout',
     content: 'Conteúdo',

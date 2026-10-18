@@ -79,6 +79,13 @@ export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['panels', 'settings', 'help'],
 ]
 
+/** 选中文字类元素时浮在选中框上方的格式工具条，排列固定：字号，粗体、斜体、下划线、删除线，左中右对齐。 */
+export const PRINT_FORMAT_LAYOUT: readonly (readonly string[])[] = [
+  ['font-size'],
+  ['text-bold', 'text-italic', 'text-underline', 'text-line-through'],
+  ['text-align-left', 'text-align-center', 'text-align-right'],
+]
+
 /** 内置命令 help 打开的帮助页：打印文档站的设计器一页。 */
 export const PRINT_DESIGNER_HELP_URL = 'https://print.docs.xihanfun.com/guide/designer'
 

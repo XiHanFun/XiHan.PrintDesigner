@@ -121,6 +121,10 @@ const designer: PrintDesignerLocale = {
   statusClientStates: { idle: '연결 안 됨', connecting: '연결 중', open: '연결됨', reconnecting: '다시 연결 중', closed: '연결 끊김' },
   insertToolbar: '요소 삽입',
   insertElement: label => `'${label}' 추가`,
+  formatToolbar: '텍스트 서식',
+  alignTextLeft: '텍스트 왼쪽 맞춤',
+  alignTextCenter: '텍스트 가운데 맞춤',
+  alignTextRight: '텍스트 오른쪽 맞춤',
   propertyGroups: {
     layout: '레이아웃',
     content: '내용',
