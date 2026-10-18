@@ -82,7 +82,7 @@ import {
   PROPERTY_GROUPS,
   validateDocument,
 } from '@xihan-print/core'
-import { definePrintPreview, PRINT_PREVIEW_TAG, renderBox, renderWatermark } from '@xihan-print/runtime'
+import { DEFAULT_PRINT_DESIGNER_TRANSLATIONS, definePrintPreview, PRINT_PREVIEW_TAG, renderBox, renderWatermark } from '@xihan-print/runtime'
 import { detectKbdPlatform } from '@xihan-ui/core/hotkey'
 import { formatJsonPath } from '@xihan-ui/core/json'
 import { fillTextTemplate } from '@xihan-ui/core/template'
@@ -131,10 +131,8 @@ import { createAuthoredElement, createGeneratedElement, emitEvent, registerEleme
 import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhExpressionInputElement, XhFieldArrayElement, XhFieldElement, XhFormatInputElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createPrintEditor, elementRect } from './editor'
 import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_PAGE_COMMANDS, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
-import { defaultIssueText } from './issue-text'
 import { borderSidesEditor, valueFormatEditor } from './property-editors'
 import { propertySubjects, TABLE_PART_KINDS } from './property-targets'
-import { PROPERTY_GROUP_NAMES, PROPERTY_NAMES, PROPERTY_OPTION_NAMES, UNIT_NAMES } from './property-text'
 import { columnBoundaries, planTableCommand, tablePartAt } from './table-edit'
 
 /** 设计器的标签名。 */
@@ -193,104 +191,6 @@ const PAN_STEP = 48
 const NUDGE_LARGE_STEP = 10
 /** 长度比较的容差，mm。 */
 const DESIGN_EPSILON = 1e-6
-
-const DEFAULT_TRANSLATIONS: PrintDesignerTranslations = {
-  label: 'Print designer',
-  canvas: 'Canvas',
-  toolbar: 'Designer actions',
-  undo: 'Undo',
-  redo: 'Redo',
-  cut: 'Cut',
-  copy: 'Copy',
-  paste: 'Paste',
-  duplicate: 'Duplicate',
-  delete: 'Delete',
-  selectAll: 'Select all',
-  alignLeft: 'Align left',
-  alignCenter: 'Align centers horizontally',
-  alignRight: 'Align right',
-  alignTop: 'Align top',
-  alignMiddle: 'Align centers vertically',
-  alignBottom: 'Align bottom',
-  distributeHorizontal: 'Distribute horizontally',
-  distributeVertical: 'Distribute vertically',
-  bringToFront: 'Bring to front',
-  bringForward: 'Bring forward',
-  sendBackward: 'Send backward',
-  sendToBack: 'Send to back',
-  zoomIn: 'Zoom in',
-  zoomOut: 'Zoom out',
-  zoomToFit: 'Zoom to fit',
-  zoomToActual: 'Actual size',
-  grid: 'Grid',
-  snap: 'Snap',
-  design: 'Design',
-  preview: 'Preview',
-  print: 'Print',
-  pages: 'Page templates',
-  addPage: 'Add page',
-  removePage: 'Remove page',
-  movePageLeft: 'Move page left',
-  movePageRight: 'Move page right',
-  pageTitle: position => `Page ${position}`,
-  regions: { header: 'Header', body: 'Body', footer: 'Footer' },
-  bandVariants: { default: 'Default', first: 'First page', last: 'Last page', odd: 'Odd pages', even: 'Even pages' },
-  bandVariant: region => `${region === 'header' ? 'Header' : 'Footer'} variant`,
-  addBandVariant: 'Add variant',
-  removeBandVariant: 'Remove variant',
-  resizeBand: region => `Resize ${region}`,
-  categories: { text: 'Text', media: 'Media', data: 'Data', shape: 'Shapes', code: 'Codes' },
-  elements: {
-    text: 'Text',
-    longText: 'Long text',
-    richText: 'Rich text',
-    table: 'Table',
-    image: 'Image',
-    line: 'Line',
-    rect: 'Rectangle',
-    ellipse: 'Ellipse',
-    barCode: 'Barcode',
-    matrixCode: '2D code',
-    pageNumber: 'Page number',
-  },
-  elementLabel: (type, name) => `${type} ${name}`,
-  tableParts: { column: 'Column', header: 'Header', body: 'Body', footerRow: 'Footer row', footerCell: 'Footer cell' },
-  editTable: 'Edit table',
-  exitTableEdit: 'Exit table editing',
-  insertColumnLeft: 'Insert column left',
-  insertColumnRight: 'Insert column right',
-  removeColumn: 'Remove column',
-  moveColumnLeft: 'Move column left',
-  moveColumnRight: 'Move column right',
-  insertFooterRowAbove: 'Insert footer row above',
-  insertFooterRowBelow: 'Insert footer row below',
-  removeFooterRow: 'Remove footer row',
-  mergeCellRight: 'Merge with right cell',
-  splitCell: 'Split cell',
-  resizeColumn: title => `Resize column ${title}`,
-  newColumnTitle: position => `Column ${position}`,
-  measure: (width, height) => `${width} × ${height} mm`,
-  palette: 'Elements',
-  properties: 'Properties',
-  issues: 'Issues',
-  issue: defaultIssueText,
-  propertyGroups: PROPERTY_GROUP_NAMES,
-  propertyNames: PROPERTY_NAMES,
-  propertyPart: (parent, part) => `${parent} · ${part}`,
-  propertyOptions: PROPERTY_OPTION_NAMES,
-  units: UNIT_NAMES,
-  pageSettings: 'Page settings',
-  selectedCount: count => `${count} elements selected`,
-  pageNumberInsert: 'Insert',
-  pageNumberTokens: { page: 'Current page', pages: 'Total pages' },
-  pageNumberSample: text => `Preview: ${text}`,
-  valueFormatKind: 'Format type',
-  valueFormatKinds: { none: 'No format', format: 'Common format', map: 'Value map', expression: 'Expression' },
-  valueMapColumns: { value: 'Value', text: 'Display text' },
-  valueMapCell: (index, column) => `${column} of entry ${index}`,
-  valueMapAdd: 'Add entry',
-  valueMapFallback: 'Text when nothing matches',
-}
 
 type StringKey = { [K in keyof PrintDesignerTranslations]: PrintDesignerTranslations[K] extends string ? K : never }[keyof PrintDesignerTranslations]
 
@@ -1055,7 +955,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   #translations(): PrintDesignerTranslations {
-    return this.#config.translations<PrintDesignerTranslations>(PRINT_DESIGNER_TAG, DEFAULT_TRANSLATIONS, this.translations)
+    return this.#config.translations<PrintDesignerTranslations>(PRINT_DESIGNER_TAG, DEFAULT_PRINT_DESIGNER_TRANSLATIONS, this.translations)
   }
 
   #snapValue(value: number): number {

@@ -26,7 +26,7 @@
 | `@xihan-print/core` | 模板的类型定义、校验、编辑操作与分页算法。纯 TypeScript，不依赖 DOM，浏览器与 Node.js 里都能用 |
 | `@xihan-print/runtime` | 业务页面用的 `<xh-print-preview>`、`printDocument` 与浏览器打印，样式在 `@xihan-print/runtime/style.css` |
 | `@xihan-print/runtime/client` | 连接本地打印客户端：静默打印、原始指令、导出 PDF；不用客户端的页面不会加载这部分代码 |
-| `@xihan-print/runtime/locale` | 中文语言包 `printZhCN`，预览与设计器共用 |
+| `@xihan-print/runtime/locale` | 各语言的语言包，如 `printZhCN`、`printJaJP`，与 XiHan.UI 的内建语言包一一对应，预览与设计器共用 |
 | `@xihan-print/designer` | `<xh-print-designer>`，样式在 `@xihan-print/designer/style.css` |
 
 依赖方向固定为 `designer → runtime → core`。业务页面只需要 runtime，设计器只在需要编辑模板的地方加载。

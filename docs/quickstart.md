@@ -64,9 +64,9 @@ pnpm add @xihan-print/core @xihan-print/runtime @xihan-ui/styles
 
 模板有错误级问题或拿不到文字度量器时它会抛错，不打开打印对话框。
 
-## 中文界面
+## 界面语言
 
-预览与设计器的界面文字缺省是英文。把 XiHan.UI 的中文语言包与打印的中文语言包合并后全局设置，所有实例都跟着换。这一步要另外安装 `@xihan-ui/web-components`：
+预览与设计器的界面文字缺省是英文。打印给 XiHan.UI 的每种内建语言各出一份语言包，名字是 `print` 加 UI 语言包的名字：`zhCN` 对 `printZhCN`，`jaJP` 对 `printJaJP`。每份已含设计器零件（`@xihan-ui/designer-shell`）同一语言的文案，把 UI 与打印同一语言的两份合并后全局设置，所有实例都跟着换。下面以中文为例。这一步要另外安装 `@xihan-ui/web-components`：
 
 <<< @/examples/snippets/locale.ts#example
 
