@@ -18,7 +18,8 @@
 | `expressionEngine` | — | `ExpressionEngine \| undefined` | 受限表达式引擎；缺省为 @xihan-ui/expression 的 createExpressionEngine()。 |
 | `formatter` | — | `ValueFormatter \| undefined` | 值格式化器；缺省为 @xihan-ui/expression 的 formatValue。 |
 | `measurer` | — | `TextMeasurer \| undefined` | 文字度量器；缺省用所在文档的 Canvas 度量器。 |
-| `printClient` | — | `PrintClient \| undefined` | 本地打印客户端：给了时打印先交给它静默打印，连不上客户端才退回浏览器打印。 |
+| `printClient` | — | `PrintClient \| undefined` | 本地打印客户端：给了时打印先交给它静默打印，连不上客户端才退回浏览器打印；设置里的打印方式选了浏览器时直接用浏览器打印。给了它，设置对话框才有打印方式一项与「本地客户端」一页。 |
+| `clientDownloadUrl` | `client-download-url` | `string \| undefined` | 设置对话框「本地客户端」一页里「下载客户端」链接的地址，缺省 PRINT_CLIENT_DOWNLOAD_URL；attribute 为 client-download-url。 |
 | `locale` | `locale` | `string \| undefined` | 交给格式化器的区域，只决定小数点与千分位符号；同名 attribute。 |
 | `timeZone` | `time-zone` | `string \| undefined` | 交给格式化器的时区：`UTC`、`±HH:mm` 或 IANA 名称；attribute 为 time-zone。 |
 | `translations` | — | `Partial<PrintDesignerTranslations> \| undefined` | 元素自己的文案，压在全局配置之上。 |
@@ -179,7 +180,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `paletteHelp` | `string` | 物料面板头里的帮助。 |
 | `propertiesHelp` | `string` | 属性面板头里的帮助。 |
 | `issuesHelp` | `string` | 问题列表面板头里的帮助。 |
-| `settingsCanvas` | `string` | 设置对话框里设计器自己那一页（画布偏好）的名称。 |
+| `settingsPrint` | `string` | 设置对话框里设计器自己那一页（打印方式与画布偏好）的名称。 |
 | `settingsShowGrid` | `string` |  |
 | `settingsShowGridHint` | `string` |  |
 | `settingsGridSize` | `string` |  |
@@ -188,6 +189,15 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `settingsSnapHint` | `string` |  |
 | `settingsShowMargins` | `string` |  |
 | `settingsShowMarginsHint` | `string` |  |
+| `settingsVia` | `string` | 「打印」页里打印方式一项：经本地打印客户端，还是浏览器的打印对话框。 |
+| `settingsViaHint` | `string` |  |
+| `settingsViaOptions` | `Readonly<Record<'client' \| 'browser', string>>` |  |
+| `settingsClient` | `string` | 设置对话框里「本地客户端」那一页的名称。 |
+| `settingsClientStatus` | `string` | 「本地客户端」页里连接状态一项。 |
+| `settingsClientStatusHint` | `string` |  |
+| `settingsClientStates` | `Readonly<Record<'connected' \| 'disconnected' \| 'missing', string>>` | 连接状态的三种说法：已连接；未连接；最近一次测试连接没找到客户端时是未安装。 |
+| `settingsClientTest` | `string` |  |
+| `settingsClientDownload` | `string` |  |
 | `statusZoom` | `string` | 状态栏右段缩放一项的标签。 |
 | `statusClient` | `string` | 状态栏右段打印客户端一项的标签。 |
 | `statusClientStates` | `Readonly<Record<PrintClientState, string>>` | 打印客户端连接状态的说法。 |
@@ -352,6 +362,14 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
-| `PRINT_SETTING_KEYS` | 常量 | 「画布」分区各条目的键，即 settings 里的键（分区 id.条目 id）。 |
-| `PRINT_SETTINGS_SECTION` | 常量 | 设计器自己那个设置分区的 id，扩展不能再用。 |
-| `printSettingsSection` | 函数 | 「画布」分区：网格间距缺省 1 mm，吸附对齐与边距线缺省打开，网格缺省不显示。 |
+| `PRINT_CLIENT_DOWNLOAD_URL` | 常量 | 「下载客户端」链接的缺省地址：打印文档站的客户端一页。 |
+| `PRINT_CLIENT_SETTINGS_SECTION` | 常量 | 设计器「本地客户端」分区的 id，扩展同样不能再用；只在宿主给了 printClient 时出现。 |
+| `PRINT_CLIENT_STATUS_CONTROL` | 常量 | 「本地客户端」分区里连接状态那一条的编辑方式种类：设计器自己铺状态、「测试连接」钮与下载链接，这一条不存值。 |
+| `PRINT_SETTING_KEYS` | 常量 | 「打印」分区各条目的键，即 settings 里的键（分区 id.条目 id）。 |
+| `PRINT_SETTINGS_SECTION` | 常量 | 设计器「打印」分区的 id，扩展不能再用。 |
+| `printClientSettingsSection` | 函数 | 「本地客户端」分区：一条连接状态，按 PRINT_CLIENT_STATUS_CONTROL 铺。 |
+| `PrintClientSettingsSectionOptions` | 接口 | printClientSettingsSection 的选项。 |
+| `PrintClientStatusControl` | 接口 | 连接状态那一条的编辑方式：带着「下载客户端」链接的地址。 |
+| `printSettingsSection` | 函数 | 「打印」分区：打印方式缺省经本地客户端；网格间距缺省 1 mm，吸附对齐与边距线缺省打开，网格缺省不显示。 |
+| `PrintSettingsSectionOptions` | 接口 | printSettingsSection 的选项。 |
+| `PrintVia` | 类型 | 打印方式：经本地打印客户端，或浏览器的打印对话框。 |

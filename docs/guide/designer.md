@@ -86,7 +86,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - **换区**：元素中心拖进页眉、正文或页脚，就放进那个区；表格、长文本与富文本只能留在正文区。
 - **页眉页脚**：在区的标签上切换当前编辑的变体（缺省、首页、末页、奇数页、偶数页），可以新增或删除变体；拖动区的边界改高度。
 - **平移与缩放**：滚轮平移，Ctrl / ⌘ + 滚轮以指针为中心缩放；按住空格或鼠标中键拖动平移。
-- **吸附**：拖动、新建与缩放元素时吸附到网格间距（设置「画布」一页，缺省 1 mm，写 0 不吸附网格）；「吸附对齐」打开时还吸附其它元素、页边距、区边界与参考线，并显示对齐线。工具栏上的「网格」开关显示或收起网格线，「吸附」开关就是「吸附对齐」，两者改的都是设置。
+- **吸附**：拖动、新建与缩放元素时吸附到网格间距（设置「打印」一页，缺省 1 mm，写 0 不吸附网格）；「吸附对齐」打开时还吸附其它元素、页边距、区边界与参考线，并显示对齐线。工具栏上的「网格」开关显示或收起网格线，「吸附」开关就是「吸附对齐」，两者改的都是设置。
 - **表格编辑态**：双击表格或选中后按 Enter 进入。可以分别选中列、表头、表体、表尾行与表尾单元格，在属性面板里编辑；拖列边界改列宽；右键菜单里插入、删除、左右移动列，插入、删除表尾行，合并与拆分表尾单元格。按 Esc 退出。
 - **右键菜单**：在空白处、元素上与表格编辑态里各有一套，带快捷键的条目在行尾显示快捷键。设计器先派发可取消的 `blank-contextmenu`、`element-contextmenu` 或 `table-contextmenu`（表格编辑态里，右键处的部位先被选中），宿主取消后不弹自带的菜单，可以换成自己的。
 
@@ -95,12 +95,13 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 设置是用户偏好，每人每机一份，不随模板保存。`openSettings(section?)` 打开设置对话框，左边一个分区一页：
 
 - 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色、工具栏按钮的显示方式（图标、文字、图标和文字，缺省只显示图标）与状态栏开关。工具栏的显示方式只走设置，没有单独的属性；画布上的翻页条总是只显示图标。
-- 「画布」（`print`）：显示网格、网格间距、吸附对齐、显示边距线。网格缺省不显示，间距缺省 1 mm，按当前缩放挤得太密时改按间距的整数倍画；边距线缺省显示。
-- 扩展登记的分区，排在后面。分区 id 与 `general`、`print` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
+- 「打印」（`print`）：打印方式、显示网格、网格间距、吸附对齐、显示边距线。打印方式只在给了 `printClient` 时才有，选本地客户端（缺省）还是浏览器：本地客户端直接交给打印机，连不上时退回浏览器的打印对话框；选浏览器时 `print()` 总是弹出浏览器的打印对话框。网格缺省不显示，间距缺省 1 mm，按当前缩放挤得太密时改按间距的整数倍画；边距线缺省显示。
+- 「本地客户端」（`printClient`）：给了 `printClient` 才有这一页，写连接状态：已连接、未连接或未安装。「测试连接」调宿主给的 `printClient` 的 `connect()` 连一次；没找到客户端（`CLIENT_UNAVAILABLE`）时写未安装，这时也可能是装了没有运行。没连上时下面有「下载客户端」链接，缺省指向本站的[本地打印客户端](./client)一页（`PRINT_CLIENT_DOWNLOAD_URL`），宿主用 `clientDownloadUrl`（attribute `client-download-url`）换成自己的地址。端口与来源授权仍由宿主建连接时与客户端管，设计器不自己建连接。
+- 扩展登记的分区，排在后面。分区 id 与 `general`、`print`、`printClient` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
 
 <<< @/examples/snippets/settings.ts#open
 
-值是扁平的键值，键是「分区 id.条目 id」，如 `general.theme`、`print.showGrid`，没写的键取缺省值。宿主给缺省、锁定条目或读值时用常量，不手写键：「画布」分区的 id 与各条目的键是包入口导出的 `PRINT_SETTINGS_SECTION` 与 `PRINT_SETTING_KEYS`，「基础」分区的键是 `@xihan-ui/designer-shell` 的 `DESIGNER_SETTING_KEYS`。`settings` 赋值即生效；用户在对话框里或用工具栏的网格、吸附开关改了一条，设计器换成新的一份并派发 `settings-change`，宿主存起来、下次赋回。`settingsPolicy` 隐藏或锁定条目，键是条目键或分区 id：`hidden` 不显示，一个分区的条目全藏了就没有这一页；`locked` 只读，说明换成「由所在系统管理」。
+值是扁平的键值，键是「分区 id.条目 id」，如 `general.theme`、`print.showGrid`，没写的键取缺省值。宿主给缺省、锁定条目或读值时用常量，不手写键：「打印」分区的 id 与各条目的键是包入口导出的 `PRINT_SETTINGS_SECTION` 与 `PRINT_SETTING_KEYS`，「本地客户端」分区的 id 是 `PRINT_CLIENT_SETTINGS_SECTION`，「基础」分区的键是 `@xihan-ui/designer-shell` 的 `DESIGNER_SETTING_KEYS`。`settings` 赋值即生效；用户在对话框里或用工具栏的网格、吸附开关改了一条，设计器换成新的一份并派发 `settings-change`，宿主存起来、下次赋回。`settingsPolicy` 隐藏或锁定条目，键是条目键或分区 id：`hidden` 不显示，一个分区的条目全藏了就没有这一页；`locked` 只读，说明换成「由所在系统管理」。
 
 <<< @/examples/snippets/settings.ts#host
 
@@ -176,6 +177,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - `setup(context)` 在设计器连上文档时调用，它返回的函数在断开、或这个扩展被去掉时调用。同一个扩展对象换了引用，当作卸下再装上，宿主要保持引用稳定。
 - `rules` 是校验规则，收到文档与 `{ elements }`（合并后的元素登记表），返回问题。问题码以扩展 id 的末段加点开头，结构没有 error 时才跑。
 - `controls` 是新的编辑方式：属性描述里用到这个 `kind` 时，按它的 `check` 校验取值；没登记的编辑方式报 `unknown-control`。
+- `settings` 是扩展的设置分区，放进设置对话框，排在设计器自己的分区之后（`order` 从 200 起），值同样在 `settings` 里、键是「分区 id.条目 id」。要地址和密钥的收费附加包（如云打印）登记自己的分区：密钥写成 `{ kind: 'text', secret: true }` 的条目，画成密码框，`settingsStorageKey` 存设置时也不存它。本地客户端没有地址与密钥，「本地客户端」一页只写连接状态。
 - 预览元素 `<xh-print-preview>` 与 `paginate`、`validateDocument` 这些函数也收 `extensions`，与设计器给同一份。
 
 ### 扩展元素

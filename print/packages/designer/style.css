@@ -247,3 +247,15 @@ xh-print-designer [data-part='preview'][hidden] {
 xh-print-designer [data-part='preview'] > xh-print-preview {
   flex: 1 1 auto;
 }
+
+/* 设置对话框「本地客户端」页的连接状态：状态标签、测试连接与下载客户端排成一行，放不下时折行。对话框在 Portal 里，不挂在设计器下面 */
+[data-scope='print-designer'][data-part='client-status'] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--xh-space-2);
+}
+
+[data-scope='print-designer'][data-part='client-status'] > [hidden] {
+  display: none;
+}
