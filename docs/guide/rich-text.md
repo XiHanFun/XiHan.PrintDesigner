@@ -96,7 +96,7 @@
 
 ### 迁移报告
 
-每个元素迁移后留一条记录，汇总起来就是迁移报告：
+每个元素迁移后留一条记录，汇总起来就是迁移报告。报告的形状由宿主自定，打印的包里没有发布这些类型与函数；下面的 `migrateHtmlContent`、`RichTextMigrationEntry` 与 `needsReview` 只是一种写法，可以照着改成自己的：
 
 <<< @/examples/snippets/migration.ts#example
 
