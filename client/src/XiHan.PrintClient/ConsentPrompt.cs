@@ -68,11 +68,17 @@ internal sealed class ConsentPrompt(SynchronizationContext ui) : IConsentPrompt
             _remember = new CheckBox { Text = "拒绝时不再询问这个网站", AutoSize = true };
             layout.Controls.Add(_remember);
 
+            // 从右往左排，先放的「拒绝」在最右；Tab 顺序照从左往右看到的：允许、仅这次、拒绝
             var buttons = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.RightToLeft, Dock = DockStyle.Fill, Margin = new Padding(0, LogicalToDeviceUnits(12), 0, 0) };
             var deny = ChoiceButton("拒绝", () => _remember.Checked ? ConsentChoice.DenyAlways : ConsentChoice.Deny);
+            var once = ChoiceButton("仅这次", () => ConsentChoice.AllowOnce);
+            var allow = ChoiceButton("允许", () => ConsentChoice.Allow);
             buttons.Controls.Add(deny);
-            buttons.Controls.Add(ChoiceButton("仅这次", () => ConsentChoice.AllowOnce));
-            buttons.Controls.Add(ChoiceButton("允许", () => ConsentChoice.Allow));
+            buttons.Controls.Add(once);
+            buttons.Controls.Add(allow);
+            allow.TabIndex = 0;
+            once.TabIndex = 1;
+            deny.TabIndex = 2;
             layout.Controls.Add(buttons);
             Controls.Add(layout);
             CancelButton = deny;
