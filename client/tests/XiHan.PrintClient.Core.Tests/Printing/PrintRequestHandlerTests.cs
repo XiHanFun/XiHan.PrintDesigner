@@ -106,6 +106,23 @@ public sealed class PrintRequestHandlerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CarriesTheEngineWarningsOnTheCompletedJob()
+    {
+        _backend.Warnings = [new ProtocolWarning(PrintWarningCodes.PaperUnchecked, "没有核对纸张", new JsonObject { ["printer"] = "Office" })];
+        var peer = await PeerAsync();
+
+        await SendAsync(peer, Html("w1"));
+
+        await AcceptedAsync(peer, "w1");
+        await EventAsync(peer, "job.started", "w1");
+        var warning = (await EventAsync(peer, "job.completed", "w1"))["warnings"]!.AsArray().Single()!;
+        Assert.Equal(("PAPER_UNCHECKED", "Office"), ((string?)warning["code"], (string?)warning["details"]!["printer"]));
+
+        await SendAsync(peer, new GetJobRequest("s", "w1"));
+        Assert.Equal("PAPER_UNCHECKED", (string?)(await peer.ResultAsync("s"))["data"]!["warnings"]![0]!["code"]);
+    }
+
+    [Fact]
     public async Task RunsJobsOnOnePrinterInOrderWithoutBlockingOtherPrinters()
     {
         var peer = await PeerAsync();

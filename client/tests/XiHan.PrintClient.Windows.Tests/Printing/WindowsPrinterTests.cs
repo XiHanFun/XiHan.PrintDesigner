@@ -55,6 +55,32 @@ public sealed class WindowsPrinterTests
     }
 
     [Fact]
+    public void ReadsThePaperTheDriverKeptFromTheMergedDevMode()
+    {
+        IReadOnlyList<PaperInfo> papers = [new PaperInfo(9, "A4", 210, 297), new PaperInfo(11, "A5", 148, 210)];
+
+        Assert.Equal(new PaperFeed(100, 70, false), WindowsPrinterPapers.ResolvedOf(0x1 | 0x2 | 0x4 | 0x8, 1, 9, 1000, 700, papers));
+        Assert.Equal(new PaperFeed(148, 210, true), WindowsPrinterPapers.ResolvedOf(0x1 | 0x2, 2, 11, 2100, 2970, papers));
+        Assert.Equal(new PaperFeed(148, 210, false), WindowsPrinterPapers.ResolvedOf(0x2, 2, 11, 0, 0, papers));
+        Assert.Equal(new PaperFeed(100, 70, false), WindowsPrinterPapers.ResolvedOf(0x2, 1, 256, 1000, 700, papers));
+        Assert.Null(WindowsPrinterPapers.ResolvedOf(0x2, 1, 70, 0, 0, papers));
+    }
+
+    [Fact]
+    public void AsksMicrosoftPrintToPdfWhichPapersItKeepsWithoutPrinting()
+    {
+        using var printer = new WindowsPrinterCatalog().Open("Microsoft Print to PDF");
+        Assert.SkipWhen(printer is null, "这台机器上没有 Microsoft Print to PDF");
+
+        Assert.Contains(printer.Papers, paper => paper.Id == 9);
+        Assert.Equal(new PaperFeed(148, 210, false), printer.Resolve(new PaperFeed(148, 210, false)));
+        Assert.Equal(new PaperFeed(210, 297, true), printer.Resolve(new PaperFeed(210, 297, true)));
+        var label = printer.Resolve(new PaperFeed(100, 70, false));
+        Assert.NotNull(label);
+        Assert.False(Math.Abs(label.PageWidthMm - 100) <= 1 && Math.Abs(label.PageHeightMm - 70) <= 1);
+    }
+
+    [Fact]
     public void ListsLocalPrintersAndDescribesEachOne()
     {
         var catalog = new WindowsPrinterCatalog();

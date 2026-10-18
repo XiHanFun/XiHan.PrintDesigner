@@ -19,5 +19,6 @@ namespace XiHan.PrintClient.Core.Protocol;
 [JsonSerializable(typeof(JobStatus))]
 [JsonSerializable(typeof(JobCancelled))]
 [JsonSerializable(typeof(ProtocolError))]
+[JsonSerializable(typeof(ProtocolWarning))]
 [JsonSerializable(typeof(JsonObject))]
 internal sealed partial class ProtocolJsonContext : JsonSerializerContext;

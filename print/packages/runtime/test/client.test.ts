@@ -228,14 +228,16 @@ describe('任务', () => {
 
   it('输出页与打印选项一起交给客户端，纸张分组按出现顺序', async () => {
     const app = listen()
-    app.handlers['print.html'] = (socket, request) => accept(socket, request, [{ state: 'completed', sheets: 2 }])
+    const warning = { code: 'PAPER_FITTED', message: '改用了最接近的纸张', details: { group: 1, scale: 1 } }
+    app.handlers['print.html'] = (socket, request) => accept(socket, request, [{ state: 'completed', sheets: 2, warnings: [warning] }])
     const result = layout(['a', [textElement('t', '一')]], ['b', [textElement('u', '二')], { id: 'b', paper: 'A5' }])
 
-    const status = await client().printSheets(result, { printer: 'Office', copies: 2, duplex: 'long-edge', pageRanges: '1-2' }).done
+    const status = await client().printSheets(result, { printer: 'Office', copies: 2, duplex: 'long-edge', pageRanges: '1-2', fitToNearestPaper: true }).done
 
     expect(status.sheets).toBe(2)
+    expect(status.warnings).toEqual([warning])
     const request = app.request('print.html')!
-    expect(request).toMatchObject({ printer: 'Office', options: { copies: 2, duplex: 'long-edge', pageRanges: '1-2' } })
+    expect(request).toMatchObject({ printer: 'Office', options: { copies: 2, duplex: 'long-edge', pageRanges: '1-2', fitToNearestPaper: true } })
     expect(request.document.sheets).toEqual([{ widthMm: 210, heightMm: 297, count: 1 }, { widthMm: 148, heightMm: 210, count: 1 }])
     expect(request.document.html.match(/<div data-part="sheet"/g)).toHaveLength(2)
   })

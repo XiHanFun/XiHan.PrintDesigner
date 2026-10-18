@@ -180,6 +180,7 @@ public static partial class ProtocolReader
             PageRanges = pageRanges,
             Dialog = OptionalBoolean(options, "dialog") ?? false,
             TimeoutMs = OptionalInteger(options, "timeoutMs", 1000, 600_000),
+            FitToNearestPaper = OptionalBoolean(options, "fitToNearestPaper") ?? false,
         };
     }
 

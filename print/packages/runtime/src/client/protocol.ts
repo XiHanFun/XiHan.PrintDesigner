@@ -67,6 +67,16 @@ export interface ClientErrorPayload {
   readonly details?: Readonly<Record<string, unknown>>
 }
 
+/** 客户端在完成的任务里给出的提醒码。 */
+export type ClientWarningCode = 'PAPER_UNCHECKED' | 'PAPER_FITTED'
+
+/** 任务照常完成、但宿主应当知道的情况，code 取 ClientWarningCode。 */
+export interface ClientWarningPayload {
+  readonly code: string
+  readonly message: string
+  readonly details?: Readonly<Record<string, unknown>>
+}
+
 /** 客户端信息。 */
 export interface ClientInfo {
   readonly version: string
@@ -143,6 +153,8 @@ export interface JobStatus {
   /** 原始通道写出的字节数，或导出的 PDF 大小。 */
   readonly bytes?: number
   readonly error?: ClientErrorPayload
+  /** HTML 通道完成时的提醒，如没能核对纸张、按 fitToNearestPaper 换了纸；没有时缺省。 */
+  readonly warnings?: readonly ClientWarningPayload[]
 }
 
 /** 交给客户端的打印选项。纸张不在选项里：每组输出页按模板里的纸张尺寸下发；原始指令的纸张由指令自己决定。 */
@@ -161,6 +173,8 @@ export interface ClientPrintOptions {
   readonly dialog?: boolean
   /** 交给打印池的期限，毫秒。 */
   readonly timeoutMs?: number
+  /** 打印机没有某组的纸张、驱动也不接受这个尺寸时，改用最接近的纸张，比纸大的内容等比缩小到放得下，比纸小的原大居中；缺省 false，这时整个任务以 PAPER_UNSUPPORTED 失败。 */
+  readonly fitToNearestPaper?: boolean
 }
 
 /** 随任务带去的一份资源，data 为 base64。 */

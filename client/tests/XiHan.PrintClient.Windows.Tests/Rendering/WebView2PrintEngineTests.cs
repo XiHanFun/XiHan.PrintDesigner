@@ -191,9 +191,9 @@ public sealed partial class WebView2PrintEngineTests(RenderFixture fixture) : IC
         Assert.SkipWhen(printer is null || output is null, "没有配置测试打印机（XIHAN_PRINT_TEST_PRINTER / XIHAN_PRINT_TEST_OUTPUT）");
         File.Delete(output!);
 
-        var sheets = await fixture.Engine.PrintAsync(Document([A4, A4, A5], "曦寒打印测试"), printer!, new PrintOptions { PageRanges = "2-3" }, Token);
+        var printed = await fixture.Engine.PrintAsync(Document([A4, A4, A5], "曦寒打印测试"), printer!, new PrintOptions { PageRanges = "2-3" }, Token);
 
-        Assert.Equal(2, sheets);
+        Assert.Equal(2, printed.Sheets);
         for (var attempt = 0; attempt < 100 && !(File.Exists(output) && new FileInfo(output!).Length > 0); attempt++)
             await Task.Delay(100, Token);
         Assert.True(new FileInfo(output!).Length > 0);

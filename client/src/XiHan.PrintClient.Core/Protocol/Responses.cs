@@ -15,6 +15,14 @@ namespace XiHan.PrintClient.Core.Protocol;
 public sealed record ProtocolError(string Code, string Message, JsonObject? Details = null);
 
 /// <summary>
+/// 任务照常完成、但宿主应当知道的情况
+/// </summary>
+/// <param name="Code">提醒码，取 <see cref="PrintWarningCodes"/></param>
+/// <param name="Message">给开发者看的说明</param>
+/// <param name="Details">附加信息，如打印机名、分组序号</param>
+public sealed record ProtocolWarning(string Code, string Message, JsonObject? Details = null);
+
+/// <summary>
 /// 握手成功后的回复
 /// </summary>
 public sealed class WelcomeData
@@ -331,6 +339,11 @@ public sealed class JobStatus
     /// 失败时的错误
     /// </summary>
     public ProtocolError? Error { get; init; }
+
+    /// <summary>
+    /// HTML 通道完成时的提醒，如没能核对纸张；没有时为 null
+    /// </summary>
+    public IReadOnlyList<ProtocolWarning>? Warnings { get; init; }
 }
 
 /// <summary>

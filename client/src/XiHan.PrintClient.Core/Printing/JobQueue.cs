@@ -256,7 +256,9 @@ public sealed class JobQueue : IAsyncDisposable
         switch (job.Kind)
         {
             case JobKind.Html:
-                job.Sheets = await Require(_html).PrintAsync(job.Document!, job.Printer!, job.Options, cancellationToken).ConfigureAwait(false);
+                var printed = await Require(_html).PrintAsync(job.Document!, job.Printer!, job.Options, cancellationToken).ConfigureAwait(false);
+                job.Sheets = printed.Sheets;
+                job.Warnings = printed.Warnings.Count > 0 ? printed.Warnings : null;
                 break;
             case JobKind.Raw:
                 job.Bytes = await Require(_raw).WriteAsync(job.Printer!, job.Data!, job.DocumentName, cancellationToken).ConfigureAwait(false);

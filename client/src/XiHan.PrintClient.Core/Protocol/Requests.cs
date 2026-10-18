@@ -185,4 +185,9 @@ public sealed class PrintOptions
     /// 交给打印池的期限，毫秒；缺省用客户端的期限
     /// </summary>
     public int? TimeoutMs { get; init; }
+
+    /// <summary>
+    /// 打印机没有某组的纸张、也不接受这个尺寸时，改用最接近的纸张，比纸大的内容等比缩小到放得下，比纸小的原大居中；缺省不换纸，整个任务以 PAPER_UNSUPPORTED 失败
+    /// </summary>
+    public bool FitToNearestPaper { get; init; }
 }

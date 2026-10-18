@@ -9,9 +9,9 @@ using XiHan.PrintClient.Core.Protocol;
 namespace XiHan.PrintClient.Windows.Printing;
 
 /// <summary>
-/// 经 winspool 查本机打印机：列表与状态来自 EnumPrinters / GetPrinter，能力来自 DeviceCapabilities
+/// 经 winspool 查本机打印机：列表与状态来自 EnumPrinters / GetPrinter，能力来自 DeviceCapabilities，下发前试探纸张用 DocumentProperties
 /// </summary>
-public sealed unsafe class WindowsPrinterCatalog : IPrinterCatalog
+public sealed unsafe class WindowsPrinterCatalog : IPrinterCatalog, IPaperCatalog
 {
     private const uint StatusPaused = 0x1;
     private const uint StatusError = 0x2;
@@ -76,6 +76,19 @@ public sealed unsafe class WindowsPrinterCatalog : IPrinterCatalog
                 var printerName = Winspool.Text(info->PrinterName) ?? name;
                 return ToInfo(info, DefaultPrinterName(), Capabilities(printerName, Winspool.Text(info->PortName)));
             }
+        }
+    }
+
+    /// <inheritdoc />
+    public IPrinterPapers? Open(string printer)
+    {
+        try
+        {
+            return Get(printer) is { } info ? WindowsPrinterPapers.Open(info.Name, info.Capabilities?.Papers ?? []) : null;
+        }
+        catch (Win32Exception)
+        {
+            return null;
         }
     }
 

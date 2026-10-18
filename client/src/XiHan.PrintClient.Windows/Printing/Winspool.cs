@@ -29,6 +29,18 @@ internal static unsafe partial class Winspool
     /// </summary>
     public const int PaperNameLength = 64;
 
+    public const uint DmOutBuffer = 2;
+    public const uint DmInBuffer = 8;
+
+    public const uint DmFieldOrientation = 0x1;
+    public const uint DmFieldPaperSize = 0x2;
+    public const uint DmFieldPaperLength = 0x4;
+    public const uint DmFieldPaperWidth = 0x8;
+
+    public const short DmOrientPortrait = 1;
+    public const short DmOrientLandscape = 2;
+    public const short DmPaperUser = 256;
+
     public const int ErrorFileNotFound = 2;
     public const int ErrorInsufficientBuffer = 122;
     public const int ErrorInvalidPrinterName = 1801;
@@ -61,6 +73,24 @@ internal static unsafe partial class Winspool
         public uint Status;
         public uint Jobs;
         public uint AveragePpm;
+    }
+
+    /// <summary>
+    /// DEVMODEW 开头到纸张宽度为止的字段
+    /// </summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct DevModeHead
+    {
+        public fixed char DeviceName[32];
+        public ushort SpecVersion;
+        public ushort DriverVersion;
+        public ushort Size;
+        public ushort DriverExtra;
+        public uint Fields;
+        public short Orientation;
+        public short PaperSize;
+        public short PaperLength;
+        public short PaperWidth;
     }
 
     /// <summary>
@@ -119,6 +149,9 @@ internal static unsafe partial class Winspool
 
     [LibraryImport("winspool.drv", EntryPoint = "DeviceCapabilitiesW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
     public static partial int DeviceCapabilities(string device, string? port, ushort capability, void* output, void* devMode);
+
+    [LibraryImport("winspool.drv", EntryPoint = "DocumentPropertiesW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
+    public static partial int DocumentProperties(nint window, PrinterHandle printer, string device, void* output, void* input, uint mode);
 
     /// <summary>
     /// 读以 0 结尾的字符串；空指针与空串都为 null

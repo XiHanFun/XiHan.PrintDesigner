@@ -102,6 +102,13 @@ public static class ProtocolWriter
                 writer.WritePropertyName("error");
                 JsonSerializer.Serialize(writer, error, ProtocolJsonContext.Default.ProtocolError);
             }
+            if (status.Warnings is { Count: > 0 } warnings)
+            {
+                writer.WriteStartArray("warnings");
+                foreach (var warning in warnings)
+                    JsonSerializer.Serialize(writer, warning, ProtocolJsonContext.Default.ProtocolWarning);
+                writer.WriteEndArray();
+            }
             writer.WriteString("at", at.UtcDateTime);
         });
     }

@@ -77,6 +77,7 @@ internal sealed partial class PrintDialogPrompt : IPrintDialog
             Color = chosen.DefaultPageSettings.Color ? ColorMode.Color : ColorMode.Grayscale,
             PageRanges = ranges,
             TimeoutMs = options.TimeoutMs,
+            FitToNearestPaper = options.FitToNearestPaper,
         }));
     }
 

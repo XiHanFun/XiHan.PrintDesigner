@@ -42,10 +42,14 @@ public sealed class ProtocolWriterTests
 
         var queued = Parse(ProtocolWriter.JobEvent(new JobStatus { JobId = "j", State = JobState.Queued, Position = 2 }, at));
         var failed = Parse(ProtocolWriter.JobEvent(new JobStatus { JobId = "j", State = JobState.Failed, Error = new ProtocolError(PrintErrorCodes.SpoolFailed, "x") }, at));
+        var completed = Parse(ProtocolWriter.JobEvent(new JobStatus { JobId = "j", State = JobState.Completed, Sheets = 3, Warnings = [new ProtocolWarning(PrintWarningCodes.PaperUnchecked, "y", new JsonObject { ["printer"] = "Office" })] }, at));
+        var plain = Parse(ProtocolWriter.JobEvent(new JobStatus { JobId = "j", State = JobState.Completed, Sheets = 3, Warnings = [] }, at));
 
         Assert.Equal(("job.queued", 2), (queued["type"]!.GetValue<string>(), queued["position"]!.GetValue<int>()));
         Assert.Equal("2026-10-16T04:00:00Z", queued["at"]!.GetValue<string>());
         Assert.Equal(("job.failed", "SPOOL_FAILED"), (failed["type"]!.GetValue<string>(), failed["error"]!["code"]!.GetValue<string>()));
+        Assert.Equal(("PAPER_UNCHECKED", "Office"), (completed["warnings"]![0]!["code"]!.GetValue<string>(), completed["warnings"]![0]!["details"]!["printer"]!.GetValue<string>()));
+        Assert.Null(plain["warnings"]);
     }
 
     [Fact]
