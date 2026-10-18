@@ -29,6 +29,10 @@
 
 <<< @/examples/snippets/host.ts#fields
 
+- 反过来，`collectDocumentFields(document)` 列出一份模板引用了哪些字段，形状同 `fields`：文本、长文本、条码与二维码的内容（字段、<code v-pre>{{path}}</code> 模板串与表达式里的路径），图片与富文本的字段来源，表格的 `dataField`（记成 `list`，各列与汇总里的行内字段挂在它下面），以及页面水印。以 `$` 开头的宿主变量（如 `$page`）不算；只知道路径，所以不带 `label` 与 `type`。没有数据源的模板可以按它生成示例数据的表单，有数据源的可以拿它核对模板里有没有数据源没有的字段。用了扩展元素时把 `extensions` 一并传进去：
+
+<<< @/examples/snippets/host.ts#collect
+
 - 图片地址由宿主提供：放在宿主的文件服务里，模板里写地址或绑定数据里的地址字段。要经打印客户端打印的图片，文件服务要允许跨源读取（CORS）。
 
 ## 权限

@@ -3,13 +3,13 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 与宿主集成：模板的读取与保存、按示例数据生成字段树、离开前提醒未保存、服务端复核模板。
+// 与宿主集成：模板的读取与保存、按示例数据生成字段树、列出模板引用的字段、离开前提醒未保存、服务端复核模板。
 
 // #region save
 import type { PrintDocument } from '@xihan-print/core'
 import type { XhPrintDesigner } from '@xihan-print/designer'
 import type { DataField } from '@xihan-ui/designer-kit'
-import { validateDocument } from '@xihan-print/core'
+import { collectDocumentFields, validateDocument } from '@xihan-print/core'
 
 export async function openTemplate(designer: XhPrintDesigner, id: string): Promise<void> {
   const response = await fetch(`/api/print-templates/${encodeURIComponent(id)}`)
@@ -55,6 +55,25 @@ export function fieldsOf(sample: Record<string, unknown>): DataField[] {
   })
 }
 // #endregion fields
+
+// #region collect
+/** 列出模板引用的字段，与宿主给的字段树比对，找出数据源里没有的那些路径。 */
+export function missingFields(document: PrintDocument, known: readonly DataField[]): string[] {
+  const missing: string[] = []
+  const walk = (used: readonly DataField[], offered: readonly DataField[] | undefined, prefix: string): void => {
+    for (const field of used) {
+      const path = prefix === '' ? field.name : `${prefix}.${field.name}`
+      const match = offered?.find(item => item.name === field.name)
+      if (match === undefined)
+        missing.push(path)
+      else if (field.children)
+        walk(field.children, match.children, path)
+    }
+  }
+  walk(collectDocumentFields(document), known, '')
+  return missing
+}
+// #endregion collect
 
 // #region server
 /** 服务端收到模板时复核：只有错误级问题才拒收，返回这些问题的问题码与路径。 */

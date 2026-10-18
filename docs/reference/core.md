@@ -31,6 +31,13 @@
 | `CreatePageOptions` | 接口 | 页面模板创建选项。 |
 | `createPaper` | 函数 | 按预设名生成纸张。 |
 
+### fields
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `collectDocumentFields` | 函数 | 列出一份模板引用了哪些数据字段，合成去重的字段树，形状同设计器的 fields。 |
+| `CollectDocumentFieldsOptions` | 接口 | collectDocumentFields 的选项。 |
+
 ### geometry
 
 | 名称 | 种类 | 说明 |
@@ -223,6 +230,8 @@
 | `ELEMENT_CATEGORIES` | 常量 | 内置的物料分组，按面板中的显示顺序；扩展自定的分组排在它们之后。 |
 | `ElementCategory` | 类型 | 内置的物料分组：文字、图片、数据、图形、条码。 |
 | `ElementDefaults` | 类型 | 元素默认值：不含标识与坐标。 |
+| `ElementFieldReference` | 接口 | 元素引用的一个数据字段。 |
+| `ElementFieldsContext` | 接口 | 列字段引用时拿到的帮手：把常见的内容来源换成引用，扩展元素不必自己解析模板串与表达式。 |
 | `ElementFlowContext` | 接口 | 跨页扩展元素取值时拿到的上下文：在排版上下文之上还能量文字。 |
 | `ElementLayoutContext` | 接口 | 扩展元素排版时拿到的上下文。 |
 | `ElementPrototype` | 接口 | 元素原型：一种元素的默认值、尺寸约束、可编辑属性与专属行为。 |

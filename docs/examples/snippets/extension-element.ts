@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 一个扩展元素：圆形印章。原型给缺省值、属性与排版，渲染把排版给出的数据画成 SVG，物料项给出它在物料面板里的名称。
+// 一个扩展元素：圆形印章。原型给缺省值、属性、排版与引用的字段，渲染把排版给出的数据画成 SVG，物料项给出它在物料面板里的名称。
 
 // #region element
 import type { ExtensionElementPrototype } from '@xihan-print/core'
@@ -30,6 +30,8 @@ const seal: ExtensionElementPrototype = {
     name: String(context.field(String(element.field)) ?? ''),
     color: String(element.color),
   }),
+  // 报出引用的字段：collectDocumentFields 汇总模板字段时不会漏掉印章
+  fields: (element, context) => context.field(String(element.field)),
 }
 
 export const sealExtension: PrintDesignerExtension = {

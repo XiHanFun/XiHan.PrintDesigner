@@ -7,6 +7,8 @@
 
 export * from './extensions'
 export * from './factory'
+export { collectDocumentFields } from './fields'
+export type { CollectDocumentFieldsOptions } from './fields'
 export * from './geometry'
 export { MIN_SHRINK_FONT_SIZE, SHRINK_FONT_STEP } from './layout/boxes'
 export { DESIGN_FILLER_ROWS, DESIGN_SAMPLE_ROWS, layoutDesign } from './layout/design'
