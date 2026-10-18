@@ -118,6 +118,10 @@ const designer: PrintDesignerLocale = {
   statusClientStates: { idle: '未连接', connecting: '连接中', open: '已连接', reconnecting: '重连中', closed: '已断开' },
   insertToolbar: '插入元素',
   insertElement: label => `添加「${label}」`,
+  formatToolbar: '文字格式',
+  alignTextLeft: '文字左对齐',
+  alignTextCenter: '文字居中',
+  alignTextRight: '文字右对齐',
   propertyGroups: {
     layout: '布局',
     content: '内容',

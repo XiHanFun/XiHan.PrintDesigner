@@ -426,6 +426,10 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   statusClientStates: { idle: 'Not connected', connecting: 'Connecting', open: 'Connected', reconnecting: 'Reconnecting', closed: 'Disconnected' },
   insertToolbar: 'Insert elements',
   insertElement: label => `Add "${label}"`,
+  formatToolbar: 'Text format',
+  alignTextLeft: 'Align text left',
+  alignTextCenter: 'Center text',
+  alignTextRight: 'Align text right',
   propertyGroups: {
     layout: 'Layout',
     content: 'Content',

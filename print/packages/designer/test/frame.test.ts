@@ -385,3 +385,70 @@ describe('页面设置', () => {
     expect(button().disabled).toBe(true)
   })
 })
+
+describe('格式工具条', () => {
+  function bar(): HTMLElement | null {
+    return designer.querySelector<HTMLElement>('xh-designer-transform [slot="toolbar"]')
+  }
+
+  function button(value: string): HTMLButtonElement {
+    return bar()!.querySelector<HTMLButtonElement>(`button[value="${value}"]`)!
+  }
+
+  function style(): Record<string, unknown> {
+    return (designer.schema.pages[0]!.elements.find(element => element.id === 'a') as unknown as { style: Record<string, unknown> }).style
+  }
+
+  it('选中文字类元素时放进变换覆盖层：字号，粗体、斜体、下划线、删除线，左中右对齐；选中别的或没有选中时拿掉', async () => {
+    expect(bar()).toBeNull()
+    designer.select({ elements: ['a'] })
+    await settle()
+    const groups = Array.from(bar()!.querySelectorAll('[data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), item => item.value))
+    expect(groups).toEqual([['font-size'], ['text-bold', 'text-italic', 'text-underline', 'text-line-through'], ['text-align-left', 'text-align-center', 'text-align-right']])
+    expect(bar()!.querySelector('[data-xh-part="root"]')!.getAttribute('aria-label')).toBe('Text format')
+    expect([button('text-bold').getAttribute('aria-label'), button('text-align-center').getAttribute('aria-label')]).toEqual(['Bold', 'Center text'])
+    const rect = designer.addElement('rect', { x: 120, y: 120 })
+    designer.select({ elements: [rect.id] })
+    await settle()
+    expect(bar()).toBeNull()
+  })
+
+  it('开关与对齐写进文字样式，全都是这样时按下；点了记一步撤销', async () => {
+    designer.select({ elements: ['a'] })
+    await settle()
+    button('text-bold').click()
+    await settle()
+    expect([style().bold, button('text-bold').getAttribute('aria-pressed')]).toEqual([true, 'true'])
+    button('text-align-center').click()
+    await settle()
+    expect([style().align, button('text-align-center').getAttribute('aria-pressed'), button('text-align-left').getAttribute('aria-pressed')]).toEqual(['center', 'true', 'false'])
+    designer.undo()
+    designer.undo()
+    expect([style().bold, style().align]).toEqual([false, 'left'])
+  })
+
+  it('字号是菜单命令：列出常用字号，当前的打勾，选中一项写进去', async () => {
+    designer.select({ elements: ['a'] })
+    await settle()
+    button('font-size').click()
+    await settle()
+    const menu = document.querySelector('[role="menu"][aria-label="Font size"]')!
+    const current = menu.querySelector('[role="menuitemradio"][aria-checked="true"]')
+    expect(current?.textContent?.trim()).toBe(String(style().fontSize))
+    Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitemradio"]')).find(item => item.textContent?.trim() === '14')!.click()
+    await settle()
+    expect(style().fontSize).toBe(14)
+  })
+
+  it('只读时拿掉；在画布上按 Alt+F10 把焦点交给工具条', async () => {
+    designer.select({ elements: ['a'] })
+    await settle()
+    const viewport = designer.querySelector<HTMLElement>('[data-part="viewport"]')!
+    viewport.focus()
+    viewport.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', altKey: true, bubbles: true, cancelable: true }))
+    expect(bar()!.contains(document.activeElement)).toBe(true)
+    designer.readonly = true
+    await settle()
+    expect(bar()).toBeNull()
+  })
+})

@@ -118,6 +118,10 @@ const designer: PrintDesignerLocale = {
   statusClientStates: { idle: '未接続', connecting: '接続中', open: '接続済み', reconnecting: '再接続中', closed: '切断' },
   insertToolbar: '要素を挿入',
   insertElement: label => `「${label}」を追加`,
+  formatToolbar: '文字書式',
+  alignTextLeft: '文字を左揃え',
+  alignTextCenter: '文字を中央揃え',
+  alignTextRight: '文字を右揃え',
   propertyGroups: {
     layout: 'レイアウト',
     content: '内容',

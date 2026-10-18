@@ -71,6 +71,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 - **选择**：点选元素；按住 Shift、Ctrl 或 ⌘ 点击切换某个元素的选中；在空白处拖动框选。
 - **移动与变换**：拖动元素移动，拖控制柄缩放；文本、图片、矩形、椭圆、条码与二维码还能旋转。锁定的元素不能拖动与缩放。
+- **格式工具条**：选中文本、长文本、富文本或页码这类带文字样式的元素时，选中框上方浮着一条格式工具条：字号、粗体、斜体、下划线、删除线与左中右对齐，对选中的每个元素写同一个值，记一步撤销；贴顶放不下时翻到下方，拖动中与只读时收起。在画布上按 Alt+F10 把焦点交给它，在工具条里按 Esc 回到画布。
 - **换区**：元素中心拖进页眉、正文或页脚，就放进那个区；表格、长文本与富文本只能留在正文区。
 - **页眉页脚**：在区的标签上切换当前编辑的变体（缺省、首页、末页、奇数页、偶数页），可以新增或删除变体；拖动区的边界改高度。
 - **平移与缩放**：滚轮平移，Ctrl / ⌘ + 滚轮以指针为中心缩放；按住空格或鼠标中键拖动平移。
@@ -120,6 +121,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 0 | 适合窗口 |
 | Enter | 选中表格时进入表格编辑态 |
 | Esc | 取消正在进行的拖动；在表格编辑态里退出；否则取消选择 |
+| Alt + F10 | 焦点交给选中框上方的格式工具条；在工具条里按 Esc 回到画布 |
 
 复制的元素以 JSON 放进系统剪贴板，可以在两个设计器之间粘贴；粘贴时先按当前的元素登记表校验，有错误的内容不粘贴。别的内容（图片、旧模板等）粘贴或拖到画布上时交给扩展的导入器，见下文「导入」。
 
@@ -233,6 +235,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 视图 | `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `page-setup` `print` |
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
 | 插入 | `insert:text` `insert:image` `insert:barCode` `insert:matrixCode` `insert:table` `insert:line`：顶栏的插入钮 |
+| 文字格式 | `font-size` `text-bold` `text-italic` `text-underline` `text-line-through` `text-align-left` `text-align-center` `text-align-right`：固定排在格式工具条上（`PRINT_FORMAT_LAYOUT`），不经 `commandLayout` |
 | 面板、设置与帮助 | `panels` `settings` `help`：designer-shell 内置，排在工具栏末组。「面板」点开菜单开关物料、属性与问题，「设置」打开设置对话框，「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`） |
 | 页面模板 | `previous-page` `page-menu` `next-page` `add-page` `duplicate-page` `remove-page`：固定排在翻页条上（`PRINT_PAGE_STRIP_LAYOUT`），不经 `commandLayout`；`move-page-up` `move-page-down` 在页码菜单里 |
 

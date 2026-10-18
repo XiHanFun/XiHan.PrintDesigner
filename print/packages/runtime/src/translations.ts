@@ -124,6 +124,11 @@ export interface PrintDesignerTranslations {
   readonly insertToolbar: string
   /** 顶栏插入钮的名字，label 是元素种类的名称。 */
   readonly insertElement: (label: string) => string
+  /** 选中元素上方浮着的格式工具条的名字。 */
+  readonly formatToolbar: string
+  readonly alignTextLeft: string
+  readonly alignTextCenter: string
+  readonly alignTextRight: string
   /** 校验问题与分页诊断的说明，按问题码与参数生成。 */
   readonly issue: (issue: SchemaIssue) => string
   /** 属性分组的名称。 */
