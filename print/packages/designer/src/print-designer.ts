@@ -127,7 +127,7 @@ import {
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
-import { createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
+import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhExpressionInputElement, XhFieldArrayElement, XhFieldElement, XhFormatInputElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createPrintEditor, elementRect } from './editor'
 import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_PAGE_COMMANDS, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
@@ -387,7 +387,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     locale: { type: String },
     timeZone: { type: String, attribute: 'time-zone' },
     translations: { attribute: false },
-    readonly: { type: Boolean },
+    readonly: { converter: BOOLEAN_CONVERTER },
     mode: { type: String },
     grid: { attribute: false },
     snap: { attribute: false },
@@ -416,8 +416,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   declare timeZone: string | undefined
   /** 元素自己的文案，压在全局配置之上。 */
   declare translations: Partial<PrintDesignerTranslations> | undefined
-  /** 只读：可以选择、浏览与预览，不能修改。 */
-  declare readonly: boolean
+  /** 只读：可以选择、浏览与预览，不能修改。attribute 三态：不写或移除为不只读，写 "false" 为不只读，其余写法为只读。 */
+  declare readonly?: boolean
   /** 设计态或预览态，缺省 design；同名 attribute。 */
   declare mode: PrintDesignerMode
   /** 吸附网格边长，mm，缺省 1；false 不吸附网格。 */
@@ -467,6 +467,11 @@ export class XhPrintDesigner extends XhReactiveElement {
   #unregisterDrop: (() => void) | undefined
   #hoverId: string | undefined
   #platform: 'mac' | 'other' | undefined
+
+  /** 是否只读：readonly 移除 attribute 后为 undefined，按不只读处理。 */
+  get #readOnly(): boolean {
+    return this.readonly === true
+  }
 
   constructor() {
     super()
@@ -600,7 +605,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       this.#layoutStale = true
     if (changed.has('extensions') || changed.has('expressionEngine'))
       this.#scheduleIssues()
-    this.toggleAttribute('data-readonly', this.readonly)
+    this.toggleAttribute('data-readonly', this.#readOnly)
     this.dataset.mode = this.mode
     if (this.mode !== this.#lastMode) {
       this.#lastMode = this.mode
@@ -674,7 +679,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 删除选中的元素；只读或没有选中时返回 false。 */
   deleteSelection(): boolean {
-    return !this.readonly && this.#editor.deleteSelection()
+    return !this.#readOnly && this.#editor.deleteSelection()
   }
 
   /** 复制选中的元素；没有选中时返回 undefined。 */
@@ -684,34 +689,34 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 复制并删除选中的元素；只读或没有选中时返回 undefined。 */
   cut(): PrintClipboard | undefined {
-    return this.readonly ? undefined : this.#editor.cut()
+    return this.#readOnly ? undefined : this.#editor.cut()
   }
 
   /** 粘贴到当前页面模板并选中粘贴出的元素；缺省用最近一次复制的内容，连续粘贴依次错开。只读时不粘贴。 */
   paste(clipboard?: PrintClipboard): PrintSelection {
-    return this.readonly ? this.#editor.selection : this.#editor.paste(clipboard)
+    return this.#readOnly ? this.#editor.selection : this.#editor.paste(clipboard)
   }
 
   /** 复制选中的元素并立即粘贴，不改动剪贴板；只读时什么都不做。 */
   duplicate(): PrintSelection {
-    return this.readonly ? this.#editor.selection : this.#editor.duplicate()
+    return this.#readOnly ? this.#editor.selection : this.#editor.duplicate()
   }
 
   /** 对齐选中的元素；少于两个或只读时什么都不做。 */
   align(mode: AlignMode): void {
-    if (!this.readonly)
+    if (!this.#readOnly)
       this.#editor.align(mode)
   }
 
   /** 等距分布选中的元素；少于三个或只读时什么都不做。 */
   distribute(axis: DistributeAxis): void {
-    if (!this.readonly)
+    if (!this.#readOnly)
       this.#editor.distribute(axis)
   }
 
   /** 调整选中元素的层级。 */
   reorder(target: ReorderTarget): void {
-    if (!this.readonly)
+    if (!this.#readOnly)
       this.#editor.reorder(target)
   }
 
@@ -1131,7 +1136,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   #commandEnabled(command: Command): boolean {
-    const editable = !this.readonly && this.mode === 'design'
+    const editable = !this.#readOnly && this.mode === 'design'
     const selected = this.#editor.selection.elements.length
     switch (command) {
       case 'undo':
@@ -1380,7 +1385,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     layers.watermark.replaceChildren(...(watermark === undefined ? [] : [watermark]))
 
     const decorations: HTMLElement[] = overflows.map(rect => frame('design-bound', { x: rect.x, y: rect.y, width: rect.width, height: 0 }))
-    if (!this.readonly) {
+    if (!this.#readOnly) {
       for (const region of ['header', 'footer'] as const) {
         const rect = region === 'header' ? headerRect : footerRect
         const y = region === 'header' ? rect.y + rect.height : rect.y
@@ -1400,7 +1405,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const doc = this.ownerDocument
     const page = this.#editor.page
     const bands = this.#editor.bands
-    const signature = JSON.stringify([page.id, bands, PAGE_BAND_KEYS.map(key => [page.header[key] !== undefined, page.footer[key] !== undefined]), headerRect, footerRect, this.readonly, t.regions, t.bandVariants])
+    const signature = JSON.stringify([page.id, bands, PAGE_BAND_KEYS.map(key => [page.header[key] !== undefined, page.footer[key] !== undefined]), headerRect, footerRect, this.#readOnly, t.regions, t.bandVariants])
     if (layers.bandMenus.dataset.signature === signature)
       return
     layers.bandMenus.dataset.signature = signature
@@ -1411,11 +1416,11 @@ export class XhPrintDesigner extends XhReactiveElement {
         const exists = set[key] !== undefined
         const value = exists ? `show:${key}` : `add:${key}`
         const text = exists ? t.bandVariants[key] : `${t.addBandVariant} · ${t.bandVariants[key]}`
-        return createAuthoredElement(doc, 'div', { 'data-xh-part': 'item', value, 'aria-disabled': !exists && this.readonly ? 'true' : undefined, 'aria-current': key === current ? 'true' : undefined }, [
+        return createAuthoredElement(doc, 'div', { 'data-xh-part': 'item', value, 'aria-disabled': !exists && this.#readOnly ? 'true' : undefined, 'aria-current': key === current ? 'true' : undefined }, [
           createAuthoredElement(doc, 'span', { 'data-xh-part': 'item-text' }, [text]),
         ])
       })
-      if (current !== 'default' && !this.readonly) {
+      if (current !== 'default' && !this.#readOnly) {
         items.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'separator' }))
         items.push(createAuthoredElement(doc, 'div', { 'data-xh-part': 'item', 'value': 'remove' }, [createAuthoredElement(doc, 'span', { 'data-xh-part': 'item-text' }, [t.removeBandVariant])]))
       }
@@ -1432,9 +1437,9 @@ export class XhPrintDesigner extends XhReactiveElement {
         const [action, key] = value.split(':') as [string, PageBandKey | undefined]
         if (action === 'show' && key !== undefined)
           this.#editor.setBandVariant(region, key)
-        else if (action === 'add' && key !== undefined && key !== 'default' && !this.readonly)
+        else if (action === 'add' && key !== undefined && key !== 'default' && !this.#readOnly)
           this.#editor.addBand(region, key)
-        else if (action === 'remove' && current !== 'default' && !this.readonly)
+        else if (action === 'remove' && current !== 'default' && !this.#readOnly)
           this.#editor.removeBand(region, current)
       })
       return menu
@@ -1458,7 +1463,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       rectStyle(node, highlight)
       result.push(node)
     }
-    if (!this.readonly) {
+    if (!this.#readOnly) {
       for (const { column, x } of columnBoundaries(table)) {
         const handle = createAuthoredElement(doc, 'div', { 'data-part': 'column-handle', 'data-column-id': column.id, 'role': 'separator', 'aria-orientation': 'vertical', 'aria-label': t.resizeColumn(column.title) })
         handle.style.left = `${x}mm`
@@ -1536,7 +1541,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   // —— 内部：物料面板与拖放 ——
 
   #syncPalette(layers: Layers, t: PrintDesignerTranslations): void {
-    layers.palette.readonly = this.readonly
+    layers.palette.readonly = this.#readOnly
     const model = this.#model()
     const groups = model.runtime.elements.groupByCategory()
     const key = JSON.stringify([t.categories, t.elements])
@@ -1555,13 +1560,13 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   readonly #onPaletteActivate = (event: Event): void => {
     const { id } = (event as DesignerPaletteEventMap['item-activate']).detail
-    if (!this.readonly && this.mode === 'design' && this.#editor.elements.has(id))
+    if (!this.#readOnly && this.mode === 'design' && this.#editor.elements.has(id))
       this.addElement(id)
   }
 
   /** 物料拖到画布上：按落点画出新元素的外框，藏起跟手预览。 */
   #dropOver(point: Point, payload: unknown): DropOver {
-    const placed = !this.readonly && this.mode === 'design' && isPaletteDrag(payload)
+    const placed = !this.#readOnly && this.mode === 'design' && isPaletteDrag(payload)
       ? this.#placement(payload.id, this.clientToWorld(point.x, point.y))
       : undefined
     this.#setOverlayHover(placed)
@@ -1570,7 +1575,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   #drop(point: Point, payload: unknown): void {
     this.#setOverlayHover(undefined)
-    if (!isPaletteDrag(payload) || this.readonly || this.mode !== 'design' || !this.#editor.elements.has(payload.id))
+    if (!isPaletteDrag(payload) || this.#readOnly || this.mode !== 'design' || !this.#editor.elements.has(payload.id))
       return
     this.#stopAutoFit()
     this.addElement(payload.id, this.clientToWorld(point.x, point.y))
@@ -1597,7 +1602,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     panel.targets = subjects.map(subject => ({ kind: subject.kind, id: subject.id, value: subject.value, descriptors: subject.descriptors.filter(usable) }))
     panel.errors = this.#propertyErrors(subjects, t)
     panel.heading = this.#propertyHeading(subjects, t)
-    panel.readonly = this.readonly
+    panel.readonly = this.#readOnly
     const inputs = [kind, editors, this.fields, t.propertyGroups, t.propertyNames, t.propertyPart, t.propertyOptions, t.units]
     if (inputs.length === this.#panelInputs.length && inputs.every((input, index) => input === this.#panelInputs[index]))
       return
@@ -1659,7 +1664,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   /** 面板上的一处修改：对每个对象各写一份，按面板给的合并键并成一步撤销，直到封口。 */
   readonly #onPropertyChange = (event: Event): void => {
     const { path, value, targets, merge } = (event as DesignerPropertiesEventMap['property-change']).detail
-    if (this.readonly)
+    if (this.#readOnly)
       return
     const subjects = new Map(this.#subjects.map(subject => [subject.id, subject]))
     const operations = targets.flatMap((target) => {
@@ -1794,7 +1799,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   // —— 内部：问题列表 ——
 
   #syncIssues(layers: Layers, t: PrintDesignerTranslations): void {
-    layers.issues.readonly = this.readonly
+    layers.issues.readonly = this.#readOnly
     const document = this.#editor.document
     const key = JSON.stringify([document.pages.map(page => [page.id, page.name]), t.pageTitle(1), t.elements])
     if (this.#listed?.issues === this.#issues && this.#listed.key === key && layers.issues.items !== undefined)
@@ -1866,14 +1871,14 @@ export class XhPrintDesigner extends XhReactiveElement {
   /** 标尺上的参考线取当前页面模板，选中元素的范围画成淡底。 */
   #syncRuler(layers: Layers): void {
     const selected = new Set(this.#editor.selection.elements)
-    layers.ruler.readonly = this.readonly
+    layers.ruler.readonly = this.#readOnly
     layers.ruler.guides = this.#editor.page.guides ?? NO_GUIDES
     layers.ruler.highlight = unionRects(this.#editor.visibleElements().filter(item => selected.has(item.element.id)).map(item => elementRect(item.element)))
   }
 
   /** 参考线写回页面模板；全部删掉时去掉 guides。 */
   readonly #onGuidesChange = (event: Event): void => {
-    if (this.readonly)
+    if (this.#readOnly)
       return
     const { guides } = (event as DesignerRulerEventMap['guides-change']).detail
     const value = guides.x.length === 0 && guides.y.length === 0 ? undefined : { x: [...guides.x], y: [...guides.y] }
@@ -1905,7 +1910,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   #syncOverlay(layers: Layers): void {
-    layers.overlay.readonly = this.readonly
+    layers.overlay.readonly = this.#readOnly
     layers.overlay.items = this.#overlayItems()
   }
 
@@ -1938,7 +1943,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const layers = this.#ensureLayers()
     this.#syncOverlay(layers)
     const selected = new Set(this.#editor.selection.elements)
-    if (this.readonly || this.#editor.visibleElements().some(item => selected.has(item.element.id) && item.element.locked === true))
+    if (this.#readOnly || this.#editor.visibleElements().some(item => selected.has(item.element.id) && item.element.locked === true))
       return
     layers.overlay.startMove(event)
   }
@@ -2208,13 +2213,13 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (target?.closest('[data-part="band-menu"]'))
       return
     const bandHandle = target?.closest<HTMLElement>('[data-part="band-handle"]')
-    if (bandHandle && !this.readonly) {
+    if (bandHandle && !this.#readOnly) {
       this.#stopAutoFit()
       this.#dragBand(event, bandHandle.dataset.region as 'header' | 'footer')
       return
     }
     const columnHandle = target?.closest<HTMLElement>('[data-part="column-handle"]')
-    if (columnHandle && !this.readonly) {
+    if (columnHandle && !this.#readOnly) {
       this.#stopAutoFit()
       this.#dragColumn(event, columnHandle.dataset.columnId!)
       return
@@ -2259,7 +2264,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const hit = this.#elementAt(point)
     if (hit === undefined)
       return
-    if (hit.type === 'table' && !this.readonly)
+    if (hit.type === 'table' && !this.#readOnly)
       this.#enterTableEdit(hit.id)
     emitEvent(this, 'element-dblclick', { id: hit.id })
   }
@@ -2382,7 +2387,7 @@ export class XhPrintDesigner extends XhReactiveElement {
         return true
       case 'Enter': {
         const table = this.#selectedTable()
-        if (table === undefined || this.readonly || this.#tableEdit !== undefined)
+        if (table === undefined || this.#readOnly || this.#tableEdit !== undefined)
           return false
         this.#enterTableEdit(table.id)
         return true
@@ -2393,7 +2398,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (!delta)
       return false
     const ids = this.#editor.selection.elements
-    if (ids.length > 0 && !this.readonly && this.#tableEdit === undefined) {
+    if (ids.length > 0 && !this.#readOnly && this.#tableEdit === undefined) {
       this.#editor.moveElements(ids, delta.dx, delta.dy, { merge: 'nudge' })
       return true
     }
@@ -2444,12 +2449,12 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   readonly #onCut = (event: ClipboardEvent): void => {
-    if (!this.readonly && this.#writeClipboard(event))
+    if (!this.#readOnly && this.#writeClipboard(event))
       this.#editor.deleteSelection()
   }
 
   readonly #onPaste = (event: ClipboardEvent): void => {
-    if (this.readonly || this.mode !== 'design' || !this.#ownsClipboardEvent(event) || event.clipboardData === null)
+    if (this.#readOnly || this.mode !== 'design' || !this.#ownsClipboardEvent(event) || event.clipboardData === null)
       return
     const data = event.clipboardData
     const result = decodeClipboard(data.getData(clipboardMimeType(CLIPBOARD_PRODUCT)) || data.getData('text/plain'), CLIPBOARD_PRODUCT)
@@ -2467,14 +2472,14 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 有导入器时画布接受从外部拖进来的文件与文本。 */
   readonly #onNativeDragOver = (event: DragEvent): void => {
-    if (this.readonly || this.mode !== 'design' || event.dataTransfer === null || this.#model().importers.length === 0)
+    if (this.#readOnly || this.mode !== 'design' || event.dataTransfer === null || this.#model().importers.length === 0)
       return
     event.preventDefault()
     event.dataTransfer.dropEffect = 'copy'
   }
 
   readonly #onNativeDrop = (event: DragEvent): void => {
-    if (this.readonly || this.mode !== 'design' || event.dataTransfer === null || this.#model().importers.length === 0)
+    if (this.#readOnly || this.mode !== 'design' || event.dataTransfer === null || this.#model().importers.length === 0)
       return
     event.preventDefault()
     if (this.#import(importSources(event.dataTransfer, 'drop'), this.clientToWorld(event.clientX, event.clientY)))
@@ -2494,7 +2499,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   async #runImport(importer: PrintDesignerImporter, source: DesignerImportSource, at: Point): Promise<void> {
     try {
       const fragment = await importer.import(source, this.#context())
-      if (fragment === undefined || fragment.elements.length === 0 || this.readonly || this.mode !== 'design')
+      if (fragment === undefined || fragment.elements.length === 0 || this.#readOnly || this.mode !== 'design')
         return
       const bounds = unionRects(fragment.elements.map(elementRect))!
       const dx = this.#snapValue(at.x - bounds.width / 2) - bounds.x

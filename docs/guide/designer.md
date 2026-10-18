@@ -95,6 +95,9 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 ## 只读与预览
 
 - `readonly`：可以选择、浏览、预览与打印，不能修改；物料不能拖出，属性面板只读。
+  - 写成 attribute 时按三态读，与 XiHan.UI 元素的布尔 attribute 同一读法：不写或移除时不只读；写 `readonly="false"` 也不只读；其余写法（`readonly`、`readonly=""`、`readonly="true"`）只读。
+  - 这是行为变化：以前按原生布尔 attribute 读，只要写了就只读，`readonly="false"` 也算只读。
+  - 经 property 赋值（`designer.readonly = false`）不受影响。
 - `mode`：`design` 设计态，`preview` 预览态。预览态按 `data` 分页，用 `<xh-print-preview>` 显示全部输出页。
 
 ## 语言包

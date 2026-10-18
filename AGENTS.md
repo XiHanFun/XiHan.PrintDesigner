@@ -104,7 +104,7 @@ pnpm dev
 - **模板即数据**：模板是纯 JSON，禁止 `eval`、`new Function`、动态插入脚本和把用户内容拼进 `innerHTML`。需要计算的地方用受限的表达式解析，不执行字符串代码。
 - **无全局状态**：不往 `window` 上挂对象，不读写固定键名的 localStorage，不在模块顶层产生副作用；同一页面放多个实例互不影响。
 - **数据由使用方提供**：组件不发网络请求，数据、存储与权限都经回调或属性交给使用方。
-- **对外契约**：复杂数据走 property 不走 attribute；事件用 `CustomEvent`；公开方法、事件和属性都要有类型声明。
+- **对外契约**：复杂数据走 property 不走 attribute；事件用 `CustomEvent`；公开方法、事件和属性都要有类型声明。布尔 attribute 一律用 `@xihan-ui/web-components/authoring` 的 `BOOLEAN_CONVERTER`（不写为 undefined、`"false"` 为假、其余为真），不用 `type: Boolean`；元素内部按 `=== true` 读。
 - **语言包**：内建文案按语言出包，语言与 UI 的内建语言包一一对应，导出名是 `print` 加 UI 语言包的名字（`printZhCN`、`printJaJP`……），每份并入 designer-shell 同一语言的那份；宿主用 `mergeXhConfig` 与 UI 同一语言的语言包合并。语言包在 `runtime/src/locale/`，一种语言一个文件，按 `PrintLocale` 声明；`runtime/src/designer-locale.ts` 的英文表是属性名与选项名的键的唯一来源，问题说明按内建问题码各写一条，少键、多键都是类型错误。新增文案键、属性名、选项名或问题码时十种语言一起补。
 - **样式**：Light DOM，样式只消费 `@xihan-ui` 设计令牌，不写颜色、间距、圆角等散值。
 - **注释**：只写代码做什么，不写为什么这样设计、也不写任何参考项目名称；设计理由写进提交说明。
