@@ -3366,6 +3366,9 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   readonly #onMenuSelect = (event: Event): void => {
+    // 画布里输入框选中文字时的原生 select 与页眉页脚菜单的 select 都会冒泡到这里
+    if (event.target !== event.currentTarget)
+      return
     runCommand(this.#model().commands, (event as CustomEvent<{ value: string }>).detail.value, this.#context())
   }
 
