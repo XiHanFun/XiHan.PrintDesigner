@@ -160,6 +160,8 @@ const designer: PrintDesignerLocale = {
     'Ctrl / ⌘ + S demande à l’application hôte d’enregistrer le modèle\u202F; le concepteur n’enregistre pas lui-même.',
   ],
   shortcutSave: 'Enregistrer',
+  shortcutNudge: 'Déplacer la sélection\u202F; sans sélection, faire défiler le canevas',
+  shortcutCancel: 'Annuler un glissement, quitter l’édition du tableau ou désélectionner',
   settingsVia: 'Imprimer avec',
   settingsViaHint: 'Le client local envoie les pages directement à l’imprimante et se replie sur la boîte de dialogue d’impression du navigateur s’il est injoignable. Avec « Navigateur », la boîte de dialogue d’impression s’ouvre toujours.',
   settingsViaOptions: { client: 'Client local', browser: 'Navigateur' },

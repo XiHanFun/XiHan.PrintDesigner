@@ -148,6 +148,7 @@ import {
   createStatusItem,
   defineDesignerShellElement,
   DESIGNER_COMMANDS_EN_US,
+  DESIGNER_COMMON_KEYS,
   DESIGNER_FRAME_REGIONS,
   DESIGNER_HISTORY_EN_US,
   DESIGNER_SETTING_KEYS,
@@ -960,7 +961,8 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /**
    * 新手引导的步骤与设置对话框的帮助、快捷键、关于三页，按此刻的语言与命令表现算，内容没变不重设：
-   * 帮助页是几段操作说明与「开始引导」「帮助」两颗钮；快捷键表从命令表生成，另加不是命令的几个键；
+   * 帮助页是几段操作说明与「开始引导」「帮助」两颗钮；快捷键表从命令表生成，另加不是命令的几个键，「通用」里
+   * 方向键与 Esc 两行按打印的实际做法改写说明；
    * 关于页是打印设计器的版本与许可证，后面接扩展给的几行。
    */
   #syncHelp(layers: Layers, t: PrintDesignerTranslations): void {
@@ -978,7 +980,11 @@ export class XhPrintDesigner extends XhReactiveElement {
     }
     const shortcuts = shortcutSettingsSource(model.commands, context, {
       extensionCommands: (this.#extensions ?? NO_EXTENSIONS).flatMap(extension => (extension.commands ?? []).map(command => command.id)),
+      commonKeys: DESIGNER_COMMON_KEYS.map(key => key.id === 'nudge' ? { ...key, label: t.shortcutNudge } : key.id === 'cancel' ? { ...key, label: t.shortcutCancel } : key),
       keys: [
+        { label: context.commands.copy, keys: [['Mod', 'C']] },
+        { label: context.commands.cut, keys: [['Mod', 'X']] },
+        { label: context.commands.paste, keys: [['Mod', 'V']] },
         { label: context.commands.delete, keys: [['Backspace']] },
         { label: t.editTable, keys: [['Enter']] },
         { label: t.shortcutSave, keys: [['Mod', 'S']] },

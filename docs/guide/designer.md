@@ -139,7 +139,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - 「本地客户端」（`printClient`）：给了 `printClient` 才有这一页，写连接状态：已连接、未连接或未安装。「测试连接」调宿主给的 `printClient` 的 `connect()` 连一次；没找到客户端（`CLIENT_UNAVAILABLE`）时写未安装，这时也可能是装了没有运行。没连上时下面有「下载客户端」链接，缺省指向本站的[本地打印客户端](./client)一页（`PRINT_CLIENT_DOWNLOAD_URL`），宿主用 `clientDownloadUrl`（attribute `client-download-url`）换成自己的地址。端口与来源授权仍由宿主建连接时与客户端管，设计器不自己建连接。
 - 扩展登记的分区，排在后面。分区 id 与 `general`、`layout`、`toolbar`、`help`、`shortcuts`、`about`、`print`、`printClient` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
 - 「帮助」（`help`）：几段操作说明，下面是「开始引导」与「帮助」两颗钮，按了先关上对话框再开始引导或打开本站的设计器一页。
-- 「快捷键」（`shortcuts`）：按命令表列出全部快捷键，分通用、编辑、打印设计器与扩展几组，第二快捷键写在同一行；打印设计器那组末尾补上不是命令的 Backspace 删除、Enter 编辑表格与 Ctrl / ⌘ + S 保存。
+- 「快捷键」（`shortcuts`）：按命令表列出全部快捷键，分通用、编辑、打印设计器与扩展几组，第二快捷键写在同一行；打印设计器那组末尾补上不是命令的 Ctrl / ⌘ + C、X、V 复制剪切粘贴，Backspace 删除，Enter 编辑表格与 Ctrl / ⌘ + S 保存；「通用」里方向键一行写明没有选中时平移画布，Esc 一行写明取消拖动、退出表格编辑或取消选择，其余照 designer-shell 的通用行。
 - 「关于」（`about`）：打印设计器的版本（包入口导出的 `PRINT_VERSION`，与包版本一致）与许可证，后面接扩展给的几行。
 
 <<< @/examples/snippets/settings.ts#open
@@ -181,6 +181,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | Delete、Backspace | 删除选中的元素 |
 | 方向键 | 选中的元素移动一格（网格间距，写 0 时 1 mm）；没有选中时平移视口 |
 | Shift + 方向键 | 选中的元素移动 10 mm |
+| 按住空格拖动 | 平移画布；按住鼠标中键拖动同样 |
 | +、- | 放大、缩小 |
 | 0 | 适合窗口 |
 | Enter | 选中表格时进入表格编辑态 |

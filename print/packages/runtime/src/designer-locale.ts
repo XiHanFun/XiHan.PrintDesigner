@@ -461,6 +461,8 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
     'Ctrl / ⌘ + S asks the host application to save the template; the designer does not save by itself.',
   ],
   shortcutSave: 'Save',
+  shortcutNudge: 'Move the selection; pan the canvas when nothing is selected',
+  shortcutCancel: 'Cancel a drag, leave table editing, or clear the selection',
   settingsVia: 'Print with',
   settingsViaHint: 'The local client sends the pages straight to the printer and falls back to the browser print dialog when it cannot be reached. Browser always opens the print dialog.',
   settingsViaOptions: { client: 'Local client', browser: 'Browser' },

@@ -200,6 +200,8 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `tourSteps` | `Readonly<Record<PrintTourStepKey, PrintTourStepTranslations>>` | 新手引导里打印自己的几步：页眉页脚、页面模板、字段物料与打印。 |
 | `helpNotes` | `readonly string[]` | 设置对话框「帮助」页的几段操作说明。 |
 | `shortcutSave` | `string` | 快捷键表里 Ctrl / ⌘ + S 那一行：派发 save，请宿主保存。 |
+| `shortcutNudge` | `string` | 快捷键表「通用」里方向键那一行：移动选中的元素，没有选中时平移画布。 |
+| `shortcutCancel` | `string` | 快捷键表「通用」里 Esc 那一行：取消拖动、退出表格编辑或取消选择。 |
 | `settingsVia` | `string` | 「打印」页里打印方式一项：经本地打印客户端，还是浏览器的打印对话框。 |
 | `settingsViaHint` | `string` |  |
 | `settingsViaOptions` | `Readonly<Record<'client' \| 'browser', string>>` |  |

@@ -155,6 +155,8 @@ const designer: PrintDesignerLocale = {
     'Ctrl / ⌘ + S를 누르면 호스트 시스템에 템플릿 저장을 요청합니다. 디자이너가 직접 저장하지는 않습니다.',
   ],
   shortcutSave: '저장',
+  shortcutNudge: '선택한 요소 이동, 선택이 없으면 캔버스 이동',
+  shortcutCancel: '끌기 취소, 표 편집 끝내기 또는 선택 해제',
   settingsVia: '인쇄 방식',
   settingsViaHint: '로컬 클라이언트는 페이지를 바로 프린터로 보내고, 연결할 수 없으면 브라우저 인쇄 대화 상자로 전환합니다. 브라우저를 선택하면 항상 인쇄 대화 상자를 엽니다.',
   settingsViaOptions: { client: '로컬 클라이언트', browser: '브라우저' },

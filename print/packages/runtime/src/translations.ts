@@ -166,6 +166,10 @@ export interface PrintDesignerTranslations {
   readonly helpNotes: readonly string[]
   /** 快捷键表里 Ctrl / ⌘ + S 那一行：派发 save，请宿主保存。 */
   readonly shortcutSave: string
+  /** 快捷键表「通用」里方向键那一行：移动选中的元素，没有选中时平移画布。 */
+  readonly shortcutNudge: string
+  /** 快捷键表「通用」里 Esc 那一行：取消拖动、退出表格编辑或取消选择。 */
+  readonly shortcutCancel: string
   /** 「打印」页里打印方式一项：经本地打印客户端，还是浏览器的打印对话框。 */
   readonly settingsVia: string
   readonly settingsViaHint: string

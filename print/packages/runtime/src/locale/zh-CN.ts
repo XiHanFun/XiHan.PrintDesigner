@@ -152,6 +152,8 @@ const designer: PrintDesignerLocale = {
     '按 Ctrl / ⌘ + S 时请所在系统保存模板，设计器自己不保存。',
   ],
   shortcutSave: '保存',
+  shortcutNudge: '移动选中的元素；没有选中时平移画布',
+  shortcutCancel: '取消拖动、退出表格编辑，或取消选择',
   settingsVia: '打印方式',
   settingsViaHint: '本地客户端直接把页面交给打印机，连不上时退回浏览器的打印对话框；选浏览器总是弹出打印对话框。',
   settingsViaOptions: { client: '本地客户端', browser: '浏览器' },

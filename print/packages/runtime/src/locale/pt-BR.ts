@@ -155,6 +155,8 @@ const designer: PrintDesignerLocale = {
     'Ctrl / ⌘ + S pede ao sistema hospedeiro que salve o modelo; o designer não salva sozinho.',
   ],
   shortcutSave: 'Salvar',
+  shortcutNudge: 'Mover a seleção; sem seleção, deslocar a área de desenho',
+  shortcutCancel: 'Cancelar um arraste, sair da edição de tabela ou desfazer a seleção',
   settingsVia: 'Imprimir com',
   settingsViaHint: 'O cliente local envia as páginas direto para a impressora e, se não estiver disponível, usa a caixa de impressão do navegador. Com “Navegador”, a caixa de impressão sempre é aberta.',
   settingsViaOptions: { client: 'Cliente local', browser: 'Navegador' },

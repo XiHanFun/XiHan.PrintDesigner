@@ -152,6 +152,8 @@ const designer: PrintDesignerLocale = {
     '按 Ctrl / ⌘ + S 時請所在系統儲存範本，設計器本身不儲存。',
   ],
   shortcutSave: '儲存',
+  shortcutNudge: '移動選取的元素；未選取時平移畫布',
+  shortcutCancel: '取消拖曳、離開表格編輯，或取消選取',
   settingsVia: '列印方式',
   settingsViaHint: '本機用戶端直接把頁面交給印表機，連不上時退回瀏覽器的列印對話方塊；選瀏覽器一律開啟列印對話方塊。',
   settingsViaOptions: { client: '本機用戶端', browser: '瀏覽器' },
