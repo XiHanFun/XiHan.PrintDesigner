@@ -81,13 +81,6 @@ export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['panels', 'settings', 'help'],
 ]
 
-/** 选中文字类元素时浮在选中框上方的格式工具条，排列固定：字号，粗体、斜体、下划线、删除线，左中右对齐。 */
-export const PRINT_FORMAT_LAYOUT: readonly (readonly string[])[] = [
-  ['font-size'],
-  ['text-bold', 'text-italic', 'text-underline', 'text-line-through'],
-  ['text-align-left', 'text-align-center', 'text-align-right'],
-]
-
 /** 内置命令 help 打开的帮助页：打印文档站的设计器一页。 */
 export const PRINT_DESIGNER_HELP_URL = 'https://print.docs.xihanfun.com/guide/designer'
 
@@ -96,6 +89,22 @@ export const PRINT_PAGE_STRIP_LAYOUT: readonly (readonly string[])[] = [
   ['previous-page', 'page-menu', 'next-page'],
   ['add-page', 'duplicate-page', 'remove-page'],
 ]
+
+/** 选中工具条落在哪类选中上：都是文字类元素（文本、长文本、富文本、页码）、单个别的元素，或几个元素里有别的种类。 */
+export type PrintSelectionSubject = 'text' | 'element' | 'multiple'
+
+/**
+ * 选中工具条（命令落点 selection:<主体>）的缺省排列：文字类元素多出字号、粗体、斜体、下划线、删除线与左中右对齐；
+ * 多选多出对齐与分布；都有层级、创建副本、复制与删除。
+ */
+export function printSelectionLayout(subject: PrintSelectionSubject): string[][] {
+  const common = [['duplicate', 'copy', 'delete']]
+  if (subject === 'text')
+    return [['font-size'], ['text-bold', 'text-italic', 'text-underline', 'text-line-through'], ['text-align-left', 'text-align-center', 'text-align-right'], ['layer-menu'], ...common]
+  if (subject === 'multiple')
+    return [['align-menu', 'layer-menu'], ...common]
+  return [['layer-menu'], ...common]
+}
 
 /** 右键菜单落在哪类对象上：画布空白处、元素，或表格编辑态里的表格部位。 */
 export type PrintMenuSubject = 'blank' | 'element' | 'table'
