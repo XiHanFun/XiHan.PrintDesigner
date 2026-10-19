@@ -12,7 +12,7 @@ import type { Rect } from '@xihan-ui/designer-kit'
 import type { DesignerGesturePhase, DesignerTransformKind, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import type { TextMeasurer } from '@xihan-ui/viz'
 import type { PrintDesignerExtension, XhPrintDesigner } from '../src'
-import { behaviorProperties, createBuiltinElementPrototypes, createDocument, createElementRegistry, createPage, layoutProperties, property } from '@xihan-print/core'
+import { behaviorProperties, createBuiltinElementPrototypes, createDocument, createElementRegistry, createPage, getPaperSize, layoutProperties, property } from '@xihan-print/core'
 import { printZhCN } from '@xihan-print/runtime/locale'
 import { CLIPBOARD_FORMAT, clipboardMimeType, DesignerExtensionError } from '@xihan-ui/designer-kit'
 import { BOOLEAN_CONVERTER } from '@xihan-ui/web-components/authoring'
@@ -1175,7 +1175,7 @@ describe('<xh-print-designer>', () => {
     expect(point.y).toBeCloseTo(0, 10)
   })
 
-  it('适配视口时给纸张左侧的页眉页脚标签、浮在画布右侧的翻页条让出位置，纸与标签在余下的宽度里居中', () => {
+  it('适配视口时给纸张左侧的页眉页脚标签、浮在画布右侧的翻页条让出位置，纸在余下的宽度里居中', () => {
     Object.defineProperty(viewport(), 'clientWidth', { configurable: true, value: 800 })
     Object.defineProperty(viewport(), 'clientHeight', { configurable: true, value: 600 })
     designer.zoomToFit()
@@ -1187,13 +1187,29 @@ describe('<xh-print-designer>', () => {
     designer.zoomToFit()
     const labelled = designer.getViewport()
     expect(labelled.zoom).toBe(bare.zoom)
-    expect(labelled.x - bare.x).toBeCloseTo(45, 10)
+    expect(labelled.x - bare.x).toBeCloseTo(29, 10)
     viewport().getBoundingClientRect = () => rect(0, 800)
     designer.querySelector<HTMLElement>('[data-part="region"][data-region="pages"]')!.getBoundingClientRect = () => rect(740, 50)
     designer.zoomToFit()
     const fitted = designer.getViewport()
     expect(fitted.zoom).toBe(bare.zoom)
     expect(fitted.x - bare.x).toBeCloseTo(15, 10)
+  })
+
+  it('窄画布里让出的宽度与四周留白取较大的那个、不相加：纸铺满页眉页脚标签与翻页条之间', () => {
+    Object.defineProperty(viewport(), 'clientWidth', { configurable: true, value: 260 })
+    Object.defineProperty(viewport(), 'clientHeight', { configurable: true, value: 600 })
+    const rect = (left: number, width = 0): DOMRect => ({ left, top: 0, right: left + width, bottom: 0, width, height: 0, x: left, y: 0, toJSON: () => ({}) })
+    viewport().getBoundingClientRect = () => rect(0, 260)
+    designer.querySelector<HTMLElement>('[data-part="paper"]')!.getBoundingClientRect = () => rect(100)
+    for (const menu of designer.querySelectorAll<HTMLElement>('[data-part="band-menu"]'))
+      menu.getBoundingClientRect = () => rect(10)
+    designer.querySelector<HTMLElement>('[data-part="region"][data-region="pages"]')!.getBoundingClientRect = () => rect(203, 57)
+    designer.zoomToFit()
+    const { x, zoom } = designer.getViewport()
+    const width = getPaperSize(designer.schema.pages[0]!).width * zoom * PX_PER_MM
+    expect(x).toBeCloseTo(90, 6)
+    expect(x + width).toBeCloseTo(203, 6)
   })
 })
 

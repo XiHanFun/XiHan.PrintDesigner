@@ -1156,7 +1156,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   /**
-   * 让整张纸连同左侧的页眉页脚标签落在视口中央，让开浮在画布一侧的翻页条，不放大到实际尺寸以上；
+   * 让整张纸连同左侧的页眉页脚标签落在视口中央，让开浮在画布一侧的翻页条（让出的宽度与四周留白取较大的那个），不放大到实际尺寸以上；
    * 此后尺寸变化时重新适配，直到设置视口或在画布上操作。
    */
   zoomToFit(): void {
@@ -1865,9 +1865,11 @@ export class XhPrintDesigner extends XhReactiveElement {
       return false
     this.#fitPending = false
     const paper = getPaperSize(this.#editor.page)
-    const { start, end } = this.#layers === undefined ? { start: 0, end: 0 } : this.#fitInsets(this.#layers)
-    const fit = fitRect({ x: 0, y: 0, width: paper.width, height: paper.height }, { width: Math.max(0, size.width - start - end), height: size.height }, { padding: FIT_PADDING, maxZoom: PX_PER_MM, limits: ZOOM_LIMITS })
-    this.#moveTo({ ...fit, x: fit.x + start })
+    const insets = this.#layers === undefined ? { start: 0, end: 0 } : this.#fitInsets(this.#layers)
+    const start = Math.max(FIT_PADDING, insets.start)
+    const end = Math.max(FIT_PADDING, insets.end)
+    const fit = fitRect({ x: 0, y: 0, width: paper.width, height: paper.height }, { width: Math.max(0, size.width - start - end + 2 * FIT_PADDING), height: size.height }, { padding: FIT_PADDING, maxZoom: PX_PER_MM, limits: ZOOM_LIMITS })
+    this.#moveTo({ ...fit, x: fit.x + start - FIT_PADDING })
     return true
   }
 
