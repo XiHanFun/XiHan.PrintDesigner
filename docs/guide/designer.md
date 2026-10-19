@@ -158,7 +158,8 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 - 给 `schema` 赋值即装载新模板：清空撤销历史与选择，重新适配视口，并派发 `kind` 为 `load` 的 `schema-change`。读取 `schema` 得到当前模板。
 - `dirty` 表示有没有未保存的修改，变化时派发 `dirty-change`；撤销回到保存时的状态，`dirty` 也回到 `false`。
-- 撤销历史的每一步带一句说明，如「删除文本 title」「修改「字号」」「移动 3 个元素」，随界面语言变。拖动、缩放、旋转按下到松开是一步；属性面板里连续输入同一项是一步；方向键微移连续按、选中不变、相隔不超过 1 秒的并成一步，换了选中就另起一步。
+- 撤销历史的每一步带一句说明，如「删除文本 title」「修改「字号」」「移动 3 个元素」，随界面语言变；工具栏上撤销、重做的名字带上下一步的说明（「撤销：删除文本 title」）。拖动、缩放、旋转按下到松开是一步；属性面板里连续输入同一项是一步；方向键微移连续按、选中不变、相隔不超过 1 秒的并成一步，换了选中就另起一步。
+- 「清空历史」（命令 `clear-history`）先弹确认框，按确定才清空撤销与重做，模板与 `dirty` 不变；它不在工具栏上，宿主经 `commandLayout` 放置。只读与预览态时撤销、重做与清空历史都不可用。
 - `issues-change` 在模板改动后带上全部校验问题，宿主可以据此拦住有错误的模板，不让保存。
 - 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`。
 
@@ -259,7 +260,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 | 用途 | 命令 id |
 | --- | --- |
-| 编辑 | `undo` `redo` `cut` `copy` `paste` `duplicate` `delete` `select-all` |
+| 编辑 | `undo` `redo` `clear-history` `cut` `copy` `paste` `duplicate` `delete` `select-all` |
 | 对齐与层级 | `align-left` `align-center` `align-right` `align-top` `align-middle` `align-bottom` `distribute-horizontal` `distribute-vertical` `bring-to-front` `bring-forward` `send-backward` `send-to-back`：工具栏上缺省收在 `align-menu`（对齐与分布）与 `layer-menu`（层级）两个菜单里 |
 | 视图 | `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `page-setup` `print` |
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |

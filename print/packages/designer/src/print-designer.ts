@@ -47,6 +47,7 @@ import type {
   DesignerFrameEventMap,
   DesignerFrameRegion,
   DesignerGuides,
+  DesignerHistoryTranslations,
   DesignerIssueItem,
   DesignerIssuesEventMap,
   DesignerLayout,
@@ -77,6 +78,7 @@ import type { ExpressionEngine, NumeralStyle, ValueFormatter } from '@xihan-ui/e
 import type { PointerSession } from '@xihan-ui/pointer'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
+import type { DialogService } from '@xihan-ui/web-components/services'
 import type { PrintClipboard, PrintSelection, PrintTablePart } from './editor'
 import type { PrintDesignerCommand, PrintDesignerContext, PrintDesignerExtension, PrintDesignerImporter, PrintDesignerModel, PrintMenuSubject, PrintSelectionSubject } from './extensions'
 import type { FieldPaletteNode, FieldPlacement, FieldPlacementDefaults } from './field-palette'
@@ -138,7 +140,9 @@ import {
   defineDesignerShellElement,
   DESIGNER_COMMANDS_EN_US,
   DESIGNER_FRAME_REGIONS,
+  DESIGNER_HISTORY_EN_US,
   DESIGNER_SETTING_KEYS,
+  designerHistoryCommands,
   designerLayoutPolicy,
   designerPanelCommands,
   designerShellCommands,
@@ -157,11 +161,12 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, ItalicIcon, LayoutGridIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, ItalicIcon, LayoutGridIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhExpressionInputElement, XhFieldArrayElement, XhFieldElement, XhFormatInputElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
+import { createDialogService } from '@xihan-ui/web-components/services'
 import { createPrintClientStatus } from './client-status'
 import { createPrintEditor, elementRect } from './editor'
 import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout, printSelectionLayout } from './extensions'
@@ -242,7 +247,7 @@ type StringKey = { [K in keyof PrintDesignerTranslations]: PrintDesignerTranslat
 
 /** 设计器自带的命令。 */
 type Command
-  = | 'undo' | 'redo' | 'cut' | 'copy' | 'paste' | 'duplicate' | 'delete' | 'select-all'
+  = | 'cut' | 'copy' | 'paste' | 'duplicate' | 'delete' | 'select-all'
     | 'align-left' | 'align-center' | 'align-right' | 'align-top' | 'align-middle' | 'align-bottom'
     | 'distribute-horizontal' | 'distribute-vertical'
     | 'bring-to-front' | 'bring-forward' | 'send-backward' | 'send-to-back'
@@ -269,8 +274,6 @@ const REORDER: Readonly<Record<string, ReorderTarget>> = {
 
 /** 四款共用的命令：文案取 designer-shell 语言包里 xh-designer-commands 那一桶。 */
 const SHARED_LABELS = {
-  'undo': 'undo',
-  'redo': 'redo',
   'cut': 'cut',
   'copy': 'copy',
   'paste': 'paste',
@@ -327,8 +330,6 @@ const LABELS: Readonly<Record<Exclude<Command, SharedCommand>, StringKey>> = {
 
 /** 每条内置命令的图标。 */
 const ICONS: Readonly<Record<Command, IconRecord>> = {
-  'undo': UndoIcon,
-  'redo': RedoIcon,
   'cut': ScissorsIcon,
   'copy': CopyIcon,
   'paste': ClipboardIcon,
@@ -413,10 +414,8 @@ function builtinLabel(id: Command, context: PrintDesignerContext): string {
   return id in SHARED_LABELS ? context.commands[SHARED_LABELS[id as SharedCommand]] : context.translations[LABELS[id as Exclude<Command, SharedCommand>]]
 }
 
-/** 内置命令的快捷键；Backspace 删除、Ctrl / ⌘ + Y 重做这些别名由按键处理直接接住。 */
+/** 内置命令的快捷键；Backspace 删除这个别名由按键处理直接接住。 */
 const SHORTCUTS: Readonly<Partial<Record<Command, readonly string[]>>> = {
-  'undo': ['Mod', 'Z'],
-  'redo': ['Mod', 'Shift', 'Z'],
   'select-all': ['Mod', 'A'],
   'duplicate': ['Mod', 'D'],
   'delete': ['Delete'],
@@ -433,10 +432,6 @@ const SHORTCUTS: Readonly<Partial<Record<Command, readonly string[]>>> = {
 const TOGGLES: ReadonlySet<Command> = new Set<Command>(['grid', 'snap', 'design', 'preview'])
 
 /** 设计器占用的 Ctrl / ⌘ 组合的主键：对应命令此刻不可用时也不交给浏览器。 */
-/** 内置命令的第二快捷键。 */
-const ALTERNATE_SHORTCUTS: Readonly<Partial<Record<Command, readonly (readonly string[])[]>>> = {
-  redo: [['Ctrl', 'Y']],
-}
 
 const RESERVED_COMMAND_KEYS: ReadonlySet<string> = new Set(['z', 'y', 'a', 'd', '[', ']', '{', '}'])
 
@@ -677,6 +672,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   #hoverId: string | undefined
   #platform: 'mac' | 'other' | undefined
   #settingsHost: DesignerSettingsHost | undefined
+  #dialogs: DialogService | undefined
   #settingsHostOptions: readonly unknown[] = []
   #settingsSectionsKey = ''
   #settingsSectionList: readonly DesignerSettingsSection[] = []
@@ -792,6 +788,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     super.disconnectedCallback()
     this.#settingsHost?.dispose()
     this.#settingsHost = undefined
+    this.#dialogs?.dispose()
+    this.#dialogs = undefined
     this.#clientWatch?.off()
     this.#clientWatch = undefined
     this.#clientStatus.detach()
@@ -1078,18 +1076,26 @@ export class XhPrintDesigner extends XhReactiveElement {
   #builtinCommands(): PrintDesignerCommand[] {
     const builtin = (Object.keys(ICONS) as Command[]).map((id): PrintDesignerCommand => {
       const shortcut = SHORTCUTS[id]
-      const alternate = ALTERNATE_SHORTCUTS[id]
       return {
         id,
         label: context => builtinLabel(id, context),
         icon: ICONS[id],
         ...(shortcut === undefined ? {} : { shortcut }),
-        ...(alternate === undefined ? {} : { alternateShortcuts: alternate }),
         ...(DESTRUCTIVE.has(id) ? { tone: 'danger' as const } : {}),
         ...(TOGGLES.has(id) ? { checked: () => this.#commandChecked(id) } : {}),
         enabled: () => this.#commandEnabled(id),
         run: () => this.#run(id),
       }
+    })
+    // designer-shell 的撤销、重做与清空历史：只读与预览态不可用，清空先弹确认框
+    const history = designerHistoryCommands<PrintDesignerContext>({
+      history: () => this.#editor.history,
+      disabled: () => this.#readOnly || this.mode !== 'design',
+      translations: context => context.commands,
+      historyTranslations: () => this.#historyTexts(),
+      confirm: (_context, options) => this.#dialogService().confirm(options),
+      announce: (context, message) => context.frame?.announce(message),
+      icons: { undo: UndoIcon, redo: RedoIcon, clearHistory: EraserIcon },
     })
     // designer-shell 内置的面板、设置与帮助，排在工具栏末组；设计器自己的每块面板一条开关命令 panel:<面板 id>
     const shell = designerShellCommands<PrintDesignerContext>({
@@ -1100,7 +1106,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon },
     })
     const panels = designerPanelCommands<PrintDesignerContext>({ panels: Object.values(PRINT_DESIGNER_PANELS), frame: context => context.frame })
-    return [...builtin, ...this.#arrangeMenus(), ...this.#formatCommands(), ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell, ...panels]
+    return [...history, ...builtin, ...this.#arrangeMenus(), ...this.#formatCommands(), ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell, ...panels]
   }
 
   /** 工具栏上的「对齐与分布」「层级」两个菜单：条目就是对应的内置命令，按它们的文字、图标与可用状态铺，选中即执行。 */
@@ -1294,6 +1300,16 @@ export class XhPrintDesigner extends XhReactiveElement {
   /** 此刻生效的共用命令文案。 */
   #commandTexts(): DesignerCommandsTranslations {
     return this.#config.translations<DesignerCommandsTranslations>('xh-designer-commands', DESIGNER_COMMANDS_EN_US)
+  }
+
+  #historyTexts(): DesignerHistoryTranslations {
+    return this.#config.translations<DesignerHistoryTranslations>('xh-designer-history', DESIGNER_HISTORY_EN_US)
+  }
+
+  /** 确认框服务：第一次要弹确认框时建，元素移出文档时释放。 */
+  #dialogService(): DialogService {
+    this.#dialogs ??= createDialogService()
+    return this.#dialogs
   }
 
   #kbdPlatform(): 'mac' | 'other' {
@@ -1729,10 +1745,6 @@ export class XhPrintDesigner extends XhReactiveElement {
     const editable = !this.#readOnly && this.mode === 'design'
     const selected = this.#editor.selection.elements.length
     switch (command) {
-      case 'undo':
-        return editable && this.#editor.history.canUndo
-      case 'redo':
-        return editable && this.#editor.history.canRedo
       case 'copy':
         return selected > 0
       case 'cut':
@@ -1801,12 +1813,6 @@ export class XhPrintDesigner extends XhReactiveElement {
     const pages = this.#editor.document.pages
     const pageIndex = pages.findIndex(page => page.id === this.#editor.activePageId)
     switch (command) {
-      case 'undo':
-        this.undo()
-        return
-      case 'redo':
-        this.redo()
-        return
       case 'cut':
         this.cut()
         return
