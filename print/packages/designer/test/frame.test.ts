@@ -223,15 +223,15 @@ describe('工具栏末组', () => {
     }
   })
 
-  it('「面板」点开一张锚在按钮上的菜单，列出物料、属性、问题与翻页条，勾选的显示；点一项开关它，布局写进设置', async () => {
+  it('「面板」点开一张锚在按钮上的菜单，列出物料、页面结构、属性、问题与翻页条，勾选的显示；点一项开关它，布局写进设置', async () => {
     const button = toolbarItem('panels')
     button.click()
     await settle()
     type MenuHost = HTMLElement & { open?: boolean, anchor?: HTMLElement | null, collection?: readonly { value: string }[], checkboxValue?: readonly string[] }
     const menu = designer.querySelector<MenuHost>('[data-part="command-bar"] xh-menu')!
     expect([menu.open, menu.anchor]).toEqual([true, button])
-    const panels = ['item:palette', 'item:properties', 'item:issues', 'item:pages']
-    expect(menu.collection!.map(item => item.value).slice(0, 4)).toEqual(panels)
+    const panels = ['item:palette', 'item:properties', 'item:issues', 'item:pages', 'item:outline']
+    expect(menu.collection!.map(item => item.value).slice(0, 5)).toEqual(panels)
     expect(menu.checkboxValue).toEqual(panels)
     const seen: string[] = []
     designer.addEventListener('settings-change', event => seen.push((event as CustomEvent<{ key: string }>).detail.key))
