@@ -688,7 +688,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   /** 注册自定义主题色，形状与 @xihan-ui/tokens 的 registerBrand 相同；给了才许在设置里自定义主题色。 */
   declare registerBrand: ((id: string, color: string) => () => void) | undefined
   /**
-   * 第一次在设计态铺好画布后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。
+   * 第一次在设计态显示出来（画布有了尺寸）后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。
    * 写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。
    */
   declare autoTour: boolean | undefined
@@ -950,9 +950,9 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#checkTour()
   }
 
-  /** 第一次在设计态铺好画布之后，看要不要自动开始新手引导；每个元素只看一次。 */
+  /** 第一次在设计态铺好、画布有了尺寸之后，看要不要自动开始新手引导；每个元素只看一次，画布没有尺寸（还藏着）时等下一次。 */
   #checkTour(): void {
-    if (this.#tourChecked)
+    if (this.#tourChecked || this.mode !== 'design' || !this.#size())
       return
     this.#tourChecked = true
     if (this.autoTour === false || tourDoneOf(this.settings))
@@ -1842,6 +1842,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   #onResize(): void {
+    this.#checkTour()
     if (!this.#autoFit)
       return
     this.#fitPending = true

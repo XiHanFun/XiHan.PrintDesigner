@@ -48,6 +48,16 @@ async function mount(setup: (element: XhPrintDesigner) => void = () => {}): Prom
   return element
 }
 
+/** 给画布一个尺寸（jsdom 没有布局），再刷新一轮：像设计器从藏着到显示出来。 */
+async function show(element: XhPrintDesigner): Promise<void> {
+  const viewport = element.querySelector<HTMLElement>('[data-part="viewport"]')!
+  Object.defineProperty(viewport, 'clientWidth', { configurable: true, value: 800 })
+  Object.defineProperty(viewport, 'clientHeight', { configurable: true, value: 600 })
+  element.requestUpdate()
+  await element.updateComplete
+  await element.updateComplete
+}
+
 function tour(element: XhPrintDesigner): XhDesignerTourElement {
   return element.querySelector('xh-designer-tour')!
 }
@@ -57,8 +67,10 @@ function settings(element: XhPrintDesigner): XhDesignerSettingsElement {
 }
 
 describe('新手引导', () => {
-  it('第一次铺好画布后自动开始；走完、跳过或关上后设置里记下 help.tourDone 并派发 settings-change', async () => {
+  it('画布有了尺寸才自动开始，藏着时不开始；走完、跳过或关上后设置里记下 help.tourDone 并派发 settings-change', async () => {
     const element = await mount()
+    expect(tour(element).running).toBe(false)
+    await show(element)
     expect(tour(element).running).toBe(true)
     const keys: string[] = []
     element.addEventListener('settings-change', event => keys.push((event as CustomEvent<{ key: string }>).detail.key))
@@ -69,11 +81,13 @@ describe('新手引导', () => {
 
   it('设置里记过 help.tourDone 时不再自动开始', async () => {
     const element = await mount(el => (el.settings = { [DESIGNER_TOUR_DONE_KEY]: true }))
+    await show(element)
     expect(tour(element).running).toBe(false)
   })
 
   it('autoTour 为 false 时不自动开始', async () => {
     const element = await mount(el => (el.autoTour = false))
+    await show(element)
     expect(tour(element).running).toBe(false)
   })
 
