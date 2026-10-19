@@ -45,7 +45,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 问题 | 下方 | `issues` | 校验问题列表，点一下切到问题所在的页面模板并定位到元素；错误、警告数在面板头上，点一下只看或不看这一级 |
 | 状态栏 | 最下面 | — | 左边写选中的对象：没有选中时是当前页面模板与上面的元素个数，选中一个是种类与位置尺寸（mm），选中多个是个数；右边写打印客户端的连接状态（给了 `printClient` 时）与缩放，点缩放回到实际尺寸。设置里可以关掉 |
 
-物料、属性与问题是外框里的卡片：面板头写标题，属性面板的标题下面写正在编辑的对象，「?」里是这块面板的用法。
+物料、属性与问题是外框里的卡片：面板头写图标与标题，属性面板的标题下面写正在编辑的对象，「?」里是这块面板的用法。
 
 ### 面板布局
 
@@ -265,7 +265,8 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
 | 插入 | `insert:text` `insert:image` `insert:barCode` `insert:matrixCode` `insert:table` `insert:line`：顶栏的插入钮 |
 | 文字格式 | `font-size` `text-bold` `text-italic` `text-underline` `text-line-through` `text-align-left` `text-align-center` `text-align-right`：缺省排在 `selection:text` 的选中工具条上 |
-| 面板、设置与帮助 | `panels` `settings` `help`：designer-shell 内置，排在工具栏末组。「面板」点开菜单开关物料、属性与问题，「设置」打开设置对话框，「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`） |
+| 面板、设置与帮助 | `panels` `settings` `help`：designer-shell 内置，排在工具栏末组。「面板」点开菜单开关各块面板，「设置」打开设置对话框，「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`）。`panels-toggle-all` `panels-restore` `layout-reset` 排在「面板」菜单末尾 |
+| 面板开关 | `panel:<面板 id>`：每块面板一条，含扩展登记的面板（`panel:<区名>`），文字是面板标题、勾选的是看得见的，宿主锁定的面板不可用；不排在任何位置，可以经 `commandLayout` 放上工具栏 |
 | 页面模板 | `previous-page` `page-menu` `next-page` `add-page` `duplicate-page` `remove-page`：固定排在翻页条上（`PRINT_PAGE_STRIP_LAYOUT`），不经 `commandLayout`；`move-page-up` `move-page-down` 在页码菜单里 |
 
 ### 面板
@@ -275,7 +276,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 <<< @/examples/snippets/designer-panels.ts#example
 
 - 区名与内置区（`header`、`toolbar`、`pages`、`palette`、`canvas`、`properties`、`issues`、`status`）或别的扩展的重名时，赋值时抛 `DesignerExtensionError`，设计器保持赋值前的状态。
-- 扩展的区同样记在面板布局里，用户能隐藏、挪动与浮出；预览态只保留顶栏、工具栏与画布。
+- 扩展的区同样记在面板布局里，用户能隐藏、挪动与浮出，也各有一条开关命令 `panel:<区名>`；扩展自己登记了同名命令时同样抛 `DesignerExtensionError`。预览态只保留顶栏、工具栏与画布。
 
 ### 导入
 

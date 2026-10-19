@@ -15,7 +15,7 @@ import type { XhPrintDesigner } from './print-designer'
 import { ELEMENT_CATEGORIES } from '@xihan-print/core'
 import { createPrintRuntimeModel } from '@xihan-print/runtime'
 import { DesignerExtensionError, extensionCommands, extensionEditors } from '@xihan-ui/designer-kit'
-import { collectSettingsSections } from '@xihan-ui/designer-shell'
+import { collectSettingsSections, designerPanelCommands } from '@xihan-ui/designer-shell'
 import { PRINT_CLIENT_SETTINGS_SECTION, PRINT_SETTINGS_SECTION } from './settings'
 import { TABLE_COMMANDS } from './table-edit'
 
@@ -141,7 +141,7 @@ export interface PrintDesignerModel {
   readonly runtime: PrintRuntimeModel
   /** 各扩展的属性编辑器按顺序合成一张，后面的压前面的。 */
   readonly editors: PropertyEditorTable<DesignerPropertyEditor>
-  /** 各扩展的命令，内置在前、扩展按登记顺序在后。 */
+  /** 各扩展的命令，内置在前、扩展按登记顺序在后，末尾是扩展面板的开关命令 panel:<区名>。 */
   readonly commands: DesignerCommandTable<PrintDesignerContext>
   /** 各扩展的导入器，按扩展顺序。 */
   readonly importers: readonly PrintDesignerImporter[]
@@ -179,5 +179,21 @@ export function createPrintDesignerModel(builtin: PrintDesignerExtension, extens
   // 设计器自己的「打印」「本地客户端」两个分区占着 print 与 printClient，扩展的分区与它们、与内建的 general 或彼此重名都抛错
   const own = [PRINT_SETTINGS_SECTION, PRINT_CLIENT_SETTINGS_SECTION].map(id => ({ id, label: id, items: [] }))
   const settings = collectSettingsSections([{ id: builtin.id, settings: own }, ...extensions]).slice(own.length)
-  return { list, runtime, editors: extensionEditors<DesignerPropertyEditor>(undefined, all), commands: extensionCommands(all), importers: all.flatMap(extension => extension.importers ?? []), palette, categories, settings }
+  return { list, runtime, editors: extensionEditors<DesignerPropertyEditor>(undefined, all), commands: withPanelCommands(extensionCommands(all), builtin, extensions), importers: all.flatMap(extension => extension.importers ?? []), palette, categories, settings }
+}
+
+/** 命令表并上扩展面板的开关命令 panel:<区名>；扩展自己登记了同名命令时抛 DesignerExtensionError。 */
+function withPanelCommands(commands: DesignerCommandTable<PrintDesignerContext>, builtin: PrintDesignerExtension, extensions: readonly PrintDesignerExtension[]): DesignerCommandTable<PrintDesignerContext> {
+  const panels = extensions.flatMap(extension => (extension.panels ?? []).map(panel => panel.region.name))
+  if (panels.length === 0)
+    return commands
+  const table = new Map(commands)
+  for (const command of designerPanelCommands<PrintDesignerContext>({ panels, frame: context => context.frame })) {
+    if (table.has(command.id)) {
+      const owner = [builtin, ...extensions].find(extension => extension.commands?.some(item => item.id === command.id))?.id ?? builtin.id
+      throw new DesignerExtensionError('command', command.id, [builtin.id, owner])
+    }
+    table.set(command.id, command)
+  }
+  return table
 }

@@ -140,6 +140,7 @@ import {
   DESIGNER_FRAME_REGIONS,
   DESIGNER_SETTING_KEYS,
   designerLayoutPolicy,
+  designerPanelCommands,
   designerShellCommands,
   importSources,
   registerDropTarget,
@@ -156,7 +157,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, ItalicIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, ItalicIcon, LayoutGridIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -1090,7 +1091,7 @@ export class XhPrintDesigner extends XhReactiveElement {
         run: () => this.#run(id),
       }
     })
-    // designer-shell 内置的面板、设置与帮助，排在工具栏末组
+    // designer-shell 内置的面板、设置与帮助，排在工具栏末组；设计器自己的每块面板一条开关命令 panel:<面板 id>
     const shell = designerShellCommands<PrintDesignerContext>({
       translations: context => context.commands,
       frame: context => context.frame,
@@ -1098,7 +1099,8 @@ export class XhPrintDesigner extends XhReactiveElement {
       helpUrl: () => PRINT_DESIGNER_HELP_URL,
       icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon },
     })
-    return [...builtin, ...this.#arrangeMenus(), ...this.#formatCommands(), ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell]
+    const panels = designerPanelCommands<PrintDesignerContext>({ panels: Object.values(PRINT_DESIGNER_PANELS), frame: context => context.frame })
+    return [...builtin, ...this.#arrangeMenus(), ...this.#formatCommands(), ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell, ...panels]
   }
 
   /** 工具栏上的「对齐与分布」「层级」两个菜单：条目就是对应的内置命令，按它们的文字、图标与可用状态铺，选中即执行。 */
@@ -1389,10 +1391,10 @@ export class XhPrintDesigner extends XhReactiveElement {
     const heading = layers.properties.heading
     const own: Readonly<Record<string, Partial<DesignerFrameRegion>>> = {
       toolbar: { label: this.#commandTexts().toolbar },
-      palette: { title: t.palette, help: t.paletteHelp },
+      palette: { title: t.palette, icon: LayoutGridIcon, help: t.paletteHelp },
       canvas: { label: t.canvas },
-      properties: { title: t.properties, ...(heading === undefined ? {} : { subtitle: heading }), help: t.propertiesHelp },
-      issues: { title: t.issues, help: t.issuesHelp },
+      properties: { title: t.properties, ...(heading === undefined ? {} : { subtitle: heading }), icon: SlidersHorizontalIcon, help: t.propertiesHelp },
+      issues: { title: t.issues, icon: CircleAlertIcon, help: t.issuesHelp },
     }
     const preview = this.mode === 'preview'
     const kept = (region: DesignerFrameRegion): boolean => preview
@@ -1402,7 +1404,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       ? DESIGNER_FRAME_REGIONS.filter(kept).map(region => ({ ...region, ...own[region.name] }))
       : [
           ...DESIGNER_FRAME_REGIONS.filter(kept).map(region => ({ ...region, ...own[region.name] })),
-          { name: PRINT_DESIGNER_PANELS.pages, position: 'overlay', anchor: 'end', label: t.pages } satisfies DesignerFrameRegion,
+          { name: PRINT_DESIGNER_PANELS.pages, position: 'overlay', anchor: 'end', label: t.pages, icon: FileIcon } satisfies DesignerFrameRegion,
           ...this.#model().list.flatMap(extension => (extension.panels ?? []).map(panel => panel.region)),
         ]
     const key = JSON.stringify(regions)
