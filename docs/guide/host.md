@@ -25,7 +25,7 @@
 ## 取数
 
 - **打印时**：宿主调接口取业务数据，交给预览的 `data` 或 `printDocument`。字段路径对的是这份数据的结构，接口返回的结构与模板不一致时，在宿主这边转换好再交给组件。
-- **设计时**：`fields` 告诉设计器有哪些字段可以绑定，物料面板的「字段」一组也按它列出，字段写了 `content`（`image`、`barcode`、`qrcode`）时拖上画布生成对应的元素，见[字段物料](./designer#字段物料)；`sampleData` 让画布显示实际的值。同一类单据的字段通常是固定的，也可以按一份示例数据生成字段树：
+- **设计时**：`fields` 告诉设计器有哪些字段可以绑定，物料面板的「字段」一组也按它列出，字段写了 `content`（`image`、`barcode`、`qrcode`）时拖上画布生成对应的元素，见[字段物料](./designer#字段物料)；`sampleData` 让画布显示实际的值。用户可以在设计器里从 JSON 样例或 JSON Schema 导入字段（见[导入字段](./designer#导入字段)），宿主收 `fields-change` 与 `sample-data-change` 存起来；字段由后端定、不许用户改时写 `fields-readonly`。宿主也可以自己按一份示例数据生成字段树，用的是同一个推断函数：
 
 <<< @/examples/snippets/host.ts#fields
 

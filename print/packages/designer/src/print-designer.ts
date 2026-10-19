@@ -38,12 +38,13 @@ import type { PrintClient, PrintClientState } from '@xihan-print/runtime/client'
 import type { IconRecord, Tone } from '@xihan-ui/core'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
-import type { AlignMode, DataField, DesignerImportSource, DistributeAxis, ExecuteOptions, ExtensionHost, HistoryLabel, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
+import type { AlignMode, DataField, DataFieldContent, DesignerFieldSource, DesignerImportSource, DistributeAxis, ExecuteOptions, ExtensionHost, HistoryLabel, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable, PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
 import type {
   CommandToolbar,
   DesignerCommandLayout,
   DesignerCommandsTranslations,
+  DesignerFieldImportEventMap,
   DesignerFrameEventMap,
   DesignerFrameRegion,
   DesignerGuides,
@@ -56,6 +57,7 @@ import type {
   DesignerPaletteEventMap,
   DesignerPaletteGroup,
   DesignerPaletteItem,
+  DesignerPanelActions,
   DesignerPanelHost,
   DesignerPropertiesEventMap,
   DesignerPropertyDescriptor,
@@ -136,6 +138,7 @@ import {
   arrangeCommands,
   createCommandToolbar,
   createDesignerSettingsHost,
+  createPanelActions,
   createPanelHost,
   createStatusItem,
   defineDesignerShellElement,
@@ -143,6 +146,7 @@ import {
   DESIGNER_FRAME_REGIONS,
   DESIGNER_HISTORY_EN_US,
   DESIGNER_SETTING_KEYS,
+  DESIGNER_SHELL_COMMANDS,
   designerHistoryCommands,
   designerLayoutPolicy,
   designerPanelCommands,
@@ -156,6 +160,7 @@ import {
   toolbarDisplayOf,
   toolbarSettingsSource,
   toolbarVisibleOf,
+  XhDesignerFieldImportElement,
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
   XhDesignerPaletteElement,
@@ -165,7 +170,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, ItalicIcon, LayoutGridIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, ItalicIcon, LayoutGridIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -225,6 +230,10 @@ export interface PrintDesignerEventMap {
   'settings-change': CustomEvent<{ key: string, value: JsonValue | undefined, settings: DesignerSettings }>
   /** 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 */
   'settings-storage-error': CustomEvent<VisualEnvironmentStorageError>
+  /** 在导入字段对话框里导入了字段：设计器已换成新的 fields。宿主存起来，下次赋回 fields。 */
+  'fields-change': CustomEvent<{ fields: readonly DataField[] }>
+  /** 导入字段时勾了「同时作为示例数据」：设计器已换成新的 sampleData。宿主存起来，下次赋回 sampleData。 */
+  'sample-data-change': CustomEvent<{ sampleData: JsonValue }>
 }
 
 /** 剪贴板载荷的结构版本。 */
@@ -439,6 +448,9 @@ const TOGGLES: ReadonlySet<Command> = new Set<Command>(['grid', 'snap', 'design'
 
 const RESERVED_COMMAND_KEYS: ReadonlySet<string> = new Set(['z', 'y', 'a', 'd', '[', ']', '{', '}'])
 
+/** 导入字段时值字段能选的内容种类。 */
+const FIELD_CONTENTS: readonly DataFieldContent[] = ['text', 'image', 'barcode', 'qrcode']
+
 /** 预览态只登记这几个区：顶栏、工具栏与画布。 */
 const PREVIEW_REGIONS: ReadonlySet<string> = new Set(['header', 'toolbar', 'canvas'])
 
@@ -503,6 +515,10 @@ interface Layers {
   readonly preview: HTMLElement
   /** 设置对话框。 */
   readonly settings: XhDesignerSettingsElement
+  /** 导入字段对话框。 */
+  readonly fieldImport: XhDesignerFieldImportElement
+  /** 物料面板头的命令条：导入字段。 */
+  readonly paletteActions: DesignerPanelActions<PrintDesignerContext>
   /** 状态栏左段：选中的对象。 */
   readonly selectionStatus: DesignerStatusItem
   /** 状态栏右段：打印客户端的连接状态，没给 printClient 时收起。 */
@@ -554,6 +570,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     data: { attribute: false },
     sampleData: { attribute: false },
     fields: { attribute: false },
+    fieldsReadonly: { converter: BOOLEAN_CONVERTER, attribute: 'fields-readonly' },
     expressionEngine: { attribute: false },
     formatter: { attribute: false },
     measurer: { attribute: false },
@@ -577,8 +594,10 @@ export class XhPrintDesigner extends XhReactiveElement {
   declare data: unknown
   /** 示例数据：给出时画布按它显示实际值，不给时字段显示 {path} 占位。 */
   declare sampleData: unknown
-  /** 可绑定的字段树，供属性面板的字段选择器。 */
+  /** 可绑定的字段树：物料面板「字段」组与属性面板的字段选择器读它；导入字段时设计器换掉它并派发 fields-change。 */
   declare fields: readonly DataField[] | undefined
+  /** 字段由宿主管着、不许在设计器里导入：物料面板头没有导入字段钮，import-fields 命令不可用。attribute 为 fields-readonly。 */
+  declare fieldsReadonly?: boolean
   /** 受限表达式引擎；缺省为 @xihan-ui/expression 的 createExpressionEngine()。 */
   declare expressionEngine: ExpressionEngine | undefined
   /** 值格式化器；缺省为 @xihan-ui/expression 的 formatValue。 */
@@ -667,6 +686,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   #spacePan = false
   #regions: { readonly key: string, readonly regions: readonly DesignerFrameRegion[] } | undefined
   #palette: { readonly key: string, readonly model: PrintDesignerModel, readonly fields: readonly DataField[] | undefined } | undefined
+  /** 扩展登记的字段来源，模型换了才重取。 */
+  #fieldSources: { readonly model: PrintDesignerModel, readonly sources: readonly DesignerFieldSource[] } | undefined
   #listed: { readonly issues: readonly ValidationIssue[], readonly key: string } | undefined
   #subjects: PropertySubject[] = []
   /** 进行中的手势这一步的说明，每帧重开事务时带同一个。 */
@@ -703,6 +724,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   constructor() {
     super()
     this.readonly = false
+    this.fieldsReadonly = false
     this.mode = 'design'
     this.#editor.subscribe((change) => {
       if (change.kind === 'selection') {
@@ -848,6 +870,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     }
     this.#syncLayout(layers)
     this.#syncPalette(layers, t)
+    this.#syncFieldImport(layers, t)
     this.#syncIssues(layers, t)
     this.#syncProperties(layers, t)
     this.#syncFrameRegions(layers, t)
@@ -961,6 +984,11 @@ export class XhPrintDesigner extends XhReactiveElement {
   /** 打开设置对话框，给了分区 id 就显示那一页：基础是 general，设计器自己的「画布」是 print。 */
   openSettings(section?: string): void {
     this.#ensureLayers().settings.show(section)
+  }
+
+  /** 打开导入字段对话框，给了页 id 就显示那一页：内置的是 sample 与 json-schema，扩展的字段来源用它的 id。 */
+  openFieldImport(source?: string): void {
+    this.#ensureLayers().fieldImport.show(source)
   }
 
   /** 按当前登记表与表达式引擎校验模板。 */
@@ -1108,7 +1136,9 @@ export class XhPrintDesigner extends XhReactiveElement {
       frame: context => context.frame,
       openSettings: ({ designer }) => designer.openSettings(),
       helpUrl: () => PRINT_DESIGNER_HELP_URL,
-      icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon },
+      openFieldImport: ({ designer }) => designer.openFieldImport(),
+      fieldImportDisabled: () => !this.#fieldImportAllowed(),
+      icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon },
     })
     const panels = designerPanelCommands<PrintDesignerContext>({ panels: Object.values(PRINT_DESIGNER_PANELS), frame: context => context.frame })
     return [...history, ...builtin, ...this.#arrangeMenus(), ...this.#formatCommands(), ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell, ...panels]
@@ -1725,7 +1755,14 @@ export class XhPrintDesigner extends XhReactiveElement {
     settings.editors = { [PRINT_CLIENT_STATUS_CONTROL]: this.#clientStatus.editor }
     settings.frame = frame
     settings.addEventListener('settings-change', this.#onSettingsChange)
-    this.append(frame, settings)
+    const fieldImport = createGeneratedElement(doc, 'xh-designer-field-import', { 'data-part': 'field-import' }) as XhDesignerFieldImportElement
+    fieldImport.contents = FIELD_CONTENTS
+    fieldImport.inference = { detectImages: true }
+    fieldImport.offerSample = true
+    fieldImport.addEventListener('fields-import', this.#onFieldsImport)
+    const paletteActions = createPanelActions<PrintDesignerContext>(doc, PRINT_DESIGNER_PANELS.palette)
+    frame.append(paletteActions.element)
+    this.append(frame, settings, fieldImport)
     const panelHost = createPanelHost<PrintDesignerContext>(frame)
 
     viewport.addEventListener('pointerdown', this.#onPointerDown)
@@ -1742,7 +1779,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, selectionBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, selectionStatus, clientStatus, zoomStatus }
+    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, selectionBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, fieldImport, paletteActions, selectionStatus, clientStatus, zoomStatus }
     this.#regions = undefined
     panelHost.assign(this.#model().list, this.#context())
     return this.#layers
@@ -2235,6 +2272,36 @@ export class XhPrintDesigner extends XhReactiveElement {
       })),
       ...(fieldItems.length === 0 ? [] : [{ id: FIELD_GROUP_ID, label: t.fieldGroup, items: fieldItems }]),
     ]
+  }
+
+  /** 此刻能导入字段：设计态、不只读，宿主也没管着字段。 */
+  #fieldImportAllowed(): boolean {
+    return !this.#readOnly && this.mode === 'design' && this.fieldsReadonly !== true
+  }
+
+  /** 导入字段对话框跟着现有字段与扩展的字段来源走；能导入时物料面板头放一颗导入字段钮。 */
+  #syncFieldImport(layers: Layers, t: PrintDesignerTranslations): void {
+    const dialog = layers.fieldImport
+    if (dialog.fields !== this.fields)
+      dialog.fields = this.fields
+    const model = this.#model()
+    if (this.#fieldSources?.model !== model)
+      this.#fieldSources = { model, sources: model.list.flatMap(extension => extension.fieldSources ?? []) }
+    if (dialog.sources !== this.#fieldSources.sources)
+      dialog.sources = this.#fieldSources.sources
+    layers.paletteActions.update(this.#fieldImportAllowed() ? [DESIGNER_SHELL_COMMANDS.importFields] : [], model.commands, this.#context(), t.palette)
+  }
+
+  /** 导入字段对话框里按了「导入」：换上字段并派发 fields-change，带了样例的同样换上示例数据。 */
+  readonly #onFieldsImport = (event: Event): void => {
+    event.stopPropagation()
+    const { fields, sample } = (event as DesignerFieldImportEventMap['fields-import']).detail
+    this.fields = fields
+    emitEvent(this, 'fields-change', { fields })
+    if (sample !== undefined) {
+      this.sampleData = sample
+      emitEvent(this, 'sample-data-change', { sampleData: sample })
+    }
   }
 
   /** 字段生成表格时的列宽合计与条码列的码制，取内置表格与条码的缺省值。 */
@@ -3280,6 +3347,7 @@ export function definePrintDesigner(): void {
   defineDesignerShellElement('xh-designer-issues', XhDesignerIssuesElement)
   defineDesignerShellElement('xh-designer-properties', XhDesignerPropertiesElement)
   defineDesignerShellElement('xh-designer-settings', XhDesignerSettingsElement)
+  defineDesignerShellElement('xh-designer-field-import', XhDesignerFieldImportElement)
   defineXhElement('xh-toolbar', XhToolbarElement)
   defineXhElement('xh-toggle-group', XhToggleGroupElement)
   defineXhElement('xh-button', XhButtonElement)
