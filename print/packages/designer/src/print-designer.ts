@@ -129,6 +129,7 @@ import {
   revealRect,
   screenToWorld,
   selectInMarquee,
+  snapshotHistory,
   snapToGrid,
   unionRects,
   wheelZoomFactor,
@@ -140,6 +141,7 @@ import {
   arrangeCommands,
   createCommandToolbar,
   createDesignerSettingsHost,
+  createHistoryPanel,
   createOutlinePanel,
   createPanelActions,
   createPanelHost,
@@ -173,7 +175,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, FileTextIcon, GridIcon, HashIcon, ImageIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SlidersHorizontalIcon, SquareDashedIcon, SquareIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, FileTextIcon, GridIcon, HashIcon, HistoryIcon, ImageIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SlidersHorizontalIcon, SquareDashedIcon, SquareIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -1110,7 +1112,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#builtin = {
       id: PRINT_DESIGNER_EXTENSION_ID,
       commands: this.#builtinCommands(),
-      panels: [this.#outlinePanel()],
+      panels: [this.#outlinePanel(), this.#historyPanel()],
       editors: {
         byControl: {
           tableColumns: this.#partList('column'),
@@ -1161,6 +1163,18 @@ export class XhPrintDesigner extends XhReactiveElement {
           this.#editor.execute([{ type: 'reorderElement', id: move.id, to }])
       },
     }, { region: { icon: ListTreeIcon }, readonly: () => this.#readOnly || this.mode !== 'design' })
+  }
+
+  /** 历史记录面板：列出撤销历史，选一步就跳过去；缺省停在右栏属性下面、缺省隐藏，面板头是清空历史。 */
+  #historyPanel(): DesignerPanel<PrintDesignerContext> {
+    return createHistoryPanel<PrintDesignerContext>({
+      snapshot: () => snapshotHistory(this.#editor.history),
+      goTo: (_context, position) => {
+        if (!this.#readOnly && this.mode === 'design')
+          this.#editor.history.goTo(position)
+      },
+      announce: (context, message) => context.frame?.announce(message),
+    }, { region: { icon: HistoryIcon }, readonly: () => this.#readOnly || this.mode !== 'design' })
   }
 
   /** 此刻的页面结构：模板、语言或扩展换了才重排。 */
@@ -1845,7 +1859,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const paletteActions = createPanelActions<PrintDesignerContext>(doc, PRINT_DESIGNER_PANELS.palette)
     frame.append(paletteActions.element)
     this.append(frame, settings, fieldImport)
-    const panelHost = createPanelHost<PrintDesignerContext>(frame)
+    const panelHost = createPanelHost<PrintDesignerContext>(frame, { commands: () => this.#model().commands })
 
     viewport.addEventListener('pointerdown', this.#onPointerDown)
     viewport.addEventListener('dblclick', this.#onDoubleClick)
