@@ -84,6 +84,20 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - 列表的子字段相对数组的一行，只作浏览、不能拖出：要放行里的字段，先放表格，再在属性面板里改列。
 - `content` 是 XiHan.UI 字段树 `DataField` 的可选项，说明这个值代表什么；`type` 是数据类型，与生成哪种元素无关。
 
+### 导入字段
+
+物料面板头的「导入字段」打开导入对话框，从一份 JSON 样例或一份 JSON Schema 生成字段树，不用宿主手写 `fields`：
+
+- 「JSON 样例」「JSON Schema」两页各有一个输入框，粘贴进来，或把 `.json` 文件拖到输入框下面、点它选一个，文件在本机读，不发请求。解析失败时写出第几行第几列。
+- 预览表一个字段一行，可以勾掉不要的、改显示名与类型；值字段的「内容」选文本、图片、条码或二维码，决定拖上画布生成哪种元素（见上表）。从样例推断时，图片地址（`data:image/…` 或以图片扩展名结尾的链接）预先标成图片。
+- 已有字段时可选「合并到现有字段」（缺省）或「替换现有字段」：合并时同名字段保留现有的显示名，种类不同的保留现有的并在表下列出；替换可能让模板里已有的绑定找不到字段，问题列表会报出来。
+- 来自样例时可以勾上「同时作为示例数据」（缺省勾上），画布马上按这份样例显示实际值。
+- 按「导入」后设计器换上新的 `fields` 并派发 `fields-change { fields }`；带了示例数据的同样换上 `sampleData` 并派发 `sample-data-change { sampleData }`。字段与示例数据仍由宿主持有，不写进模板：宿主存起来，下次赋回。不记撤销。
+- 字段来自后端元数据、不许用户改时写 `fields-readonly`：面板头没有这颗钮，命令 `import-fields` 不可用。只读与预览态时同样没有。
+- `openFieldImport(source?)` 从别处打开对话框，`source` 是 `sample`、`json-schema` 或扩展字段来源的 id。
+
+<<< @/examples/snippets/fields-import.ts#example
+
 页码的格式是一行文本，行尾的「插入」菜单把当前页码 <code v-pre>{{$page}}</code> 或总页数 <code v-pre>{{$pages}}</code> 插到光标处，下面按第 1 页、共 3 页显示示例，数字写法跟着「数字写法」一栏。
 
 边框分上、右、下、左四个页签，每边一个开关：打开时这一边照已有的边画线，还没有边时是 0.2 毫米黑色实线，下面可以改线宽、线型与颜色；四边都关掉就是没有边框。多选的元素边框不同时，从四边都不画开始改，改动对每个元素整体写入。
@@ -163,6 +177,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - 撤销历史的每一步带一句说明，如「删除文本 title」「修改「字号」」「移动 3 个元素」，随界面语言变；工具栏上撤销、重做的名字带上下一步的说明（「撤销：删除文本 title」）。拖动、缩放、旋转按下到松开是一步；属性面板里连续输入同一项是一步；方向键微移连续按、选中不变、相隔不超过 1 秒的并成一步，换了选中就另起一步。
 - 「清空历史」（命令 `clear-history`）先弹确认框，按确定才清空撤销与重做，模板与 `dirty` 不变；它不在工具栏上，宿主经 `commandLayout` 放置。只读与预览态时撤销、重做与清空历史都不可用。
 - `issues-change` 在模板改动后带上全部校验问题，宿主可以据此拦住有错误的模板，不让保存。
+- 导入字段派发 `fields-change` 与 `sample-data-change`，见上文「导入字段」。
 - 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`。
 
 也可以用方法操作：`execute(operations)` 执行一组编辑操作并记为一步撤销（操作见 `@xihan-print/core` 的 `PrintOperation`），`addElement`、`select`、`copy`、`paste`、`align`、`reorder`、`zoomToFit`、`scrollToElement` 等与界面上的命令一致。`print()` 按当前模板与 `data` 打印，给了 `printClient` 时交给本地打印客户端。
@@ -187,14 +202,15 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ## 扩展
 
-`extensions` 收一组扩展对象：元素种类、编辑方式、校验规则、属性编辑器、命令、面板、设置分区与导入器都经它登记。内置元素、设计器自带的编辑器与命令也是扩展，自动排在最前。同一页面上的几个设计器各给各的，互不影响。
+`extensions` 收一组扩展对象：元素种类、编辑方式、校验规则、属性编辑器、命令、面板、设置分区、导入器与字段来源都经它登记。内置元素、设计器自带的编辑器与命令也是扩展，自动排在最前。同一页面上的几个设计器各给各的，互不影响。
 
 - 扩展对象的 `id` 全局唯一，用包名加功能名，如 `@acme/print-fonts`。它也是模板里扩展数据的键：文档、页面与元素都可以带 `extensions: { [扩展 id]: { ... } }`，校验只查它是对象，编辑与复制粘贴原样带着走。
-- 赋值时当场合并查重：扩展 id、元素类型、编辑方式、命令 id 与快捷键与内置的或别的扩展重名时，抛 `DesignerExtensionError`（`code` 为 `designer.extension-conflict`），设计器保持赋值前的状态。
+- 赋值时当场合并查重：扩展 id、元素类型、编辑方式、命令 id 与快捷键、字段来源 id 与内置的或别的扩展重名时，抛 `DesignerExtensionError`（`code` 为 `designer.extension-conflict`），设计器保持赋值前的状态。
 - `setup(context)` 在设计器连上文档时调用，它返回的函数在断开、或这个扩展被去掉时调用。同一个扩展对象换了引用，当作卸下再装上，宿主要保持引用稳定。
 - `rules` 是校验规则，收到文档与 `{ elements }`（合并后的元素登记表），返回问题。问题码以扩展 id 的末段加点开头，结构没有 error 时才跑。
 - `controls` 是新的编辑方式：属性描述里用到这个 `kind` 时，按它的 `check` 校验取值；没登记的编辑方式报 `unknown-control`。
 - `settings` 是扩展的设置分区，放进设置对话框，排在设计器自己的分区之后（`order` 从 200 起），值同样在 `settings` 里、键是「分区 id.条目 id」。要地址和密钥的收费附加包（如云打印）登记自己的分区：密钥写成 `{ kind: 'text', secret: true }` 的条目，画成密码框，`settingsStorageKey` 存设置时也不存它。本地客户端没有地址与密钥，「本地客户端」一页只写连接状态。
+- `fieldSources` 是导入字段对话框里的来源页，排在「JSON 样例」「JSON Schema」之后，如从接口请求取一份样例；页拿到内容后交回对话框，推断、预览与确认走对话框自己的。形状见 XiHan.UI designer-kit 的「字段来源」。
 - 预览元素 `<xh-print-preview>` 与 `paginate`、`validateDocument` 这些函数也收 `extensions`，与设计器给同一份。
 
 ### 扩展元素

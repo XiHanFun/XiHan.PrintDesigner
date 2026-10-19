@@ -56,7 +56,7 @@ export interface PrintPaletteEntry {
 }
 
 /** 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、设置分区、导入器、物料项与 setup。 */
-export interface PrintDesignerExtension extends PrintRuntimeExtension, Pick<DesignerShellExtension<PrintDesignerContext, DesignerPropertyEditor>, 'editors' | 'commands' | 'panels' | 'settings' | 'setup'> {
+export interface PrintDesignerExtension extends PrintRuntimeExtension, Pick<DesignerShellExtension<PrintDesignerContext, DesignerPropertyEditor>, 'editors' | 'commands' | 'panels' | 'settings' | 'fieldSources' | 'setup'> {
   /** 导入器：粘贴与拖放共用，按扩展顺序问 accepts，第一个接下的导入；id 不能与别的导入器重名。 */
   readonly importers?: readonly PrintDesignerImporter[]
   /** 本扩展登记的元素的物料项，键是元素类型；只能给本扩展 elements 里的类型。 */

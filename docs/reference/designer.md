@@ -14,7 +14,8 @@
 | --- | --- | --- | --- |
 | `data` | — | `unknown` | 预览分页用的数据。 |
 | `sampleData` | — | `unknown` | 示例数据：给出时画布按它显示实际值，不给时字段显示 {path} 占位。 |
-| `fields` | — | `readonly DataField[] \| undefined` | 可绑定的字段树，供属性面板的字段选择器。 |
+| `fields` | — | `readonly DataField[] \| undefined` | 可绑定的字段树：物料面板「字段」组与属性面板的字段选择器读它；导入字段时设计器换掉它并派发 fields-change。 |
+| `fieldsReadonly` | `fields-readonly` | `boolean` | 字段由宿主管着、不许在设计器里导入：物料面板头没有导入字段钮，import-fields 命令不可用。attribute 为 fields-readonly。 |
 | `expressionEngine` | — | `ExpressionEngine \| undefined` | 受限表达式引擎；缺省为 @xihan-ui/expression 的 createExpressionEngine()。 |
 | `formatter` | — | `ValueFormatter \| undefined` | 值格式化器；缺省为 @xihan-ui/expression 的 formatValue。 |
 | `measurer` | — | `TextMeasurer \| undefined` | 文字度量器；缺省用所在文档的 Canvas 度量器。 |
@@ -64,6 +65,7 @@
 | `distribute(axis: DistributeAxis): void` | 等距分布选中的元素；少于三个或只读时什么都不做。 |
 | `reorder(target: ReorderTarget): void` | 调整选中元素的层级。 |
 | `openSettings(section?: string): void` | 打开设置对话框，给了分区 id 就显示那一页：基础是 general，设计器自己的「画布」是 print。 |
+| `openFieldImport(source?: string): void` | 打开导入字段对话框，给了页 id 就显示那一页：内置的是 sample 与 json-schema，扩展的字段来源用它的 id。 |
 | `validate(): ValidationIssue[]` | 按当前登记表与表达式引擎校验模板。 |
 | `getViewport(): Viewport` | 视口：屏幕坐标 = 纸张坐标（mm）× zoom × 96 / 25.4 + (x, y)；zoom 为 1 时是实际尺寸。 |
 | `setViewport(viewport: Viewport): void` | 设置视口；此后尺寸变化不再自动适配。 |
@@ -97,6 +99,8 @@
 | `mode-change` | `{ mode: PrintDesignerMode }` | 在设计态与预览态之间切换了。 |
 | `settings-change` | `{ key: string, value: JsonValue \| undefined, settings: DesignerSettings }` | 改了一条设置（设置对话框里，或工具栏上的网格、吸附开关）：设计器已换成新的 settings 并生效；value 为 undefined 表示删掉这个键、回到缺省值。宿主存起来，下次赋回 settings。 |
 | `settings-storage-error` | `VisualEnvironmentStorageError` | 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 |
+| `fields-change` | `{ fields: readonly DataField[] }` | 在导入字段对话框里导入了字段：设计器已换成新的 fields。宿主存起来，下次赋回 fields。 |
+| `sample-data-change` | `{ sampleData: JsonValue }` | 导入字段时勾了「同时作为示例数据」：设计器已换成新的 sampleData。宿主存起来，下次赋回 sampleData。 |
 
 ## 类型
 
