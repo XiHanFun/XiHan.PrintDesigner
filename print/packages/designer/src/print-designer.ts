@@ -58,6 +58,7 @@ import type {
   DesignerPaletteEventMap,
   DesignerPaletteGroup,
   DesignerPaletteItem,
+  DesignerPaletteView,
   DesignerPanel,
   DesignerPanelActions,
   DesignerPanelHost,
@@ -84,7 +85,7 @@ import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { PrintClipboard, PrintSelection, PrintTablePart } from './editor'
-import type { PrintDesignerCommand, PrintDesignerContext, PrintDesignerExtension, PrintDesignerImporter, PrintDesignerModel, PrintMenuSubject, PrintSelectionSubject } from './extensions'
+import type { PrintDesignerCommand, PrintDesignerContext, PrintDesignerExtension, PrintDesignerImporter, PrintDesignerModel, PrintMenuSubject, PrintPaletteDrop, PrintSelectionSubject } from './extensions'
 import type { FieldPaletteNode, FieldPlacement, FieldPlacementDefaults } from './field-palette'
 import type { PrintOutline } from './outline'
 import type { CompositeEditorHost } from './property-editors'
@@ -162,6 +163,7 @@ import {
   importSources,
   registerDropTarget,
   renderCommandMenu,
+  resolvePaletteSources,
   resolveSettings,
   resolveTourSteps,
   runCommand,
@@ -730,7 +732,12 @@ export class XhPrintDesigner extends XhReactiveElement {
   #lastMode: PrintDesignerMode = 'design'
   #spacePan = false
   #regions: { readonly key: string, readonly regions: readonly DesignerFrameRegion[] } | undefined
-  #palette: { readonly key: string, readonly model: PrintDesignerModel, readonly fields: readonly DataField[] | undefined } | undefined
+  /** 物料面板的内置分组（元素种类与字段），文案、模型或字段变了才重排；sourced 是上一次交给面板时物料来源那几组的内容。 */
+  #palette: { readonly key: string, readonly model: PrintDesignerModel, readonly fields: readonly DataField[] | undefined, readonly builtin: readonly DesignerPaletteGroup[], sourced?: string } | undefined
+  /** 这一轮物料面板的分组，以及按条目 id 交给物料来源插入。 */
+  #paletteView: DesignerPaletteView<PrintDesignerContext, PrintPaletteDrop> | undefined
+  /** 物料来源的条目 id（含下级）：拖到画布上时据此交给来源。 */
+  #sourceItems: ReadonlySet<string> = new Set()
   #outlineCache: { readonly document: PrintDocument, readonly t: PrintDesignerTranslations, readonly model: PrintDesignerModel, readonly outline: PrintOutline } | undefined
   /** 扩展登记的字段来源，模型换了才重取。 */
   #fieldSources: { readonly model: PrintDesignerModel, readonly sources: readonly DesignerFieldSource[] } | undefined
@@ -2506,17 +2513,45 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   // —— 内部：物料面板与拖放 ——
 
+  /**
+   * 物料面板：内置的元素分组与字段分组在前，文案、模型或字段变了才重排；各扩展的物料来源每轮现取，分组接在后面，
+   * 内容没变不重设，变了时记下物料来源的条目。
+   */
   #syncPalette(layers: Layers, t: PrintDesignerTranslations): void {
     layers.palette.readonly = this.#readOnly
     const model = this.#model()
-    const groups = model.runtime.elements.groupByCategory()
     const key = JSON.stringify([t.categories, t.elements, t.fieldGroup])
     const fields = this.fields
-    if (key === this.#palette?.key && model === this.#palette.model && fields === this.#palette.fields)
+    let palette = this.#palette
+    if (key !== palette?.key || model !== palette.model || fields !== palette.fields) {
+      palette = { key, model, fields, builtin: this.#builtinPaletteGroups(model, t, fields) }
+      this.#palette = palette
+    }
+    const view = resolvePaletteSources(palette.builtin, model.paletteSources, this.#context())
+    this.#paletteView = view
+    const sourcedGroups = view.groups.slice(palette.builtin.length)
+    const sourced = JSON.stringify(sourcedGroups)
+    if (sourced === palette.sourced)
       return
-    this.#palette = { key, model, fields }
+    palette.sourced = sourced
+    layers.palette.groups = view.groups
+    const ids = new Set<string>()
+    const collect = (items: readonly DesignerPaletteItem[]): void => {
+      for (const item of items) {
+        ids.add(item.id)
+        collect(item.children ?? [])
+      }
+    }
+    for (const group of sourcedGroups)
+      collect(group.items)
+    this.#sourceItems = ids
+  }
+
+  /** 内置的物料分组：元素种类按分组列出，有字段时再加一组字段。 */
+  #builtinPaletteGroups(model: PrintDesignerModel, t: PrintDesignerTranslations, fields: readonly DataField[] | undefined): DesignerPaletteGroup[] {
+    const groups = model.runtime.elements.groupByCategory()
     const fieldItems = fieldPaletteNodes(fields ?? [], this.#fieldDefaults()).map(fieldItem)
-    layers.palette.groups = [
+    return [
       ...groups.map((group): DesignerPaletteGroup => ({
         id: group.category,
         label: categoryName(t, model, group.category),
@@ -2580,23 +2615,47 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#editor.addElement(placement.type, { x: placed.x, y: placed.y, region: this.#regionAt(center), overrides: placement.overrides })
   }
 
+  /** 点物料：物料来源的条目交给来源插入（不给落点），内置的按物料新建元素放在视口中央；只读或不在设计态时什么都不做。 */
   readonly #onPaletteActivate = (event: Event): void => {
     const { id, payload } = (event as DesignerPaletteEventMap['item-activate']).detail
-    const placement = this.#readOnly || this.mode !== 'design' ? undefined : this.#palettePlacement(id, payload)
+    if (this.#readOnly || this.mode !== 'design' || this.#paletteView?.insert(id, this.#context()) === true)
+      return
+    const placement = this.#palettePlacement(id, payload)
     if (placement !== undefined)
       this.#addFromPalette(placement)
   }
 
-  /** 物料拖到画布上：按落点画出新元素的外框，藏起跟手预览。 */
+  /** 物料面板拖出的物料来源条目 id；只读、不在设计态或别的拖动时为 undefined。 */
+  #sourceItem(payload: unknown): string | undefined {
+    return !this.#readOnly && this.mode === 'design' && isPaletteDrag(payload) && this.#sourceItems.has(payload.id) ? payload.id : undefined
+  }
+
+  /**
+   * 物料拖到画布上：内置物料按落点画出新元素的外框，藏起跟手预览；物料来源的条目照常接收，跟手预览照常显示，
+   * 新元素的样子由来源定，不画外框。
+   */
   #dropOver(point: Point, payload: unknown): DropOver {
+    if (this.#sourceItem(payload) !== undefined) {
+      this.#setOverlayHover(undefined)
+      return { accept: true }
+    }
     const placement = !this.#readOnly && this.mode === 'design' && isPaletteDrag(payload) ? this.#palettePlacement(payload.id, payload.payload) : undefined
     const placed = placement === undefined ? undefined : this.#placement(placement.type, this.clientToWorld(point.x, point.y))
     this.#setOverlayHover(placed)
     return placed === undefined ? { accept: false } : { accept: true, ghost: 'hide' }
   }
 
+  /** 放下物料：物料来源的条目交给来源，落点是放下处的纸张坐标与所在的区；内置的在落点新建元素并选中。 */
   #drop(point: Point, payload: unknown): void {
     this.#setOverlayHover(undefined)
+    const sourced = this.#sourceItem(payload)
+    if (sourced !== undefined) {
+      const at = this.clientToWorld(point.x, point.y)
+      this.#stopAutoFit()
+      this.#paletteView?.insert(sourced, this.#context(), { x: at.x, y: at.y, region: this.#regionAt(at) })
+      this.#layers?.viewport.focus({ preventScroll: true })
+      return
+    }
     const placement = !this.#readOnly && this.mode === 'design' && isPaletteDrag(payload) ? this.#palettePlacement(payload.id, payload.payload) : undefined
     if (placement === undefined)
       return

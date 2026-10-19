@@ -26,6 +26,7 @@ export type {
   PrintDesignerModel,
   PrintImportFragment,
   PrintMenuSubject,
+  PrintPaletteDrop,
   PrintPaletteEntry,
   PrintSelectionSubject,
 } from './extensions'
