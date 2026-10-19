@@ -68,6 +68,8 @@ export interface PrintHistoryTranslations {
   readonly removeBand: (variant: string) => string
   /** 改了模板本身的设置（名称等）。 */
   readonly editDocument: string
+  /** 在 JSON 编辑框里改完应用，整份换掉。 */
+  readonly editJson: string
 }
 
 /** 设计器的文案。 */

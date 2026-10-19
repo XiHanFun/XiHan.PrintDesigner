@@ -122,6 +122,7 @@ const designer: PrintDesignerLocale = {
     addBand: variant => `${variant} 추가`,
     removeBand: variant => `${variant} 삭제`,
     editDocument: '템플릿 설정 변경',
+    editJson: 'JSON 편집',
   },
   newColumnTitle: position => `열 ${position}`,
   palette: '요소',

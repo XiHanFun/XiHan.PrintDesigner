@@ -178,6 +178,7 @@
 | `RemovePageOperation` | 接口 | 删除页面模板。 |
 | `ReorderElementOperation` | 接口 | 调整元素在容器内的层级。 |
 | `ReorderTarget` | 类型 | 层级调整目标：最上层、最下层、上移一层、下移一层，或容器内的目标下标。 |
+| `ReplaceDocumentOperation` | 接口 | 整份换成另一份文档，如在 JSON 编辑框里改完应用；新文档由调用方先校验（validateDocument），操作只记下换之前的那份作逆操作。 |
 | `ResizeElementOperation` | 接口 | 把元素缩放到新的元素框，元素原型可附带专属缩放行为。 |
 | `UpdateDocumentOperation` | 接口 | 修改文档属性；不能修改 `schemaVersion` 与 `pages`。 |
 | `UpdateElementOperation` | 接口 | 修改元素属性；不能修改 `id` 与 `type`。 |

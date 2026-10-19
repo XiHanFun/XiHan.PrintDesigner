@@ -66,6 +66,7 @@
 | `distribute(axis: DistributeAxis): void` | 等距分布选中的元素；少于三个或只读时什么都不做。 |
 | `reorder(target: ReorderTarget): void` | 调整选中元素的层级。 |
 | `openSettings(section?: string): void` | 打开设置对话框，给了分区 id 就显示那一页：基础是 general，设计器自己的「画布」是 print。 |
+| `openJsonEditor(): void` | 打开编辑整份模板 JSON 的对话框：写出当前模板，边改边按打印的校验报问题；没有错误时「应用」整份换上，记一步撤销。只读时只能看、不能应用。 |
 | `startTour(): boolean` | 从头开始新手引导：通用步骤加打印与扩展的步骤；预览态或没有能走的步骤时返回 false。 |
 | `openFieldImport(source?: string): void` | 打开导入字段对话框，给了页 id 就显示那一页：内置的是 sample 与 json-schema，扩展的字段来源用它的 id。 |
 | `validate(): ValidationIssue[]` | 按当前登记表与表达式引擎校验模板。 |

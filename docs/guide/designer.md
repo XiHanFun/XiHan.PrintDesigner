@@ -176,6 +176,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | Ctrl / ⌘ + D | 创建副本 |
 | Ctrl / ⌘ + A | 全选当前页面模板里看得见的元素 |
 | Ctrl / ⌘ + S | 派发 `save` |
+| Ctrl / ⌘ + Shift + J | 打开编辑 JSON 的对话框 |
 | Ctrl / ⌘ + ]、[ | 上移一层、下移一层 |
 | Ctrl / ⌘ + Shift + ]、[ | 置于顶层、置于底层 |
 | Delete、Backspace | 删除选中的元素 |
@@ -205,6 +206,15 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`。
 
 也可以用方法操作：`execute(operations)` 执行一组编辑操作并记为一步撤销（操作见 `@xihan-print/core` 的 `PrintOperation`），`addElement`、`select`、`copy`、`paste`、`align`、`reorder`、`zoomToFit`、`scrollToElement` 等与界面上的命令一致。`print()` 按当前模板与 `data` 打印，给了 `printClient` 时交给本地打印客户端。
+
+## 编辑 JSON
+
+按 Ctrl / ⌘ + Shift + J，或在画布空白处的右键菜单里选「编辑 JSON」，打开编辑整份模板 JSON 的对话框；也可以调 `openJsonEditor()`。
+
+- 框里写出当前模板，缩进两格。边改边解析、按打印的校验报问题（与 `validate()` 同一套：结构、元素登记表与表达式），问题列在框下，点一条光标跳到那个路径在文字里的位置。
+- 解析失败或有错误级的问题时「应用」不可用；没有错误时按「应用」整份换上，记一步撤销「编辑 JSON」，派发 `kind` 为 `execute` 的 `schema-change`。撤销就回到改之前的那份。
+- 框下还有「格式化」与「复制」。只读时只能看，不能应用。
+- 整份换上走 `@xihan-print/core` 的编辑操作 `{ type: 'replaceDocument', document }`，逆操作换回原来那份；新模板由调用方先校验。
 
 ## 只读与预览
 
@@ -309,7 +319,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
 | 插入 | `insert:text` `insert:image` `insert:barCode` `insert:matrixCode` `insert:table` `insert:line`：顶栏的插入钮 |
 | 文字格式 | `font-size` `text-bold` `text-italic` `text-underline` `text-line-through` `text-align-left` `text-align-center` `text-align-right`：缺省排在 `selection:text` 的选中工具条上 |
-| 面板、设置与帮助 | `panels` `settings` `help`：designer-shell 内置，排在工具栏末组。`start-tour` 开始新手引导，不排位置。「面板」点开菜单开关各块面板，「设置」打开设置对话框，「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`）。`panels-toggle-all` `panels-restore` `layout-reset` 排在「面板」菜单末尾 |
+| 面板、设置与帮助 | `panels` `settings` `help`：designer-shell 内置，排在工具栏末组。`start-tour` 开始新手引导，不排位置；`edit-json` 打开编辑 JSON 的对话框（Ctrl / ⌘ + Shift + J），缺省排在画布空白处右键菜单的末组。「面板」点开菜单开关各块面板，「设置」打开设置对话框，「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`）。`panels-toggle-all` `panels-restore` `layout-reset` 排在「面板」菜单末尾 |
 | 面板开关 | `panel:<面板 id>`：每块面板一条，含扩展登记的面板（`panel:<区名>`），文字是面板标题、勾选的是看得见的，宿主锁定的面板不可用；不排在任何位置，可以经 `commandLayout` 放上工具栏 |
 | 页面模板 | `previous-page` `page-menu` `next-page` `add-page` `duplicate-page` `remove-page`：固定排在翻页条上（`PRINT_PAGE_STRIP_LAYOUT`），不经 `commandLayout`；`move-page-up` `move-page-down` 在页码菜单里 |
 

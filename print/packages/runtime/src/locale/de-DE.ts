@@ -119,6 +119,7 @@ const designer: PrintDesignerLocale = {
     addBand: variant => `${variant} hinzufügen`,
     removeBand: variant => `${variant} löschen`,
     editDocument: 'Vorlageneinstellungen ändern',
+    editJson: 'JSON bearbeiten',
   },
   newColumnTitle: position => `Spalte ${position}`,
   palette: 'Elemente',

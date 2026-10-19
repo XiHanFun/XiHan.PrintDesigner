@@ -75,6 +75,7 @@ describe('describePrintOperations', () => {
     expect(labelOf([{ type: 'addBand', pageId: 'p', region: 'header', variant: 'first', band: { height: 10, elements: [] } }])).toBe('Add Header · First page')
     expect(labelOf([{ type: 'removeBand', pageId: 'p', region: 'footer', variant: 'odd' }])).toBe('Delete Footer · Odd pages')
     expect(labelOf([{ type: 'updateDocument', changes: [{ path: ['name'], value: 'x' }] }])).toBe('Edit template settings')
+    expect(labelOf([{ type: 'replaceDocument', document: createDocument() }])).toBe('Edit JSON')
     expect(labelOf([])).toBeUndefined()
   })
 

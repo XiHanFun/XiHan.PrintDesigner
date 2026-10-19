@@ -111,6 +111,14 @@ export interface RemoveBandOperation {
   variant: PageBandVariant
 }
 
+/**
+ * 整份换成另一份文档，如在 JSON 编辑框里改完应用；新文档由调用方先校验（validateDocument），操作只记下换之前的那份作逆操作。
+ */
+export interface ReplaceDocumentOperation {
+  type: 'replaceDocument'
+  document: PrintDocument
+}
+
 /** 修改文档属性；不能修改 `schemaVersion` 与 `pages`。 */
 export interface UpdateDocumentOperation {
   type: 'updateDocument'
@@ -132,6 +140,7 @@ export type PrintOperation
     | AddBandOperation
     | RemoveBandOperation
     | UpdateDocumentOperation
+    | ReplaceDocumentOperation
 
 /** 编辑操作的种类。 */
 export type PrintOperationType = PrintOperation['type']

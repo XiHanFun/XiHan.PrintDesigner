@@ -130,6 +130,7 @@ const designer: PrintDesignerLocale = {
     addBand: variant => `Añadir ${variant}`,
     removeBand: variant => `Eliminar ${variant}`,
     editDocument: 'Editar la configuración de la plantilla',
+    editJson: 'Editar JSON',
   },
   newColumnTitle: position => `Columna ${position}`,
   palette: 'Elementos',

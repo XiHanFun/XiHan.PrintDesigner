@@ -57,7 +57,7 @@ function settings(element: XhPrintDesigner): XhDesignerSettingsElement {
 }
 
 describe('新手引导', () => {
-  it('第一次铺好画布后自动开始；走完、跳过或关上后设置里记下 help.tourDone 并派发 settings-change，之后不再自动开始', async () => {
+  it('第一次铺好画布后自动开始；走完、跳过或关上后设置里记下 help.tourDone 并派发 settings-change', async () => {
     const element = await mount()
     expect(tour(element).running).toBe(true)
     const keys: string[] = []
@@ -65,13 +65,16 @@ describe('新手引导', () => {
     tour(element).stop()
     tour(element).dispatchEvent(new CustomEvent('tour-end', { detail: { reason: 'skip', step: 0 }, bubbles: true }))
     expect([keys, element.settings?.[DESIGNER_TOUR_DONE_KEY]]).toEqual([[DESIGNER_TOUR_DONE_KEY], true])
-    element.remove()
+  })
 
-    const again = await mount(el => (el.settings = { [DESIGNER_TOUR_DONE_KEY]: true }))
-    expect(tour(again).running).toBe(false)
-    again.remove()
-    const off = await mount(el => (el.autoTour = false))
-    expect(tour(off).running).toBe(false)
+  it('设置里记过 help.tourDone 时不再自动开始', async () => {
+    const element = await mount(el => (el.settings = { [DESIGNER_TOUR_DONE_KEY]: true }))
+    expect(tour(element).running).toBe(false)
+  })
+
+  it('autoTour 为 false 时不自动开始', async () => {
+    const element = await mount(el => (el.autoTour = false))
+    expect(tour(element).running).toBe(false)
   })
 
   it('打印自己的几步排在通用步骤之后：页眉页脚、页面模板、字段物料与打印；startTour 与 start-tour 命令都能从头开始，预览态不开始', async () => {
