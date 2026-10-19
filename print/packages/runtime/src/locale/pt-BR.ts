@@ -122,6 +122,7 @@ const designer: PrintDesignerLocale = {
     addBand: variant => `Adicionar ${variant}`,
     removeBand: variant => `Excluir ${variant}`,
     editDocument: 'Editar configurações do modelo',
+    editJson: 'Editar JSON',
   },
   newColumnTitle: position => `Coluna ${position}`,
   palette: 'Elementos',

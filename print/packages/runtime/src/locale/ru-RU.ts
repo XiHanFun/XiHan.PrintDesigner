@@ -132,6 +132,7 @@ const designer: PrintDesignerLocale = {
     addBand: variant => `Добавить: ${variant}`,
     removeBand: variant => `Удалить: ${variant}`,
     editDocument: 'Изменить параметры шаблона',
+    editJson: 'Редактировать JSON',
   },
   newColumnTitle: position => `Столбец ${position}`,
   palette: 'Элементы',

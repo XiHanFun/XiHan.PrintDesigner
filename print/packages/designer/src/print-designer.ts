@@ -51,6 +51,7 @@ import type {
   DesignerHistoryTranslations,
   DesignerIssueItem,
   DesignerIssuesEventMap,
+  DesignerJsonEditorEventMap,
   DesignerLayout,
   DesignerLayoutPolicy,
   DesignerPaletteDragPayload,
@@ -109,7 +110,7 @@ import {
 import { DEFAULT_PRINT_DESIGNER_TRANSLATIONS, definePrintPreview, PRINT_PREVIEW_TAG, renderBox, renderWatermark } from '@xihan-print/runtime'
 import { createCounterIdGenerator } from '@xihan-ui/core'
 import { detectKbdPlatform } from '@xihan-ui/core/hotkey'
-import { formatJsonPath, jsonEquals } from '@xihan-ui/core/json'
+import { formatJsonPath, isPlainObject, jsonEquals } from '@xihan-ui/core/json'
 import { fillTextTemplate } from '@xihan-ui/core/template'
 import {
   centerOn,
@@ -173,6 +174,7 @@ import {
   XhDesignerFieldImportElement,
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
+  XhDesignerJsonEditorElement,
   XhDesignerPaletteElement,
   XhDesignerPropertiesElement,
   XhDesignerRulerElement,
@@ -181,7 +183,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HistoryIcon, ImageIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MaximizeIcon, MinusIcon, PageNumberIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, ShapeEllipseIcon, ShapeRectangleIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TextRichIcon, TextWrapIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileCodeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HistoryIcon, ImageIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MaximizeIcon, MinusIcon, PageNumberIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, ShapeEllipseIcon, ShapeRectangleIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TextRichIcon, TextWrapIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -552,6 +554,8 @@ interface Layers {
   readonly fieldImport: XhDesignerFieldImportElement
   /** 新手引导。 */
   readonly tour: XhDesignerTourElement
+  /** 编辑整份模板的 JSON 对话框。 */
+  readonly jsonEditor: XhDesignerJsonEditorElement
   /** 物料面板头的命令条：导入字段。 */
   readonly paletteActions: DesignerPanelActions<PrintDesignerContext>
   /** 状态栏左段：选中的对象。 */
@@ -1103,6 +1107,18 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#ensureLayers().settings.show(section)
   }
 
+  /**
+   * 打开编辑整份模板 JSON 的对话框：写出当前模板，边改边按打印的校验报问题；没有错误时「应用」整份换上，记一步撤销。
+   * 只读时只能看、不能应用。
+   */
+  openJsonEditor(): void {
+    const dialog = this.#ensureLayers().jsonEditor
+    dialog.value = this.#editor.document as unknown as JsonValue
+    dialog.validate = value => this.#jsonIssues(value)
+    dialog.readonly = this.#readOnly
+    dialog.show()
+  }
+
   /** 从头开始新手引导：通用步骤加打印与扩展的步骤；预览态或没有能走的步骤时返回 false。 */
   startTour(): boolean {
     if (this.mode === 'preview')
@@ -1339,8 +1355,9 @@ export class XhPrintDesigner extends XhReactiveElement {
       helpUrl: () => PRINT_DESIGNER_HELP_URL,
       openFieldImport: ({ designer }) => designer.openFieldImport(),
       startTour: ({ designer }) => designer.startTour(),
+      openJsonEditor: ({ designer }) => designer.openJsonEditor(),
       fieldImportDisabled: () => !this.#fieldImportAllowed(),
-      icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon },
+      icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon },
     })
     const panels = designerPanelCommands<PrintDesignerContext>({ panels: Object.values(PRINT_DESIGNER_PANELS), frame: context => context.frame })
     return [...history, ...builtin, ...this.#arrangeMenus(), ...this.#formatCommands(), ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell, ...panels]
@@ -1965,10 +1982,12 @@ export class XhPrintDesigner extends XhReactiveElement {
     fieldImport.addEventListener('fields-import', this.#onFieldsImport)
     const paletteActions = createPanelActions<PrintDesignerContext>(doc, PRINT_DESIGNER_PANELS.palette)
     frame.append(paletteActions.element)
+    const jsonEditor = createGeneratedElement(doc, 'xh-designer-json-editor', { 'data-part': 'json-editor' }) as XhDesignerJsonEditorElement
+    jsonEditor.addEventListener('json-apply', this.#onJsonApply)
     const tour = createGeneratedElement(doc, 'xh-designer-tour', { 'data-part': 'tour' }) as XhDesignerTourElement
     tour.frame = frame
     tour.addEventListener('tour-end', this.#onTourEnd)
-    this.append(frame, settings, fieldImport, tour)
+    this.append(frame, settings, fieldImport, jsonEditor, tour)
     const panelHost = createPanelHost<PrintDesignerContext>(frame, { commands: () => this.#model().commands })
 
     viewport.addEventListener('pointerdown', this.#onPointerDown)
@@ -1985,7 +2004,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, selectionBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, fieldImport, tour, paletteActions, selectionStatus, clientStatus, zoomStatus }
+    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, selectionBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, fieldImport, jsonEditor, tour, paletteActions, selectionStatus, clientStatus, zoomStatus }
     this.#regions = undefined
     panelHost.assign(this.#model().list, this.#context())
     return this.#layers
@@ -2801,24 +2820,47 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (this.#listed?.issues === this.#issues && this.#listed.key === key && layers.issues.items !== undefined)
       return
     this.#listed = { issues: this.#issues, key }
-    layers.issues.items = this.#issues.map((issue): DesignerIssueItem => {
-      const subject = this.#issueSubject(issue, t)
+    layers.issues.items = this.#issueItems(this.#issues, this.#editor.document, t)
+  }
+
+  /** 问题列表的条目：问题、说明与所在对象的名字（按 document 取页面与元素；不给就不写）。 */
+  #issueItems(issues: readonly ValidationIssue[], document: PrintDocument | undefined, t: PrintDesignerTranslations): DesignerIssueItem[] {
+    return issues.map((issue): DesignerIssueItem => {
+      const subject = document === undefined ? undefined : this.#issueSubject(issue, document, t)
       return { issue, message: t.issue(issue), ...(subject === undefined ? {} : { subject }) }
     })
   }
 
+  /** JSON 编辑框里的一份模板：按打印的登记表与表达式引擎校验；连页面列表都没有时不写问题所在对象的名字。 */
+  #jsonIssues(value: JsonValue): DesignerIssueItem[] {
+    const { issues } = validateDocument(value, { extensions: this.#model().list, expressionEngine: this.#engine() })
+    const pages = isPlainObject(value) ? value.pages : undefined
+    const document = Array.isArray(pages) ? value as unknown as PrintDocument : undefined
+    return this.#issueItems(issues, document, this.#translations())
+  }
+
+  /** JSON 编辑框里按了「应用」：整份换上，记一步撤销。 */
+  readonly #onJsonApply = (event: Event): void => {
+    event.stopPropagation()
+    if (this.#readOnly)
+      return
+    const { value } = (event as DesignerJsonEditorEventMap['json-apply']).detail
+    this.#tableEdit = undefined
+    this.#editor.execute([{ type: 'replaceDocument', document: value as unknown as PrintDocument }])
+  }
+
   /** 问题所在对象的名字：页面名，或「页面 · 元素」。 */
-  #issueSubject(issue: ValidationIssue, t: PrintDesignerTranslations): string | undefined {
+  #issueSubject(issue: ValidationIssue, document: PrintDocument, t: PrintDesignerTranslations): string | undefined {
     const target = issue.target
     if (target === undefined)
       return undefined
-    const pages = this.#editor.document.pages
+    const pages = document.pages
     const pageName = (index: number): string => pages[index]?.name ?? t.pageTitle(index + 1)
     if (target.kind === 'page') {
       const index = pages.findIndex(page => page.id === target.id)
       return index < 0 ? target.id : pageName(index)
     }
-    const found = target.kind === 'element' ? findElement(this.#editor.document, target.id) : undefined
+    const found = target.kind === 'element' ? findElement(document, target.id) : undefined
     if (found === undefined)
       return target.id
     const type = found.element.type
@@ -3555,6 +3597,7 @@ export function definePrintDesigner(): void {
   defineDesignerShellElement('xh-designer-settings', XhDesignerSettingsElement)
   defineDesignerShellElement('xh-designer-field-import', XhDesignerFieldImportElement)
   defineDesignerShellElement('xh-designer-tour', XhDesignerTourElement)
+  defineDesignerShellElement('xh-designer-json-editor', XhDesignerJsonEditorElement)
   defineXhElement('xh-toolbar', XhToolbarElement)
   defineXhElement('xh-toggle-group', XhToggleGroupElement)
   defineXhElement('xh-button', XhButtonElement)

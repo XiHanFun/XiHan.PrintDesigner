@@ -125,7 +125,7 @@ export type PrintMenuSubject = 'blank' | 'element' | 'table'
 /** 右键菜单的缺省排列；选中的是一张表格时，元素菜单最前面加「编辑表格」。 */
 export function printMenuLayout(subject: PrintMenuSubject, tableSelected: boolean): string[][] {
   if (subject === 'blank')
-    return [['paste', 'select-all'], ['zoom-to-fit']]
+    return [['paste', 'select-all'], ['zoom-to-fit'], ['edit-json']]
   if (subject === 'table')
     return [TABLE_COMMANDS.slice(0, 5), TABLE_COMMANDS.slice(5), ['exit-table-edit']]
   return [

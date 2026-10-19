@@ -119,6 +119,7 @@ const designer: PrintDesignerLocale = {
     addBand: variant => `${variant}を追加`,
     removeBand: variant => `${variant}を削除`,
     editDocument: 'テンプレート設定を変更',
+    editJson: 'JSON を編集',
   },
   newColumnTitle: position => `列 ${position}`,
   palette: '要素',

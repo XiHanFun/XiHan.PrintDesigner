@@ -440,6 +440,15 @@ describe('文档属性与批量操作', () => {
     expectError(() => applyOperation(doc, { type: 'updateDocument', changes: [{ path: ['pages'], value: [] }] }), 'path.protected')
   })
 
+  it('整份替换：换成传入的文档，逆操作换回原来那份；传入的就是当前文档时没有变化', () => {
+    const doc = sample()
+    const next = { ...doc, name: '新模板', pages: doc.pages.slice(0, 1) }
+    const result = applyOperation(doc, { type: 'replaceDocument', document: next })
+    expect([result.document, result.inverse]).toEqual([next, [{ type: 'replaceDocument', document: doc }]])
+    expect(applyOperations(result.document, result.inverse).document).toBe(doc)
+    expect(applyOperation(doc, { type: 'replaceDocument', document: doc })).toEqual({ document: doc, inverse: [] })
+  })
+
   it('批量操作按顺序执行，逆操作为各逆操作的倒序拼接', () => {
     const doc = sample()
     const element = registry.createElement('rect', { id: 'box-1', x: 20, y: 150 })

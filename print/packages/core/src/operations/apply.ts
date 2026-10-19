@@ -427,6 +427,8 @@ export function applyOperation(
       return removeBand(document, operation)
     case 'updateDocument':
       return updateDocument(document, operation)
+    case 'replaceDocument':
+      return operation.document === document ? unchanged(document) : { document: operation.document, inverse: [{ type: 'replaceDocument', document }] }
     default:
       throw new PrintOperationError('operation.unknown', { type: String((operation as { type: unknown }).type) })
   }

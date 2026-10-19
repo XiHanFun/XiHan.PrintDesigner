@@ -122,5 +122,7 @@ export function describePrintOperations(operations: readonly PrintOperation[], b
     }
     case 'updateDocument':
       return history(t => t.editDocument)
+    case 'replaceDocument':
+      return history(t => t.editJson)
   }
 }

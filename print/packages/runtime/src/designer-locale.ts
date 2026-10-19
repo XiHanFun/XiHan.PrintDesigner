@@ -428,6 +428,7 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
     addBand: variant => `Add ${variant}`,
     removeBand: variant => `Delete ${variant}`,
     editDocument: 'Edit template settings',
+    editJson: 'Edit JSON',
   },
   newColumnTitle: position => `Column ${position}`,
   palette: 'Elements',
