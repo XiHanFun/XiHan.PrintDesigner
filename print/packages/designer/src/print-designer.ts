@@ -1622,7 +1622,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     ])
     menu.addEventListener('select', this.#onMenuSelect)
     this.#fillMenu(menuContent, 'blank')
-    const palette = createAuthoredElement(doc, 'xh-designer-palette', { 'slot': 'palette', 'data-part': 'palette', 'collapsible': true, 'headless': true }) as XhDesignerPaletteElement
+    const palette = createAuthoredElement(doc, 'xh-designer-palette', { 'slot': 'palette', 'data-part': 'palette', 'headless': true }) as XhDesignerPaletteElement
     palette.addEventListener('item-activate', this.#onPaletteActivate)
     const issues = createAuthoredElement(doc, 'xh-designer-issues', { 'slot': 'issues', 'data-part': 'issues', 'headless': true }) as XhDesignerIssuesElement
     issues.addEventListener('issue-activate', this.#onIssueActivate)

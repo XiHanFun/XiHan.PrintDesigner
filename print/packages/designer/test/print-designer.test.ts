@@ -367,11 +367,17 @@ describe('<xh-print-designer>', () => {
     expect(designer.extensions).toEqual([office])
   })
 
-  it('物料面板按登记表分组列出元素，激活即加到视口中央；面板里的按键不触发画布快捷键，只读时不加', async () => {
+  it('物料面板按登记表分组列出元素，组名一行、条目直接列在下面，不折叠；激活即加到视口中央；面板里的按键不触发画布快捷键，只读时不加', async () => {
     const palette = designer.querySelector('xh-designer-palette')!
+    await palette.updateComplete
     expect(palette.closest('[data-region="palette"]')).not.toBeNull()
     expect(palette.groups!.map(group => group.id)).toEqual(['text', 'media', 'data', 'shape', 'code'])
     expect(palette.groups![0]!.items.map(item => [item.id, item.label])).toEqual([['text', 'Text'], ['longText', 'Long text'], ['richText', 'Rich text'], ['pageNumber', 'Page number']])
+    expect(palette.querySelector('xh-accordion')).toBeNull()
+    const sections = Array.from(palette.querySelectorAll<HTMLElement>(':scope > [data-part="body"] > [data-part="group"]'))
+    expect(sections.map(section => section.querySelector(':scope > [data-part="group-label"]')!.textContent)).toEqual(['Text', 'Media', 'Data', 'Shapes', 'Codes'])
+    expect(Array.from(sections[0]!.querySelectorAll(':scope > [data-part="group-items"] > [data-part="item"]'), item => item.getAttribute('data-id'))).toEqual(['text', 'longText', 'richText', 'pageNumber'])
+    expect(sections.filter(section => section.closest('[hidden]') !== null)).toEqual([])
     palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id: 'rect', payload: undefined } }))
     const added = designer.schema.pages[0]!.elements.at(-1)!
     expect([added.type, designer.getSelection().elements]).toEqual(['rect', [added.id]])
