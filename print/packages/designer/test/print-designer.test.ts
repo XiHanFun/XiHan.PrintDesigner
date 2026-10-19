@@ -994,7 +994,7 @@ describe('<xh-print-designer>', () => {
     const frame = designer.querySelector('xh-designer-frame')!
     const element = frame.querySelector('section[slot="acme-stamps"]')!
     expect(element).not.toBeNull()
-    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'palette', 'canvas', 'properties', 'issues', 'status', 'pages', 'acme-stamps'])
+    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'palette', 'canvas', 'properties', 'issues', 'status', 'pages', 'outline', 'acme-stamps'])
     expect(frame.regions!.find(region => region.name === 'properties')!.title).toBe('Properties')
     designer.select({ elements: ['a'] })
     await designer.updateComplete
@@ -1024,7 +1024,7 @@ describe('<xh-print-designer>', () => {
     designer.extensions = []
     await designer.updateComplete
     expect([element.isConnected, destroyed]).toEqual([false, 1])
-    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'palette', 'canvas', 'properties', 'issues', 'status', 'pages'])
+    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'palette', 'canvas', 'properties', 'issues', 'status', 'pages', 'outline'])
   })
 
   it('选中表格后回车进入表格编辑态：点表头选中列，Esc 退出', async () => {

@@ -87,6 +87,7 @@ export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
  */
 export const PRINT_DESIGNER_PANELS = {
   palette: 'palette',
+  outline: 'outline',
   properties: 'properties',
   issues: 'issues',
   pages: 'pages',

@@ -57,6 +57,7 @@ import type {
   DesignerPaletteEventMap,
   DesignerPaletteGroup,
   DesignerPaletteItem,
+  DesignerPanel,
   DesignerPanelActions,
   DesignerPanelHost,
   DesignerPropertiesEventMap,
@@ -84,6 +85,7 @@ import type { DialogService } from '@xihan-ui/web-components/services'
 import type { PrintClipboard, PrintSelection, PrintTablePart } from './editor'
 import type { PrintDesignerCommand, PrintDesignerContext, PrintDesignerExtension, PrintDesignerImporter, PrintDesignerModel, PrintMenuSubject, PrintSelectionSubject } from './extensions'
 import type { FieldPaletteNode, FieldPlacement, FieldPlacementDefaults } from './field-palette'
+import type { PrintOutline } from './outline'
 import type { CompositeEditorHost } from './property-editors'
 import type { ExpandedDescriptor } from './property-expand'
 import type { PropertySubject } from './property-targets'
@@ -138,6 +140,7 @@ import {
   arrangeCommands,
   createCommandToolbar,
   createDesignerSettingsHost,
+  createOutlinePanel,
   createPanelActions,
   createPanelHost,
   createStatusItem,
@@ -170,7 +173,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, ImageIcon, ItalicIcon, LayoutGridIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, FileTextIcon, GridIcon, HashIcon, ImageIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SlidersHorizontalIcon, SquareDashedIcon, SquareIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -181,6 +184,7 @@ import { createPrintEditor, elementRect } from './editor'
 import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout, printSelectionLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { describePrintOperations, elementsLabel, identitiesIn } from './history-labels'
+import { printOutline } from './outline'
 import { borderSidesEditor, createIssueText, issuesUnder, valueFormatEditor } from './property-editors'
 import { pageSubject, propertySubjects, TABLE_PART_KINDS } from './property-targets'
 import { PRINT_CLIENT_STATUS_CONTROL, PRINT_SETTING_KEYS, printClientSettingsSection, printSettingsSection } from './settings'
@@ -389,6 +393,19 @@ const ICONS: Readonly<Record<Command, IconRecord>> = {
   'remove-footer-row': TableRowRemoveIcon,
   'merge-cell-right': TableCellsMergeIcon,
   'split-cell': TableCellsSplitIcon,
+}
+
+/** 内置元素在页面结构里的图标。 */
+const ELEMENT_ICONS: Readonly<Partial<Record<PrintElementType, IconRecord>>> = {
+  text: TypeIcon,
+  longText: FileTextIcon,
+  pageNumber: HashIcon,
+  image: ImageIcon,
+  table: TableIcon,
+  line: MinusIcon,
+  rect: SquareIcon,
+  barCode: BarcodeIcon,
+  matrixCode: QrCodeIcon,
 }
 
 /** 顶栏插入钮：常用的内置元素与图标，按这个次序排。 */
@@ -686,6 +703,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   #spacePan = false
   #regions: { readonly key: string, readonly regions: readonly DesignerFrameRegion[] } | undefined
   #palette: { readonly key: string, readonly model: PrintDesignerModel, readonly fields: readonly DataField[] | undefined } | undefined
+  #outlineCache: { readonly document: PrintDocument, readonly t: PrintDesignerTranslations, readonly model: PrintDesignerModel, readonly outline: PrintOutline } | undefined
   /** 扩展登记的字段来源，模型换了才重取。 */
   #fieldSources: { readonly model: PrintDesignerModel, readonly sources: readonly DesignerFieldSource[] } | undefined
   #listed: { readonly issues: readonly ValidationIssue[], readonly key: string } | undefined
@@ -1092,6 +1110,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#builtin = {
       id: PRINT_DESIGNER_EXTENSION_ID,
       commands: this.#builtinCommands(),
+      panels: [this.#outlinePanel()],
       editors: {
         byControl: {
           tableColumns: this.#partList('column'),
@@ -1103,6 +1122,69 @@ export class XhPrintDesigner extends XhReactiveElement {
       },
     }
     return this.#builtin
+  }
+
+  /**
+   * 页面结构面板：按页面模板、区与带区列出元素，同一容器里最上层排最前。选中一行时切到它所在的页面与带区再选中，
+   * 悬停在画布上标出；挪动只在同一容器里调层级，跨页眉、正文、页脚仍在画布上拖。
+   */
+  #outlinePanel(): DesignerPanel<PrintDesignerContext> {
+    return createOutlinePanel<PrintDesignerContext>({
+      nodes: () => this.#outline().nodes,
+      selection: () => this.#editor.selection.elements,
+      select: (_context, ids) => {
+        const places = this.#outline().places
+        const elements = ids.filter(id => places.has(id))
+        if (elements.length === 0)
+          return
+        this.revealElement(elements[0]!)
+        this.select({ elements })
+      },
+      highlight: (_context, id) => {
+        const item = id === null ? undefined : this.#editor.visibleElements().find(visible => visible.element.id === id)
+        this.#setOverlayHover(item === undefined ? undefined : elementRect(item.element))
+      },
+      remove: (_context, ids) => {
+        const places = this.#outline().places
+        const removable = ids.filter(id => places.has(id))
+        if (!this.#readOnly && removable.length > 0)
+          this.#editor.execute(removable.map(id => ({ type: 'removeElement', id })))
+      },
+      canMove: (_context, move) => this.#outline().places.get(move.id)?.parent === move.parent,
+      move: (_context, move) => {
+        const place = this.#outline().places.get(move.id)
+        const index = findElement(this.#editor.document, move.id)?.index
+        if (place === undefined || place.parent !== move.parent || index === undefined)
+          return
+        const to = place.count - 1 - move.index
+        if (to !== index)
+          this.#editor.execute([{ type: 'reorderElement', id: move.id, to }])
+      },
+    }, { region: { icon: ListTreeIcon }, readonly: () => this.#readOnly || this.mode !== 'design' })
+  }
+
+  /** 此刻的页面结构：模板、语言或扩展换了才重排。 */
+  #outline(): PrintOutline {
+    const document = this.#editor.document
+    const t = this.#translations()
+    const model = this.#model()
+    if (this.#outlineCache?.document === document && this.#outlineCache.t === t && this.#outlineCache.model === model)
+      return this.#outlineCache.outline
+    const outline = printOutline(document, {
+      page: (page, index) => page.name ?? t.pageTitle(index + 1),
+      region: region => t.regions[region],
+      band: key => t.bandVariants[key],
+      element: (element) => {
+        const kind = elementName(t, model, element.type)
+        const icon = ELEMENT_ICONS[element.type as PrintElementType] ?? model.palette.get(element.type)?.icon
+        return {
+          ...(element.name === undefined ? { label: `${kind} · ${element.id}` } : { label: element.name, description: kind }),
+          ...(icon === undefined ? {} : { icon }),
+        }
+      },
+    })
+    this.#outlineCache = { document, t, model, outline }
+    return outline
   }
 
   /** 设计器自带的命令：可用与否、选中状态与执行都取设计器此刻的状态。 */
@@ -2641,7 +2723,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 侧边面板里的按键与剪贴板事件归面板自己。 */
   #fromPanel(target: Element | undefined): boolean {
-    return target?.closest('xh-designer-palette, xh-designer-properties, xh-designer-issues') != null
+    return target?.closest('xh-designer-palette, xh-designer-outline, xh-designer-properties, xh-designer-issues') != null
   }
 
   // —— 内部：标尺与参考线 ——
