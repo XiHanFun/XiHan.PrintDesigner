@@ -22,7 +22,7 @@ function layout(...pages: Parameters<typeof pageOf>[]): PaginationResult {
 }
 
 function client(options: PrintClientOptions = {}): ReturnType<typeof createPrintClient> {
-  return createPrintClient({ ports: [17620, 17621], WebSocket: FakeWebSocket, permissions: null, secureContext: true, timeoutMs: 1_000, ...options })
+  return createPrintClient({ ports: [17620, 17621], WebSocket: FakeWebSocket, permissions: null, secureContext: true, origin: 'https://erp.example.com', timeoutMs: 1_000, ...options })
 }
 
 function listen(port = 17620): FakeApp {
@@ -98,12 +98,37 @@ describe('连接', () => {
     const granted = { query: async () => ({ state: 'granted' }) }
     const unknown = { query: async () => Promise.reject(new TypeError('unknown permission')) }
 
-    expect((await rejection(client({ permissions: denied }).connect())).code).toBe('LOCAL_NETWORK_DENIED')
-    expect((await rejection(client({ permissions: granted }).connect())).code).toBe('CLIENT_UNAVAILABLE')
-    expect((await rejection(client({ permissions: unknown }).connect())).code).toBe('CLIENT_UNAVAILABLE')
+    const blocked = await rejection(client({ permissions: denied }).connect())
+    expect([blocked.code, blocked.details]).toEqual(['LOCAL_NETWORK_DENIED', { reason: 'permission-denied' }])
+    const offline = await rejection(client({ permissions: granted }).connect())
+    expect([offline.code, offline.details]).toEqual(['CLIENT_UNAVAILABLE', { ports: [17620, 17621], permission: 'granted' }])
+    expect(shouldFallBack(offline)).toBe(true)
+    const unqueried = await rejection(client({ permissions: unknown }).connect())
+    expect([unqueried.code, unqueried.details]).toEqual(['CLIENT_UNAVAILABLE', { ports: [17620, 17621] }])
     const insecure = await rejection(client({ secureContext: false }).connect())
     expect([insecure.code, insecure.details.reason]).toEqual(['LOCAL_NETWORK_DENIED', 'insecure-context'])
     expect(shouldFallBack(insecure)).toBe(false)
+  })
+
+  it('权限为 denied 但连接没被拦：有端口接了连接不应答、到期限还没有结果，或页面本身在本机回环地址上，报 CLIENT_UNAVAILABLE 并带上权限状态', async () => {
+    const denied = { query: async () => ({ state: 'denied' }) }
+
+    FakeSocket.silent.add(17621)
+    const unanswered = await rejection(client({ permissions: denied, connectTimeoutMs: 20 }).connect())
+    expect([unanswered.code, unanswered.details]).toEqual(['CLIENT_UNAVAILABLE', { ports: [17620, 17621], permission: 'denied' }])
+    expect(FakeSocket.created.at(-1)!.readyState).toBe(3)
+    const insecure = await rejection(client({ permissions: denied, secureContext: false, connectTimeoutMs: 20 }).connect())
+    expect(insecure.code).toBe('CLIENT_UNAVAILABLE')
+    FakeSocket.silent.clear()
+
+    for (const origin of ['http://localhost:9800', 'http://app.localhost:9800', 'http://127.0.0.1:9800', 'http://[::1]:9800']) {
+      const local = await rejection(client({ permissions: denied, origin }).connect())
+      expect([origin, local.code, local.details.permission]).toEqual([origin, 'CLIENT_UNAVAILABLE', 'denied'])
+    }
+    for (const origin of ['http://192.168.1.20:9800', 'https://localhost.example.com', 'null']) {
+      const remote = await rejection(client({ permissions: denied, origin }).connect())
+      expect([origin, remote.code]).toEqual([origin, 'LOCAL_NETWORK_DENIED'])
+    }
   })
 
   it('客户端弹授权窗口时派发 consentpending，并按授权期限等用户决定', async () => {

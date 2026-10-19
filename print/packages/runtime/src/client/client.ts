@@ -53,6 +53,8 @@ export interface PrintClientOptions {
   readonly permissions?: PermissionsLike | null
   /** 页面是否是安全上下文，缺省为全局 isSecureContext。 */
   readonly secureContext?: boolean
+  /** 页面的来源，缺省为全局 location.origin；页面本身在本机回环地址上时，连不上不按本机网络权限判定。 */
+  readonly origin?: string
   /** 打包文档时取资源用的 fetch，缺省为全局 fetch。 */
   readonly fetch?: typeof fetch
 }
@@ -147,6 +149,17 @@ function randomId(): string {
   return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
 }
 
+/** 来源的主机是否是本机回环地址：localhost 及其子域、127.0.0.0/8 与 [::1]。 */
+function isLoopbackOrigin(origin: string | undefined): boolean {
+  if (origin === undefined || !URL.canParse(origin))
+    return false
+  const { hostname } = new URL(origin)
+  return hostname === 'localhost' || hostname.endsWith('.localhost') || hostname === '[::1]' || /^127(?:\.\d+){3}$/.test(hostname)
+}
+
+/** 一个端口的建连结果：连上的 WebSocket；timeout 是建连期限内既没连上也没失败，failed 是连接被拒或被浏览器拦下。 */
+type PortAttempt = WebSocket | 'timeout' | 'failed'
+
 class ClientJob implements PrintClientJob {
   readonly id: string
   status: JobStatus | undefined
@@ -219,6 +232,7 @@ class Client implements PrintClient {
   readonly #WebSocket: WebSocketConstructor | undefined
   readonly #permissions: PermissionsLike | null | undefined
   readonly #secureContext: boolean | undefined
+  readonly #origin: string | undefined
   readonly #fetch: typeof fetch | undefined
   readonly #pending = new Map<string, Pending>()
   readonly #jobs = new Map<string, ClientJob>()
@@ -244,6 +258,7 @@ class Client implements PrintClient {
     this.#WebSocket = options.WebSocket ?? (globalThis.WebSocket as WebSocketConstructor | undefined)
     this.#permissions = options.permissions === undefined ? (globalThis.navigator?.permissions as PermissionsLike | undefined) : options.permissions
     this.#secureContext = options.secureContext ?? (globalThis.isSecureContext as boolean | undefined)
+    this.#origin = options.origin ?? (globalThis.location?.origin as string | undefined)
     this.#fetch = options.fetch
   }
 
@@ -396,9 +411,12 @@ class Client implements PrintClient {
     if (this.#WebSocket === undefined)
       throw this.#fail(new PrintClientError('CLIENT_UNAVAILABLE', '这个环境没有 WebSocket'))
     let unsupported: PrintClientError | undefined
+    let timedOut = false
     for (const port of this.#ports) {
       const socket = await this.#tryPort(this.#WebSocket, port)
-      if (socket === undefined)
+      if (socket === 'timeout')
+        timedOut = true
+      if (typeof socket === 'string')
         continue
       try {
         return await this.#handshake(socket)
@@ -411,7 +429,7 @@ class Client implements PrintClient {
         throw this.#fail(error instanceof PrintClientError ? error : new PrintClientError('INTERNAL', String(error)))
       }
     }
-    throw this.#fail(unsupported ?? await this.#unavailable())
+    throw this.#fail(unsupported ?? await this.#unavailable(timedOut))
   }
 
   #fail(error: PrintClientError): PrintClientError {
@@ -420,19 +438,19 @@ class Client implements PrintClient {
     return error
   }
 
-  #tryPort(Constructor: WebSocketConstructor, port: number): Promise<WebSocket | undefined> {
+  #tryPort(Constructor: WebSocketConstructor, port: number): Promise<PortAttempt> {
     return new Promise((resolve) => {
       let socket: WebSocket
       try {
         socket = new Constructor(`ws://127.0.0.1:${port}/`, [SUB_PROTOCOL, UNVERSIONED_SUB_PROTOCOL])
       }
       catch {
-        resolve(undefined)
+        resolve('failed')
         return
       }
       socket.binaryType = 'blob'
       let timer: ReturnType<typeof setTimeout> | undefined
-      const finish = (value: WebSocket | undefined): void => {
+      const finish = (value: PortAttempt): void => {
         clearTimeout(timer)
         socket.onopen = null
         socket.onclose = null
@@ -440,28 +458,39 @@ class Client implements PrintClient {
         resolve(value)
       }
       timer = setTimeout(() => {
-        finish(undefined)
+        finish('timeout')
         socket.close()
       }, this.#connectTimeout)
       socket.onopen = () => finish(socket)
-      socket.onclose = () => finish(undefined)
+      socket.onclose = () => finish('failed')
       socket.onerror = () => undefined
     })
   }
 
-  /** 所有端口都连不上时，分清是浏览器拦下了本机连接，还是客户端没在运行。 */
-  async #unavailable(): Promise<PrintClientError> {
-    if (this.#secureContext === false)
+  /**
+   * 所有端口都连不上时给出的错误：有端口建连超时（timedOut）或页面本身在本机回环地址上时报 CLIENT_UNAVAILABLE；
+   * 否则页面不是安全上下文、或「本机应用」权限为 denied 时报 LOCAL_NETWORK_DENIED，其余报 CLIENT_UNAVAILABLE。
+   * CLIENT_UNAVAILABLE 的 details 带浏览器报的权限状态 permission，查不到时不带。
+   */
+  async #unavailable(timedOut: boolean): Promise<PrintClientError> {
+    const permission = await this.#loopbackPermission()
+    const blockable = !timedOut && !isLoopbackOrigin(this.#origin)
+    if (blockable && this.#secureContext === false)
       return new PrintClientError('LOCAL_NETWORK_DENIED', '页面不是安全上下文，浏览器不允许连接本机打印客户端', { reason: 'insecure-context' })
+    if (blockable && permission === 'denied')
+      return new PrintClientError('LOCAL_NETWORK_DENIED', '浏览器拒绝了这个网站访问本机应用', { reason: 'permission-denied' })
+    return new PrintClientError('CLIENT_UNAVAILABLE', '连不上本机打印客户端', { ports: [...this.#ports], ...(permission === undefined ? {} : { permission }) })
+  }
+
+  /** 浏览器报的「本机应用」权限状态；没有查权限的入口或浏览器不认识这项权限时为 undefined。 */
+  async #loopbackPermission(): Promise<string | undefined> {
     try {
-      const permission = await this.#permissions?.query({ name: 'loopback-network' })
-      if (permission?.state === 'denied')
-        return new PrintClientError('LOCAL_NETWORK_DENIED', '浏览器拒绝了这个网站访问本机应用', { reason: 'permission-denied' })
+      return (await this.#permissions?.query({ name: 'loopback-network' }))?.state
     }
     catch {
-      // 浏览器不认识这项权限时按客户端没在运行处理
+      // 浏览器不认识这项权限时 query 拒绝
+      return undefined
     }
-    return new PrintClientError('CLIENT_UNAVAILABLE', '连不上本机打印客户端', { ports: [...this.#ports] })
   }
 
   #handshake(socket: WebSocket): Promise<ClientWelcome> {

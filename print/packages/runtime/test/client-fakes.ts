@@ -64,6 +64,8 @@ export class FakeApp {
 export class FakeSocket {
   static readonly created: FakeSocket[] = []
   static readonly ports = new Map<number, FakeApp>()
+  /** 接了连接却不应答握手的端口：不打开也不关闭，等浏览器侧超时。 */
+  static readonly silent = new Set<number>()
 
   readonly url: string
   readonly protocols: string[]
@@ -81,7 +83,10 @@ export class FakeSocket {
     this.url = url
     this.protocols = protocols
     FakeSocket.created.push(this)
-    const app = FakeSocket.ports.get(Number(new URL(url).port))
+    const port = Number(new URL(url).port)
+    if (FakeSocket.silent.has(port))
+      return
+    const app = FakeSocket.ports.get(port)
     setTimeout(() => {
       if (app === undefined) {
         this.readyState = 3
@@ -100,6 +105,7 @@ export class FakeSocket {
   static reset(): void {
     FakeSocket.created.length = 0
     FakeSocket.ports.clear()
+    FakeSocket.silent.clear()
   }
 
   send(text: string): void {

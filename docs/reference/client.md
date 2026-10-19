@@ -28,6 +28,7 @@ createPrintClient 的选项。
 | `WebSocket?` | `WebSocketConstructor` | WebSocket 构造函数，缺省为全局 WebSocket。 |
 | `permissions?` | `PermissionsLike \| null` | 查本机网络权限的入口，缺省为 navigator.permissions；为 null 时不查。 |
 | `secureContext?` | `boolean` | 页面是否是安全上下文，缺省为全局 isSecureContext。 |
+| `origin?` | `string` | 页面的来源，缺省为全局 location.origin；页面本身在本机回环地址上时，连不上不按本机网络权限判定。 |
 | `fetch?` | `typeof fetch` | 打包文档时取资源用的 fetch，缺省为全局 fetch。 |
 
 ### PrintClient {#printclient}
@@ -118,8 +119,8 @@ declare function shouldFallBack(error: unknown): boolean
 
 | 错误码 | 出自 | 说明 | 退回浏览器打印 |
 | --- | --- | --- | --- |
-| `CLIENT_UNAVAILABLE` | SDK | 所有端口都连不上（客户端没装或没运行） | 是 |
-| `LOCAL_NETWORK_DENIED` | SDK | 浏览器的「本机应用」权限被拒，或页面不是安全上下文，连接在浏览器里就被拦下 | 否 |
+| `CLIENT_UNAVAILABLE` | SDK | 所有端口都连不上（客户端没装或没运行），details 带端口 ports 与浏览器报的「本机应用」权限状态 permission（查不到时不带） | 是 |
+| `LOCAL_NETWORK_DENIED` | SDK | 连接在浏览器里就被拦下：页面不在本机回环地址上、所有端口都在建连期限内失败，且「本机应用」权限被拒或页面不是安全上下文 | 否 |
 | `CONNECTION_LOST` | SDK | 等结果时断线，或断线后没能在期限内重连上 | 否 |
 | `TOO_MANY_CONNECTIONS` | SDK | 同一来源的连接数超过客户端上限 | 否 |
 | `TIMEOUT` | SDK | 请求没有在期限内得到响应 | 否 |

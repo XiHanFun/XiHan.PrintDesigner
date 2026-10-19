@@ -48,8 +48,8 @@ export type ClientErrorCode
 
 /**
  * SDK 自己给出的错误码：
- * - CLIENT_UNAVAILABLE：所有端口都连不上（客户端没装或没运行）；
- * - LOCAL_NETWORK_DENIED：浏览器的「本机应用」权限被拒，或页面不是安全上下文，连接在浏览器里就被拦下；
+ * - CLIENT_UNAVAILABLE：所有端口都连不上（客户端没装或没运行），details 带端口 ports 与浏览器报的「本机应用」权限状态 permission（查不到时不带）；
+ * - LOCAL_NETWORK_DENIED：连接在浏览器里就被拦下：页面不在本机回环地址上、所有端口都在建连期限内失败，且「本机应用」权限被拒或页面不是安全上下文；
  * - CONNECTION_LOST：等结果时断线，或断线后没能在期限内重连上；
  * - TOO_MANY_CONNECTIONS：同一来源的连接数超过客户端上限；
  * - TIMEOUT：请求没有在期限内得到响应；
