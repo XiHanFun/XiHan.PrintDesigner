@@ -1104,6 +1104,27 @@ describe('<xh-print-designer>', () => {
     expect(point.x).toBeCloseTo(10, 10)
     expect(point.y).toBeCloseTo(0, 10)
   })
+
+  it('适配视口时给纸张左侧的页眉页脚标签、浮在画布右侧的翻页条让出位置，纸与标签在余下的宽度里居中', () => {
+    Object.defineProperty(viewport(), 'clientWidth', { configurable: true, value: 800 })
+    Object.defineProperty(viewport(), 'clientHeight', { configurable: true, value: 600 })
+    designer.zoomToFit()
+    const bare = designer.getViewport()
+    const rect = (left: number, width = 0): DOMRect => ({ left, top: 0, right: left + width, bottom: 0, width, height: 0, x: left, y: 0, toJSON: () => ({}) })
+    designer.querySelector<HTMLElement>('[data-part="paper"]')!.getBoundingClientRect = () => rect(100)
+    for (const menu of designer.querySelectorAll<HTMLElement>('[data-part="band-menu"]'))
+      menu.getBoundingClientRect = () => rect(menu.dataset.region === 'header' ? 10 : 30)
+    designer.zoomToFit()
+    const labelled = designer.getViewport()
+    expect(labelled.zoom).toBe(bare.zoom)
+    expect(labelled.x - bare.x).toBeCloseTo(45, 10)
+    viewport().getBoundingClientRect = () => rect(0, 800)
+    designer.querySelector<HTMLElement>('[data-part="region"][data-region="pages"]')!.getBoundingClientRect = () => rect(740, 50)
+    designer.zoomToFit()
+    const fitted = designer.getViewport()
+    expect(fitted.zoom).toBe(bare.zoom)
+    expect(fitted.x - bare.x).toBeCloseTo(15, 10)
+  })
 })
 
 describe('打印客户端', () => {
