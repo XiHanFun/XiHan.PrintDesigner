@@ -20,7 +20,7 @@ import type {
   TablePlanResult,
   ValidationIssue,
 } from '@xihan-print/core'
-import type { AlignMode, DistributeAxis, ExecuteOptions, History, HistoryChangeKind, Rect } from '@xihan-ui/designer-kit'
+import type { AlignMode, DistributeAxis, ExecuteOptions, History, HistoryChangeKind, HistoryLabel, Rect } from '@xihan-ui/designer-kit'
 import {
   applyOperation,
   collectDocumentIds,
@@ -78,6 +78,8 @@ export interface PrintEditorOptions {
   /** 同一合并键相隔多少毫秒内并入上一步，缺省 1000。 */
   readonly mergeWithin?: number
   readonly now?: () => number
+  /** 没给说明的一步，按正向操作与应用前的文档生成说明。 */
+  readonly describe?: (operations: readonly PrintOperation[], before: PrintDocument) => HistoryLabel | undefined
 }
 
 /** 新建元素的参数：位置为左上角，单位 mm；region 缺省为正文，页眉页脚放进当前显示的变体。 */
@@ -183,6 +185,7 @@ export function createPrintEditor(options: PrintEditorOptions): PrintEditor {
     limit: options.historyLimit ?? 100,
     mergeWithin: options.mergeWithin ?? 1000,
     ...(options.now === undefined ? {} : { now: options.now }),
+    ...(options.describe === undefined ? {} : { describe: options.describe }),
   })
   const listeners = new Set<(change: PrintEditorChange) => void>()
   let selection: PrintSelection = EMPTY_SELECTION

@@ -132,7 +132,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 按键 | 作用 |
 | --- | --- |
 | Ctrl / ⌘ + Z | 撤销 |
-| Ctrl / ⌘ + Shift + Z，Ctrl / ⌘ + Y | 重做 |
+| Ctrl / ⌘ + Shift + Z，Ctrl + Y | 重做 |
 | Ctrl / ⌘ + C、X、V | 复制、剪切、粘贴，走系统剪贴板 |
 | Ctrl / ⌘ + D | 创建副本 |
 | Ctrl / ⌘ + A | 全选当前页面模板里看得见的元素 |
@@ -158,6 +158,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 - 给 `schema` 赋值即装载新模板：清空撤销历史与选择，重新适配视口，并派发 `kind` 为 `load` 的 `schema-change`。读取 `schema` 得到当前模板。
 - `dirty` 表示有没有未保存的修改，变化时派发 `dirty-change`；撤销回到保存时的状态，`dirty` 也回到 `false`。
+- 撤销历史的每一步带一句说明，如「删除文本 title」「修改「字号」」「移动 3 个元素」，随界面语言变。拖动、缩放、旋转按下到松开是一步；属性面板里连续输入同一项是一步；方向键微移连续按、选中不变、相隔不超过 1 秒的并成一步，换了选中就另起一步。
 - `issues-change` 在模板改动后带上全部校验问题，宿主可以据此拦住有错误的模板，不让保存。
 - 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`。
 
