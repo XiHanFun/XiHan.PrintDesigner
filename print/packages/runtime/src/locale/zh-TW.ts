@@ -349,9 +349,8 @@ const designer: PrintDesignerLocale = {
   pageNumberSample: text => `範例：${text}`,
   valueFormatKind: '格式種類',
   valueFormatKinds: { none: '不設格式', format: '常用格式', map: '值對應', expression: '運算式' },
-  valueMapColumns: { value: '資料值', text: '顯示文字' },
+  valueMapColumns: { value: '資料值', label: '顯示文字' },
   valueMapCell: (index, column) => `第 ${index} 項${column}`,
-  valueMapAdd: '新增一項',
   valueMapFallback: '沒有符合時顯示',
   issueTexts: {
     'required': () => '缺少必填項目',

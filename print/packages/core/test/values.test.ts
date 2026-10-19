@@ -48,12 +48,14 @@ describe('值格式', () => {
   })
 
   it('值映射在本包内完成，按显示文本匹配', () => {
-    const format: MapFormat = { kind: 'map', entries: [{ value: '1', text: '男' }, { value: '2', text: '女' }], fallback: '未知' }
+    const format: MapFormat = { kind: 'map', entries: [{ value: '1', label: '男' }, { value: '2', label: '女' }], fallback: '未知' }
     expect(formatValue(1, format)).toEqual({ text: '男' })
     expect(formatValue('2', format)).toEqual({ text: '女' })
     expect(formatValue(3, format)).toEqual({ text: '未知' })
-    expect(mapValue(true, { kind: 'map', entries: [{ value: 'true', text: '是' }] })).toBe('是')
+    expect(mapValue(true, { kind: 'map', entries: [{ value: 'true', label: '是' }] })).toBe('是')
     expect(mapValue(3, { kind: 'map', entries: [] })).toBe('3')
+    // 命中的一项没有 label 时显示为空，不退回原值或 fallback
+    expect(mapValue('x', { kind: 'map', entries: [{ value: 'x' }], fallback: '未知' })).toBe('')
   })
 
   it('空值不经格式化', () => {

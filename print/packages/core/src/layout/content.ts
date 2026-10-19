@@ -64,7 +64,7 @@ export function isEmptyValue(value: unknown): boolean {
 export function mapValue(value: unknown, format: MapFormat): string {
   const display = displayText(value) ?? ''
   const entry = format.entries.find(item => item.value === display)
-  return entry?.text ?? format.fallback ?? display
+  return entry === undefined ? format.fallback ?? display : entry.label ?? ''
 }
 
 /** 把数据对象当作表达式变量；不是普通对象时没有变量。 */

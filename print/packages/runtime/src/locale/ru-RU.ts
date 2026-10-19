@@ -362,9 +362,8 @@ const designer: PrintDesignerLocale = {
   pageNumberSample: text => `Пример: ${text}`,
   valueFormatKind: 'Тип формата',
   valueFormatKinds: { none: 'Без формата', format: 'Стандартный формат', map: 'Сопоставление значений', expression: 'Выражение' },
-  valueMapColumns: { value: 'Значение данных', text: 'Отображаемый текст' },
+  valueMapColumns: { value: 'Значение данных', label: 'Отображаемый текст' },
   valueMapCell: (index, column) => `${column} записи ${index}`,
-  valueMapAdd: 'Добавить запись',
   valueMapFallback: 'Текст, если нет совпадений',
   issueTexts: {
     'required': () => 'Значение обязательно',

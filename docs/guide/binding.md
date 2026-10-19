@@ -50,11 +50,11 @@
 | 日期 | `{ kind: 'date', pattern }` | 占位符 `yyyy yy MM M dd d HH H mm m ss s SSS`，单引号里的内容原样输出 |
 | 人民币大写 | `{ kind: 'rmb-upper', rounding? }` | 舍入到分，整数金额以「整」结尾 |
 | 数字字形 | `{ kind: 'numeral', style }` | 整数写成罗马数字（`roman-upper`、`roman-lower`）或中文数字（`cn-lower`、`cn-upper`） |
-| 值映射 | `{ kind: 'map', entries, fallback? }` | 按数据值查表显示文字，没对上时显示 `fallback`，没有 `fallback` 时显示原值 |
+| 值映射 | `{ kind: 'map', entries, fallback? }` | `entries` 每项是 `{ value, label? }`，与选择类组件的选项同一形状、不带 `disabled`。按数据值查表显示 `label`，对上的一项没写 `label` 时显示为空；没对上时显示 `fallback`，没有 `fallback` 时显示原值 |
 | 表达式格式 | `{ kind: 'expression', expression }` | 用受限表达式把值转成文字，表达式里用 `value` 引用这个值 |
 
 - 数字类格式按十进制精确舍入，`1.005` 保留两位得 `1.01`。舍入方式 `rounding` 取 `half-up`（缺省）、`half-even`、`floor`、`ceil`、`down`。
-- 值映射按显示文字比较，数字 `1` 与字符串 `'1'` 都能对上 `value: '1'`。
+- 值映射按显示文字比较，数字 `1` 与字符串 `'1'` 都能对上 `value: '1'`。同一个数据值写了几项时用第一项，校验报 `format.duplicateMapValue` 提醒。设计器里值映射是一张选项表，两列是数据值与显示文本，可以新增、删除与上移下移。
 - 空值不经格式化，直接显示为空（再按 `emptyText` 补上）；表达式格式例外，空值也交给表达式。
 - 数字、百分比、日期、人民币大写与数字字形由 XiHan.UI 的 `formatValue` 完成，完整规则见 [XiHan.UI 的格式化](https://ui.docs.xihanfun.com/runtime/expression#格式化)。值格式不合法时校验报错，数据不合格式时显示原值并给出诊断 `format.failed`。
 

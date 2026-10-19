@@ -352,9 +352,8 @@ const designer: PrintDesignerLocale = {
   pageNumberSample: text => `예시: ${text}`,
   valueFormatKind: '서식 유형',
   valueFormatKinds: { none: '서식 없음', format: '일반 서식', map: '값 매핑', expression: '표현식' },
-  valueMapColumns: { value: '데이터 값', text: '표시 텍스트' },
+  valueMapColumns: { value: '데이터 값', label: '표시 텍스트' },
   valueMapCell: (index, column) => `${index}번째 항목의 ${column}`,
-  valueMapAdd: '항목 추가',
   valueMapFallback: '일치하는 항목이 없을 때 표시',
   issueTexts: {
     'required': () => '필수 항목입니다',

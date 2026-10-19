@@ -272,7 +272,7 @@
 | `TextContent` | 类型 | 文本内容来源。 |
 | `TextStyle` | 接口 | 文本样式。 |
 | `ValueFormat` | 类型 | 值格式：数字、百分比、日期与人民币大写即 @xihan-ui/expression 的 FormatSpec，交给注入的格式化器；值映射在本包内完成，表达式格式经表达式接入点。 |
-| `ValueMapEntry` | 接口 | 值映射的一项：数据值（按字符串比较）与显示文本。 |
+| `ValueMapEntry` | 接口 | 值映射的一项：数据值（按字符串比较）与显示文本，与选择类组件的选项同一形状（不带 disabled）。 |
 
 ### schema/document
 

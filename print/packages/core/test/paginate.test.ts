@@ -584,7 +584,7 @@ describe('取值、表达式与格式', () => {
       registry.createElement('text', { id: 'expr', x: 0, y: 40, overrides: { content: { kind: 'expression', expression: 'upper(name)' } } }),
       registry.createElement('text', { id: 'formatExpr', x: 0, y: 50, overrides: { content: { kind: 'field', field: 'n', format: { kind: 'expression', expression: 'value + 1' } } } }),
       registry.createElement('text', { id: 'exprFormat', x: 0, y: 60, overrides: { content: { kind: 'expression', expression: 'qty * price', format: { kind: 'rmb-upper' } } } }),
-      registry.createElement('text', { id: 'map', x: 0, y: 70, overrides: { content: { kind: 'field', field: 'gender', format: { kind: 'map', entries: [{ value: '1', text: '男' }, { value: '2', text: '女' }] } } } }),
+      registry.createElement('text', { id: 'map', x: 0, y: 70, overrides: { content: { kind: 'field', field: 'gender', format: { kind: 'map', entries: [{ value: '1', label: '男' }, { value: '2', label: '女' }] } } } }),
     ]
     const data = { amount: 1234.5, customer: { name: '张三', code: 'C01' }, name: 'abc', n: 41, qty: 2, price: 50.25, gender: 2 }
     const result = run(documentOf(squarePage('p', elements)), data, { expressionEngine: fakeEngine, formatter: fakeFormatter })

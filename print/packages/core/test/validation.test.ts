@@ -386,7 +386,7 @@ describe('内容来源与格式', () => {
       { kind: 'number', decimals: 1.5, grouping: true },
       { kind: 'percent', decimals: 35 },
       { kind: 'date', pattern: '' },
-      { kind: 'map', entries: [{ value: '1', text: '已付' }, { value: '1', text: '重复' }] },
+      { kind: 'map', entries: [{ value: '1', label: '已付' }, { value: '1', label: '重复' }] },
       { kind: 'currency' },
       { kind: 'number', decimals: 2, maxDecimals: 3 },
       { kind: 'percent', minDecimals: 3, maxDecimals: 1 },

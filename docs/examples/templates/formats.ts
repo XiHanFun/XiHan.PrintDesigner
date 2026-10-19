@@ -21,7 +21,7 @@ const rows: [label: string, content: TextContent][] = [
   ['值映射', {
     kind: 'field',
     field: 'status',
-    format: { kind: 'map', entries: [{ value: 'pending', text: '待发货' }, { value: 'shipped', text: '已发货' }], fallback: '未知' },
+    format: { kind: 'map', entries: [{ value: 'pending', label: '待发货' }, { value: 'shipped', label: '已发货' }], fallback: '未知' },
   }],
   ['表达式格式', { kind: 'field', field: 'qty', format: { kind: 'expression', expression: 'IF(value >= 3, \'多件\', \'单件\')' } }],
   ['空值', { kind: 'field', field: 'remark', emptyText: '无' }],

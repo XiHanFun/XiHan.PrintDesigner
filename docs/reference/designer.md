@@ -217,8 +217,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `pageNumberTokens` | `Readonly<{ page: string, pages: string }>` | 页码格式里能插入的两个变量：当前页码与总页数。 |
 | `valueFormatKind` | `string` | 值格式编辑器里种类下拉的名字。 |
 | `valueFormatKinds` | `Readonly<{ none: string, format: string, map: string, expression: string }>` | 值格式的种类：不设格式、常用格式（数字、百分比、日期、人民币大写、数字字形）、值映射、表达式。 |
-| `valueMapColumns` | `Readonly<{ value: string, text: string }>` | 值映射表的两列：数据值与显示文本。 |
-| `valueMapAdd` | `string` | 值映射表下面添加一项的按钮。 |
+| `valueMapColumns` | `Readonly<{ value: string, label: string }>` | 值映射表的两列：数据值与显示文本。 |
 | `valueMapFallback` | `string` | 值映射里没有命中任何一项时显示的文本。 |
 
 | 方法 | 说明 |

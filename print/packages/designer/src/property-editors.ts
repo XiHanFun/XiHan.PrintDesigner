@@ -214,13 +214,8 @@ type ValueFormatKind = 'none' | 'format' | 'map' | 'expression'
 
 const VALUE_FORMAT_KINDS: readonly ValueFormatKind[] = ['none', 'format', 'map', 'expression']
 
-/** 值映射的一项。 */
-interface MapEntry {
-  readonly value: string
-  readonly text: string
-}
-
-const MAP_COLUMNS = ['value', 'text'] as const
+/** 值映射的各项交给内建的选项表：每项只有值与文字，没有禁用。 */
+const MAP_ENTRIES_CONTROL = { kind: 'options', allowDisabled: false } as const
 
 function valueFormatKind(value: JsonValue | undefined): ValueFormatKind {
   if (!isPlainObject(value))
@@ -228,21 +223,9 @@ function valueFormatKind(value: JsonValue | undefined): ValueFormatKind {
   return value.kind === 'map' || value.kind === 'expression' ? value.kind : 'format'
 }
 
-function mapEntries(value: JsonValue | undefined): MapEntry[] {
-  const entries = isPlainObject(value) && Array.isArray(value.entries) ? value.entries : []
-  return entries.map(entry => ({
-    value: isPlainObject(entry) && typeof entry.value === 'string' ? entry.value : '',
-    text: isPlainObject(entry) && typeof entry.text === 'string' ? entry.text : '',
-  }))
-}
-
-/** 值映射表里的一个单行文本框：库内 xh-text-field，名字写在宿主的 aria-label 上。 */
-function textField(doc: Document): ControlElement {
-  return createAuthoredElement(doc, 'xh-text-field', { size: 'sm' }, [
-    createAuthoredElement(doc, 'div', { 'data-xh-part': 'root' }, [
-      createAuthoredElement(doc, 'div', { 'data-xh-part': 'control' }, [createAuthoredElement(doc, 'input', { 'data-xh-part': 'input' })]),
-    ]),
-  ]) as ControlElement
+/** 值映射的各项：取值里的 entries，不是数组时为空。 */
+function mapEntries(value: JsonValue | undefined): JsonValue[] {
+  return isPlainObject(value) && Array.isArray(value.entries) ? value.entries : []
 }
 
 /** 把框里的文字换成 text；正在输入同一段文字时不动。 */
@@ -253,10 +236,10 @@ function showText(field: ControlElement, text: string): void {
 
 /**
  * 值格式：先在种类下拉里选不设格式、常用格式、值映射或表达式，下面只显示这一种的编辑区。
- * 常用格式是库内的格式输入框，样例按设计器的语言与时区；值映射是「数据值、显示文本」两列的表，可增删，
- * 下面是没有命中时显示的文本；表达式是表达式输入框，以 value 引用待格式化的值，边输入边按设计器的表达式引擎检查。
- * 换种类时整体换成这一种的缺省值，不设格式即清除。
- * 里层的问题标到子项上：值映射某一项的问题标在那一格（落在整项上的标在数据值那一格），未命中文本与种类的问题交给各自的字段，
+ * 常用格式是库内的格式输入框，样例按设计器的语言与时区；值映射是 designer-shell 内建的选项表（options，不带禁用列），
+ * 「数据值、显示文本」两列，可增删、上移下移，下面是没有命中时显示的文本；表达式是表达式输入框，
+ * 以 value 引用待格式化的值，边输入边按设计器的表达式引擎检查。换种类时整体换成这一种的缺省值，不设格式即清除。
+ * 里层的问题标到子项上：值映射各项的问题交给选项表，由它标在那一格；未命中文本与种类的问题交给各自的字段，
  * 常用格式与表达式的问题写在它们下面；落在整个属性上的问题由属性面板写在这一行下面。
  */
 export function valueFormatEditor(host: CompositeEditorHost): DesignerPropertyEditor {
@@ -272,11 +255,11 @@ export function valueFormatEditor(host: CompositeEditorHost): DesignerPropertyEd
       written = { value }
       context.setValue(value)
     }
-    const writeMap = (patch: { entries?: readonly MapEntry[], fallback?: string }): void => {
+    const writeMap = (patch: { entries?: readonly JsonValue[], fallback?: string }): void => {
       const value = current()
       const entries = patch.entries ?? mapEntries(value)
       const text = patch.fallback ?? (isPlainObject(value) && typeof value.fallback === 'string' ? value.fallback : '')
-      write({ kind: 'map', entries: entries.map(entry => ({ ...entry })), ...(text === '' ? {} : { fallback: text }) })
+      write({ kind: 'map', entries: [...entries], ...(text === '' ? {} : { fallback: text }) })
     }
     const switchKind = (next: ValueFormatKind): void => {
       if (next === valueFormatKind(current()))
@@ -302,14 +285,24 @@ export function valueFormatEditor(host: CompositeEditorHost): DesignerPropertyEd
     }, { value: valueFormatKind(initial.value) })
     const format = createAuthoredElement(doc, 'xh-format-input', { size: 'sm' }) as ControlElement & { clearable?: boolean, locale?: string, timeZone?: string }
     format.clearable = false
-    const table = createAuthoredElement(doc, 'div', { 'data-xh-part': 'table' }, [
-      createAuthoredElement(doc, 'div', { 'data-xh-part': 'header' }, MAP_COLUMNS.map(column => createAuthoredElement(doc, 'div', { 'data-xh-part': 'column-header', 'value': column }))),
-    ])
-    const add = createAuthoredElement(doc, 'button', { 'data-xh-part': 'add-trigger', 'type': 'button' })
-    const map = createAuthoredElement(doc, 'xh-field-array', { layout: 'table' }, [
-      createAuthoredElement(doc, 'div', { 'data-xh-part': 'root' }, [table, add]),
-    ]) as ControlElement & { createItem?: () => unknown, columns?: unknown }
-    map.createItem = () => ({ value: '', text: '' })
+    // 列名与格子的名字用打印的说法；按每次刷新现取，换了语言跟着变
+    const entries = createPropertyField({
+      ownerDocument: doc,
+      control: MAP_ENTRIES_CONTROL,
+      label: host.translations().valueFormatKinds.map,
+      setValue: value => writeMap({ entries: Array.isArray(value) ? value : [] }),
+      commit: () => context.commit(),
+      translations: {
+        get optionColumns() {
+          const columns = host.translations().valueMapColumns
+          return { value: columns.value, label: columns.label, disabled: '' }
+        },
+        get optionCell() {
+          const t = host.translations()
+          return (column: string, row: number) => t.valueMapCell(row, column)
+        },
+      },
+    }, { value: undefined })
     const fallback = createPropertyField({
       ownerDocument: doc,
       control: { kind: 'text' },
@@ -317,64 +310,12 @@ export function valueFormatEditor(host: CompositeEditorHost): DesignerPropertyEd
       setValue: value => writeMap({ fallback: typeof value === 'string' ? value : '' }),
       commit: () => context.commit(),
     }, { value: undefined })
-    const mapIssue = issueText()
-    const mapPart = createAuthoredElement(doc, 'div', { 'data-part': 'value-map' }, [map, mapIssue.element, fallback.element])
+    const mapPart = createAuthoredElement(doc, 'div', { 'data-part': 'value-map' }, [entries.element, fallback.element])
     const expression = createAuthoredElement(doc, 'xh-expression-input', { size: 'sm' }) as ControlElement & { check?: unknown }
     const parts: Readonly<Record<Exclude<ValueFormatKind, 'none'>, HTMLElement>> = { format, map: mapPart, expression }
     const formatIssue = issueText()
     const expressionIssue = issueText()
     const root = createAuthoredElement(doc, 'div', { 'data-part': 'value-format' }, [kind.element, format, formatIssue.element, mapPart, expression, expressionIssue.element])
-
-    const rows = (): HTMLElement[] => Array.from(table.querySelectorAll<HTMLElement>(':scope > [data-xh-part="item"]'))
-    const cell = (row: HTMLElement, column: (typeof MAP_COLUMNS)[number]): ControlElement =>
-      row.querySelector<ControlElement>(`[data-xh-part="item-cell"][value="${column}"] > xh-text-field`)!
-    // 每一行两格各自的问题文字
-    const cellIssues = new WeakMap<HTMLElement, Readonly<Record<(typeof MAP_COLUMNS)[number], IssueText>>>()
-    const createRow = (): HTMLElement => {
-      const issues = { value: issueText(), text: issueText() }
-      const row = createAuthoredElement(doc, 'div', { 'data-xh-part': 'item' }, [
-        ...MAP_COLUMNS.map(column => createAuthoredElement(doc, 'div', { 'data-xh-part': 'item-cell', 'value': column }, [textField(doc), issues[column].element])),
-        createAuthoredElement(doc, 'div', { 'data-xh-part': 'item-action' }, [
-          createAuthoredElement(doc, 'button', { 'data-xh-part': 'item-delete-trigger', 'type': 'button' }),
-        ]),
-      ])
-      for (const column of MAP_COLUMNS) {
-        const input = cell(row, column)
-        input.addEventListener('value-change', (event) => {
-          event.stopPropagation()
-          const text = (event as CustomEvent<{ value: string }>).detail.value
-          input.value = text
-          const index = rows().indexOf(row)
-          const entries = mapEntries(current())
-          if (index < 0 || index >= entries.length)
-            return
-          entries[index] = { ...entries[index]!, [column]: text }
-          writeMap({ entries })
-        })
-      }
-      cellIssues.set(row, issues)
-      return row
-    }
-    /** 表里的行数跟上取值，再把各格的文字与名字换成取值里的。 */
-    const renderRows = (entries: readonly MapEntry[], t: PrintDesignerTranslations): void => {
-      let list = rows()
-      while (list.length > entries.length)
-        list.pop()!.remove()
-      while (list.length < entries.length) {
-        table.append(createRow())
-        list = rows()
-      }
-      list.forEach((row, index) => {
-        for (const column of MAP_COLUMNS) {
-          const input = cell(row, column)
-          const name = t.valueMapCell(index + 1, t.valueMapColumns[column])
-          if (input.getAttribute('aria-label') !== name)
-            input.setAttribute('aria-label', name)
-          input.toggleAttribute('read-only', context.readonly)
-          showText(input, entries[index]![column])
-        }
-      })
-    }
 
     format.addEventListener('value-change', (event) => {
       event.stopPropagation()
@@ -382,16 +323,6 @@ export function valueFormatEditor(host: CompositeEditorHost): DesignerPropertyEd
       format.value = value
       if (value !== null)
         write(value)
-    })
-    map.addEventListener('value-change', (event) => {
-      if (event.target !== map)
-        return
-      event.stopPropagation()
-      const entries = mapEntries({ entries: (event as CustomEvent<{ value: JsonValue[] }>).detail.value })
-      map.value = entries
-      writeMap({ entries })
-      renderRows(entries, host.translations())
-      context.commit()
     })
     expression.addEventListener('value-change', (event) => {
       event.stopPropagation()
@@ -401,25 +332,12 @@ export function valueFormatEditor(host: CompositeEditorHost): DesignerPropertyEd
     })
     root.addEventListener('focusout', () => context.commit())
 
-    /** 按上下文的问题标出各子项；不是当前种类的子项一律收起。 */
+    /** 常用格式与表达式的问题写在它们下面；不是当前种类的一律收起。 */
     const paintIssues = (issues: readonly PropertyIssue[], active: ValueFormatKind): void => {
-      const nested = issues.filter(issue => issue.path.length > 0)
-      const first = (list: readonly PropertyIssue[]): string | undefined => list[0]?.message
-      const outsideKind = nested.filter(issue => issue.path[0] !== 'kind')
-      formatIssue.show(active === 'format' ? first(outsideKind) : undefined, { control: format })
-      expressionIssue.show(active === 'expression' ? first(outsideKind) : undefined, { control: expression, focusable: expression.querySelector<HTMLElement>('[role="combobox"], textarea') })
-      const list = rows()
-      list.forEach((row, index) => {
-        const entry = issuesUnder(nested, ['entries', index])
-        const whole = entry.filter(issue => !(MAP_COLUMNS as readonly unknown[]).includes(issue.path[0]))
-        for (const column of MAP_COLUMNS) {
-          const input = cell(row, column)
-          const message = first(issuesUnder(entry, [column])) ?? (column === 'value' ? first(whole) : undefined)
-          cellIssues.get(row)![column].show(active === 'map' ? message : undefined, { control: input, focusable: input.querySelector('input') })
-        }
-      })
-      const mapLevel = outsideKind.filter(issue => issue.path[0] !== 'fallback' && !(issue.path[0] === 'entries' && typeof issue.path[1] === 'number' && issue.path[1] < list.length))
-      mapIssue.show(active === 'map' ? first(mapLevel) : undefined)
+      const outsideKind = issues.filter(issue => issue.path.length > 0 && issue.path[0] !== 'kind')
+      const first = outsideKind[0]?.message
+      formatIssue.show(active === 'format' ? first : undefined, { control: format })
+      expressionIssue.show(active === 'expression' ? first : undefined, { control: expression, focusable: expression.querySelector<HTMLElement>('[role="combobox"], textarea') })
     }
 
     let engine: ExpressionEngine | undefined
@@ -432,7 +350,7 @@ export function valueFormatEditor(host: CompositeEditorHost): DesignerPropertyEd
       kind.update({ value: active, readonly: next.readonly, label: t.valueFormatKind, error: next.issues.find(issue => isJsonPathPrefix(issue.path, ['kind']))?.message })
       for (const [name, part] of Object.entries(parts))
         part.hidden = name !== active
-      for (const control of [format, map, expression])
+      for (const control of [format, expression])
         control.toggleAttribute('read-only', next.readonly)
       if (active === 'format') {
         format.setAttribute('aria-label', t.valueFormatKinds.format)
@@ -442,13 +360,15 @@ export function valueFormatEditor(host: CompositeEditorHost): DesignerPropertyEd
           format.value = value
       }
       if (active === 'map') {
-        const entries = mapEntries(value)
-        map.setAttribute('aria-label', t.valueFormatKinds.map)
-        map.columns = MAP_COLUMNS.map(column => ({ id: column, label: t.valueMapColumns[column] }))
-        setText(add, t.valueMapAdd)
-        if (!jsonEquals((map.value ?? null) as JsonValue, entries as unknown as JsonValue))
-          map.value = entries
-        renderRows(entries, t)
+        // 落在 entries 本身的问题写在选项表的行下，落在某一项里的交给选项表标在那一格
+        const under = issuesUnder(next.issues, ['entries'])
+        entries.update({
+          value: mapEntries(value),
+          readonly: next.readonly,
+          label: t.valueFormatKinds.map,
+          error: under.find(issue => issue.path.length === 0)?.message,
+          issues: under.filter(issue => issue.path.length > 0),
+        })
         fallback.update({
           value: isPlainObject(value) && typeof value.fallback === 'string' ? value.fallback : undefined,
           readonly: next.readonly,

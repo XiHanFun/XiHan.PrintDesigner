@@ -94,7 +94,7 @@ function validateMapEntries(value: unknown, path: JsonPath, sink: IssueSink): vo
     const entryPath = [...path, index]
     const object = readFields(sink, entry, entryPath, [
       field('value', true, (item, itemPath) => readString(sink, item, itemPath)),
-      field('text', true, (item, itemPath) => readString(sink, item, itemPath)),
+      field('label', false, (item, itemPath) => readString(sink, item, itemPath)),
     ])
     if (object === undefined || typeof object.value !== 'string')
       return

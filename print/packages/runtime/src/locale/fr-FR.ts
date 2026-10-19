@@ -357,9 +357,8 @@ const designer: PrintDesignerLocale = {
   pageNumberSample: text => `Exemple : ${text}`,
   valueFormatKind: 'Type de format',
   valueFormatKinds: { none: 'Aucun format', format: 'Format courant', map: 'Correspondance de valeurs', expression: 'Expression' },
-  valueMapColumns: { value: 'Valeur des données', text: 'Texte affiché' },
+  valueMapColumns: { value: 'Valeur des données', label: 'Texte affiché' },
   valueMapCell: (index, column) => `${column} de l’entrée ${index}`,
-  valueMapAdd: 'Ajouter une entrée',
   valueMapFallback: 'Texte si aucune correspondance',
   issueTexts: {
     'required': () => 'Valeur obligatoire manquante',
