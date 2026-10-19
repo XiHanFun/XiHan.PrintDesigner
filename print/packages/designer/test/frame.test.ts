@@ -82,7 +82,7 @@ describe('外框卡片', () => {
     await settle()
     expect(seen).toEqual(['layout.panels'])
     const layout = designer.settings!['layout.panels'] as { readonly hidden: readonly string[] }
-    expect([layout.hidden, frame().showsPanel('palette'), frame().showsPanel('properties')]).toEqual([['palette'], false, true])
+    expect([layout.hidden, frame().showsPanel('palette'), frame().showsPanel('properties')]).toEqual([['history', 'palette'], false, true])
     expect(designer.querySelector<HTMLElement>('xh-designer-ruler')!.hidden).toBe(false)
 
     designer.settings = { 'layout.panels': { version: 1, hidden: ['palette', 'issues'] } }
@@ -223,7 +223,7 @@ describe('工具栏末组', () => {
     }
   })
 
-  it('「面板」点开一张锚在按钮上的菜单，列出物料、页面结构、属性、问题与翻页条，勾选的显示；点一项开关它，布局写进设置', async () => {
+  it('「面板」点开一张锚在按钮上的菜单，列出物料、属性、问题、翻页条、页面结构与历史记录，勾选的显示；点一项开关它，布局写进设置', async () => {
     const button = toolbarItem('panels')
     button.click()
     await settle()
@@ -231,14 +231,14 @@ describe('工具栏末组', () => {
     const menu = designer.querySelector<MenuHost>('[data-part="command-bar"] xh-menu')!
     expect([menu.open, menu.anchor]).toEqual([true, button])
     const panels = ['item:palette', 'item:properties', 'item:issues', 'item:pages', 'item:outline']
-    expect(menu.collection!.map(item => item.value).slice(0, 5)).toEqual(panels)
+    expect(menu.collection!.map(item => item.value).slice(0, 6)).toEqual([...panels, 'item:history'])
     expect(menu.checkboxValue).toEqual(panels)
     const seen: string[] = []
     designer.addEventListener('settings-change', event => seen.push((event as CustomEvent<{ key: string }>).detail.key))
     document.querySelector<HTMLElement>('[data-scope="menu"][data-part="item"][data-value="item:palette"]')!.click()
     await settle()
     expect(seen).toEqual(['layout.panels'])
-    expect([(designer.settings!['layout.panels'] as { readonly hidden: readonly string[] }).hidden, frame().showsPanel('palette')]).toEqual([['palette'], false])
+    expect([(designer.settings!['layout.panels'] as { readonly hidden: readonly string[] }).hidden, frame().showsPanel('palette')]).toEqual([['history', 'palette'], false])
     expect(menu.checkboxValue).toEqual(panels.slice(1))
     document.querySelector<HTMLElement>('[data-scope="menu"][data-part="item"][data-value="item:palette"]')!.click()
     await settle()

@@ -6,6 +6,7 @@
 // @vitest-environment jsdom
 
 import type { PrintDocument } from '@xihan-print/core'
+import type { XhDesignerFrameElement, XhDesignerHistoryElement } from '@xihan-ui/designer-shell'
 import type { TextMeasurer } from '@xihan-ui/viz'
 import type { XhPrintDesigner } from '../src'
 import type { PrintEditor } from '../src/editor'
@@ -179,5 +180,45 @@ describe('历史命令', () => {
     designer.readonly = true
     await designer.updateComplete
     expect([toolbarItem('clear-history').disabled, toolbarItem('undo').disabled]).toEqual([true, true])
+  })
+})
+
+describe('历史记录面板', () => {
+  function frame(): XhDesignerFrameElement {
+    return designer.querySelector('xh-designer-frame')!
+  }
+
+  function panel(): XhDesignerHistoryElement {
+    return designer.querySelector('xh-designer-history')!
+  }
+
+  it('缺省停在右栏属性下面、缺省隐藏；打开后列出各步的说明，面板头是清空历史', async () => {
+    expect(frame().resolvedLayout.docks.end.slice(0, 2)).toEqual(['properties', 'history'])
+    expect(frame().showsPanel('history')).toBe(false)
+    designer.select({ elements: ['b'] })
+    key('Delete')
+    await designer.updateComplete
+    frame().togglePanel('history')
+    await designer.updateComplete
+    expect(frame().showsPanel('history')).toBe(true)
+    expect(panel().snapshot!.entries.map(entry => entry.label)).toEqual(['Delete Rectangle b'])
+    expect(designer.querySelector('[slot="history-actions"] button[value="clear-history"]')).not.toBeNull()
+  })
+
+  it('选一步就跳过去；只读时零件只读、跳不过去', async () => {
+    designer.select({ elements: ['b'] })
+    key('Delete')
+    designer.addElement('image', { x: 0, y: 0 })
+    frame().togglePanel('history')
+    await designer.updateComplete
+    const { origin } = panel().snapshot!
+    panel().dispatchEvent(new CustomEvent('history-go', { detail: { position: origin }, bubbles: true }))
+    await designer.updateComplete
+    expect([designer.schema.pages[0]!.elements.map(element => element.id), panel().snapshot!.position]).toEqual([['a', 'b'], origin])
+    designer.readonly = true
+    await designer.updateComplete
+    expect(panel().readonly).toBe(true)
+    panel().dispatchEvent(new CustomEvent('history-go', { detail: { position: panel().snapshot!.entries.at(-1)!.position }, bubbles: true }))
+    expect(designer.schema.pages[0]!.elements).toHaveLength(2)
   })
 })

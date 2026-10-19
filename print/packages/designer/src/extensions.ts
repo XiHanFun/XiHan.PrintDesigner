@@ -89,6 +89,7 @@ export const PRINT_DESIGNER_PANELS = {
   palette: 'palette',
   outline: 'outline',
   properties: 'properties',
+  history: 'history',
   issues: 'issues',
   pages: 'pages',
 } as const

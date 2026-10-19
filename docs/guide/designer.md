@@ -43,15 +43,16 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 选中工具条 | 选中框上方 | — | 选中元素时浮出：层级、创建副本、复制与删除；文字类元素多出字号（钮上写当前字号）、文字样式与左中右对齐，多选多出对齐与分布，见「画布操作」 |
 | 尺寸徽标 | 选中框下方 | — | 选中元素时常驻宽 × 高（mm），单选时可以直接改，见「画布操作」 |
 | 属性 | 右栏 | `properties` | 编辑选中的元素，多选时只显示共同的属性；没有选中时编辑页面设置；表格编辑态里编辑选中的表格部位 |
+| 历史记录 | 右栏，属性下面 | `history` | 缺省隐藏，从「面板」菜单打开。按先后列出撤销历史的每一步，当前位置那一行选中，选一行就跳到那一步；已撤销的一步字色减淡。面板头是「清空历史」，先确认再清空。只读与预览态时只能看 |
 | 问题 | 下方 | `issues` | 校验问题列表，点一下切到问题所在的页面模板并定位到元素；错误、警告数在面板头上，点一下只看或不看这一级 |
 | 状态栏 | 最下面 | — | 左边写选中的对象：没有选中时是当前页面模板与上面的元素个数，选中一个是种类与位置尺寸（mm），选中多个是个数；右边写打印客户端的连接状态（给了 `printClient` 时）与缩放，点缩放回到实际尺寸。设置里可以关掉 |
 
-物料、页面结构、属性与问题是外框里的卡片：面板头写图标与标题，属性面板的标题下面写正在编辑的对象，「?」里是这块面板的用法。
+物料、页面结构、属性、历史记录与问题是外框里的卡片：面板头写图标与标题，属性面板的标题下面写正在编辑的对象，「?」里是这块面板的用法。
 
 ### 面板布局
 
 - 面板头上的「×」隐藏这块面板，收起钮（或双击面板头）收成只剩标题条，「更多」菜单里换到别的栏、调先后、浮出成小窗或停靠回去。按住面板头拖：拖到外框边上换栏，拖到两块面板之间调先后，拖到画布上浮出成小窗；小窗不出外框。
-- 工具栏的「面板」菜单列出物料、页面结构、属性、问题与翻页条，勾选的显示；末尾是「显示 / 隐藏所有面板」（Ctrl / ⌘ + \）、「还原面板显隐」（Ctrl / ⌘ + Shift + \，位置与大小不动）与「恢复默认布局」。
+- 工具栏的「面板」菜单列出物料、属性、问题、翻页条、页面结构与历史记录，勾选的显示；末尾是「显示 / 隐藏所有面板」（Ctrl / ⌘ + \）、「还原面板显隐」（Ctrl / ⌘ + Shift + \，位置与大小不动）与「恢复默认布局」。
 - 布局一改，设计器就把整份布局写进设置的 `layout.panels`（`DESIGNER_SETTING_KEYS.layout`），派发 `settings-change`，宿主存起来、下次随 `settings` 赋回即可；给了 `settingsStorageKey` 时设计器自己存。拖分隔条只在松手时写一次。
 - 宿主用 `defaultLayout` 给缺省布局：用户没存过布局时用它，「恢复默认布局」也回到它。用 `settingsPolicy` 管控：`layout.panels` 锁定整份布局，`layout.panels.<面板 id>` 写 `hidden` 就没有这块面板、写 `locked` 就固定这块面板。面板 id 见包入口导出的 `PRINT_DESIGNER_PANELS`。
 
@@ -185,7 +186,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - 给 `schema` 赋值即装载新模板：清空撤销历史与选择，重新适配视口，并派发 `kind` 为 `load` 的 `schema-change`。读取 `schema` 得到当前模板。
 - `dirty` 表示有没有未保存的修改，变化时派发 `dirty-change`；撤销回到保存时的状态，`dirty` 也回到 `false`。
 - 撤销历史的每一步带一句说明，如「删除文本 title」「修改「字号」」「移动 3 个元素」，随界面语言变；工具栏上撤销、重做的名字带上下一步的说明（「撤销：删除文本 title」）。拖动、缩放、旋转按下到松开是一步；属性面板里连续输入同一项是一步；方向键微移连续按、选中不变、相隔不超过 1 秒的并成一步，换了选中就另起一步。
-- 「清空历史」（命令 `clear-history`）先弹确认框，按确定才清空撤销与重做，模板与 `dirty` 不变；它不在工具栏上，宿主经 `commandLayout` 放置。只读与预览态时撤销、重做与清空历史都不可用。
+- 「清空历史」（命令 `clear-history`）先弹确认框，按确定才清空撤销与重做，模板与 `dirty` 不变；它不在工具栏上，在历史记录面板的面板头上，宿主也可以经 `commandLayout` 放置。只读与预览态时撤销、重做与清空历史都不可用。
 - `issues-change` 在模板改动后带上全部校验问题，宿主可以据此拦住有错误的模板，不让保存。
 - 导入字段派发 `fields-change` 与 `sample-data-change`，见上文「导入字段」。
 - 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`。
@@ -304,7 +305,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 <<< @/examples/snippets/designer-panels.ts#example
 
-- 区名与内置区（`header`、`toolbar`、`pages`、`palette`、`outline`、`canvas`、`properties`、`issues`、`status`）或别的扩展的重名时，赋值时抛 `DesignerExtensionError`，设计器保持赋值前的状态。
+- 区名与内置区（`header`、`toolbar`、`pages`、`palette`、`outline`、`canvas`、`properties`、`history`、`issues`、`status`）或别的扩展的重名时，赋值时抛 `DesignerExtensionError`，设计器保持赋值前的状态。
 - 扩展的区同样记在面板布局里，用户能隐藏、挪动与浮出，也各有一条开关命令 `panel:<区名>`；扩展自己登记了同名命令时同样抛 `DesignerExtensionError`。预览态只保留顶栏、工具栏与画布。
 
 ### 导入
