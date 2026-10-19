@@ -27,6 +27,41 @@ export const DEFAULT_PRINT_PREVIEW_TRANSLATIONS: PrintPreviewTranslations = {
 export type PrintTablePartKind = 'column' | 'header' | 'body' | 'footerRow' | 'footerCell'
 
 /** 设计器的文案。 */
+/** 撤销历史里一步的说明：单个元素写「种类 名称」（见 elementLabel），几个元素写个数。 */
+export interface PrintHistoryTranslations {
+  readonly addElement: (label: string) => string
+  readonly addElements: (count: number) => string
+  readonly removeElement: (label: string) => string
+  readonly removeElements: (count: number) => string
+  readonly editElement: (label: string) => string
+  readonly editElements: (count: number) => string
+  readonly moveElement: (label: string) => string
+  readonly moveElements: (count: number) => string
+  readonly resizeElement: (label: string) => string
+  readonly resizeElements: (count: number) => string
+  readonly rotateElement: (label: string) => string
+  readonly rotateElements: (count: number) => string
+  /** 调整层级。 */
+  readonly reorderElement: (label: string) => string
+  readonly reorderElements: (count: number) => string
+  /** 按住 Alt 拖动复制。 */
+  readonly copyElement: (label: string) => string
+  readonly copyElements: (count: number) => string
+  /** 在属性面板或页面设置弹层里改了一项；name 是属性名。 */
+  readonly editProperty: (name: string) => string
+  readonly addPage: string
+  readonly removePage: string
+  readonly movePage: string
+  /** 改了页面模板的纸张、边距等设置。 */
+  readonly editPage: string
+  readonly editGuides: string
+  /** 新增、删除页眉页脚的一个变体；variant 写成「页眉 · 首页」这样。 */
+  readonly addBand: (variant: string) => string
+  readonly removeBand: (variant: string) => string
+  /** 改了模板本身的设置（名称等）。 */
+  readonly editDocument: string
+}
+
 export interface PrintDesignerTranslations {
   /** 设计器的可访问名。 */
   readonly label: string
@@ -85,6 +120,8 @@ export interface PrintDesignerTranslations {
   readonly splitCell: string
   /** 拖动调整列宽的把手的可访问名。 */
   readonly resizeColumn: (title: string) => string
+  /** 撤销历史里一步的说明。 */
+  readonly history: PrintHistoryTranslations
   /** 新插入的列的标题，position 从 1 开始。 */
   readonly newColumnTitle: (position: number) => string
   /** 物料面板的标题。 */

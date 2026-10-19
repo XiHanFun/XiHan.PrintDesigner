@@ -134,8 +134,6 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 
 ### PrintDesignerTranslations {#printdesignertranslations}
 
-设计器的文案。
-
 文案键是 `xh-print-designer`，中文在 `@xihan-print/runtime/locale` 的 `printZhCN` 里。
 
 | 属性 | 类型 | 说明 |
@@ -172,6 +170,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `removeFooterRow` | `string` |  |
 | `mergeCellRight` | `string` |  |
 | `splitCell` | `string` |  |
+| `history` | `PrintHistoryTranslations` | 撤销历史里一步的说明。 |
 | `palette` | `string` | 物料面板的标题。 |
 | `fieldGroup` | `string` | 物料面板里按 fields 列出的字段那一组的名称。 |
 | `properties` | `string` | 属性面板的标题。 |
@@ -260,6 +259,7 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | 方法 | 说明 |
 | --- | --- |
 | `now(): number` |  |
+| `describe(operations: readonly PrintOperation[], before: PrintDocument): HistoryLabel \| undefined` | 没给说明的一步，按正向操作与应用前的文档生成说明。 |
 
 ### PrintEditor {#printeditor}
 

@@ -36,9 +36,9 @@ import type {
 import type { PrintDesignerTranslations, PrintOutcome, PrintPreviewPrintOptions } from '@xihan-print/runtime'
 import type { PrintClient, PrintClientState } from '@xihan-print/runtime/client'
 import type { IconRecord, Tone } from '@xihan-ui/core'
-import type { JsonValue } from '@xihan-ui/core/json'
+import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
-import type { AlignMode, DataField, DesignerImportSource, DistributeAxis, ExecuteOptions, ExtensionHost, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
+import type { AlignMode, DataField, DesignerImportSource, DistributeAxis, ExecuteOptions, ExtensionHost, HistoryLabel, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable, PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
 import type {
   CommandToolbar,
@@ -103,7 +103,7 @@ import {
 import { DEFAULT_PRINT_DESIGNER_TRANSLATIONS, definePrintPreview, PRINT_PREVIEW_TAG, renderBox, renderWatermark } from '@xihan-print/runtime'
 import { createCounterIdGenerator } from '@xihan-ui/core'
 import { detectKbdPlatform } from '@xihan-ui/core/hotkey'
-import { formatJsonPath } from '@xihan-ui/core/json'
+import { formatJsonPath, jsonEquals } from '@xihan-ui/core/json'
 import { fillTextTemplate } from '@xihan-ui/core/template'
 import {
   centerOn,
@@ -115,8 +115,10 @@ import {
   findImporter,
   fitRect,
   formatLength,
+  HISTORY_NUDGE_MERGE_WITHIN,
   hitTest,
   nudgeDelta,
+  nudgeMergeKey,
   panBy,
   revealRect,
   screenToWorld,
@@ -163,6 +165,7 @@ import { createPrintClientStatus } from './client-status'
 import { createPrintEditor, elementRect } from './editor'
 import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout, printSelectionLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
+import { describePrintOperations, elementsLabel, identitiesIn } from './history-labels'
 import { borderSidesEditor, createIssueText, issuesUnder, valueFormatEditor } from './property-editors'
 import { pageSubject, propertySubjects, TABLE_PART_KINDS } from './property-targets'
 import { PRINT_CLIENT_STATUS_CONTROL, PRINT_SETTING_KEYS, printClientSettingsSection, printSettingsSection } from './settings'
@@ -429,7 +432,12 @@ const SHORTCUTS: Readonly<Partial<Record<Command, readonly string[]>>> = {
 const TOGGLES: ReadonlySet<Command> = new Set<Command>(['grid', 'snap', 'design', 'preview'])
 
 /** 设计器占用的 Ctrl / ⌘ 组合的主键：对应命令此刻不可用时也不交给浏览器。 */
-const RESERVED_COMMAND_KEYS: ReadonlySet<string> = new Set(['z', 'a', 'd', '[', ']', '{', '}'])
+/** 内置命令的第二快捷键。 */
+const ALTERNATE_SHORTCUTS: Readonly<Partial<Record<Command, readonly (readonly string[])[]>>> = {
+  redo: [['Ctrl', 'Y']],
+}
+
+const RESERVED_COMMAND_KEYS: ReadonlySet<string> = new Set(['z', 'y', 'a', 'd', '[', ']', '{', '}'])
 
 /** 预览态只登记这几个区：顶栏、工具栏与画布。 */
 const PREVIEW_REGIONS: ReadonlySet<string> = new Set(['header', 'toolbar', 'canvas'])
@@ -621,7 +629,17 @@ export class XhPrintDesigner extends XhReactiveElement {
   /** 注册自定义主题色，形状与 @xihan-ui/tokens 的 registerBrand 相同；给了才许在设置里自定义主题色。 */
   declare registerBrand: ((id: string, color: string) => () => void) | undefined
   readonly #config = new XhConfigController(this)
-  readonly #editor = createPrintEditor({ document: createDocument() })
+  readonly #editor = createPrintEditor({
+    document: createDocument(),
+    describe: (operations, before) => describePrintOperations(operations, before, this.#labelSource),
+  })
+
+  /** 历史说明现取的文案与元素种类名。 */
+  readonly #labelSource = {
+    translations: () => this.#translations(),
+    kindName: (type: string, t: PrintDesignerTranslations) => elementName(t, this.#model(), type),
+  }
+
   #extensions: readonly PrintDesignerExtension[] | undefined
   #builtin: PrintDesignerExtension | undefined
   #designerModel: PrintDesignerModel | undefined
@@ -651,6 +669,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   #palette: { readonly key: string, readonly model: PrintDesignerModel, readonly fields: readonly DataField[] | undefined } | undefined
   #listed: { readonly issues: readonly ValidationIssue[], readonly key: string } | undefined
   #subjects: PropertySubject[] = []
+  /** 进行中的手势这一步的说明，每帧重开事务时带同一个。 */
+  #gestureLabel: HistoryLabel | undefined
   #panelInputs: readonly unknown[] = []
   #unregisterDrop: (() => void) | undefined
   #hoverId: string | undefined
@@ -684,6 +704,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.mode = 'design'
     this.#editor.subscribe((change) => {
       if (change.kind === 'selection') {
+        this.#editor.seal()
         if (this.#tableEdit !== undefined && !(change.selection.elements.length === 1 && change.selection.elements[0] === this.#tableEdit))
           this.#tableEdit = undefined
         this.requestUpdate()
@@ -1056,11 +1077,13 @@ export class XhPrintDesigner extends XhReactiveElement {
   #builtinCommands(): PrintDesignerCommand[] {
     const builtin = (Object.keys(ICONS) as Command[]).map((id): PrintDesignerCommand => {
       const shortcut = SHORTCUTS[id]
+      const alternate = ALTERNATE_SHORTCUTS[id]
       return {
         id,
         label: context => builtinLabel(id, context),
         icon: ICONS[id],
         ...(shortcut === undefined ? {} : { shortcut }),
+        ...(alternate === undefined ? {} : { alternateShortcuts: alternate }),
         ...(DESTRUCTIVE.has(id) ? { tone: 'danger' as const } : {}),
         ...(TOGGLES.has(id) ? { checked: () => this.#commandChecked(id) } : {}),
         enabled: () => this.#commandEnabled(id),
@@ -1219,7 +1242,7 @@ export class XhPrintDesigner extends XhReactiveElement {
           event.stopPropagation()
           const { path, value, merge } = (event as DesignerPropertiesEventMap['property-change']).detail
           if (!this.#readOnly)
-            this.#editor.execute([subject.write(path, value)], { merge, mergeWithin: Number.POSITIVE_INFINITY })
+            this.#editor.execute([subject.write(path, value)], { merge, mergeWithin: Number.POSITIVE_INFINITY, ...this.#propertyLabel(subject, path) })
         })
         panel.addEventListener('property-commit', (event) => {
           event.stopPropagation()
@@ -2271,21 +2294,24 @@ export class XhPrintDesigner extends XhReactiveElement {
   #labelProperties(panel: XhDesignerPropertiesElement, kind: string, t: PrintDesignerTranslations): void {
     panel.groupOrder = kind === 'page' ? PAGE_PROPERTY_GROUPS : PROPERTY_GROUPS
     panel.groupLabel = group => t.propertyGroups[group as PropertyGroup] ?? group
-    panel.labelOf = (descriptor) => {
-      const name = (key: string): string | undefined => t.propertyNames[`${kind}:${key}`] ?? t.propertyNames[key]
-      const key = formatJsonPath(descriptor.path)
-      const { labelKey, labelParent } = descriptor as ExpandedDescriptor
-      const own = name(key)
-      if (own !== undefined || labelKey === undefined)
-        return own ?? descriptor.label ?? key
-      const part = name(labelKey) ?? labelKey
-      return labelParent === undefined ? part : t.propertyPart(name(labelParent) ?? labelParent, part)
-    }
+    panel.labelOf = descriptor => this.#propertyName(kind, descriptor, t)
     panel.optionLabel = (descriptor, option) => {
       const value = String(option.value)
       return option.label ?? t.propertyOptions[`${formatJsonPath(descriptor.path)}=${value}`] ?? t.propertyOptions[value] ?? value
     }
     panel.unitLabel = unit => t.units[unit as PropertyUnit] ?? unit
+  }
+
+  /** 属性名：对象种类上的压过通用的，拆开的分项写成「父项 · 分项」，都没有时用描述里的 label 或路径。 */
+  #propertyName(kind: string, descriptor: DesignerPropertyDescriptor, t: PrintDesignerTranslations): string {
+    const name = (key: string): string | undefined => t.propertyNames[`${kind}:${key}`] ?? t.propertyNames[key]
+    const key = formatJsonPath(descriptor.path)
+    const { labelKey, labelParent } = descriptor as ExpandedDescriptor
+    const own = name(key)
+    if (own !== undefined || labelKey === undefined)
+      return own ?? descriptor.label ?? key
+    const part = name(labelKey) ?? labelKey
+    return labelParent === undefined ? part : t.propertyPart(name(labelParent) ?? labelParent, part)
   }
 
   /** 落在编辑对象内的校验问题，路径换成相对对象；页面设置不收元素上的问题。 */
@@ -2332,7 +2358,19 @@ export class XhPrintDesigner extends XhReactiveElement {
       return subject === undefined ? [] : [subject.write(path, value)]
     })
     if (operations.length > 0)
-      this.#editor.execute(operations, { merge, mergeWithin: Number.POSITIVE_INFINITY })
+      this.#editor.execute(operations, { merge, mergeWithin: Number.POSITIVE_INFINITY, ...this.#propertyLabel(this.#subjects[0], path) })
+  }
+
+  /** 改一项属性的说明「修改「属性名」」，属性名与面板上的一致；找不到这一项时不给，交给 describe。 */
+  #propertyLabel(subject: PropertySubject | undefined, path: JsonPath): { readonly label?: HistoryLabel } {
+    const descriptor = subject?.descriptors.find(item => jsonEquals(item.path, path))
+    if (subject === undefined || descriptor === undefined)
+      return {}
+    const kind = subject.kind
+    return { label: () => {
+      const t = this.#translations()
+      return t.history.editProperty(this.#propertyName(kind, descriptor, t))
+    } }
   }
 
   /** 交给面板的编辑器：各扩展的编辑器按顺序合成一张，设计器自带的在最底下。 */
@@ -2670,7 +2708,9 @@ export class XhPrintDesigner extends XhReactiveElement {
     const history = this.#editor.history
     if (phase === 'start') {
       this.#stopAutoFit()
-      history.begin()
+      const phrase = kind === 'move' ? 'move' : kind === 'resize' ? 'resize' : 'rotate'
+      this.#gestureLabel = elementsLabel(phrase, identitiesIn(this.#editor.document, [...rects.keys()]), this.#labelSource)
+      history.begin(this.#gestureLabel)
       return
     }
     if (!history.inTransaction)
@@ -2678,8 +2718,9 @@ export class XhPrintDesigner extends XhReactiveElement {
     history.rollback()
     if (phase === 'cancel')
       return
-    history.begin()
-    if (phase === 'end' && copy === true && kind === 'move') {
+    const copying = phase === 'end' && copy === true && kind === 'move'
+    history.begin(copying ? elementsLabel('copy', identitiesIn(this.#editor.document, [...rects.keys()]), this.#labelSource) : this.#gestureLabel)
+    if (copying) {
       const delta = this.#moveDelta(rects)
       const duplicated = this.#editor.duplicate({ offset: 0 })
       if (delta !== undefined)
@@ -2699,7 +2740,8 @@ export class XhPrintDesigner extends XhReactiveElement {
       return
     this.#stopAutoFit()
     const operation: PrintOperation = { type: 'resizeElement', id, bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } }
-    this.#editor.execute([operation], source === 'step' ? { merge: `measure:${id}:${axis}` } : {})
+    const label = elementsLabel('resize', identitiesIn(this.#editor.document, [id]), this.#labelSource)
+    this.#editor.execute([operation], source === 'step' ? { merge: `measure:${id}:${axis}`, label } : { label })
   }
 
   readonly #onMarquee = (event: Event): void => {
@@ -2831,7 +2873,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const startHeight = (page[region][key] ?? page[region].default).height
     const zoom = this.#viewport.zoom
     this.#track(event, {
-      onActivate: () => this.#editor.history.begin(),
+      onActivate: () => this.#editor.history.begin(() => this.#translations().resizeBand(region)),
       onMove: (_dx, dy) => {
         const delta = (region === 'header' ? dy : -dy) / zoom
         this.#editor.setBandHeight(region, key, Math.max(0, this.#snapValue(startHeight + delta)))
@@ -2850,8 +2892,9 @@ export class XhPrintDesigner extends XhReactiveElement {
       return
     const last = table.columns.at(-1)?.id === columnId
     const zoom = this.#viewport.zoom
+    const title = column.title
     this.#track(event, {
-      onActivate: () => this.#editor.history.begin(),
+      onActivate: () => this.#editor.history.begin(() => this.#translations().resizeColumn(title)),
       onMove: (dx) => {
         const width = this.#snapValue(column.width + dx / zoom)
         this.#editor.applyTablePlan(table.id, planResizeTableColumn(table, columnId, width, last ? 'resize' : 'keep'))
@@ -3038,15 +3081,11 @@ export class XhPrintDesigner extends XhReactiveElement {
       event.preventDefault()
   }
 
-  /** 命令没有接住的 Ctrl / ⌘ 组合：S 派发 save，Y 重做；设计器占用的其余组合此刻不可用时也不交给浏览器。 */
+  /** 命令没有接住的 Ctrl / ⌘ 组合：S 派发 save；设计器占用的其余组合此刻不可用时也不交给浏览器。 */
   #onCommandKey(event: KeyboardEvent): boolean {
     const key = event.key.toLowerCase()
     if (key === 's') {
       emitEvent(this, 'save', {})
-      return true
-    }
-    if (key === 'y') {
-      this.#run('redo')
       return true
     }
     return RESERVED_COMMAND_KEYS.has(key)
@@ -3077,7 +3116,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       return false
     const ids = this.#editor.selection.elements
     if (ids.length > 0 && !this.#readOnly && this.#tableEdit === undefined) {
-      this.#editor.moveElements(ids, delta.dx, delta.dy, { merge: 'nudge' })
+      this.#editor.moveElements(ids, delta.dx, delta.dy, { merge: nudgeMergeKey(ids), mergeWithin: HISTORY_NUDGE_MERGE_WITHIN })
       return true
     }
     this.#stopAutoFit()
