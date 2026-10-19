@@ -975,7 +975,7 @@ describe('<xh-print-designer>', () => {
     expect(display()).toEqual(['icon', 'icon'])
   })
 
-  it('扩展面板放进外框的命名区，状态变化时刷新、布局能开关；区名重名时抛错；去掉扩展时撤掉', async () => {
+  it('扩展面板放进外框的命名区，状态变化时刷新、布局与 panel:<区名> 命令能开关；区名或开关命令重名时抛错；去掉扩展时撤掉', async () => {
     const updates: unknown[] = []
     let destroyed = 0
     const stamps: PrintDesignerExtension = {
@@ -1005,6 +1005,18 @@ describe('<xh-print-designer>', () => {
     designer.settings = {}
     await designer.updateComplete
     expect(element.isConnected).toBe(true)
+    designer.commandLayout = { toolbar: [['panel:acme-stamps']] }
+    await designer.updateComplete
+    const toggle = designer.querySelector<HTMLButtonElement>('[data-part="command-bar"] button[value="panel:acme-stamps"]')!
+    toggle.click()
+    await designer.updateComplete
+    expect(frame.showsPanel('acme-stamps')).toBe(false)
+    toggle.click()
+    await designer.updateComplete
+    expect(frame.showsPanel('acme-stamps')).toBe(true)
+    designer.commandLayout = undefined
+    const own: PrintDesignerExtension = { id: '@acme/own', commands: [{ id: 'panel:acme-own', label: 'Own', run: () => {} }], panels: [{ region: { name: 'acme-own', position: 'end' }, create: () => ({ element: document.createElement('div') }) }] }
+    expect(() => (designer.extensions = [stamps, own])).toThrow(DesignerExtensionError)
 
     const pages: PrintDesignerExtension = { id: '@acme/pages', panels: [{ region: { name: 'palette', position: 'start' }, create: () => ({ element: document.createElement('div') }) }] }
     expect(() => (designer.extensions = [stamps, pages])).toThrow(DesignerExtensionError)

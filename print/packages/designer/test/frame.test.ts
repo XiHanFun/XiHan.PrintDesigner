@@ -58,12 +58,13 @@ function region(name: string): DesignerFrameRegion {
 }
 
 describe('外框卡片', () => {
-  it('物料、属性与问题画成卡片：面板头写标题与帮助，属性面板的副标题是当前编辑的对象；零件不画自己的标题', async () => {
-    expect(['palette', 'properties', 'issues'].map(name => [region(name).title, typeof region(name).help])).toEqual([
-      ['Elements', 'string'],
-      ['Properties', 'string'],
-      ['Problems', 'string'],
+  it('物料、属性与问题画成卡片：面板头写标题、图标与帮助，属性面板的副标题是当前编辑的对象；零件不画自己的标题', async () => {
+    expect(['palette', 'properties', 'issues'].map(name => [region(name).title, typeof region(name).help, region(name).icon?.name])).toEqual([
+      ['Elements', 'string', 'layout-grid'],
+      ['Properties', 'string', 'sliders-horizontal'],
+      ['Problems', 'string', 'circle-alert'],
     ])
+    expect(region('pages').icon?.name).toBe('file')
     expect([region('toolbar').title, region('canvas').title]).toEqual([undefined, undefined])
     expect([region('palette').size, region('properties').size, region('issues').size]).toEqual([18, 24, 28])
     designer.select({ elements: ['a'] })
@@ -242,6 +243,24 @@ describe('工具栏末组', () => {
     document.querySelector<HTMLElement>('[data-scope="menu"][data-part="item"][data-value="item:palette"]')!.click()
     await settle()
     expect(frame().showsPanel('palette')).toBe(true)
+  })
+
+  it('每块面板一条开关命令 panel:<面板 id>：文字是面板标题，勾选的是看得见的；宿主锁定的面板不可用', async () => {
+    designer.commandLayout = { toolbar: [['panel:palette', 'panel:properties', 'panel:issues', 'panel:pages']] }
+    await settle()
+    const ids = ['panel:palette', 'panel:properties', 'panel:issues', 'panel:pages']
+    expect(ids.map(id => [toolbarItem(id).getAttribute('aria-label') ?? toolbarItem(id).textContent, toolbarItem(id).getAttribute('aria-pressed')])).toEqual([
+      ['Elements', 'true'],
+      ['Properties', 'true'],
+      ['Problems', 'true'],
+      ['Page templates', 'true'],
+    ])
+    toolbarItem('panel:issues').click()
+    await settle()
+    expect([frame().showsPanel('issues'), toolbarItem('panel:issues').getAttribute('aria-pressed')]).toEqual([false, 'false'])
+    designer.settingsPolicy = { 'layout.panels.palette': 'locked' }
+    await settle()
+    expect([toolbarItem('panel:palette').disabled, toolbarItem('panel:properties').disabled]).toEqual([true, false])
   })
 })
 
