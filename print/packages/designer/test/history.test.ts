@@ -129,3 +129,55 @@ describe('撤销历史的说明', () => {
     expect(designer.schema.pages[0]!.elements[0]!.x).toBe(11)
   })
 })
+
+describe('历史命令', () => {
+  function toolbarItem(value: string): HTMLButtonElement {
+    return designer.querySelector<HTMLButtonElement>(`[data-part="command-bar"] button[value="${value}"]`)!
+  }
+
+  function confirmDialog(): (HTMLElement & { open?: boolean, dialogRole?: string }) | undefined {
+    return Array.from(document.querySelectorAll<HTMLElement & { open?: boolean, dialogRole?: string }>('xh-dialog')).find(dialog => dialog.dialogRole === 'alertdialog')
+  }
+
+  function confirmButtons(): HTMLButtonElement[] {
+    return Array.from(document.querySelectorAll<HTMLButtonElement>('[role="alertdialog"] [data-part="footer"] button'))
+  }
+
+  it('撤销、重做的名字带上下一步的说明，撤销了的那一步挪到重做上', async () => {
+    designer.select({ elements: ['b'] })
+    key('Delete')
+    await designer.updateComplete
+    expect([toolbarItem('undo').getAttribute('aria-label'), toolbarItem('redo').getAttribute('aria-label')]).toEqual(['Undo: Delete Rectangle b', 'Redo'])
+    toolbarItem('undo').click()
+    await designer.updateComplete
+    expect([toolbarItem('undo').disabled, toolbarItem('redo').getAttribute('aria-label')]).toEqual([true, 'Redo: Delete Rectangle b'])
+  })
+
+  it('清空历史不上工具栏，经 commandLayout 放上去；先弹确认框，按确定才清空，模板与是否改过不变；只读时不可用', async () => {
+    designer.commandLayout = { toolbar: [['undo', 'redo', 'clear-history']] }
+    await designer.updateComplete
+    expect(toolbarItem('clear-history').disabled).toBe(true)
+    designer.select({ elements: ['b'] })
+    key('Delete')
+    await designer.updateComplete
+    const schema = designer.schema
+    toolbarItem('clear-history').click()
+    await vi.waitFor(() => expect(confirmDialog()?.open).toBe(true))
+    expect(confirmButtons()).toHaveLength(2)
+    confirmButtons()[0]!.click()
+    await vi.waitFor(() => expect(confirmDialog()!.open).toBe(false))
+    expect(history().canUndo).toBe(true)
+
+    toolbarItem('clear-history').click()
+    await vi.waitFor(() => expect(confirmDialog()!.open).toBe(true))
+    confirmButtons()[1]!.click()
+    await vi.waitFor(() => expect(history().canUndo).toBe(false))
+    await designer.updateComplete
+    expect([designer.schema, designer.dirty, toolbarItem('undo').disabled, toolbarItem('clear-history').disabled]).toEqual([schema, true, true, true])
+
+    designer.addElement('image', { x: 0, y: 0 })
+    designer.readonly = true
+    await designer.updateComplete
+    expect([toolbarItem('clear-history').disabled, toolbarItem('undo').disabled]).toEqual([true, true])
+  })
+})
