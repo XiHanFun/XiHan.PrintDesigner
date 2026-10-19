@@ -175,7 +175,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, FileTextIcon, GridIcon, HashIcon, HistoryIcon, ImageIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MaximizeIcon, MinusIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SlidersHorizontalIcon, SquareDashedIcon, SquareIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HistoryIcon, ImageIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MaximizeIcon, MinusIcon, PageNumberIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, ShapeEllipseIcon, ShapeRectangleIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TextRichIcon, TextWrapIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -397,17 +397,24 @@ const ICONS: Readonly<Record<Command, IconRecord>> = {
   'split-cell': TableCellsSplitIcon,
 }
 
-/** 内置元素在页面结构里的图标。 */
-const ELEMENT_ICONS: Readonly<Partial<Record<PrintElementType, IconRecord>>> = {
+/** 内置元素的种类图标：物料面板与页面结构用。 */
+const ELEMENT_ICONS: Readonly<Record<PrintElementType, IconRecord>> = {
   text: TypeIcon,
-  longText: FileTextIcon,
-  pageNumber: HashIcon,
+  longText: TextWrapIcon,
+  richText: TextRichIcon,
+  pageNumber: PageNumberIcon,
   image: ImageIcon,
   table: TableIcon,
   line: MinusIcon,
-  rect: SquareIcon,
+  rect: ShapeRectangleIcon,
+  ellipse: ShapeEllipseIcon,
   barCode: BarcodeIcon,
   matrixCode: QrCodeIcon,
+}
+
+/** 一种元素的图标：内置的取种类图标，扩展的取它物料项的图标。 */
+function elementIcon(model: PrintDesignerModel, type: string): IconRecord | undefined {
+  return Object.hasOwn(ELEMENT_ICONS, type) ? ELEMENT_ICONS[type as PrintElementType] : model.palette.get(type)?.icon
 }
 
 /** 顶栏插入钮：常用的内置元素与图标，按这个次序排。 */
@@ -1190,7 +1197,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       band: key => t.bandVariants[key],
       element: (element) => {
         const kind = elementName(t, model, element.type)
-        const icon = ELEMENT_ICONS[element.type as PrintElementType] ?? model.palette.get(element.type)?.icon
+        const icon = elementIcon(model, element.type)
         return {
           ...(element.name === undefined ? { label: `${kind} · ${element.id}` } : { label: element.name, description: kind }),
           ...(icon === undefined ? {} : { icon }),
@@ -2362,7 +2369,7 @@ export class XhPrintDesigner extends XhReactiveElement {
         id: group.category,
         label: categoryName(t, model, group.category),
         items: group.prototypes.map((prototype) => {
-          const icon = model.palette.get(prototype.type)?.icon
+          const icon = elementIcon(model, prototype.type)
           return { id: prototype.type, label: elementName(t, model, prototype.type), ...(icon === undefined ? {} : { icon }) }
         }),
       })),

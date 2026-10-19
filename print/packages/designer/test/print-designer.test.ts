@@ -367,12 +367,13 @@ describe('<xh-print-designer>', () => {
     expect(designer.extensions).toEqual([office])
   })
 
-  it('物料面板按登记表分组列出元素，组名一行、条目直接列在下面，不折叠；激活即加到视口中央；面板里的按键不触发画布快捷键，只读时不加', async () => {
+  it('物料面板按登记表分组列出元素，条目带种类图标，组名一行、条目直接列在下面，不折叠；激活即加到视口中央；面板里的按键不触发画布快捷键，只读时不加', async () => {
     const palette = designer.querySelector('xh-designer-palette')!
     await palette.updateComplete
     expect(palette.closest('[data-region="palette"]')).not.toBeNull()
     expect(palette.groups!.map(group => group.id)).toEqual(['text', 'media', 'data', 'shape', 'code'])
     expect(palette.groups![0]!.items.map(item => [item.id, item.label])).toEqual([['text', 'Text'], ['longText', 'Long text'], ['richText', 'Rich text'], ['pageNumber', 'Page number']])
+    expect(palette.groups!.flatMap(group => group.items.map(item => item.icon?.name))).toEqual(['type', 'text-wrap', 'text-rich', 'page-number', 'image', 'table', 'minus', 'shape-rectangle', 'shape-ellipse', 'barcode', 'qr-code'])
     expect(palette.querySelector('xh-accordion')).toBeNull()
     const sections = Array.from(palette.querySelectorAll<HTMLElement>(':scope > [data-part="body"] > [data-part="group"]'))
     expect(sections.map(section => section.querySelector(':scope > [data-part="group-label"]')!.textContent)).toEqual(['Text', 'Media', 'Data', 'Shapes', 'Codes'])

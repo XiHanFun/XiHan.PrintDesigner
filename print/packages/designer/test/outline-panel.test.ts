@@ -91,7 +91,7 @@ describe('页面结构面板', () => {
       '    Text · z',
     ])
     const body = outline().nodes![0]!.children![0]!.children!
-    expect(body.map(node => [node.description, node.icon?.name])).toEqual([[undefined, undefined], ['Rectangle', 'square'], [undefined, 'type']])
+    expect(body.map(node => [node.description, node.icon?.name])).toEqual([[undefined, 'shape-ellipse'], ['Rectangle', 'shape-rectangle'], [undefined, 'type']])
   })
 
   it('选一项：不在当前页面模板时先切过去再选中；画布选中变了，树上跟着标出', async () => {
