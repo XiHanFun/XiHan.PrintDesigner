@@ -136,6 +136,8 @@ Chrome 与 Edge 从 147 版起，公网或局域网里的网页连接本机的 `
 
 - 业务系统要用 HTTPS 提供，`http://localhost` 除外。用 http 提供的局域网系统连不上本机客户端，浏览器也不会弹出询问。
 - 连接被浏览器拦下时，SDK 报 `LOCAL_NETWORK_DENIED`，与「没装客户端」的 `CLIENT_UNAVAILABLE` 分开，宿主可以据此提示用户去网站设置里允许，而不是去安装客户端。
+- 只有能确认连接是被浏览器拦下时才报 `LOCAL_NETWORK_DENIED`：页面不在本机回环地址上（`localhost` 及其子域、`127.0.0.0/8`、`[::1]`），所有端口都在建连期限（`connectTimeoutMs`）内失败，并且这个权限被拒或页面不是安全上下文。页面本身在本机回环地址上时这个权限不起作用；被拦下的连接会立即失败，有端口到期限还没有结果就说明连接没被拦。这两种情形连不上都报 `CLIENT_UNAVAILABLE`。
+- `CLIENT_UNAVAILABLE` 的 `details` 带探测过的端口（`ports`）与浏览器报的这个权限的状态（`permission`：`granted`、`prompt` 或 `denied`，浏览器不认识这个权限时不带），宿主可以按它补一句提示。
 - 企业环境可以用 Chrome 的策略 `LocalNetworkAccessAllowedForUrls` 预先放行业务系统的地址，免得每台电脑第一次使用时各弹一次。
 
 页面嵌在 iframe 里时，每一层 iframe 的 `allow` 都要写上 `loopback-network`：
