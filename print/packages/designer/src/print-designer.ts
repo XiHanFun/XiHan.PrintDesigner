@@ -1258,7 +1258,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   /**
-   * 页面结构面板：按页面模板、区与带区列出元素，同一容器里最上层排最前。选中一行时切到它所在的页面与带区再选中，
+   * 页面结构面板：按页面模板、区与带区列出元素，同一容器里最上层排最前。选择与画布是同一份：树上的选中整份换上，
+   * 空数组即全部取消；新选上的第一个先切到它所在的页面与带区、滚进可见区，只取消几行时不滚；选择只留当前页面与带区里的元素。
    * 悬停在画布上标出；挪动只在同一容器里调层级，跨页眉、正文、页脚仍在画布上拖。
    */
   #outlinePanel(): DesignerPanel<PrintDesignerContext> {
@@ -1267,10 +1268,11 @@ export class XhPrintDesigner extends XhReactiveElement {
       selection: () => this.#editor.selection.elements,
       select: (_context, ids) => {
         const places = this.#outline().places
+        const before = new Set(this.#editor.selection.elements)
         const elements = ids.filter(id => places.has(id))
-        if (elements.length === 0)
-          return
-        this.revealElement(elements[0]!)
+        const added = elements.find(id => !before.has(id))
+        if (added !== undefined)
+          this.revealElement(added)
         this.select({ elements })
       },
       highlight: (_context, id) => {
