@@ -1148,7 +1148,10 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#moveTo({ x: viewport.x, y: viewport.y, zoom: viewport.zoom * PX_PER_MM })
   }
 
-  /** 让整张纸落在视口中央，不放大到实际尺寸以上；此后尺寸变化时重新适配，直到设置视口或在画布上操作。 */
+  /**
+   * 让整张纸连同左侧的页眉页脚标签落在视口中央，让开浮在画布一侧的翻页条，不放大到实际尺寸以上；
+   * 此后尺寸变化时重新适配，直到设置视口或在画布上操作。
+   */
   zoomToFit(): void {
     this.#startAutoFit()
     this.#fitIfPending()
@@ -1855,8 +1858,34 @@ export class XhPrintDesigner extends XhReactiveElement {
       return false
     this.#fitPending = false
     const paper = getPaperSize(this.#editor.page)
-    this.#moveTo(fitRect({ x: 0, y: 0, width: paper.width, height: paper.height }, size, { padding: FIT_PADDING, maxZoom: PX_PER_MM, limits: ZOOM_LIMITS }))
+    const { start, end } = this.#layers === undefined ? { start: 0, end: 0 } : this.#fitInsets(this.#layers)
+    const fit = fitRect({ x: 0, y: 0, width: paper.width, height: paper.height }, { width: Math.max(0, size.width - start - end), height: size.height }, { padding: FIT_PADDING, maxZoom: PX_PER_MM, limits: ZOOM_LIMITS })
+    this.#moveTo({ ...fit, x: fit.x + start })
     return true
+  }
+
+  /** 适配视口时左右各让出的屏幕宽度，像素：浮在画布一侧的翻页条盖住的那段，加上纸张左侧的页眉页脚标签。 */
+  #fitInsets(layers: Layers): { start: number, end: number } {
+    const viewport = layers.viewport.getBoundingClientRect()
+    const strip = (layers.pageStrip.element.closest('[data-part="region"]') ?? layers.pageStrip.element).getBoundingClientRect()
+    let start = 0
+    let end = 0
+    if (strip.width > 0 && strip.left < viewport.right && strip.right > viewport.left) {
+      if (strip.left + strip.width / 2 > viewport.left + viewport.width / 2)
+        end = viewport.right - strip.left
+      else
+        start = strip.right - viewport.left
+    }
+    return { start: start + this.#bandMenuGutter(layers), end }
+  }
+
+  /** 纸张左侧页眉页脚标签占的屏幕宽度，像素；标签按屏幕尺寸显示，与缩放无关。 */
+  #bandMenuGutter(layers: Layers): number {
+    const paperLeft = layers.paper.getBoundingClientRect().left
+    let left = paperLeft
+    for (const menu of layers.bandMenus.querySelectorAll('[data-part="band-menu"]'))
+      left = Math.min(left, menu.getBoundingClientRect().left)
+    return paperLeft - left
   }
 
   #moveTo(viewport: Viewport): void {
