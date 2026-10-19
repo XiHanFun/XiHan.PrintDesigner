@@ -44,6 +44,7 @@ export function mount(host: HTMLElement): () => void {
   designer.extensions = [{ id: '@acme/print-fonts', editors: { byPath: { 'style.fontFamily': fontEditor } } }]
   designer.schema = schema
   // #endregion use
+  designer.autoTour = false
   host.append(designer)
   designer.select({ elements: ['pickup-code'] })
   return () => host.replaceChildren()

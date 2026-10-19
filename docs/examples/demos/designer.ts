@@ -44,6 +44,8 @@ export function mount(host: HTMLElement): () => void {
   designer.sampleData = data
   designer.data = data
   // #endregion render
+  // 文档页上不自动开始新手引导，示例里从设置的「帮助」页开始
+  designer.autoTour = false
 
   // #region save
   const status = document.createElement('p')
