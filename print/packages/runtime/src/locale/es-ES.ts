@@ -71,7 +71,6 @@ const designer: PrintDesignerLocale = {
   pageTitle: position => `Página ${position}`,
   regions: REGION_NAMES,
   bandVariants: { default: 'Predeterminada', first: 'Primera página', last: 'Última página', odd: 'Páginas impares', even: 'Páginas pares' },
-  bandVariant: region => `Variante ${REGION_OF[region]}`,
   addBandVariant: 'Añadir variante',
   removeBandVariant: 'Eliminar variante',
   resizeBand: region => `Cambiar el alto ${REGION_OF[region]}`,

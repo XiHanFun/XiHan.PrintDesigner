@@ -103,8 +103,6 @@ export interface PrintDesignerTranslations {
   readonly regions: Readonly<Record<ElementRegion, string>>
   /** 页眉页脚变体的名称。 */
   readonly bandVariants: Readonly<Record<PageBandKey, string>>
-  /** 选择当前编辑的页眉或页脚变体的控件的可访问名。 */
-  readonly bandVariant: (region: 'header' | 'footer') => string
   readonly addBandVariant: string
   readonly removeBandVariant: string
   /** 拖动调整页眉或页脚高度的把手的可访问名。 */

@@ -369,7 +369,6 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   pageTitle: position => `Page ${position}`,
   regions: { header: 'Header', body: 'Body', footer: 'Footer' },
   bandVariants: { default: 'Default', first: 'First page', last: 'Last page', odd: 'Odd pages', even: 'Even pages' },
-  bandVariant: region => `${region === 'header' ? 'Header' : 'Footer'} variant`,
   addBandVariant: 'Add variant',
   removeBandVariant: 'Delete variant',
   resizeBand: region => `Resize ${region}`,

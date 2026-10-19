@@ -238,7 +238,6 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | --- | --- |
 | `pagePosition(position: number, count: number, name: string): string` | 翻页条上页码按钮的名字：含按钮上写的「第几个 / 共几个」，再加页面名称（没有名称时是 pageTitle），position 从 1 开始。按钮上看得见的字要包含在名字里。 |
 | `pageTitle(position: number): string` | 没有名称的页面模板的标题，position 从 1 开始。 |
-| `bandVariant(region: 'header' \| 'footer'): string` | 选择当前编辑的页眉或页脚变体的控件的可访问名。 |
 | `resizeBand(region: 'header' \| 'footer'): string` | 拖动调整页眉或页脚高度的把手的可访问名。 |
 | `elementLabel(type: string, name: string): string` | 画布上一个元素的可访问名：种类名加元素名称或标识。 |
 | `resizeColumn(title: string): string` | 拖动调整列宽的把手的可访问名。 |

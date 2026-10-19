@@ -63,7 +63,6 @@ const designer: PrintDesignerLocale = {
   pageTitle: position => `${position}페이지`,
   regions: REGION_NAMES,
   bandVariants: { default: '기본', first: '첫 페이지', last: '마지막 페이지', odd: '홀수 페이지', even: '짝수 페이지' },
-  bandVariant: region => `${REGION_NAMES[region]} 변형`,
   addBandVariant: '변형 추가',
   removeBandVariant: '변형 삭제',
   resizeBand: region => `${REGION_NAMES[region]} 높이 조정`,
