@@ -106,6 +106,34 @@ describe('页面结构面板', () => {
     expect(outline().selection).toEqual(['b'])
   })
 
+  it('多选与画布是同一份：整份换成树上的选中，空数组全部取消；只把新选上的第一个滚进可见区，只取消几行时不滚', async () => {
+    const reveals: string[] = []
+    const reveal = designer.revealElement.bind(designer)
+    designer.revealElement = (id: string) => {
+      reveals.push(id)
+      reveal(id)
+    }
+    const select = async (ids: string[]): Promise<readonly string[]> => {
+      emit('node-select', { ids })
+      await designer.updateComplete
+      return designer.getSelection().elements
+    }
+    expect(await select(['a'])).toEqual(['a'])
+    expect(await select(['a', 'c'])).toEqual(['a', 'c'])
+    expect(outline().selection).toEqual(['a', 'c'])
+    expect(await select(['c'])).toEqual(['c'])
+    expect(await select([])).toEqual([])
+    expect(outline().selection).toEqual([])
+    expect(reveals).toEqual(['a', 'c'])
+    expect(await select(['a'])).toEqual(['a'])
+    expect(await select(['a', 'z'])).toEqual(['z'])
+    expect([designer.activePageId, reveals]).toEqual(['p2', ['a', 'c', 'a', 'z']])
+    designer.activePageId = 'p1'
+    designer.select({ elements: ['a', 'b'] })
+    await designer.updateComplete
+    expect(outline().selection).toEqual(['a', 'b'])
+  })
+
   it('悬停一项时画布上标出它，离开时撤掉', async () => {
     const overlay = designer.querySelector<XhDesignerTransformElement>('xh-designer-transform')!
     emit('node-highlight', { id: 'a' })
