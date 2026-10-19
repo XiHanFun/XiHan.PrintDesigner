@@ -152,6 +152,7 @@ import {
   DESIGNER_HISTORY_EN_US,
   DESIGNER_SETTING_KEYS,
   DESIGNER_SHELL_COMMANDS,
+  DESIGNER_TOUR_DONE_KEY,
   designerHistoryCommands,
   designerLayoutPolicy,
   designerPanelCommands,
@@ -160,11 +161,14 @@ import {
   registerDropTarget,
   renderCommandMenu,
   resolveSettings,
+  resolveTourSteps,
   runCommand,
+  shortcutSettingsSource,
   toolbarCustomizationOf,
   toolbarDisplayOf,
   toolbarSettingsSource,
   toolbarVisibleOf,
+  tourDoneOf,
   XhDesignerFieldImportElement,
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
@@ -172,6 +176,7 @@ import {
   XhDesignerPropertiesElement,
   XhDesignerRulerElement,
   XhDesignerSettingsElement,
+  XhDesignerTourElement,
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
@@ -183,7 +188,7 @@ import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuEle
 import { createDialogService } from '@xihan-ui/web-components/services'
 import { createPrintClientStatus } from './client-status'
 import { createPrintEditor, elementRect } from './editor'
-import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout, printSelectionLayout } from './extensions'
+import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, PRINT_TOUR_STEPS, printMenuLayout, printSelectionLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { describePrintOperations, elementsLabel, identitiesIn } from './history-labels'
 import { printOutline } from './outline'
@@ -191,6 +196,7 @@ import { borderSidesEditor, createIssueText, issuesUnder, valueFormatEditor } fr
 import { pageSubject, propertySubjects, TABLE_PART_KINDS } from './property-targets'
 import { PRINT_CLIENT_STATUS_CONTROL, PRINT_SETTING_KEYS, printClientSettingsSection, printSettingsSection } from './settings'
 import { columnBoundaries, planTableCommand, tablePartAt } from './table-edit'
+import { PRINT_VERSION } from './version'
 
 /** 设计器的标签名。 */
 export const PRINT_DESIGNER_TAG = 'xh-print-designer'
@@ -543,6 +549,8 @@ interface Layers {
   readonly settings: XhDesignerSettingsElement
   /** 导入字段对话框。 */
   readonly fieldImport: XhDesignerFieldImportElement
+  /** 新手引导。 */
+  readonly tour: XhDesignerTourElement
   /** 物料面板头的命令条：导入字段。 */
   readonly paletteActions: DesignerPanelActions<PrintDesignerContext>
   /** 状态栏左段：选中的对象。 */
@@ -614,6 +622,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     settingsStorageKey: { attribute: 'settings-storage-key', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     brands: { attribute: false },
     registerBrand: { attribute: false },
+    autoTour: { converter: BOOLEAN_CONVERTER, attribute: 'auto-tour' },
   }
 
   /** 预览分页用的数据。 */
@@ -673,6 +682,11 @@ export class XhPrintDesigner extends XhReactiveElement {
   declare brands: readonly PropertySwatchOption[] | undefined
   /** 注册自定义主题色，形状与 @xihan-ui/tokens 的 registerBrand 相同；给了才许在设置里自定义主题色。 */
   declare registerBrand: ((id: string, color: string) => () => void) | undefined
+  /**
+   * 第一次在设计态铺好画布后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。
+   * 写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。
+   */
+  declare autoTour: boolean | undefined
   readonly #config = new XhConfigController(this)
   readonly #editor = createPrintEditor({
     document: createDocument(),
@@ -730,6 +744,9 @@ export class XhPrintDesigner extends XhReactiveElement {
   #settingsSectionList: readonly DesignerSettingsSection[] = []
   #settingsDialogKey = ''
   #toolbarSourceKey = ''
+  #tourStepsKey = ''
+  #helpKey = ''
+  #tourChecked = false
   /** 此刻生效的设置：各分区没写的条目取了缺省值。 */
   #resolvedSettings: DesignerSettings = {}
   /** 按 settingsPolicy 换算的布局管控，settingsPolicy 换了才重算。 */
@@ -885,6 +902,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const t = this.#translations()
     this.#editor.setExtensions(this.#model().list)
     this.#syncSettings(layers, t, changed)
+    this.#syncHelp(layers, t)
     if (['sampleData', 'extensions', 'expressionEngine', 'formatter', 'measurer', 'locale', 'timeZone'].some(name => changed.has(name)))
       this.#layoutStale = true
     if (changed.has('extensions') || changed.has('expressionEngine'))
@@ -924,6 +942,72 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#syncRuler(layers)
     if (!this.#fitIfPending())
       this.#applyViewport(false)
+    this.#checkTour()
+  }
+
+  /** 第一次在设计态铺好画布之后，看要不要自动开始新手引导；每个元素只看一次。 */
+  #checkTour(): void {
+    if (this.#tourChecked)
+      return
+    this.#tourChecked = true
+    if (this.autoTour === false || tourDoneOf(this.settings))
+      return
+    void this.updateComplete.then(() => {
+      if (this.isConnected && this.mode === 'design' && this.autoTour !== false && !tourDoneOf(this.settings))
+        this.#layers?.tour.start()
+    })
+  }
+
+  /**
+   * 新手引导的步骤与设置对话框的帮助、快捷键、关于三页，按此刻的语言与命令表现算，内容没变不重设：
+   * 帮助页是几段操作说明与「开始引导」「帮助」两颗钮；快捷键表从命令表生成，另加不是命令的几个键；
+   * 关于页是打印设计器的版本与许可证，后面接扩展给的几行。
+   */
+  #syncHelp(layers: Layers, t: PrintDesignerTranslations): void {
+    const context = this.#context()
+    const model = this.#model()
+    const steps = resolveTourSteps(model.tourSteps, context)
+    const stepsKey = JSON.stringify(steps)
+    if (stepsKey !== this.#tourStepsKey) {
+      this.#tourStepsKey = stepsKey
+      layers.tour.steps = steps
+    }
+    const help = {
+      notes: t.helpNotes,
+      actions: [{ command: DESIGNER_SHELL_COMMANDS.startTour, label: context.commands.startTour }, { command: DESIGNER_SHELL_COMMANDS.help, label: context.commands.help }],
+    }
+    const shortcuts = shortcutSettingsSource(model.commands, context, {
+      extensionCommands: (this.#extensions ?? NO_EXTENSIONS).flatMap(extension => (extension.commands ?? []).map(command => command.id)),
+      keys: [
+        { label: context.commands.delete, keys: [['Backspace']] },
+        { label: t.editTable, keys: [['Enter']] },
+        { label: t.shortcutSave, keys: [['Mod', 'S']] },
+      ],
+    })
+    const about = { product: t.label, version: PRINT_VERSION, license: 'MIT', rows: model.list.flatMap(extension => extension.about ?? []) }
+    const helpKey = JSON.stringify([help, shortcuts, about])
+    if (helpKey !== this.#helpKey) {
+      this.#helpKey = helpKey
+      layers.settings.help = help
+      layers.settings.shortcuts = shortcuts
+      layers.settings.about = about
+    }
+  }
+
+  /** 设置对话框帮助页里的钮：关上对话框，再跑那条命令（开始引导、打开帮助）。 */
+  readonly #onSettingsCommand = (event: Event): void => {
+    event.stopPropagation()
+    const { command } = (event as DesignerSettingsEventMap['settings-command']).detail
+    this.#ensureLayers().settings.open = false
+    runCommand(this.#model().commands, command, this.#context())
+  }
+
+  /** 引导收起了（走完、跳过或关上）：设置里记下 help.tourDone，之后不再自动开始。 */
+  readonly #onTourEnd = (): void => {
+    if (tourDoneOf(this.settings))
+      return
+    const key = DESIGNER_TOUR_DONE_KEY
+    this.#commitSettings({ key, value: true, settings: { ...this.settings, [key]: true } })
   }
 
   /** 执行一组操作并记为一步撤销；返回新的模板。 */
@@ -1011,6 +1095,13 @@ export class XhPrintDesigner extends XhReactiveElement {
   /** 打开设置对话框，给了分区 id 就显示那一页：基础是 general，设计器自己的「画布」是 print。 */
   openSettings(section?: string): void {
     this.#ensureLayers().settings.show(section)
+  }
+
+  /** 从头开始新手引导：通用步骤加打印与扩展的步骤；预览态或没有能走的步骤时返回 false。 */
+  startTour(): boolean {
+    if (this.mode === 'preview')
+      return false
+    return this.#ensureLayers().tour.start()
   }
 
   /** 打开导入字段对话框，给了页 id 就显示那一页：内置的是 sample 与 json-schema，扩展的字段来源用它的 id。 */
@@ -1105,7 +1196,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     return this.#designerModel
   }
 
-  /** 设计器自带的扩展：内置命令，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 */
+  /** 设计器自带的扩展：内置命令、页面结构与历史记录面板、新手引导里打印的几步，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 */
   #builtinExtension(): PrintDesignerExtension {
     if (this.#builtin !== undefined)
       return this.#builtin
@@ -1120,6 +1211,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       id: PRINT_DESIGNER_EXTENSION_ID,
       commands: this.#builtinCommands(),
       panels: [this.#outlinePanel(), this.#historyPanel()],
+      tourSteps: PRINT_TOUR_STEPS,
       editors: {
         byControl: {
           tableColumns: this.#partList('column'),
@@ -1240,6 +1332,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       openSettings: ({ designer }) => designer.openSettings(),
       helpUrl: () => PRINT_DESIGNER_HELP_URL,
       openFieldImport: ({ designer }) => designer.openFieldImport(),
+      startTour: ({ designer }) => designer.startTour(),
       fieldImportDisabled: () => !this.#fieldImportAllowed(),
       icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon },
     })
@@ -1858,6 +1951,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     settings.editors = { [PRINT_CLIENT_STATUS_CONTROL]: this.#clientStatus.editor }
     settings.frame = frame
     settings.addEventListener('settings-change', this.#onSettingsChange)
+    settings.addEventListener('settings-command', this.#onSettingsCommand)
     const fieldImport = createGeneratedElement(doc, 'xh-designer-field-import', { 'data-part': 'field-import' }) as XhDesignerFieldImportElement
     fieldImport.contents = FIELD_CONTENTS
     fieldImport.inference = { detectImages: true }
@@ -1865,7 +1959,10 @@ export class XhPrintDesigner extends XhReactiveElement {
     fieldImport.addEventListener('fields-import', this.#onFieldsImport)
     const paletteActions = createPanelActions<PrintDesignerContext>(doc, PRINT_DESIGNER_PANELS.palette)
     frame.append(paletteActions.element)
-    this.append(frame, settings, fieldImport)
+    const tour = createGeneratedElement(doc, 'xh-designer-tour', { 'data-part': 'tour' }) as XhDesignerTourElement
+    tour.frame = frame
+    tour.addEventListener('tour-end', this.#onTourEnd)
+    this.append(frame, settings, fieldImport, tour)
     const panelHost = createPanelHost<PrintDesignerContext>(frame, { commands: () => this.#model().commands })
 
     viewport.addEventListener('pointerdown', this.#onPointerDown)
@@ -1882,7 +1979,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, selectionBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, fieldImport, paletteActions, selectionStatus, clientStatus, zoomStatus }
+    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, selectionBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, fieldImport, tour, paletteActions, selectionStatus, clientStatus, zoomStatus }
     this.#regions = undefined
     panelHost.assign(this.#model().list, this.#context())
     return this.#layers
@@ -3451,6 +3548,7 @@ export function definePrintDesigner(): void {
   defineDesignerShellElement('xh-designer-properties', XhDesignerPropertiesElement)
   defineDesignerShellElement('xh-designer-settings', XhDesignerSettingsElement)
   defineDesignerShellElement('xh-designer-field-import', XhDesignerFieldImportElement)
+  defineDesignerShellElement('xh-designer-tour', XhDesignerTourElement)
   defineXhElement('xh-toolbar', XhToolbarElement)
   defineXhElement('xh-toggle-group', XhToggleGroupElement)
   defineXhElement('xh-button', XhButtonElement)

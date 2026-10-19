@@ -33,3 +33,4 @@ export { definePrintDesigner, PRINT_DESIGNER_TAG, XhPrintDesigner } from './prin
 export type { PrintDesignerEventMap, PrintDesignerMode, PrintSchemaChangeKind } from './print-designer'
 export type { PrintClientSettingsSectionOptions, PrintClientStatusControl, PrintSettingsSectionOptions, PrintVia } from './settings'
 export { PRINT_CLIENT_DOWNLOAD_URL, PRINT_CLIENT_SETTINGS_SECTION, PRINT_CLIENT_STATUS_CONTROL, PRINT_SETTING_KEYS, PRINT_SETTINGS_SECTION, printClientSettingsSection, printSettingsSection } from './settings'
+export { PRINT_VERSION } from './version'

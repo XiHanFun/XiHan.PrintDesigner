@@ -53,6 +53,7 @@ let events: string[]
 beforeEach(async () => {
   definePrintDesigner()
   designer = document.createElement('xh-print-designer')
+  designer.autoTour = false
   designer.measurer = measurer
   events = []
   for (const type of ['schema-change', 'selection-change', 'dirty-change', 'page-change', 'mode-change', 'save'])

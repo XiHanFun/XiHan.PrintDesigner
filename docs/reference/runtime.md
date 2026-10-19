@@ -232,10 +232,12 @@ print() 的选项：浏览器打印时的标题，以及交给本地打印客户
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
-| `PrintDesignerTranslations` | 接口 |  |
+| `PrintDesignerTranslations` | 接口 | 设计器的文案。 |
 | `PrintHistoryTranslations` | 接口 | 撤销历史里一步的说明：单个元素写「种类 名称」（见 elementLabel），几个元素写个数。 |
 | `PrintPreviewTranslations` | 接口 | 预览元素的文案。 |
 | `PrintTablePartKind` | 类型 | 表格编辑态里可以选中的部位。 |
+| `PrintTourStepKey` | 类型 | 新手引导里打印自己那几步的键。 |
+| `PrintTourStepTranslations` | 接口 | 新手引导一步的标题与说明。 |
 
 ## `@xihan-print/runtime/locale` 的导出
 

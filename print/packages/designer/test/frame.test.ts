@@ -34,6 +34,7 @@ beforeEach(async () => {
   definePrintDesigner()
   designer = document.createElement('xh-print-designer')
   designer.measurer = measurer
+  designer.autoTour = false
   document.body.append(designer)
   designer.schema = sample()
   await settle()
