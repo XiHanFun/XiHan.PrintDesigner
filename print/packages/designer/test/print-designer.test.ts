@@ -469,6 +469,76 @@ describe('<xh-print-designer>', () => {
     }
   })
 
+  it('物料来源：分组接在内置分组后面、每轮现取；点按（含下级）交给来源不给落点，拖到画布上带纸张坐标与所在的区；内置照旧，只读不交，来源 id 重名抛错', async () => {
+    const inserts: [string, boolean, unknown][] = []
+    let label = '我的物料'
+    const mine: PrintDesignerExtension = {
+      id: '@acme/mine',
+      paletteSources: [{
+        id: 'acme.mine',
+        groups: () => [{ id: 'acme.mine', label, items: [{ id: 'acme.stamp', label: '公章', children: [{ id: 'acme.stamp.round', label: '圆章' }] }] }],
+        insert: (item, context, at) => void inserts.push([item.id, context.designer === designer, at]),
+      }],
+    }
+    designer.extensions = [mine]
+    await designer.updateComplete
+    const palette = designer.querySelector('xh-designer-palette')!
+    await palette.updateComplete
+    expect(palette.groups!.map(group => group.id)).toEqual(['text', 'media', 'data', 'shape', 'code', 'acme.mine'])
+    label = '常用物料'
+    designer.requestUpdate()
+    await designer.updateComplete
+    expect(palette.groups!.at(-1)!.label).toBe('常用物料')
+
+    const activate = (id: string): void => void palette.dispatchEvent(new CustomEvent('item-activate', { detail: { id, payload: undefined } }))
+    const count = designer.schema.pages[0]!.elements.length
+    activate('acme.stamp')
+    activate('acme.stamp.round')
+    expect(inserts).toEqual([['acme.stamp', true, undefined], ['acme.stamp.round', true, undefined]])
+    activate('rect')
+    expect([designer.schema.pages[0]!.elements.length, inserts.length]).toEqual([count + 1, 2])
+
+    await palette.updateComplete
+    const row = (id: string): HTMLElement => palette.querySelector<HTMLElement>(`[data-id="${id}"]`)!
+    const pointer = (target: EventTarget, type: string, x: number, y: number): void => {
+      target.dispatchEvent(new PointerEvent(type, { pointerId: 1, isPrimary: true, button: 0, clientX: x, clientY: y, bubbles: true }))
+    }
+    const drag = (source: HTMLElement, x: number, y: number): void => {
+      pointer(source, 'pointerdown', 2, 2)
+      pointer(document, 'pointermove', x, y)
+      pointer(document, 'pointermove', x + 1, y)
+      pointer(document, 'pointerup', x + 1, y)
+    }
+    const surface = viewport()
+    const original = document.elementFromPoint
+    document.elementFromPoint = (() => surface) as typeof document.elementFromPoint
+    try {
+      drag(row('acme.stamp'), 300, 260)
+      const point = designer.clientToWorld(301, 260)
+      expect(inserts.at(-1)).toEqual(['acme.stamp', true, { x: point.x, y: point.y, region: 'body' }])
+      expect(designer.schema.pages[0]!.elements).toHaveLength(count + 1)
+
+      designer.readonly = true
+      await designer.updateComplete
+      activate('acme.stamp')
+      drag(row('acme.stamp'), 300, 260)
+      expect(inserts).toHaveLength(3)
+    }
+    finally {
+      document.elementFromPoint = original
+    }
+
+    let thrown: unknown
+    try {
+      designer.extensions = [mine, { id: '@acme/other', paletteSources: [{ id: 'acme.mine', groups: () => [], insert: () => {} }] }]
+    }
+    catch (error) {
+      thrown = error
+    }
+    expect(thrown).toMatchObject({ code: 'designer.extension-conflict', space: 'palette-source', key: 'acme.mine' })
+    expect(designer.extensions).toEqual([mine])
+  })
+
   it('readonly attribute 三态：写 "false" 不只读，空串只读，移除后回到不只读', async () => {
     const declared = (designer.constructor as unknown as { elementProperties: Map<string, { type?: unknown, converter?: unknown }> }).elementProperties
     expect([...declared].filter(([, options]) => options.type === Boolean).map(([name]) => name)).toEqual([])

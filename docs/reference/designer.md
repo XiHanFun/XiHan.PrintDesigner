@@ -343,7 +343,7 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
-| `createPrintDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区与设计器自己的 print、内建的 general 重名，引导步骤 id 重名或用了 shell. 前缀）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 |
+| `createPrintDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区与设计器自己的 print、内建的 general 重名，引导步骤 id 重名或用了 shell. 前缀，物料来源 id 重名）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 |
 | `PRINT_DESIGNER_EXTENSION_ID` | 常量 | 设计器自带的扩展的 id：内置命令，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 |
 | `PRINT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：打印文档站的设计器一页。 |
 | `PRINT_DESIGNER_PANELS` | 常量 | 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）时用。 |
@@ -351,12 +351,13 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | `PRINT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
 | `PrintDesignerCommand` | 类型 | 设计器的命令：工具栏按钮、右键菜单项与快捷键共用。 |
 | `PrintDesignerContext` | 接口 | 扩展装上时拿到的上下文。 |
-| `PrintDesignerExtension` | 接口 | 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、设置分区、导入器、物料项与 setup。 |
+| `PrintDesignerExtension` | 接口 | 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、设置分区、导入器、物料项、物料来源与 setup。 |
 | `PrintDesignerImporter` | 类型 | 导入器：把粘贴或拖放进来的外部内容换成一组元素；返回 undefined 即不放任何元素。 |
-| `PrintDesignerModel` | 接口 | 一组设计器扩展合出的东西：交给 core 函数与预览的列表、运行时的模型、属性编辑器表、命令表、导入器与物料项。 |
+| `PrintDesignerModel` | 接口 | 一组设计器扩展合出的东西：交给 core 函数与预览的列表、运行时的模型、属性编辑器表、命令表、导入器、物料项与物料来源。 |
 | `PrintImportFragment` | 接口 | 导入的结果：一组元素，整体挪到落点（粘贴时为视口中央）后按粘贴的规则放进当前页面模板。 |
 | `printMenuLayout` | 函数 | 右键菜单的缺省排列；选中的是一张表格时，元素菜单最前面加「编辑表格」。 |
 | `PrintMenuSubject` | 类型 | 右键菜单落在哪类对象上：画布空白处、元素，或表格编辑态里的表格部位。 |
+| `PrintPaletteDrop` | 接口 | 物料来源的条目拖到画布上放下的落点：纸张坐标（mm，以纸张左上角为原点），以及这一点落在页眉、正文还是页脚。 |
 | `PrintPaletteEntry` | 接口 | 物料面板里的一项：扩展元素的名称与图标。 |
 | `printSelectionLayout` | 函数 | 选中工具条（命令落点 selection:&lt;主体&gt;）的缺省排列：文字类元素多出字号、粗体、斜体、下划线、删除线与左中右对齐；多选多出对齐与分布；都有层级、创建副本、复制与删除。 |
 | `PrintSelectionSubject` | 类型 | 选中工具条落在哪类选中上：都是文字类元素（文本、长文本、富文本、页码）、单个别的元素，或几个元素里有别的种类。 |
