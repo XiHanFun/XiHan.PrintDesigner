@@ -110,6 +110,8 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: 'ドラッグ中にほかの要素、余白、領域の境界、ガイドにスナップし、整列線を表示します。',
   settingsShowMargins: '余白線を表示',
   settingsShowMarginsHint: 'ページの余白の内側を枠で示します。',
+  settingsRulers: 'ルーラー',
+  settingsRulersHint: 'キャンバスの上と左にミリメートル単位のルーラーを表示します。',
   settingsVia: '印刷方法',
   settingsViaHint: 'ローカルクライアントはページを直接プリンターに送り、接続できないときはブラウザーの印刷ダイアログに切り替えます。ブラウザーを選ぶと常に印刷ダイアログを開きます。',
   settingsViaOptions: { client: 'ローカルクライアント', browser: 'ブラウザー' },

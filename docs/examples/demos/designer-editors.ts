@@ -7,7 +7,7 @@
 
 // #region editor
 import type { DesignerPropertyEditor } from '@xihan-ui/designer-shell'
-import { definePrintDesigner } from '@xihan-print/designer'
+import { definePrintDesigner, PRINT_DESIGNER_PANELS } from '@xihan-print/designer'
 import { schema } from '../templates/minimal'
 
 const FONTS = ['宋体', '黑体', '楷体', '仿宋']
@@ -40,7 +40,7 @@ export function mount(host: HTMLElement): () => void {
   definePrintDesigner()
   // #region use
   const designer = document.createElement('xh-print-designer')
-  designer.panels = 'toolbar properties'
+  designer.defaultLayout = { version: 1, hidden: [PRINT_DESIGNER_PANELS.palette, PRINT_DESIGNER_PANELS.issues, PRINT_DESIGNER_PANELS.pages] }
   designer.extensions = [{ id: '@acme/print-fonts', editors: { byPath: { 'style.fontFamily': fontEditor } } }]
   designer.schema = schema
   // #endregion use

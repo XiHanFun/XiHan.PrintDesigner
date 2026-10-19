@@ -81,6 +81,17 @@ export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['panels', 'settings', 'help'],
 ]
 
+/**
+ * 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.<面板 id>）时用。
+ * pages 是画布右侧的翻页条（画布浮动件，只能显隐）。
+ */
+export const PRINT_DESIGNER_PANELS = {
+  palette: 'palette',
+  properties: 'properties',
+  issues: 'issues',
+  pages: 'pages',
+} as const
+
 /** 内置命令 help 打开的帮助页：打印文档站的设计器一页。 */
 export const PRINT_DESIGNER_HELP_URL = 'https://print.docs.xihanfun.com/guide/designer'
 

@@ -113,6 +113,8 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: 'Ao arrastar, encaixa em outros elementos, nas margens, nas bordas das regiões e nas guias, e mostra linhas de alinhamento.',
   settingsShowMargins: 'Mostrar margens',
   settingsShowMarginsHint: 'Contorna a área dentro das margens da página.',
+  settingsRulers: 'Réguas',
+  settingsRulersHint: 'Mostra as réguas em milímetros acima e à esquerda da área de desenho.',
   settingsVia: 'Imprimir com',
   settingsViaHint: 'O cliente local envia as páginas direto para a impressora e, se não estiver disponível, usa a caixa de impressão do navegador. Com “Navegador”, a caixa de impressão sempre é aberta.',
   settingsViaOptions: { client: 'Cliente local', browser: 'Navegador' },

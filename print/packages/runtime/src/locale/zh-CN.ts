@@ -110,6 +110,8 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: '拖动时吸附其它元素、页边距、区边界与参考线，并显示对齐线。',
   settingsShowMargins: '显示边距线',
   settingsShowMarginsHint: '在页面上框出页边距以内的范围。',
+  settingsRulers: '标尺',
+  settingsRulersHint: '在画布上边与左边显示毫米标尺。',
   settingsVia: '打印方式',
   settingsViaHint: '本地客户端直接把页面交给打印机，连不上时退回浏览器的打印对话框；选浏览器总是弹出打印对话框。',
   settingsViaOptions: { client: '本地客户端', browser: '浏览器' },

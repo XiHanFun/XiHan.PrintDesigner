@@ -243,7 +243,7 @@ describe('<xh-print-designer>', () => {
     expect(overlay().readonly).toBe(true)
   })
 
-  it('标尺：参考线经 guides-change 写回页面模板、可撤销，选中范围画在标尺上；panels 不含 rulers 时画布不进标尺框', async () => {
+  it('标尺：参考线经 guides-change 写回页面模板、可撤销，选中范围画在标尺上；设置里关掉标尺时画布不进标尺框', async () => {
     const ruler = designer.querySelector('xh-designer-ruler')!
     const guides = (x: number[]): CustomEvent => new CustomEvent('guides-change', { detail: { guides: { x, y: [] }, change: { type: x.length > 0 ? 'add' : 'remove', axis: 'x', index: 0 } } })
     expect([ruler.contains(viewport()), ruler.guides]).toEqual([true, { x: [], y: [] }])
@@ -256,7 +256,7 @@ describe('<xh-print-designer>', () => {
     expect(designer.schema.pages[0]!.guides).toBeUndefined()
     designer.undo()
     expect(designer.schema.pages[0]!.guides).toEqual({ x: [20], y: [] })
-    designer.panels = 'toolbar pages'
+    designer.settings = { 'print.rulers': false }
     await designer.updateComplete
     expect([ruler.hidden, ruler.contains(viewport()), viewport().isConnected]).toEqual([true, false, true])
   })
@@ -962,7 +962,7 @@ describe('<xh-print-designer>', () => {
   })
 
   it('工具栏：内置命令带图标，名字与快捷键写在按钮上，会删掉内容的命令带危险语气，共用命令取 designer-shell 的文案；工具栏与翻页条都只显示图标', async () => {
-    const bars: Record<string, string> = { toolbar: '[data-part="command-bar"] > xh-tooltip', strip: '[slot="canvas-end"]' }
+    const bars: Record<string, string> = { toolbar: '[data-part="command-bar"] > xh-tooltip', strip: '[slot="pages"]' }
     const button = (bar: string, value: string): HTMLButtonElement => designer.querySelector<HTMLButtonElement>(`${bars[bar]} button[value="${value}"]`)!
     expect(button('toolbar', 'undo').hasAttribute('data-icon')).toBe(true)
     expect([button('toolbar', 'undo').getAttribute('aria-label'), button('toolbar', 'undo').getAttribute('aria-keyshortcuts')]).toEqual(['Undo', 'Control+Z'])
@@ -975,7 +975,7 @@ describe('<xh-print-designer>', () => {
     expect(display()).toEqual(['icon', 'icon'])
   })
 
-  it('扩展面板放进外框的命名区，状态变化时刷新、panels 能开关；区名重名时抛错；去掉扩展时撤掉', async () => {
+  it('扩展面板放进外框的命名区，状态变化时刷新、布局能开关；区名重名时抛错；去掉扩展时撤掉', async () => {
     const updates: unknown[] = []
     let destroyed = 0
     const stamps: PrintDesignerExtension = {
@@ -994,15 +994,15 @@ describe('<xh-print-designer>', () => {
     const frame = designer.querySelector('xh-designer-frame')!
     const element = frame.querySelector('section[slot="acme-stamps"]')!
     expect(element).not.toBeNull()
-    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'palette', 'canvas', 'properties', 'issues', 'status', 'acme-stamps'])
+    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'palette', 'canvas', 'properties', 'issues', 'status', 'pages', 'acme-stamps'])
     expect(frame.regions!.find(region => region.name === 'properties')!.title).toBe('Properties')
     designer.select({ elements: ['a'] })
     await designer.updateComplete
     expect(updates.at(-1)).toEqual(['a'])
-    designer.panels = 'toolbar properties'
+    designer.settings = { 'layout.panels': { version: 1, hidden: ['acme-stamps', 'palette', 'issues'] } }
     await designer.updateComplete
     expect([frame.showsPanel('acme-stamps'), frame.showsPanel('properties')]).toEqual([false, true])
-    designer.panels = undefined
+    designer.settings = {}
     await designer.updateComplete
     expect(element.isConnected).toBe(true)
 
@@ -1012,7 +1012,7 @@ describe('<xh-print-designer>', () => {
     designer.extensions = []
     await designer.updateComplete
     expect([element.isConnected, destroyed]).toEqual([false, 1])
-    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'palette', 'canvas', 'properties', 'issues', 'status'])
+    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'palette', 'canvas', 'properties', 'issues', 'status', 'pages'])
   })
 
   it('选中表格后回车进入表格编辑态：点表头选中列，Esc 退出', async () => {
@@ -1045,27 +1045,24 @@ describe('<xh-print-designer>', () => {
   })
 
   it('翻页条与带区变体：新增页面切过去，变体菜单列出现有与可新增的变体', async () => {
-    const add = designer.querySelector<HTMLButtonElement>('[slot="canvas-end"] button[value="add-page"]')!
+    const add = designer.querySelector<HTMLButtonElement>('[slot="pages"] button[value="add-page"]')!
     add.click()
     expect([designer.schema.pages.length, designer.activePageId]).toEqual([2, 'page-1'])
     await designer.updateComplete
-    expect(designer.querySelector('[slot="canvas-end"] button[value="page-menu"]')!.getAttribute('aria-label')).toBe('Page 2 / 2: Page 2')
+    expect(designer.querySelector('[slot="pages"] button[value="page-menu"]')!.getAttribute('aria-label')).toBe('Page 2 / 2: Page 2')
     const values = Array.from(designer.querySelectorAll('[data-part="band-menu"][data-region="footer"] [value]'), item => item.getAttribute('value'))
     expect(values).toEqual(['show:default', 'add:first', 'add:last', 'add:odd', 'add:even'])
   })
 
-  it('外框按 panels 显示工具栏与翻页条，画布总是显示', async () => {
+  it('外框里工具栏与画布总是显示，翻页条是画布浮动件；面板都隐藏了画布照样在', async () => {
     const region = (name: string): Element | null => designer.querySelector(`[data-part="frame"] [data-part="region"][data-region="${name}"]`)
-    const strip = (): HTMLElement => designer.querySelector<HTMLElement>('[slot="canvas-end"]')!
+    const frame = designer.querySelector('xh-designer-frame')!
     expect(region('toolbar')!.contains(designer.querySelector('[data-part="command-bar"]'))).toBe(true)
     expect(region('canvas')!.contains(viewport())).toBe(true)
-    expect(strip().hidden).toBe(false)
-    designer.panels = 'pages'
+    expect(frame.showsPanel('pages')).toBe(true)
+    designer.settings = { 'layout.panels': { version: 1, hidden: ['palette', 'properties', 'issues', 'pages'] } }
     await designer.updateComplete
-    expect([region('toolbar'), strip().hidden]).toEqual([null, false])
-    designer.panels = ''
-    await designer.updateComplete
-    expect([strip().hidden, region('canvas') !== null]).toEqual([true, true])
+    expect([frame.showsPanel('pages'), region('toolbar') !== null, region('canvas')!.contains(viewport())]).toEqual([false, true, true])
   })
 
   it('切到预览态时用 <xh-print-preview> 显示当前模板，派发 mode-change；只读时不能删除', async () => {

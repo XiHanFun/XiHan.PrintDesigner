@@ -25,7 +25,7 @@
 | `translations` | — | `Partial<PrintDesignerTranslations> \| undefined` | 元素自己的文案，压在全局配置之上。 |
 | `readonly` | `readonly` | `boolean` | 只读：可以选择、浏览与预览，不能修改。attribute 三态：不写或移除为不只读，写 "false" 为不只读，其余写法为只读。 |
 | `mode` | `mode` | `PrintDesignerMode` | 设计态或预览态，缺省 design；同名 attribute。 |
-| `panels` | `panels` | `string \| undefined` | 要显示的面板，空格分隔：toolbar palette pages rulers properties issues status，pages 是画布右侧的翻页条、status 是状态栏；不写即全部显示。同名 attribute。点了面板头的关闭钮时设计器改写它并派发 panels-change。 |
+| `defaultLayout` | — | `DesignerLayout \| undefined` | 宿主的缺省面板布局：用户没存过布局（settings 里没有 layout.panels）时用它，「恢复默认布局」也回到它；写了的字段整项覆盖内置缺省。面板 id 见 PRINT_DESIGNER_PANELS。 |
 | `commandLayout` | — | `DesignerCommandLayout \| undefined` | 工具栏与右键菜单的排列：位置（toolbar、menu:blank、menu:element、menu:table）→ 若干组命令 id，内置与扩展的命令可以混排。写了某个位置就只显示列出的命令；写了没登记的命令 id 时抛 TypeError。 |
 | `settings` | — | `DesignerSettings \| undefined` | 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme、print.showGrid；没写的键取条目的缺省值。赋值即生效；用户在设置对话框里或用工具栏上的网格、吸附开关改了以后，设计器换成新的一份并派发 settings-change。 |
 | `settingsPolicy` | — | `DesignerSettingsPolicy \| undefined` | 宿主对设置条目的管控：键是条目键或分区 id，hidden 不显示，locked 只读、说明换成「由所在系统管理」。 |
@@ -95,7 +95,6 @@
 | `import-error` | `{ importer: string, source: DesignerImportSource, error: unknown }` | 导入器没能导入粘贴或拖放进来的内容：它抛了错，或给出的元素没有通过校验；importer 是导入器的 id。 |
 | `page-change` | `{ pageId: string }` | 当前页面模板变了。 |
 | `mode-change` | `{ mode: PrintDesignerMode }` | 在设计态与预览态之间切换了。 |
-| `panels-change` | `{ panels: string }` | 点了面板头的关闭钮，设计器已收起这块面板：panels 是收起之后要显示的面板（空格分隔），设计器的 panels 已换成它。 |
 | `settings-change` | `{ key: string, value: JsonValue \| undefined, settings: DesignerSettings }` | 改了一条设置（设置对话框里，或工具栏上的网格、吸附开关）：设计器已换成新的 settings 并生效；value 为 undefined 表示删掉这个键、回到缺省值。宿主存起来，下次赋回 settings。 |
 | `settings-storage-error` | `VisualEnvironmentStorageError` | 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 |
 
@@ -189,6 +188,8 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `settingsSnapHint` | `string` |  |
 | `settingsShowMargins` | `string` |  |
 | `settingsShowMarginsHint` | `string` |  |
+| `settingsRulers` | `string` | 设置「打印」分区：标尺开关。 |
+| `settingsRulersHint` | `string` |  |
 | `settingsVia` | `string` | 「打印」页里打印方式一项：经本地打印客户端，还是浏览器的打印对话框。 |
 | `settingsViaHint` | `string` |  |
 | `settingsViaOptions` | `Readonly<Record<'client' \| 'browser', string>>` |  |
@@ -332,6 +333,7 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | `createPrintDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区与设计器自己的 print、内建的 general 重名）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 |
 | `PRINT_DESIGNER_EXTENSION_ID` | 常量 | 设计器自带的扩展的 id：内置命令，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 |
 | `PRINT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：打印文档站的设计器一页。 |
+| `PRINT_DESIGNER_PANELS` | 常量 | 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）时用。 |
 | `PRINT_PAGE_STRIP_LAYOUT` | 常量 | 画布右侧翻页条上的命令，排列固定：上一页、页码、下一页，新增、复制、删除页面。 |
 | `PRINT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
 | `PrintDesignerCommand` | 类型 | 设计器的命令：工具栏按钮、右键菜单项与快捷键共用。 |
@@ -369,6 +371,6 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | `printClientSettingsSection` | 函数 | 「本地客户端」分区：一条连接状态，按 PRINT_CLIENT_STATUS_CONTROL 铺。 |
 | `PrintClientSettingsSectionOptions` | 接口 | printClientSettingsSection 的选项。 |
 | `PrintClientStatusControl` | 接口 | 连接状态那一条的编辑方式：带着「下载客户端」链接的地址。 |
-| `printSettingsSection` | 函数 | 「打印」分区：打印方式缺省经本地客户端；网格间距缺省 1 mm，吸附对齐与边距线缺省打开，网格缺省不显示。 |
+| `printSettingsSection` | 函数 | 「打印」分区：打印方式缺省经本地客户端；网格间距缺省 1 mm，吸附对齐、边距线与标尺缺省打开，网格缺省不显示。 |
 | `PrintSettingsSectionOptions` | 接口 | printSettingsSection 的选项。 |
 | `PrintVia` | 类型 | 打印方式：经本地打印客户端，或浏览器的打印对话框。 |

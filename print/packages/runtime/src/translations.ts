@@ -111,6 +111,9 @@ export interface PrintDesignerTranslations {
   readonly settingsSnapHint: string
   readonly settingsShowMargins: string
   readonly settingsShowMarginsHint: string
+  /** 设置「打印」分区：标尺开关。 */
+  readonly settingsRulers: string
+  readonly settingsRulersHint: string
   /** 「打印」页里打印方式一项：经本地打印客户端，还是浏览器的打印对话框。 */
   readonly settingsVia: string
   readonly settingsViaHint: string

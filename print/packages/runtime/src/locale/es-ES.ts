@@ -121,6 +121,8 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: 'Al arrastrar, se ajusta a otros elementos, los márgenes, los bordes de las regiones y las guías, y muestra líneas de alineación.',
   settingsShowMargins: 'Mostrar márgenes',
   settingsShowMarginsHint: 'Enmarca el área dentro de los márgenes de la página.',
+  settingsRulers: 'Reglas',
+  settingsRulersHint: 'Muestra las reglas en milímetros arriba y a la izquierda del lienzo.',
   settingsVia: 'Imprimir con',
   settingsViaHint: 'El cliente local envía las páginas directamente a la impresora y, si no está disponible, recurre al cuadro de impresión del navegador. Con «Navegador» siempre se abre el cuadro de impresión.',
   settingsViaOptions: { client: 'Cliente local', browser: 'Navegador' },

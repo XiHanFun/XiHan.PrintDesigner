@@ -110,6 +110,8 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: 'Beim Ziehen an anderen Elementen, den Seitenrändern, Bereichsgrenzen und Hilfslinien einrasten und Ausrichtungslinien anzeigen.',
   settingsShowMargins: 'Ränder anzeigen',
   settingsShowMarginsHint: 'Den Bereich innerhalb der Seitenränder umranden.',
+  settingsRulers: 'Lineale',
+  settingsRulersHint: 'Millimeterlineale oben und links an der Arbeitsfläche anzeigen.',
   settingsVia: 'Drucken über',
   settingsViaHint: 'Der lokale Client schickt die Seiten direkt an den Drucker und weicht auf den Druckdialog des Browsers aus, wenn er nicht erreichbar ist. Mit „Browser“ öffnet sich immer der Druckdialog.',
   settingsViaOptions: { client: 'Lokaler Client', browser: 'Browser' },

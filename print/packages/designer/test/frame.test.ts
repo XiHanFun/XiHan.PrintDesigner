@@ -74,22 +74,31 @@ describe('外框卡片', () => {
     expect(parts.map(element => element.headless)).toEqual([true, true, true])
   })
 
-  it('点面板头的关闭钮收起这块面板：panels 换成外框剩下的区，设计器自己的标尺照原样，派发 panels-change', async () => {
+  it('点面板头的关闭钮隐藏这块面板：整份布局写进设置的 layout.panels 并派发 settings-change，标尺照原样', async () => {
     const seen: string[] = []
-    designer.addEventListener('panels-change', event => seen.push((event as CustomEvent<{ panels: string }>).detail.panels))
+    designer.addEventListener('settings-change', event => seen.push((event as CustomEvent<{ key: string }>).detail.key))
     frame().querySelector<HTMLButtonElement>('[data-region="palette"] [data-part="panel-close"]')!.click()
     await settle()
-    expect(seen).toEqual([designer.panels])
-    const shown = designer.panels!.split(' ')
-    expect(shown).toEqual(expect.arrayContaining(['toolbar', 'pages', 'properties', 'issues', 'rulers']))
-    expect([shown.includes('palette'), frame().showsPanel('palette'), frame().showsPanel('properties')]).toEqual([false, false, true])
+    expect(seen).toEqual(['layout.panels'])
+    const layout = designer.settings!['layout.panels'] as { readonly hidden: readonly string[] }
+    expect([layout.hidden, frame().showsPanel('palette'), frame().showsPanel('properties')]).toEqual([['palette'], false, true])
+    expect(designer.querySelector<HTMLElement>('xh-designer-ruler')!.hidden).toBe(false)
 
-    designer.panels = 'toolbar properties issues'
+    designer.settings = { 'layout.panels': { version: 1, hidden: ['palette', 'issues'] } }
     await settle()
-    frame().querySelector<HTMLButtonElement>('[data-region="issues"] [data-part="panel-close"]')!.click()
+    expect([frame().showsPanel('palette'), frame().showsPanel('issues'), frame().showsPanel('properties')]).toEqual([false, false, true])
+  })
+
+  it('宿主给 defaultLayout：没存过布局时用它；settingsPolicy 的 layout.panels.<面板 id> 藏起一块面板', async () => {
+    designer.defaultLayout = { version: 1, hidden: ['issues'] }
     await settle()
-    expect(designer.panels).toBe('toolbar properties')
-    expect(designer.querySelector<HTMLElement>('xh-designer-ruler')!.hidden).toBe(true)
+    expect([frame().showsPanel('issues'), frame().showsPanel('palette')]).toEqual([false, true])
+    designer.settings = { 'layout.panels': { version: 1, hidden: [] } }
+    await settle()
+    expect(frame().showsPanel('issues')).toBe(true)
+    designer.settingsPolicy = { 'layout.panels.palette': 'hidden' }
+    await settle()
+    expect([frame().showsPanel('palette'), frame().panelEntries().map(entry => entry.name).includes('palette')]).toEqual([false, false])
   })
 })
 
@@ -108,7 +117,7 @@ describe('问题计数', () => {
 
 describe('翻页条', () => {
   function strip(): HTMLElement {
-    return designer.querySelector<HTMLElement>('[slot="canvas-end"]')!
+    return designer.querySelector<HTMLElement>('[slot="pages"]')!
   }
 
   function button(value: string): HTMLButtonElement {
@@ -173,19 +182,21 @@ describe('翻页条', () => {
     expect(['previous-page', 'next-page', 'add-page', 'duplicate-page', 'remove-page'].map(value => button(value).disabled)).toEqual([true, false, true, true, true])
   })
 
-  it('预览态与 panels 不含 pages 时翻页条收起；收起面板时 pages 照原样留着', async () => {
+  it('翻页条是画布右侧中间的浮动件：预览态不登记它，布局里隐藏 pages 就收起，隐藏别的面板不影响它', async () => {
+    expect(frame().regions!.find(region => region.name === 'pages')).toMatchObject({ position: 'overlay', anchor: 'end', label: 'Page templates' })
+    expect(frame().showsPanel('pages')).toBe(true)
     designer.mode = 'preview'
     await settle()
-    expect(strip().hidden).toBe(true)
+    expect([frame().regions!.some(region => region.name === 'pages'), frame().showsPanel('pages')]).toEqual([false, false])
     designer.mode = 'design'
-    designer.panels = 'toolbar palette properties issues'
+    designer.settings = { 'layout.panels': { version: 1, hidden: ['pages'] } }
     await settle()
-    expect(strip().hidden).toBe(true)
-    designer.panels = undefined
+    expect(frame().showsPanel('pages')).toBe(false)
+    designer.settings = {}
     await settle()
     frame().querySelector<HTMLButtonElement>('[data-region="palette"] [data-part="panel-close"]')!.click()
     await settle()
-    expect([designer.panels!.split(' ').includes('pages'), strip().hidden]).toEqual([true, false])
+    expect([frame().showsPanel('pages'), frame().showsPanel('palette')]).toEqual([true, false])
   })
 })
 
@@ -211,26 +222,26 @@ describe('工具栏末组', () => {
     }
   })
 
-  it('「面板」点开一张锚在按钮上的菜单，列出物料、属性与问题，勾选的显示；点一项开关它并派发 panels-change', async () => {
+  it('「面板」点开一张锚在按钮上的菜单，列出物料、属性、问题与翻页条，勾选的显示；点一项开关它，布局写进设置', async () => {
     const button = toolbarItem('panels')
     button.click()
     await settle()
     type MenuHost = HTMLElement & { open?: boolean, anchor?: HTMLElement | null, collection?: readonly { value: string }[], checkboxValue?: readonly string[] }
     const menu = designer.querySelector<MenuHost>('[data-part="command-bar"] xh-menu')!
     expect([menu.open, menu.anchor]).toEqual([true, button])
-    expect(menu.collection!.map(item => item.value)).toEqual(['item:palette', 'item:properties', 'item:issues'])
-    expect(menu.checkboxValue).toEqual(['item:palette', 'item:properties', 'item:issues'])
+    const panels = ['item:palette', 'item:properties', 'item:issues', 'item:pages']
+    expect(menu.collection!.map(item => item.value).slice(0, 4)).toEqual(panels)
+    expect(menu.checkboxValue).toEqual(panels)
     const seen: string[] = []
-    designer.addEventListener('panels-change', event => seen.push((event as CustomEvent<{ panels: string }>).detail.panels))
+    designer.addEventListener('settings-change', event => seen.push((event as CustomEvent<{ key: string }>).detail.key))
     document.querySelector<HTMLElement>('[data-scope="menu"][data-part="item"][data-value="item:palette"]')!.click()
     await settle()
-    expect(seen).toEqual([designer.panels])
-    expect(designer.panels!.split(' ')).toEqual(expect.arrayContaining(['pages', 'rulers']))
-    expect([designer.panels!.split(' ').includes('palette'), frame().showsPanel('palette')]).toEqual([false, false])
-    expect(menu.checkboxValue).toEqual(['item:properties', 'item:issues'])
+    expect(seen).toEqual(['layout.panels'])
+    expect([(designer.settings!['layout.panels'] as { readonly hidden: readonly string[] }).hidden, frame().showsPanel('palette')]).toEqual([['palette'], false])
+    expect(menu.checkboxValue).toEqual(panels.slice(1))
     document.querySelector<HTMLElement>('[data-scope="menu"][data-part="item"][data-value="item:palette"]')!.click()
     await settle()
-    expect([designer.panels!.split(' ').includes('palette'), frame().showsPanel('palette')]).toEqual([true, true])
+    expect(frame().showsPanel('palette')).toBe(true)
   })
 })
 
@@ -303,14 +314,14 @@ describe('状态栏', () => {
     expect([second.listeners, status().element.hidden]).toEqual([0, true])
   })
 
-  it('设置里关掉状态栏时外框收起状态栏，收起别的面板时 status 照原样留着，再打开状态栏又回来', async () => {
+  it('设置里关掉状态栏时外框不登记状态栏，隐藏别的面板不影响它，再打开状态栏又回来', async () => {
     designer.settings = { 'general.statusBar': false }
     await settle()
-    expect(frame().showsPanel('status')).toBe(false)
+    expect([frame().showsPanel('status'), frame().regions!.some(region => region.name === 'status')]).toEqual([false, false])
     frame().querySelector<HTMLButtonElement>('[data-region="palette"] [data-part="panel-close"]')!.click()
     await settle()
-    expect(designer.panels!.split(' ')).toEqual(expect.arrayContaining(['status', 'pages', 'rulers']))
-    designer.settings = {}
+    expect([designer.settings!['general.statusBar'], frame().showsPanel('status')]).toEqual([false, false])
+    designer.settings = { 'layout.panels': designer.settings!['layout.panels']! }
     await settle()
     expect([frame().showsPanel('status'), frame().showsPanel('palette')]).toEqual([true, false])
   })

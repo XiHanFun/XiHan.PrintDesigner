@@ -25,6 +25,7 @@ export const PRINT_SETTING_KEYS = {
   gridSize: 'print.gridSize',
   snap: 'print.snap',
   showMargins: 'print.showMargins',
+  rulers: 'print.rulers',
 } as const
 
 /** 「本地客户端」分区里连接状态那一条的编辑方式种类：设计器自己铺状态、「测试连接」钮与下载链接，这一条不存值。 */
@@ -53,7 +54,7 @@ export interface PrintSettingsSectionOptions {
 
 const VIAS: readonly PrintVia[] = ['client', 'browser']
 
-/** 「打印」分区：打印方式缺省经本地客户端；网格间距缺省 1 mm，吸附对齐与边距线缺省打开，网格缺省不显示。 */
+/** 「打印」分区：打印方式缺省经本地客户端；网格间距缺省 1 mm，吸附对齐、边距线与标尺缺省打开，网格缺省不显示。 */
 export function printSettingsSection(t: PrintDesignerTranslations, options: PrintSettingsSectionOptions = {}): DesignerSettingsSection {
   const via: DesignerSettingItem[] = options.client === true
     ? [{
@@ -74,6 +75,7 @@ export function printSettingsSection(t: PrintDesignerTranslations, options: Prin
       { path: ['gridSize'], label: t.settingsGridSize, control: { kind: 'number', min: 0, step: 0.5, unit: 'mm' }, default: 1, meta: { description: t.settingsGridSizeHint } },
       { path: ['snap'], label: t.settingsSnap, control: { kind: 'boolean' }, default: true, meta: { description: t.settingsSnapHint } },
       { path: ['showMargins'], label: t.settingsShowMargins, control: { kind: 'boolean' }, default: true, meta: { description: t.settingsShowMarginsHint } },
+      { path: ['rulers'], label: t.settingsRulers, control: { kind: 'boolean' }, default: true, meta: { description: t.settingsRulersHint } },
     ],
   }
 }
