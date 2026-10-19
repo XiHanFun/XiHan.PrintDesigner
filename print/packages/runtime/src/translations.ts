@@ -26,7 +26,15 @@ export const DEFAULT_PRINT_PREVIEW_TRANSLATIONS: PrintPreviewTranslations = {
 /** 表格编辑态里可以选中的部位。 */
 export type PrintTablePartKind = 'column' | 'header' | 'body' | 'footerRow' | 'footerCell'
 
-/** 设计器的文案。 */
+/** 新手引导里打印自己那几步的键。 */
+export type PrintTourStepKey = 'bands' | 'pages' | 'fields' | 'print'
+
+/** 新手引导一步的标题与说明。 */
+export interface PrintTourStepTranslations {
+  readonly title: string
+  readonly description: string
+}
+
 /** 撤销历史里一步的说明：单个元素写「种类 名称」（见 elementLabel），几个元素写个数。 */
 export interface PrintHistoryTranslations {
   readonly addElement: (label: string) => string
@@ -62,6 +70,7 @@ export interface PrintHistoryTranslations {
   readonly editDocument: string
 }
 
+/** 设计器的文案。 */
 export interface PrintDesignerTranslations {
   /** 设计器的可访问名。 */
   readonly label: string
@@ -151,6 +160,12 @@ export interface PrintDesignerTranslations {
   /** 设置「打印」分区：标尺开关。 */
   readonly settingsRulers: string
   readonly settingsRulersHint: string
+  /** 新手引导里打印自己的几步：页眉页脚、页面模板、字段物料与打印。 */
+  readonly tourSteps: Readonly<Record<PrintTourStepKey, PrintTourStepTranslations>>
+  /** 设置对话框「帮助」页的几段操作说明。 */
+  readonly helpNotes: readonly string[]
+  /** 快捷键表里 Ctrl / ⌘ + S 那一行：派发 save，请宿主保存。 */
+  readonly shortcutSave: string
   /** 「打印」页里打印方式一项：经本地打印客户端，还是浏览器的打印对话框。 */
   readonly settingsVia: string
   readonly settingsViaHint: string

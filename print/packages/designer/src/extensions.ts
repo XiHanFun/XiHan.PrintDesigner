@@ -6,16 +6,16 @@
 // 设计器层的扩展：在运行时层之上加属性编辑器、命令、面板、导入器、物料项与装上时的回调；设计器自带的编辑器与命令也写成一个扩展。
 
 import type { ElementRegion, PrintElement } from '@xihan-print/core'
-import type { PrintDesignerTranslations, PrintRuntimeExtension, PrintRuntimeModel } from '@xihan-print/runtime'
+import type { PrintDesignerTranslations, PrintRuntimeExtension, PrintRuntimeModel, PrintTourStepKey } from '@xihan-print/runtime'
 import type { IconRecord } from '@xihan-ui/core'
 import type { DesignerCommand, DesignerImporter } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
-import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
+import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, DesignerTourStep, DesignerTourTarget, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
 import type { XhPrintDesigner } from './print-designer'
 import { ELEMENT_CATEGORIES } from '@xihan-print/core'
 import { createPrintRuntimeModel } from '@xihan-print/runtime'
 import { DesignerExtensionError, extensionCommands, extensionEditors } from '@xihan-ui/designer-kit'
-import { collectSettingsSections, designerPanelCommands } from '@xihan-ui/designer-shell'
+import { collectSettingsSections, collectTourSteps, designerPanelCommands } from '@xihan-ui/designer-shell'
 import { PRINT_CLIENT_SETTINGS_SECTION, PRINT_SETTINGS_SECTION } from './settings'
 import { TABLE_COMMANDS } from './table-edit'
 
@@ -56,7 +56,7 @@ export interface PrintPaletteEntry {
 }
 
 /** 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、设置分区、导入器、物料项与 setup。 */
-export interface PrintDesignerExtension extends PrintRuntimeExtension, Pick<DesignerShellExtension<PrintDesignerContext, DesignerPropertyEditor>, 'editors' | 'commands' | 'panels' | 'settings' | 'fieldSources' | 'setup'> {
+export interface PrintDesignerExtension extends PrintRuntimeExtension, Pick<DesignerShellExtension<PrintDesignerContext, DesignerPropertyEditor>, 'editors' | 'commands' | 'panels' | 'settings' | 'fieldSources' | 'tourSteps' | 'about' | 'setup'> {
   /** 导入器：粘贴与拖放共用，按扩展顺序问 accepts，第一个接下的导入；id 不能与别的导入器重名。 */
   readonly importers?: readonly PrintDesignerImporter[]
   /** 本扩展登记的元素的物料项，键是元素类型；只能给本扩展 elements 里的类型。 */
@@ -153,9 +153,29 @@ export interface PrintDesignerModel {
   readonly categories: ReadonlyMap<string, string>
   /** 各扩展登记的设置分区，按扩展顺序。 */
   readonly settings: readonly DesignerSettingsSection[]
+  /** 新手引导里设计器与各扩展的步骤，按登记顺序；designer-shell 的通用步骤由零件自带。 */
+  readonly tourSteps: readonly DesignerTourStep<PrintDesignerContext>[]
 }
 
-/** 合出设计器用的模型；任何一处重名（含设置分区与设计器自己的 print、内建的 general 重名）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 */
+function tourStep(key: PrintTourStepKey, target: DesignerTourTarget, order: number): DesignerTourStep<PrintDesignerContext> {
+  return {
+    id: `print.${key}`,
+    target,
+    order,
+    title: ({ translations }) => translations.tourSteps[key].title,
+    description: ({ translations }) => translations.tourSteps[key].description,
+  }
+}
+
+/** 新手引导里打印自己的几步，排在通用步骤之后：页眉页脚、页面模板、字段物料与打印。目标看不见的那步由零件跳过。 */
+export const PRINT_TOUR_STEPS: readonly DesignerTourStep<PrintDesignerContext>[] = [
+  tourStep('bands', { selector: '[data-part="band-menu"][data-region="header"]' }, 100),
+  tourStep('pages', { panel: PRINT_DESIGNER_PANELS.pages }, 110),
+  tourStep('fields', { panel: PRINT_DESIGNER_PANELS.palette }, 120),
+  tourStep('print', { command: 'print' }, 130),
+]
+
+/** 合出设计器用的模型；任何一处重名（含设置分区与设计器自己的 print、内建的 general 重名，引导步骤 id 重名或用了 shell. 前缀）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 */
 export function createPrintDesignerModel(builtin: PrintDesignerExtension, extensions: readonly PrintDesignerExtension[]): PrintDesignerModel {
   const list = [builtin, ...extensions]
   const runtime = createPrintRuntimeModel(list)
@@ -181,7 +201,8 @@ export function createPrintDesignerModel(builtin: PrintDesignerExtension, extens
   // 设计器自己的「打印」「本地客户端」两个分区占着 print 与 printClient，扩展的分区与它们、与内建的 general 或彼此重名都抛错
   const own = [PRINT_SETTINGS_SECTION, PRINT_CLIENT_SETTINGS_SECTION].map(id => ({ id, label: id, items: [] }))
   const settings = collectSettingsSections([{ id: builtin.id, settings: own }, ...extensions]).slice(own.length)
-  return { list, runtime, editors: extensionEditors<DesignerPropertyEditor>(undefined, all), commands: withPanelCommands(extensionCommands(all), builtin, extensions), importers: all.flatMap(extension => extension.importers ?? []), palette, categories, settings }
+  const tourSteps = collectTourSteps<PrintDesignerContext>([builtin, ...extensions])
+  return { list, runtime, editors: extensionEditors<DesignerPropertyEditor>(undefined, all), commands: withPanelCommands(extensionCommands(all), builtin, extensions), importers: all.flatMap(extension => extension.importers ?? []), palette, categories, settings, tourSteps }
 }
 
 /** 命令表并上扩展面板的开关命令 panel:<区名>；扩展自己登记了同名命令时抛 DesignerExtensionError。 */

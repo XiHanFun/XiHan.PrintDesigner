@@ -33,6 +33,7 @@
 | `settingsStorageKey` | `settings-storage-key` | `string \| undefined` | 设置存在根所在窗口 localStorage 的哪个键下：给了，连上文档时若没赋 settings 就从这里读，用户改了设置就写回去，标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。 |
 | `brands` | — | `readonly PropertySwatchOption[] \| undefined` | 设置里主题色的预设：value 是品牌 id（写成设计器根上的 data-brand），color 是色板格子的颜色。不给且没给 registerBrand 时没有主题色这一项。 |
 | `registerBrand` | — | `((id: string, color: string) => () => void) \| undefined` | 注册自定义主题色，形状与 @xihan-ui/tokens 的 registerBrand 相同；给了才许在设置里自定义主题色。 |
+| `autoTour` | `auto-tour` | `boolean \| undefined` | 第一次在设计态铺好画布后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。 |
 
 ### 存取器
 
@@ -65,6 +66,7 @@
 | `distribute(axis: DistributeAxis): void` | 等距分布选中的元素；少于三个或只读时什么都不做。 |
 | `reorder(target: ReorderTarget): void` | 调整选中元素的层级。 |
 | `openSettings(section?: string): void` | 打开设置对话框，给了分区 id 就显示那一页：基础是 general，设计器自己的「画布」是 print。 |
+| `startTour(): boolean` | 从头开始新手引导：通用步骤加打印与扩展的步骤；预览态或没有能走的步骤时返回 false。 |
 | `openFieldImport(source?: string): void` | 打开导入字段对话框，给了页 id 就显示那一页：内置的是 sample 与 json-schema，扩展的字段来源用它的 id。 |
 | `validate(): ValidationIssue[]` | 按当前登记表与表达式引擎校验模板。 |
 | `getViewport(): Viewport` | 视口：屏幕坐标 = 纸张坐标（mm）× zoom × 96 / 25.4 + (x, y)；zoom 为 1 时是实际尺寸。 |
@@ -138,6 +140,8 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 
 ### PrintDesignerTranslations {#printdesignertranslations}
 
+设计器的文案。
+
 文案键是 `xh-print-designer`，中文在 `@xihan-print/runtime/locale` 的 `printZhCN` 里。
 
 | 属性 | 类型 | 说明 |
@@ -193,6 +197,9 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `settingsShowMarginsHint` | `string` |  |
 | `settingsRulers` | `string` | 设置「打印」分区：标尺开关。 |
 | `settingsRulersHint` | `string` |  |
+| `tourSteps` | `Readonly<Record<PrintTourStepKey, PrintTourStepTranslations>>` | 新手引导里打印自己的几步：页眉页脚、页面模板、字段物料与打印。 |
+| `helpNotes` | `readonly string[]` | 设置对话框「帮助」页的几段操作说明。 |
+| `shortcutSave` | `string` | 快捷键表里 Ctrl / ⌘ + S 那一行：派发 save，请宿主保存。 |
 | `settingsVia` | `string` | 「打印」页里打印方式一项：经本地打印客户端，还是浏览器的打印对话框。 |
 | `settingsViaHint` | `string` |  |
 | `settingsViaOptions` | `Readonly<Record<'client' \| 'browser', string>>` |  |
@@ -334,7 +341,7 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
-| `createPrintDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区与设计器自己的 print、内建的 general 重名）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 |
+| `createPrintDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区与设计器自己的 print、内建的 general 重名，引导步骤 id 重名或用了 shell. 前缀）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 |
 | `PRINT_DESIGNER_EXTENSION_ID` | 常量 | 设计器自带的扩展的 id：内置命令，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 |
 | `PRINT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：打印文档站的设计器一页。 |
 | `PRINT_DESIGNER_PANELS` | 常量 | 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.&lt;面板 id&gt;）时用。 |
@@ -378,3 +385,9 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | `printSettingsSection` | 函数 | 「打印」分区：打印方式缺省经本地客户端；网格间距缺省 1 mm，吸附对齐、边距线与标尺缺省打开，网格缺省不显示。 |
 | `PrintSettingsSectionOptions` | 接口 | printSettingsSection 的选项。 |
 | `PrintVia` | 类型 | 打印方式：经本地打印客户端，或浏览器的打印对话框。 |
+
+### version
+
+| 名称 | 种类 | 说明 |
+| --- | --- | --- |
+| `PRINT_VERSION` | 常量 | @xihan-print/designer 的版本号。 |

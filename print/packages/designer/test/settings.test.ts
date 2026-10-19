@@ -36,6 +36,7 @@ const mounted: XhPrintDesigner[] = []
 async function mount(prepare?: (designer: XhPrintDesigner) => void): Promise<XhPrintDesigner> {
   definePrintDesigner()
   const designer = document.createElement('xh-print-designer')
+  designer.autoTour = false
   designer.measurer = measurer
   prepare?.(designer)
   document.body.append(designer)
@@ -80,7 +81,7 @@ describe('设置', () => {
     const designer = await mount()
     designer.openSettings(PRINT_SETTINGS_SECTION)
     await settle(designer)
-    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'print'])
+    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'print', 'help', 'shortcuts', 'about'])
     expect(Object.values(PRINT_SETTING_KEYS).map(key => row(key) !== null)).toEqual([false, true, true, true, true, true])
     expect(row('general.theme')).not.toBeNull()
     expect([PRINT_SETTINGS_SECTION, Object.values(PRINT_SETTING_KEYS).every(key => key.startsWith(`${PRINT_SETTINGS_SECTION}.`))]).toEqual(['print', true])
@@ -92,7 +93,7 @@ describe('设置', () => {
     })
     designer.openSettings()
     await settle(designer)
-    expect(pages()).toEqual(['print'])
+    expect(pages()).toEqual(['print', 'help', 'shortcuts', 'about'])
     expect(row('print.snap')!.querySelector('xh-field')!.hasAttribute('read-only')).toBe(true)
   })
 
@@ -239,7 +240,7 @@ describe('设置', () => {
     const designer = await mount(element => (element.extensions = [{ id: 'acme', settings: [section] }]))
     designer.openSettings('acme')
     await settle(designer)
-    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'print', 'acme'])
+    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'print', 'acme', 'help', 'shortcuts', 'about'])
     expect(row('acme.token')!.querySelector('xh-password-input')).not.toBeNull()
     const before = designer.extensions
     for (const id of ['print', PRINT_CLIENT_SETTINGS_SECTION, 'general']) {
@@ -292,7 +293,7 @@ describe('本地客户端', () => {
     const designer = await mount(element => (element.printClient = client))
     designer.openSettings(PRINT_CLIENT_SETTINGS_SECTION)
     await settle(designer)
-    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'print', 'printClient'])
+    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'print', 'printClient', 'help', 'shortcuts', 'about'])
     const via = row(PRINT_SETTING_KEYS.via)!
     expect([via.parentElement!.firstElementChild === via, via.querySelector('[aria-pressed="true"], [aria-checked="true"], [data-state="on"]')?.textContent?.trim()]).toEqual([true, 'Local client'])
     expect(status()).toEqual({ state: 'Not connected', download: true, href: PRINT_CLIENT_DOWNLOAD_URL })

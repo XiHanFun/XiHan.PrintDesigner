@@ -38,6 +38,7 @@ let designer: XhPrintDesigner
 beforeEach(async () => {
   definePrintDesigner()
   designer = document.createElement('xh-print-designer')
+  designer.autoTour = false
   designer.measurer = measurer
   document.body.append(designer)
   designer.schema = sample()
