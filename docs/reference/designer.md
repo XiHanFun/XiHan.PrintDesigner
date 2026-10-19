@@ -202,7 +202,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `statusClient` | `string` | 状态栏右段打印客户端一项的标签。 |
 | `statusClientStates` | `Readonly<Record<PrintClientState, string>>` | 打印客户端连接状态的说法。 |
 | `insertToolbar` | `string` | 顶栏插入钮那一条工具栏的名字。 |
-| `formatToolbar` | `string` | 选中元素上方浮着的格式工具条的名字。 |
+| `selectionToolbar` | `string` | 选中元素后浮在选中框上方的选中工具条的名字。 |
 | `alignTextLeft` | `string` |  |
 | `alignTextCenter` | `string` |  |
 | `alignTextRight` | `string` |  |
@@ -229,7 +229,6 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `elementLabel(type: string, name: string): string` | 画布上一个元素的可访问名：种类名加元素名称或标识。 |
 | `resizeColumn(title: string): string` | 拖动调整列宽的把手的可访问名。 |
 | `newColumnTitle(position: number): string` | 新插入的列的标题，position 从 1 开始。 |
-| `measure(width: string, height: string): string` | 拖动元素时显示的尺寸，入参是格式化后的宽与高（mm）。 |
 | `statusElements(count: number): string` | 状态栏左段没有选中时的值：当前页面模板上可见的元素个数。 |
 | `statusGeometry(x: string, y: string, width: string, height: string): string` | 状态栏左段选中一个元素时的值：入参是格式化后的位置与尺寸（mm）。 |
 | `insertElement(label: string): string` | 顶栏插入钮的名字，label 是元素种类的名称。 |
@@ -333,7 +332,6 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | `createPrintDesignerModel` | 函数 | 合出设计器用的模型；任何一处重名（含设置分区与设计器自己的 print、内建的 general 重名）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。 |
 | `PRINT_DESIGNER_EXTENSION_ID` | 常量 | 设计器自带的扩展的 id：内置命令，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 |
 | `PRINT_DESIGNER_HELP_URL` | 常量 | 内置命令 help 打开的帮助页：打印文档站的设计器一页。 |
-| `PRINT_FORMAT_LAYOUT` | 常量 | 选中文字类元素时浮在选中框上方的格式工具条，排列固定：字号，粗体、斜体、下划线、删除线，左中右对齐。 |
 | `PRINT_PAGE_STRIP_LAYOUT` | 常量 | 画布右侧翻页条上的命令，排列固定：上一页、页码、下一页，新增、复制、删除页面。 |
 | `PRINT_TOOLBAR_LAYOUT` | 常量 | 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。 |
 | `PrintDesignerCommand` | 类型 | 设计器的命令：工具栏按钮、右键菜单项与快捷键共用。 |
@@ -345,6 +343,8 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | `printMenuLayout` | 函数 | 右键菜单的缺省排列；选中的是一张表格时，元素菜单最前面加「编辑表格」。 |
 | `PrintMenuSubject` | 类型 | 右键菜单落在哪类对象上：画布空白处、元素，或表格编辑态里的表格部位。 |
 | `PrintPaletteEntry` | 接口 | 物料面板里的一项：扩展元素的名称与图标。 |
+| `printSelectionLayout` | 函数 | 选中工具条（命令落点 selection:&lt;主体&gt;）的缺省排列：文字类元素多出字号、粗体、斜体、下划线、删除线与左中右对齐；多选多出对齐与分布；都有层级、创建副本、复制与删除。 |
+| `PrintSelectionSubject` | 类型 | 选中工具条落在哪类选中上：都是文字类元素（文本、长文本、富文本、页码）、单个别的元素，或几个元素里有别的种类。 |
 
 ### print-designer
 

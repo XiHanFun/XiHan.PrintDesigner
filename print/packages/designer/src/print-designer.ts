@@ -76,7 +76,7 @@ import type { PointerSession } from '@xihan-ui/pointer'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { PrintClipboard, PrintSelection, PrintTablePart } from './editor'
-import type { PrintDesignerCommand, PrintDesignerContext, PrintDesignerExtension, PrintDesignerImporter, PrintDesignerModel, PrintMenuSubject } from './extensions'
+import type { PrintDesignerCommand, PrintDesignerContext, PrintDesignerExtension, PrintDesignerImporter, PrintDesignerModel, PrintMenuSubject, PrintSelectionSubject } from './extensions'
 import type { FieldPaletteNode, FieldPlacement, FieldPlacementDefaults } from './field-palette'
 import type { CompositeEditorHost } from './property-editors'
 import type { ExpandedDescriptor } from './property-expand'
@@ -112,6 +112,7 @@ import {
   encodeClipboard,
   findImporter,
   fitRect,
+  formatLength,
   hitTest,
   nudgeDelta,
   panBy,
@@ -158,7 +159,7 @@ import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitE
 import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhExpressionInputElement, XhFieldArrayElement, XhFieldElement, XhFormatInputElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createPrintClientStatus } from './client-status'
 import { createPrintEditor, elementRect } from './editor'
-import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_FORMAT_LAYOUT, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout } from './extensions'
+import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout, printSelectionLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { borderSidesEditor, createIssueText, issuesUnder, valueFormatEditor } from './property-editors'
 import { pageSubject, propertySubjects, TABLE_PART_KINDS } from './property-targets'
@@ -468,8 +469,8 @@ interface Layers {
   readonly properties: XhDesignerPropertiesElement
   readonly toolbar: HTMLElement
   readonly commandBar: CommandToolbar<PrintDesignerContext>
-  /** 选中文字类元素时浮在选中框上方的格式工具条。 */
-  readonly formatBar: CommandToolbar<PrintDesignerContext>
+  /** 选中元素时浮在选中框上方的选中工具条。 */
+  readonly selectionBar: CommandToolbar<PrintDesignerContext>
   /** 顶栏中段的插入钮。 */
   readonly headerBar: CommandToolbar<PrintDesignerContext>
   /** 画布右侧中间的竖排翻页条。 */
@@ -823,7 +824,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#syncFrameRegions(layers, t)
     this.#renderToolbar(layers)
     this.#renderHeader(layers, t)
-    this.#renderFormatBar(layers, t)
+    this.#renderSelectionBar(layers, t)
     this.#renderPageStrip(layers, t)
     this.#renderStatus(layers, t)
     layers.panelHost.update(this.#context())
@@ -1156,16 +1157,31 @@ export class XhPrintDesigner extends XhReactiveElement {
     })
   }
 
-  /** 格式工具条：选中了文字类元素、可编辑时放进变换覆盖层（slot="toolbar"），否则拿掉；位置与收起由覆盖层管。 */
-  #renderFormatBar(layers: Layers, t: PrintDesignerTranslations): void {
-    if (this.#readOnly || this.#formatTargets().length === 0) {
-      layers.formatBar.element.remove()
+  /** 选中工具条的主体：全是文字类元素为 text，单个别的元素为 element，几个元素里有别的种类为 multiple；覆盖层上没有选中项时为 undefined。 */
+  #selectionSubject(): PrintSelectionSubject | undefined {
+    const count = this.#overlayItems().length
+    if (count === 0)
+      return undefined
+    if (this.#formatTargets().length === count)
+      return 'text'
+    return count === 1 ? 'element' : 'multiple'
+  }
+
+  /**
+   * 选中工具条：按主体取 selection:<主体> 的排列（宿主经 commandLayout 改），可编辑、有选中、排列不空时放进变换覆盖层
+   * （slot="toolbar"），否则拿掉；位置与收起由覆盖层管。
+   */
+  #renderSelectionBar(layers: Layers, t: PrintDesignerTranslations): void {
+    const subject = this.#readOnly ? undefined : this.#selectionSubject()
+    const { commands } = this.#model()
+    const groups = subject === undefined ? [] : arrangeCommands(`selection:${subject}`, commands, printSelectionLayout(subject), this.commandLayout)
+    if (groups.every(group => group.length === 0)) {
+      layers.selectionBar.element.remove()
       return
     }
-    const { commands } = this.#model()
-    layers.formatBar.update(PRINT_FORMAT_LAYOUT, commands, this.#context(), t.formatToolbar)
-    if (!layers.formatBar.element.isConnected)
-      layers.overlay.append(layers.formatBar.element)
+    layers.selectionBar.update(groups, commands, this.#context(), t.selectionToolbar)
+    if (!layers.selectionBar.element.isConnected)
+      layers.overlay.append(layers.selectionBar.element)
   }
 
   /** 顶栏的插入钮：每种常用元素一条，按钮上图标下面写元素名，点了加到视口中央；只读或不在设计态时不可用。 */
@@ -1591,8 +1607,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     const bar = { platform: this.#kbdPlatform() }
     const commandBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
     const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'command-bar' }, [commandBar.element])
-    const formatBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
-    formatBar.element.slot = 'toolbar'
+    const selectionBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
+    selectionBar.element.slot = 'toolbar'
     const headerBar = createCommandToolbar<PrintDesignerContext>(doc, { ...bar, display: 'stacked' })
     headerBar.element.slot = 'header-center'
     const pageStrip = createCommandToolbar<PrintDesignerContext>(doc, { ...bar, orientation: 'vertical' })
@@ -1610,8 +1626,10 @@ export class XhPrintDesigner extends XhReactiveElement {
     const overlay = createAuthoredElement(doc, 'xh-designer-transform', { 'data-part': 'overlay' }) as XhDesignerTransformElement
     overlay.viewport = this.#viewport
     overlay.getSnap = () => this.#snapOptions()
-    overlay.formatMeasure = rect => this.#translations().measure(this.#formatMm(rect.width), this.#formatMm(rect.height))
+    overlay.measure = 'selection'
+    overlay.measureOptions = { unit: 'mm', fractionDigits: 1, step: 1, largeStep: NUDGE_LARGE_STEP }
     overlay.addEventListener('transform', this.#onTransform)
+    overlay.addEventListener('measure-change', this.#onMeasureChange)
     overlay.addEventListener('marquee', this.#onMarquee)
     const viewport = createAuthoredElement(doc, 'div', { 'data-part': 'viewport', 'tabindex': 0, 'role': 'region' }, [world, overlay])
     viewport.addEventListener('pan-request', this.#onPanRequest)
@@ -1668,7 +1686,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, formatBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, selectionStatus, clientStatus, zoomStatus }
+    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, selectionBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, selectionStatus, clientStatus, zoomStatus }
     this.#regions = undefined
     panelHost.assign(this.#model().list, this.#context())
     return this.#layers
@@ -2527,7 +2545,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   // —— 内部：变换覆盖层 ——
 
   #formatMm(value: number): string {
-    return new Intl.NumberFormat(this.locale, { maximumFractionDigits: 1 }).format(value)
+    return formatLength(value, { locale: this.locale })
   }
 
   /** 覆盖层上的选中项：表格编辑态与预览态下没有；锁定的元素不能缩放与旋转。 */
@@ -2668,6 +2686,16 @@ export class XhPrintDesigner extends XhReactiveElement {
     }
     if (phase === 'end')
       history.commit()
+  }
+
+  /** 在尺寸徽标里改了宽或高：按新矩形改尺寸；连续点加减钮或按方向键并成一步撤销，输入后确认的单独一步。 */
+  readonly #onMeasureChange = (event: Event): void => {
+    const { id, rect, axis, source } = (event as DesignerTransformEventMap['measure-change']).detail
+    if (this.#readOnly || this.mode !== 'design')
+      return
+    this.#stopAutoFit()
+    const operation: PrintOperation = { type: 'resizeElement', id, bounds: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } }
+    this.#editor.execute([operation], source === 'step' ? { merge: `measure:${id}:${axis}` } : {})
   }
 
   readonly #onMarquee = (event: Event): void => {
@@ -2977,8 +3005,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (target && target !== this.#layers?.viewport && (target.closest('input, textarea, select, [contenteditable]') || this.#fromPanel(target)))
       return
     if (event.altKey && event.key === 'F10') {
-      // Alt+F10 把焦点交给格式工具条，在工具条里按 Esc 回到这里
-      if (this.#layers?.overlay.focusToolbar())
+      // Alt+F10 把焦点交给选中工具条（没有时交给尺寸徽标），在里面按 Esc 回到这里
+      if (this.#layers?.overlay.focusToolbar() || this.#layers?.overlay.focusMeasure())
         event.preventDefault()
       return
     }

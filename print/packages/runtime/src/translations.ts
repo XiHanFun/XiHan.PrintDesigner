@@ -87,8 +87,6 @@ export interface PrintDesignerTranslations {
   readonly resizeColumn: (title: string) => string
   /** 新插入的列的标题，position 从 1 开始。 */
   readonly newColumnTitle: (position: number) => string
-  /** 拖动元素时显示的尺寸，入参是格式化后的宽与高（mm）。 */
-  readonly measure: (width: string, height: string) => string
   /** 物料面板的标题。 */
   readonly palette: string
   /** 物料面板里按 fields 列出的字段那一组的名称。 */
@@ -140,8 +138,8 @@ export interface PrintDesignerTranslations {
   readonly insertToolbar: string
   /** 顶栏插入钮的名字，label 是元素种类的名称。 */
   readonly insertElement: (label: string) => string
-  /** 选中元素上方浮着的格式工具条的名字。 */
-  readonly formatToolbar: string
+  /** 选中元素后浮在选中框上方的选中工具条的名字。 */
+  readonly selectionToolbar: string
   readonly alignTextLeft: string
   readonly alignTextCenter: string
   readonly alignTextRight: string

@@ -77,7 +77,6 @@ describe('各语言的语言包', () => {
     expect(t.resizeBand('header')).not.toBe(t.resizeBand('footer'))
     expect(t.resizeColumn('Qty')).toContain('Qty')
     expect(t.newColumnTitle(4)).toContain('4')
-    expect(t.measure('12.5', '30')).toMatch(/12\.5[\s\S]*30/)
     expect(t.elementLabel('Kind', 'n1')).toMatch(/Kind[\s\S]*n1/)
     expect(t.propertyPart('Outer', 'Inner')).toMatch(/Outer[\s\S]*Inner/)
     expect(t.selectedCount(3)).toContain('3')

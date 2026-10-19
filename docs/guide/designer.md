@@ -39,19 +39,20 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 画布 | 中间 | — | 按纸张显示当前页面模板的页眉、正文与页脚，区的标签上切换页眉页脚的变体 |
 | 标尺 | 画布上边与左边 | `rulers` | 毫米标尺；从标尺拖出参考线，参考线存进页面模板，只用于对位、不打印 |
 | 翻页条 | 画布右侧中间 | `pages` | 上一页、页码、下一页，新增、复制、删除页面模板。页码钮上写「第几个 / 共几个」，点它列出全部页面模板，点一项切过去，下面是上移、下移页面 |
-| 格式工具条 | 选中框上方 | — | 选中文字类元素时浮出：字号（钮上写当前字号）、粗体、斜体、下划线、删除线与左中右对齐，见「画布操作」 |
+| 选中工具条 | 选中框上方 | — | 选中元素时浮出：层级、创建副本、复制与删除；文字类元素多出字号（钮上写当前字号）、文字样式与左中右对齐，多选多出对齐与分布，见「画布操作」 |
+| 尺寸徽标 | 选中框下方 | — | 选中元素时常驻宽 × 高（mm），单选时可以直接改，见「画布操作」 |
 | 属性 | 右栏 | `properties` | 编辑选中的元素，多选时只显示共同的属性；没有选中时编辑页面设置；表格编辑态里编辑选中的表格部位 |
 | 问题 | 下方 | `issues` | 校验问题列表，点一下切到问题所在的页面模板并定位到元素；错误、警告数在面板头上，点一下只看或不看这一级 |
 | 状态栏 | 最下面 | `status` | 左边写选中的对象：没有选中时是当前页面模板与上面的元素个数，选中一个是种类与位置尺寸（mm），选中多个是个数；右边写打印客户端的连接状态（给了 `printClient` 时）与缩放，点缩放回到实际尺寸。设置里可以关掉 |
 
 物料、属性与问题是外框里的卡片：面板头写标题，属性面板的标题下面写正在编辑的对象，「?」里是这块面板的用法。点面板头的「×」收起这块面板；工具栏的「面板」菜单列出这三块，勾选的显示，再勾上就回来。两处都会改写 `panels` 并派发 `panels-change { panels }`，宿主存起来、下次赋回即可。窗口窄时左右两栏收起，从「面板」菜单打开时以抽屉盖在画布上。
 
-工具栏缺省只显示图标，设置里可以换成文字或图标加文字；翻页条与格式工具条只显示图标。没有图标的按钮写一段短文字，比如页码钮写「1 / 3」、字号钮写当前字号，按钮的名字里含着这段字。按钮的名字与快捷键报给读屏，悬停或键盘聚焦到按钮时提示命令的文字与快捷键；会删掉内容的命令按危险色显示。工具栏放不下时，末尾的按钮收进「更多」。
+工具栏缺省只显示图标，设置里可以换成文字或图标加文字；翻页条与选中工具条只显示图标。没有图标的按钮写一段短文字，比如页码钮写「1 / 3」、字号钮写当前字号，按钮的名字里含着这段字。按钮的名字与快捷键报给读屏，悬停或键盘聚焦到按钮时提示命令的文字与快捷键；会删掉内容的命令按危险色显示。工具栏放不下时，末尾的按钮收进「更多」。
 
 有几条命令点开的不是一个动作，而是锚在按钮上的弹层或菜单：
 
 - 「页面设置」是弹层，改当前页面模板的纸张、方向与页边距，与属性面板里「纸张」一组是同一批属性，改动同样记撤销。
-- 「对齐与分布」「层级」、翻页条上的页码与格式工具条上的字号是菜单。对齐、分布与层级的单条命令照样能经 `commandLayout` 排上工具栏。
+- 「对齐与分布」「层级」、翻页条上的页码与选中工具条上的字号是菜单。对齐、分布与层级的单条命令照样能经 `commandLayout` 排上工具栏。
 
 扩展登记的面板也放进外框，`panels` 里写它的区名同样能开关，见下文「面板」。各区的属性见[元素](../reference/elements)，属性面板的分组与中文名与它一致。
 
@@ -82,7 +83,8 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 - **选择**：点选元素；按住 Shift、Ctrl 或 ⌘ 点击切换某个元素的选中；在空白处拖动框选。
 - **移动与变换**：拖动元素移动，拖控制柄缩放；文本、图片、矩形、椭圆、条码与二维码还能旋转。锁定的元素不能拖动与缩放。
-- **格式工具条**：选中文本、长文本、富文本或页码这类带文字样式的元素时，选中框上方浮着一条格式工具条：字号、粗体、斜体、下划线、删除线与左中右对齐，对选中的每个元素写同一个值，记一步撤销；贴顶放不下时翻到下方，拖动中与只读时收起。在画布上按 Alt+F10 把焦点交给它，在工具条里按 Esc 回到画布。
+- **选中工具条**：选中元素时，选中框上方浮着一条工具条：都有层级菜单、创建副本、复制与删除；选中的全是文本、长文本、富文本或页码这类带文字样式的元素时，前面多出字号、粗体、斜体、下划线、删除线与左中右对齐，对选中的每个元素写同一个值，记一步撤销；选了几个元素、里面有别的种类时，多出对齐与分布菜单。贴顶放不下时翻到下方，拖动中与只读时收起。在画布上按 Alt+F10 把焦点交给它，在工具条里按 Esc 回到画布。排列怎么改见下文「命令」。
+- **尺寸徽标**：选中元素时，选中框下方常驻宽 × 高（mm）。单选、元素能缩放时是两个数字框：点加减钮或按上下方向键改 1 mm，Shift 加上下方向键改 10 mm，连续改并成一步撤销；输入数字后按 Enter 或离开数字框才改，单独一步撤销，按 Esc 放弃。改的时候左上角不动，不小于这种元素的最小尺寸，二维码改一边另一边跟着变。锁定的元素、多选与只读时只显示尺寸。在选中工具条里按 Tab 进到徽标。
 - **换区**：元素中心拖进页眉、正文或页脚，就放进那个区；表格、长文本与富文本只能留在正文区。
 - **页眉页脚**：在区的标签上切换当前编辑的变体（缺省、首页、末页、奇数页、偶数页），可以新增或删除变体；拖动区的边界改高度。
 - **平移与缩放**：滚轮平移，Ctrl / ⌘ + 滚轮以指针为中心缩放；按住空格或鼠标中键拖动平移。
@@ -133,7 +135,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 0 | 适合窗口 |
 | Enter | 选中表格时进入表格编辑态 |
 | Esc | 取消正在进行的拖动；在表格编辑态里退出；否则取消选择 |
-| Alt + F10 | 焦点交给选中框上方的格式工具条；在工具条里按 Esc 回到画布 |
+| Alt + F10 | 焦点交给选中框上方的选中工具条（工具条没有按钮时交给尺寸徽标）；在里面按 Esc 回到画布 |
 
 复制的元素以 JSON 放进系统剪贴板，可以在两个设计器之间粘贴；粘贴时先按当前的元素登记表校验，有错误的内容不粘贴。别的内容（图片、旧模板等）粘贴或拖到画布上时交给扩展的导入器，见下文「导入」。
 
@@ -234,10 +236,10 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 <<< @/examples/snippets/designer-commands.ts#example
 
-- `placement` 是命令缺省出现的位置：工具栏 `toolbar`，顶栏 `header`（叠放，图标下面写命令的 `shortLabel`；工具栏只显示图标时，没有图标的命令也写它），或右键菜单 `menu:blank`（画布空白处）、`menu:element`（元素上）、`menu:table`（表格编辑态里）。扩展命令按登记顺序排在内置命令之后，自成一组。
+- `placement` 是命令缺省出现的位置：工具栏 `toolbar`，顶栏 `header`（叠放，图标下面写命令的 `shortLabel`；工具栏只显示图标时，没有图标的命令也写它），右键菜单 `menu:blank`（画布空白处）、`menu:element`（元素上）、`menu:table`（表格编辑态里），或选中工具条 `selection:text`（选中的全是文字类元素）、`selection:element`（单个别的元素）、`selection:multiple`（几个元素里有别的种类）。扩展命令按登记顺序排在内置命令之后，自成一组。
 - `shortLabel` 是按钮上看得见的短文字，名字与提示仍取 `label`，所以短文字要出现在 `label` 里（不分大小写），比如 `label` 写「插入条码」、`shortLabel` 写「条码」；开发期不在时，控制台警告一次。
 - `shortcut` 写成键数组，`Mod` 在 macOS 上是 ⌘、其余平台是 Ctrl。焦点在画布上、命令此刻可用时生效。
-- 设计器的 `commandLayout` 改写排列：位置 → 若干组命令 id，内置命令与扩展命令可以混排；写了某个位置就只显示列出的命令，写了没登记的命令 id 时抛 `TypeError`。缺省排列是导出的 `PRINT_TOOLBAR_LAYOUT` 与 `printMenuLayout(subject, tableSelected)`，可以在它们的基础上改：
+- 设计器的 `commandLayout` 改写排列：位置 → 若干组命令 id，内置命令与扩展命令可以混排；写了某个位置就只显示列出的命令，写了没登记的命令 id 时抛 `TypeError`。缺省排列是导出的 `PRINT_TOOLBAR_LAYOUT`、`printMenuLayout(subject, tableSelected)` 与 `printSelectionLayout(subject)`，可以在它们的基础上改：
 
 <<< @/examples/snippets/designer-commands.ts#layout
 
@@ -250,7 +252,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 视图 | `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `page-setup` `print` |
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
 | 插入 | `insert:text` `insert:image` `insert:barCode` `insert:matrixCode` `insert:table` `insert:line`：顶栏的插入钮 |
-| 文字格式 | `font-size` `text-bold` `text-italic` `text-underline` `text-line-through` `text-align-left` `text-align-center` `text-align-right`：固定排在格式工具条上（`PRINT_FORMAT_LAYOUT`），不经 `commandLayout` |
+| 文字格式 | `font-size` `text-bold` `text-italic` `text-underline` `text-line-through` `text-align-left` `text-align-center` `text-align-right`：缺省排在 `selection:text` 的选中工具条上 |
 | 面板、设置与帮助 | `panels` `settings` `help`：designer-shell 内置，排在工具栏末组。「面板」点开菜单开关物料、属性与问题，「设置」打开设置对话框，「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`） |
 | 页面模板 | `previous-page` `page-menu` `next-page` `add-page` `duplicate-page` `remove-page`：固定排在翻页条上（`PRINT_PAGE_STRIP_LAYOUT`），不经 `commandLayout`；`move-page-up` `move-page-down` 在页码菜单里 |
 

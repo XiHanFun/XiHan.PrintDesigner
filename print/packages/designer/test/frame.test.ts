@@ -396,7 +396,7 @@ describe('页面设置', () => {
   })
 })
 
-describe('格式工具条', () => {
+describe('选中工具条', () => {
   function bar(): HTMLElement | null {
     return designer.querySelector<HTMLElement>('xh-designer-transform [slot="toolbar"]')
   }
@@ -405,20 +405,49 @@ describe('格式工具条', () => {
     return bar()!.querySelector<HTMLButtonElement>(`button[value="${value}"]`)!
   }
 
+  function groups(): string[][] {
+    return Array.from(bar()!.querySelectorAll('[data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), item => item.value))
+  }
+
   function style(): Record<string, unknown> {
     return (designer.schema.pages[0]!.elements.find(element => element.id === 'a') as unknown as { style: Record<string, unknown> }).style
   }
 
-  it('选中文字类元素时放进变换覆盖层：字号，粗体、斜体、下划线、删除线，左中右对齐；选中别的或没有选中时拿掉', async () => {
+  it('按选中的主体排：文字类元素多出字号、文字样式与对齐，单个别的元素只有层级与编辑，多选多出对齐与分布；没有选中时拿掉', async () => {
     expect(bar()).toBeNull()
     designer.select({ elements: ['a'] })
     await settle()
-    const groups = Array.from(bar()!.querySelectorAll('[data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), item => item.value))
-    expect(groups).toEqual([['font-size'], ['text-bold', 'text-italic', 'text-underline', 'text-line-through'], ['text-align-left', 'text-align-center', 'text-align-right']])
-    expect(bar()!.querySelector('[data-xh-part="root"]')!.getAttribute('aria-label')).toBe('Text format')
+    expect(groups()).toEqual([
+      ['font-size'],
+      ['text-bold', 'text-italic', 'text-underline', 'text-line-through'],
+      ['text-align-left', 'text-align-center', 'text-align-right'],
+      ['layer-menu'],
+      ['duplicate', 'copy', 'delete'],
+    ])
+    expect(bar()!.querySelector('[data-xh-part="root"]')!.getAttribute('aria-label')).toBe('Selection')
     expect([button('text-bold').getAttribute('aria-label'), button('text-align-center').getAttribute('aria-label')]).toEqual(['Bold', 'Center text'])
     const rect = designer.addElement('rect', { x: 120, y: 120 })
     designer.select({ elements: [rect.id] })
+    await settle()
+    expect(groups()).toEqual([['layer-menu'], ['duplicate', 'copy', 'delete']])
+    designer.select({ elements: ['a', rect.id] })
+    await settle()
+    expect(groups()).toEqual([['align-menu', 'layer-menu'], ['duplicate', 'copy', 'delete']])
+    designer.select({ elements: [] })
+    await settle()
+    expect(bar()).toBeNull()
+  })
+
+  it('宿主经 commandLayout 改某个主体的排列，扩展在 placement 里写 selection:<主体> 的命令追加成一组；排列为空时拿掉', async () => {
+    const rect = designer.addElement('rect', { x: 120, y: 120 })
+    designer.extensions = [{ id: '@acme/stamp', commands: [{ id: '@acme/stamp.rotate', label: 'Rotate', placement: ['selection:element'], run: () => {} }] }]
+    designer.select({ elements: [rect.id] })
+    await settle()
+    expect(groups()).toEqual([['layer-menu'], ['duplicate', 'copy', 'delete'], ['@acme/stamp.rotate']])
+    designer.commandLayout = { 'selection:element': [['delete']] }
+    await settle()
+    expect(groups()).toEqual([['delete']])
+    designer.commandLayout = { 'selection:element': [] }
     await settle()
     expect(bar()).toBeNull()
   })
@@ -452,16 +481,68 @@ describe('格式工具条', () => {
     expect(style().fontSize).toBe(14)
   })
 
-  it('只读时拿掉；在画布上按 Alt+F10 把焦点交给工具条', async () => {
+  it('只读时拿掉；在画布上按 Alt+F10 把焦点交给工具条，工具条排列为空时交给尺寸徽标', async () => {
     designer.select({ elements: ['a'] })
     await settle()
     const viewport = designer.querySelector<HTMLElement>('[data-part="viewport"]')!
     viewport.focus()
     viewport.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', altKey: true, bubbles: true, cancelable: true }))
     expect(bar()!.contains(document.activeElement)).toBe(true)
+    designer.commandLayout = { 'selection:text': [] }
+    await settle()
+    viewport.focus()
+    viewport.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', altKey: true, bubbles: true, cancelable: true }))
+    expect(document.activeElement?.closest('[data-part="measure-field"]')?.getAttribute('data-axis')).toBe('width')
+    designer.commandLayout = undefined
     designer.readonly = true
     await settle()
     expect(bar()).toBeNull()
+  })
+})
+
+describe('尺寸徽标', () => {
+  function element(): { width: number, height: number, x: number, y: number } {
+    return designer.schema.pages[0]!.elements.find(item => item.id === 'a') as unknown as { width: number, height: number, x: number, y: number }
+  }
+
+  function field(axis: 'width' | 'height'): HTMLElement & { value?: string } {
+    return designer.querySelector<HTMLElement & { value?: string }>(`xh-designer-transform [data-part="measure-field"][data-axis="${axis}"]`)!
+  }
+
+  it('选中即常驻，宽高按 mm 写；连续点加减钮并成一步撤销，左上角不动', async () => {
+    designer.select({ elements: ['a'] })
+    await settle()
+    expect([field('width').value, field('height').value]).toEqual(['40', '10'])
+    const increment = field('width').querySelector<HTMLButtonElement>('[data-part="increment-trigger"]')!
+    increment.click()
+    await settle()
+    increment.click()
+    await settle()
+    expect([element().width, element().x, element().y, field('width').value]).toEqual([42, 10, 30, '42'])
+    designer.undo()
+    await settle()
+    expect(element().width).toBe(40)
+  })
+
+  it('输入后按 Enter 改成输入的值，单独一步撤销；锁定的元素只显示尺寸', async () => {
+    designer.select({ elements: ['a'] })
+    await settle()
+    const input = field('height').querySelector('input')!
+    input.value = '25.5'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }))
+    await settle()
+    expect(element().height).toBe(25.5)
+    designer.undo()
+    await settle()
+    expect(element().height).toBe(10)
+    const page = createPage({ id: 'p' })
+    page.elements = [registry.createElement('text', { id: 'a', x: 10, y: 30, overrides: { width: 40, height: 10, locked: true } })]
+    designer.schema = createDocument({ pages: [page] })
+    designer.select({ elements: ['a'] })
+    await settle()
+    const measure = designer.querySelector('xh-designer-transform [data-part="measure"]')!
+    expect([measure.textContent, measure.querySelector('[data-part="measure-field"]')]).toEqual(['40 × 10 mm', null])
   })
 })
 
