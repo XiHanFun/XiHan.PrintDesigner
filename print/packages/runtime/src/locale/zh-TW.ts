@@ -110,6 +110,8 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: '拖曳時貼齊其他元件、頁邊距、區域邊界與參考線，並顯示對齊線。',
   settingsShowMargins: '顯示邊距線',
   settingsShowMarginsHint: '在頁面上框出頁邊距以內的範圍。',
+  settingsRulers: '尺規',
+  settingsRulersHint: '在畫布上邊與左邊顯示毫米尺規。',
   settingsVia: '列印方式',
   settingsViaHint: '本機用戶端直接把頁面交給印表機，連不上時退回瀏覽器的列印對話方塊；選瀏覽器一律開啟列印對話方塊。',
   settingsViaOptions: { client: '本機用戶端', browser: '瀏覽器' },

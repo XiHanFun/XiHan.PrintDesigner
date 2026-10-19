@@ -75,12 +75,12 @@ function toolbarButton(designer: XhPrintDesigner, value: string): HTMLButtonElem
 }
 
 describe('设置', () => {
-  it('openSettings 打开设置对话框：基础在前、打印在后，打印分区列出网格、吸附与边距线；没给 printClient 时没有打印方式', async () => {
+  it('openSettings 打开设置对话框：基础在前、打印在后，打印分区列出网格、吸附、边距线与标尺；没给 printClient 时没有打印方式', async () => {
     const designer = await mount()
     designer.openSettings(PRINT_SETTINGS_SECTION)
     await settle(designer)
     expect(pages()).toEqual(['general', 'print'])
-    expect(Object.values(PRINT_SETTING_KEYS).map(key => row(key) !== null)).toEqual([false, true, true, true, true])
+    expect(Object.values(PRINT_SETTING_KEYS).map(key => row(key) !== null)).toEqual([false, true, true, true, true, true])
     expect(row('general.theme')).not.toBeNull()
     expect([PRINT_SETTINGS_SECTION, Object.values(PRINT_SETTING_KEYS).every(key => key.startsWith(`${PRINT_SETTINGS_SECTION}.`))]).toEqual(['print', true])
   })
@@ -189,7 +189,7 @@ describe('设置', () => {
   it('工具栏显示方式取设置里的 general.toolbarDisplay，缺省只显示图标；换方式不重铺按钮，翻页条始终只显示图标', async () => {
     const designer = await mount()
     const shell = (): Element => designer.querySelector('[data-part="command-bar"] > xh-tooltip')!
-    const strip = (): Element => designer.querySelector('[slot="canvas-end"]')!
+    const strip = (): Element => designer.querySelector('[slot="pages"]')!
     const undo = toolbarButton(designer, 'undo')
     expect([shell().getAttribute('data-display'), strip().getAttribute('data-display')]).toEqual(['icon', 'icon'])
     designer.settings = { 'general.toolbarDisplay': 'both' }

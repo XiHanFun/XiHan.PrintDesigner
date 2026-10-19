@@ -3,11 +3,11 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 设计器的设置：宿主管着主题，用户偏好存在宿主自己那里；独立使用时交给本机存储；从工具栏外的按钮打开设置。
+// 设计器的设置：宿主管着主题，用户偏好存在宿主自己那里；独立使用时交给本机存储；从工具栏外的按钮打开设置；面板布局的缺省与管控。
 // 键都用包入口导出的常量，不手写字符串。
 
 import type { XhPrintDesigner } from '@xihan-print/designer'
-import { PRINT_SETTING_KEYS, PRINT_SETTINGS_SECTION } from '@xihan-print/designer'
+import { PRINT_DESIGNER_PANELS, PRINT_SETTING_KEYS, PRINT_SETTINGS_SECTION } from '@xihan-print/designer'
 import { DESIGNER_SETTING_KEYS } from '@xihan-ui/designer-shell'
 
 type PrintSettings = NonNullable<XhPrintDesigner['settings']>
@@ -37,3 +37,11 @@ export function openCanvasSettings(designer: XhPrintDesigner): void {
   designer.openSettings(PRINT_SETTINGS_SECTION)
 }
 // #endregion open
+
+// #region layout
+export function wireLayout(designer: XhPrintDesigner): void {
+  // 缺省收起问题列表；宿主的业务里用不到翻页条，也不许用户把它开出来
+  designer.defaultLayout = { version: 1, hidden: [PRINT_DESIGNER_PANELS.issues] }
+  designer.settingsPolicy = { [`${DESIGNER_SETTING_KEYS.layout}.${PRINT_DESIGNER_PANELS.pages}`]: 'hidden' }
+}
+// #endregion layout

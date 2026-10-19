@@ -29,23 +29,34 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ## 界面
 
-外框从上到下是顶栏、工具栏、中间三栏（左边物料、中间画布、右边属性）、下方的问题列表与最底下的状态栏。`panels` attribute 决定显示哪些部分，空格分隔，不写就全部显示；预览态只留工具栏。
+外框从上到下是顶栏、工具栏、中间三栏（左边物料、中间画布、右边属性）、下方的问题列表与最底下的状态栏。各块面板停在哪一栏、显不显示、收没收起、浮没浮出，记在一份面板布局里，见下文「面板布局」；预览态只留顶栏、工具栏与画布。
 
-| 部分 | 位置 | `panels` 里的名字 | 作用 |
+| 部分 | 位置 | 面板 id | 作用 |
 | --- | --- | --- | --- |
 | 顶栏 | 最上面 | — | 常用元素的插入钮：文本、图片、条码、二维码、表格、线条，钮上图标下面写元素名，点一下加到视口中央。`commandLayout` 写 `{ header: [] }` 就没有顶栏 |
-| 工具栏 | 顶栏下面 | `toolbar` | 撤销重做；剪切、复制、粘贴、创建副本、删除；「对齐与分布」「层级」两个菜单；缩放、网格与吸附开关；设计与预览、页面设置、打印；末组是面板、设置与帮助 |
+| 工具栏 | 顶栏下面 | — | 撤销重做；剪切、复制、粘贴、创建副本、删除；「对齐与分布」「层级」两个菜单；缩放、网格与吸附开关；设计与预览、页面设置、打印；末组是面板、设置与帮助 |
 | 物料 | 左栏 | `palette` | 点一下把元素加到视口中央，拖到画布上放在落点 |
 | 画布 | 中间 | — | 按纸张显示当前页面模板的页眉、正文与页脚，区的标签上切换页眉页脚的变体 |
-| 标尺 | 画布上边与左边 | `rulers` | 毫米标尺；从标尺拖出参考线，参考线存进页面模板，只用于对位、不打印 |
-| 翻页条 | 画布右侧中间 | `pages` | 上一页、页码、下一页，新增、复制、删除页面模板。页码钮上写「第几个 / 共几个」，点它列出全部页面模板，点一项切过去，下面是上移、下移页面 |
+| 标尺 | 画布上边与左边 | — | 毫米标尺；从标尺拖出参考线，参考线存进页面模板，只用于对位、不打印。设置里可以关掉 |
+| 翻页条 | 画布右侧中间 | `pages` | 画布上的浮动件，只能显示或隐藏。上一页、页码、下一页，新增、复制、删除页面模板。页码钮上写「第几个 / 共几个」，点它列出全部页面模板，点一项切过去，下面是上移、下移页面 |
 | 选中工具条 | 选中框上方 | — | 选中元素时浮出：层级、创建副本、复制与删除；文字类元素多出字号（钮上写当前字号）、文字样式与左中右对齐，多选多出对齐与分布，见「画布操作」 |
 | 尺寸徽标 | 选中框下方 | — | 选中元素时常驻宽 × 高（mm），单选时可以直接改，见「画布操作」 |
 | 属性 | 右栏 | `properties` | 编辑选中的元素，多选时只显示共同的属性；没有选中时编辑页面设置；表格编辑态里编辑选中的表格部位 |
 | 问题 | 下方 | `issues` | 校验问题列表，点一下切到问题所在的页面模板并定位到元素；错误、警告数在面板头上，点一下只看或不看这一级 |
-| 状态栏 | 最下面 | `status` | 左边写选中的对象：没有选中时是当前页面模板与上面的元素个数，选中一个是种类与位置尺寸（mm），选中多个是个数；右边写打印客户端的连接状态（给了 `printClient` 时）与缩放，点缩放回到实际尺寸。设置里可以关掉 |
+| 状态栏 | 最下面 | — | 左边写选中的对象：没有选中时是当前页面模板与上面的元素个数，选中一个是种类与位置尺寸（mm），选中多个是个数；右边写打印客户端的连接状态（给了 `printClient` 时）与缩放，点缩放回到实际尺寸。设置里可以关掉 |
 
-物料、属性与问题是外框里的卡片：面板头写标题，属性面板的标题下面写正在编辑的对象，「?」里是这块面板的用法。点面板头的「×」收起这块面板；工具栏的「面板」菜单列出这三块，勾选的显示，再勾上就回来。两处都会改写 `panels` 并派发 `panels-change { panels }`，宿主存起来、下次赋回即可。窗口窄时左右两栏收起，从「面板」菜单打开时以抽屉盖在画布上。
+物料、属性与问题是外框里的卡片：面板头写标题，属性面板的标题下面写正在编辑的对象，「?」里是这块面板的用法。
+
+### 面板布局
+
+- 面板头上的「×」隐藏这块面板，收起钮（或双击面板头）收成只剩标题条，「更多」菜单里换到别的栏、调先后、浮出成小窗或停靠回去。按住面板头拖：拖到外框边上换栏，拖到两块面板之间调先后，拖到画布上浮出成小窗；小窗不出外框。
+- 工具栏的「面板」菜单列出物料、属性、问题与翻页条，勾选的显示；末尾是「显示 / 隐藏所有面板」（Ctrl / ⌘ + \）、「还原面板显隐」（Ctrl / ⌘ + Shift + \，位置与大小不动）与「恢复默认布局」。
+- 布局一改，设计器就把整份布局写进设置的 `layout.panels`（`DESIGNER_SETTING_KEYS.layout`），派发 `settings-change`，宿主存起来、下次随 `settings` 赋回即可；给了 `settingsStorageKey` 时设计器自己存。拖分隔条只在松手时写一次。
+- 宿主用 `defaultLayout` 给缺省布局：用户没存过布局时用它，「恢复默认布局」也回到它。用 `settingsPolicy` 管控：`layout.panels` 锁定整份布局，`layout.panels.<面板 id>` 写 `hidden` 就没有这块面板、写 `locked` 就固定这块面板。面板 id 见包入口导出的 `PRINT_DESIGNER_PANELS`。
+
+<<< @/examples/snippets/settings.ts#layout
+
+窗口窄时左右两栏收起，从「面板」菜单打开时以抽屉盖在画布上；浮出的面板在窄屏时按停靠位置收进抽屉。
 
 工具栏缺省只显示图标，设置里可以换成文字或图标加文字；翻页条与选中工具条只显示图标。没有图标的按钮写一段短文字，比如页码钮写「1 / 3」、字号钮写当前字号，按钮的名字里含着这段字。按钮的名字与快捷键报给读屏，悬停或键盘聚焦到按钮时提示命令的文字与快捷键；会删掉内容的命令按危险色显示。工具栏放不下时，末尾的按钮收进「更多」。
 
@@ -54,7 +65,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - 「页面设置」是弹层，改当前页面模板的纸张、方向与页边距，与属性面板里「纸张」一组是同一批属性，改动同样记撤销。
 - 「对齐与分布」「层级」、翻页条上的页码与选中工具条上的字号是菜单。对齐、分布与层级的单条命令照样能经 `commandLayout` 排上工具栏。
 
-扩展登记的面板也放进外框，`panels` 里写它的区名同样能开关，见下文「面板」。各区的属性见[元素](../reference/elements)，属性面板的分组与中文名与它一致。
+扩展登记的面板也放进外框，同样记在面板布局里，见下文「面板」。各区的属性见[元素](../reference/elements)，属性面板的分组与中文名与它一致。
 
 ## 字段物料
 
@@ -97,7 +108,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 设置是用户偏好，每人每机一份，不随模板保存。`openSettings(section?)` 打开设置对话框，左边一个分区一页：
 
 - 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色、工具栏按钮的显示方式（图标、文字、图标和文字，缺省只显示图标）与状态栏开关。工具栏的显示方式只走设置，没有单独的属性；画布上的翻页条总是只显示图标。
-- 「打印」（`print`）：打印方式、显示网格、网格间距、吸附对齐、显示边距线。打印方式只在给了 `printClient` 时才有，选本地客户端（缺省）还是浏览器：本地客户端直接交给打印机，连不上时退回浏览器的打印对话框；选浏览器时 `print()` 总是弹出浏览器的打印对话框。网格缺省不显示，间距缺省 1 mm，按当前缩放挤得太密时改按间距的整数倍画；边距线缺省显示。
+- 「打印」（`print`）：打印方式、显示网格、网格间距、吸附对齐、显示边距线、标尺。打印方式只在给了 `printClient` 时才有，选本地客户端（缺省）还是浏览器：本地客户端直接交给打印机，连不上时退回浏览器的打印对话框；选浏览器时 `print()` 总是弹出浏览器的打印对话框。网格缺省不显示，间距缺省 1 mm，按当前缩放挤得太密时改按间距的整数倍画；边距线与标尺缺省显示。
 - 「本地客户端」（`printClient`）：给了 `printClient` 才有这一页，写连接状态：已连接、未连接或未安装。「测试连接」调宿主给的 `printClient` 的 `connect()` 连一次；没找到客户端（`CLIENT_UNAVAILABLE`）时写未安装，这时也可能是装了没有运行。没连上时下面有「下载客户端」链接，缺省指向本站的[本地打印客户端](./client)一页（`PRINT_CLIENT_DOWNLOAD_URL`），宿主用 `clientDownloadUrl`（attribute `client-download-url`）换成自己的地址。端口与来源授权仍由宿主建连接时与客户端管，设计器不自己建连接。
 - 扩展登记的分区，排在后面。分区 id 与 `general`、`print`、`printClient` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
 
@@ -148,7 +159,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - 给 `schema` 赋值即装载新模板：清空撤销历史与选择，重新适配视口，并派发 `kind` 为 `load` 的 `schema-change`。读取 `schema` 得到当前模板。
 - `dirty` 表示有没有未保存的修改，变化时派发 `dirty-change`；撤销回到保存时的状态，`dirty` 也回到 `false`。
 - `issues-change` 在模板改动后带上全部校验问题，宿主可以据此拦住有错误的模板，不让保存。
-- 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`、`panels-change`。
+- 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`。
 
 也可以用方法操作：`execute(operations)` 执行一组编辑操作并记为一步撤销（操作见 `@xihan-print/core` 的 `PrintOperation`），`addElement`、`select`、`copy`、`paste`、`align`、`reorder`、`zoomToFit`、`scrollToElement` 等与界面上的命令一致。`print()` 按当前模板与 `data` 打印，给了 `printClient` 时交给本地打印客户端。
 
@@ -258,12 +269,12 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ### 面板
 
-扩展的 `panels` 往外框里加区，放印章库、套打对位这类面板。区是 `{ name, position, size?, minSize?, label? }`：`position` 取 `top`、`start`、`end`、`bottom`，同一位置的区按扩展顺序上下排；`label` 是分隔条可访问名里的区名。`create(context)` 返回放进区里的元素；设计器状态变化时调用 `update(context)`，扩展去掉时先调用 `destroy()` 再移除：
+扩展的 `panels` 往外框里加区，放印章库、套打对位这类面板。区是 `{ name, position, size?, minSize?, label?, title?, icon?, anchor?, defaultHidden?, closable?, movable?, floatable?, minimizable? }`：`position` 取 `top`、`start`、`end`、`bottom`，或 `overlay`（画布上的浮动件，`anchor` 定落在哪个角或右侧中间，只能显示或隐藏），同一位置的区按扩展顺序上下排；`label` 是分隔条可访问名里的区名，给了 `title` 就画成带面板头的卡片；`defaultHidden` 的缺省不显示，`closable`、`movable`、`floatable`、`minimizable` 写 `false` 就不能隐藏、换栏、浮出或收起。`create(context)` 返回放进区里的元素；设计器状态变化时调用 `update(context)`，扩展去掉时先调用 `destroy()` 再移除：
 
 <<< @/examples/snippets/designer-panels.ts#example
 
-- 区名与内置区（`toolbar`、`pages`、`palette`、`canvas`、`properties`、`issues`）或别的扩展的重名时，赋值时抛 `DesignerExtensionError`，设计器保持赋值前的状态。
-- `panels` attribute 照样能开关扩展的区；预览态只保留工具栏。
+- 区名与内置区（`header`、`toolbar`、`pages`、`palette`、`canvas`、`properties`、`issues`、`status`）或别的扩展的重名时，赋值时抛 `DesignerExtensionError`，设计器保持赋值前的状态。
+- 扩展的区同样记在面板布局里，用户能隐藏、挪动与浮出；预览态只保留顶栏、工具栏与画布。
 
 ### 导入
 

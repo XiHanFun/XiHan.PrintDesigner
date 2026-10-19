@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | 模板的保存 | 存模板 JSON，管名称、分类、版本与审核 | `schema`、`schema-change`、`save`、`dirty`、`markSaved()` |
 | 取数 | 调接口取业务数据，整理成模板要的结构 | `data`、`sampleData`、`fields` |
-| 权限 | 决定谁能看、谁能改、谁能打印，服务端再复核 | `readonly`、`panels`、`extensions` |
+| 权限 | 决定谁能看、谁能改、谁能打印，服务端再复核 | `readonly`、`defaultLayout`、`settingsPolicy`、`extensions` |
 | 校验 | 保存前拦住有错误的模板，服务端复核 | `validate()`、`issues-change`、`validateDocument` |
 | 打印记录 | 记下谁在什么时候打了什么 | `print()` 的结果、客户端任务的状态 |
 
@@ -48,7 +48,7 @@
 ## 权限
 
 - 只能看的用户把设计器设成 `readonly`：能选择、浏览、预览与打印，不能修改。
-- 只让调整局部的场景，用 `panels` 去掉物料等区，用自定义属性编辑器限定可选的值。
+- 只让调整局部的场景，用 `settingsPolicy` 的 `layout.panels.<面板 id>` 去掉物料等面板（面板 id 见 `PRINT_DESIGNER_PANELS`），用自定义属性编辑器限定可选的值。
 - 这些都只在前端生效。模板保存、删除与打印的权限要在服务端判断；保存时服务端也应复核模板本身。
 
 ## 服务端复核

@@ -419,6 +419,8 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   settingsSnapHint: 'While dragging, snap to other elements, the margins, region edges and guides, and show alignment lines.',
   settingsShowMargins: 'Show margins',
   settingsShowMarginsHint: 'Outline the area inside the page margins.',
+  settingsRulers: 'Rulers',
+  settingsRulersHint: 'Show the millimeter rulers along the top and left of the canvas.',
   settingsVia: 'Print with',
   settingsViaHint: 'The local client sends the pages straight to the printer and falls back to the browser print dialog when it cannot be reached. Browser always opens the print dialog.',
   settingsViaOptions: { client: 'Local client', browser: 'Browser' },

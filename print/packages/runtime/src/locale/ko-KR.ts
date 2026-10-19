@@ -113,6 +113,8 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: '끄는 동안 다른 요소, 여백, 영역 경계, 안내선에 스냅하고 정렬선을 표시합니다.',
   settingsShowMargins: '여백선 표시',
   settingsShowMarginsHint: '페이지 여백 안쪽 범위를 테두리로 표시합니다.',
+  settingsRulers: '눈금자',
+  settingsRulersHint: '캔버스 위쪽과 왼쪽에 밀리미터 눈금자를 표시합니다.',
   settingsVia: '인쇄 방식',
   settingsViaHint: '로컬 클라이언트는 페이지를 바로 프린터로 보내고, 연결할 수 없으면 브라우저 인쇄 대화 상자로 전환합니다. 브라우저를 선택하면 항상 인쇄 대화 상자를 엽니다.',
   settingsViaOptions: { client: '로컬 클라이언트', browser: '브라우저' },

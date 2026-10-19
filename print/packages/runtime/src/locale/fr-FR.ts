@@ -118,6 +118,8 @@ const designer: PrintDesignerLocale = {
   settingsSnapHint: 'Pendant le glisser, aimante aux autres éléments, aux marges, aux bords des zones et aux repères, et affiche les lignes d’alignement.',
   settingsShowMargins: 'Afficher les marges',
   settingsShowMarginsHint: 'Encadre la zone à l’intérieur des marges de la page.',
+  settingsRulers: 'Règles',
+  settingsRulersHint: 'Affiche les règles en millimètres en haut et à gauche du canevas.',
   settingsVia: 'Imprimer avec',
   settingsViaHint: 'Le client local envoie les pages directement à l’imprimante et se replie sur la boîte de dialogue d’impression du navigateur s’il est injoignable. Avec « Navigateur », la boîte de dialogue d’impression s’ouvre toujours.',
   settingsViaOptions: { client: 'Client local', browser: 'Navigateur' },

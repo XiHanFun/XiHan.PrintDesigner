@@ -49,6 +49,8 @@ import type {
   DesignerGuides,
   DesignerIssueItem,
   DesignerIssuesEventMap,
+  DesignerLayout,
+  DesignerLayoutPolicy,
   DesignerPaletteDragPayload,
   DesignerPaletteEventMap,
   DesignerPaletteGroup,
@@ -135,9 +137,9 @@ import {
   DESIGNER_COMMANDS_EN_US,
   DESIGNER_FRAME_REGIONS,
   DESIGNER_SETTING_KEYS,
+  designerLayoutPolicy,
   designerShellCommands,
   importSources,
-  parseDesignerPanels,
   registerDropTarget,
   renderCommandMenu,
   resolveSettings,
@@ -159,7 +161,7 @@ import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitE
 import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhExpressionInputElement, XhFieldArrayElement, XhFieldElement, XhFormatInputElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createPrintClientStatus } from './client-status'
 import { createPrintEditor, elementRect } from './editor'
-import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout, printSelectionLayout } from './extensions'
+import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printMenuLayout, printSelectionLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { borderSidesEditor, createIssueText, issuesUnder, valueFormatEditor } from './property-editors'
 import { pageSubject, propertySubjects, TABLE_PART_KINDS } from './property-targets'
@@ -203,8 +205,6 @@ export interface PrintDesignerEventMap {
   'page-change': CustomEvent<{ pageId: string }>
   /** 在设计态与预览态之间切换了。 */
   'mode-change': CustomEvent<{ mode: PrintDesignerMode }>
-  /** 点了面板头的关闭钮，设计器已收起这块面板：panels 是收起之后要显示的面板（空格分隔），设计器的 panels 已换成它。 */
-  'panels-change': CustomEvent<{ panels: string }>
   /**
    * 改了一条设置（设置对话框里，或工具栏上的网格、吸附开关）：设计器已换成新的 settings 并生效；
    * value 为 undefined 表示删掉这个键、回到缺省值。宿主存起来，下次赋回 settings。
@@ -431,13 +431,15 @@ const TOGGLES: ReadonlySet<Command> = new Set<Command>(['grid', 'snap', 'design'
 /** 设计器占用的 Ctrl / ⌘ 组合的主键：对应命令此刻不可用时也不交给浏览器。 */
 const RESERVED_COMMAND_KEYS: ReadonlySet<string> = new Set(['z', 'a', 'd', '[', ']', '{', '}'])
 
+/** 预览态只登记这几个区：顶栏、工具栏与画布。 */
+const PREVIEW_REGIONS: ReadonlySet<string> = new Set(['header', 'toolbar', 'canvas'])
+
 const NO_GUIDES: DesignerGuides = { x: [], y: [] }
 
 /** 属性面板自带编辑器的编辑方式。 */
 const BUILTIN_CONTROLS: ReadonlySet<string> = new Set(BUILTIN_CONTROL_KINDS)
 
 /** 不是外框的区、由设计器自己开关的面板：画布右侧的翻页条与标尺。 */
-const OWN_PANELS: readonly string[] = ['pages', 'rulers']
 
 /** 物料面板里字段那一组的 id。 */
 const FIELD_GROUP_ID = 'fields'
@@ -552,7 +554,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     translations: { attribute: false },
     readonly: { converter: BOOLEAN_CONVERTER },
     mode: { type: String },
-    panels: { converter: { fromAttribute: (value: string | null) => value ?? undefined } },
+    defaultLayout: { attribute: false },
     printClient: { attribute: false },
     clientDownloadUrl: { attribute: 'client-download-url', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     commandLayout: { attribute: false },
@@ -593,10 +595,10 @@ export class XhPrintDesigner extends XhReactiveElement {
   /** 设计态或预览态，缺省 design；同名 attribute。 */
   declare mode: PrintDesignerMode
   /**
-   * 要显示的面板，空格分隔：toolbar palette pages rulers properties issues status，pages 是画布右侧的翻页条、status 是状态栏；不写即全部显示。同名 attribute。
-   * 点了面板头的关闭钮时设计器改写它并派发 panels-change。
+   * 宿主的缺省面板布局：用户没存过布局（settings 里没有 layout.panels）时用它，「恢复默认布局」也回到它；
+   * 写了的字段整项覆盖内置缺省。面板 id 见 PRINT_DESIGNER_PANELS。
    */
-  declare panels: string | undefined
+  declare defaultLayout: DesignerLayout | undefined
   /**
    * 工具栏与右键菜单的排列：位置（toolbar、menu:blank、menu:element、menu:table）→ 若干组命令 id，内置与扩展的命令可以混排。
    * 写了某个位置就只显示列出的命令；写了没登记的命令 id 时抛 TypeError。
@@ -660,6 +662,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   #settingsDialogKey = ''
   /** 此刻生效的设置：各分区没写的条目取了缺省值。 */
   #resolvedSettings: DesignerSettings = {}
+  /** 按 settingsPolicy 换算的布局管控，settingsPolicy 换了才重算。 */
+  #layoutPolicy: { readonly source: DesignerSettingsPolicy | undefined, readonly policy: DesignerLayoutPolicy } | undefined
   /** 正在听连接状态的打印客户端与退订函数。 */
   #clientWatch: { readonly client: PrintClient, readonly off: () => void } | undefined
   /** 设置对话框「本地客户端」一页的连接状态：换了 printClient 时跟着状态栏一起重新订阅。 */
@@ -817,7 +821,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       this.#lastMode = this.mode
       emitEvent(this, 'mode-change', { mode: this.mode })
     }
-    layers.frame.panels = this.#framePanels()
+    this.#syncLayout(layers)
     this.#syncPalette(layers, t)
     this.#syncIssues(layers, t)
     this.#syncProperties(layers, t)
@@ -1367,10 +1371,17 @@ export class XhPrintDesigner extends XhReactiveElement {
       properties: { title: t.properties, ...(heading === undefined ? {} : { subtitle: heading }), help: t.propertiesHelp },
       issues: { title: t.issues, help: t.issuesHelp },
     }
-    const regions = [
-      ...DESIGNER_FRAME_REGIONS.map(region => ({ ...region, ...own[region.name] })),
-      ...this.#model().list.flatMap(extension => (extension.panels ?? []).map(panel => panel.region)),
-    ]
+    const preview = this.mode === 'preview'
+    const kept = (region: DesignerFrameRegion): boolean => preview
+      ? PREVIEW_REGIONS.has(region.name)
+      : region.name !== 'status' || !this.#statusBarOff()
+    const regions = preview
+      ? DESIGNER_FRAME_REGIONS.filter(kept).map(region => ({ ...region, ...own[region.name] }))
+      : [
+          ...DESIGNER_FRAME_REGIONS.filter(kept).map(region => ({ ...region, ...own[region.name] })),
+          { name: PRINT_DESIGNER_PANELS.pages, position: 'overlay', anchor: 'end', label: t.pages } satisfies DesignerFrameRegion,
+          ...this.#model().list.flatMap(extension => (extension.panels ?? []).map(panel => panel.region)),
+        ]
     const key = JSON.stringify(regions)
     if (this.#regions?.key === key)
       return
@@ -1457,27 +1468,24 @@ export class XhPrintDesigner extends XhReactiveElement {
     layers.grid.style.setProperty('--xh-print-designer-grid', `${step}mm`)
   }
 
-  /** 外框收起了一块面板：外框只认自己的区，设计器自己开关的翻页条与标尺照原样留着。 */
-  readonly #onPanelsChange = (event: Event): void => {
-    event.stopPropagation()
-    const frame = (event as DesignerFrameEventMap['panels-change']).detail.panels.split(' ').filter(Boolean)
-    const shown = parseDesignerPanels(this.panels)
-    // 设置里关了状态栏时外框不知道有 status，设计器自己的 panels 照原样留着它
-    const kept = this.#statusBarOff() ? [...OWN_PANELS, 'status'] : OWN_PANELS
-    const panels = [...frame, ...kept.filter(panel => shown === undefined || shown.has(panel))].join(' ')
-    this.panels = panels
-    emitEvent(this, 'panels-change', { panels })
+  /** 面板布局交给外框：用户存在设置里的布局、宿主的缺省布局与按 settingsPolicy 换算的管控。 */
+  #syncLayout(layers: Layers): void {
+    const layout = this.#resolvedSettings[DESIGNER_SETTING_KEYS.layout] as DesignerLayout | undefined
+    if (layers.frame.layout !== layout)
+      layers.frame.layout = layout
+    if (layers.frame.defaultLayout !== this.defaultLayout)
+      layers.frame.defaultLayout = this.defaultLayout
+    if (this.#layoutPolicy === undefined || this.#layoutPolicy.source !== this.settingsPolicy)
+      this.#layoutPolicy = { source: this.settingsPolicy, policy: designerLayoutPolicy(this.settingsPolicy) }
+    const { policy } = this.#layoutPolicy
+    if (layers.frame.layoutPolicy !== policy)
+      layers.frame.layoutPolicy = policy
   }
 
-  /** 交给外框的 panels：预览态只留工具栏；设置里关了状态栏时去掉 status。 */
-  #framePanels(): string | undefined {
-    const shown = parseDesignerPanels(this.panels)
-    if (this.mode === 'preview')
-      return shown === undefined || shown.has('toolbar') ? 'toolbar' : ''
-    if (!this.#statusBarOff())
-      return this.panels
-    const names = shown === undefined ? (this.#regions?.regions ?? DESIGNER_FRAME_REGIONS).map(region => region.name) : [...shown]
-    return names.filter(name => name !== 'status').join(' ')
+  /** 外框改了布局：存进设置的 layout.panels，与在设置对话框里改一条一样。 */
+  readonly #onLayoutChange = (event: Event): void => {
+    event.stopPropagation()
+    this.#writeSetting(DESIGNER_SETTING_KEYS.layout, (event as DesignerFrameEventMap['layout-change']).detail.layout as unknown as JsonValue)
   }
 
   /** 设置里关掉了状态栏。 */
@@ -1612,7 +1620,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const headerBar = createCommandToolbar<PrintDesignerContext>(doc, { ...bar, display: 'stacked' })
     headerBar.element.slot = 'header-center'
     const pageStrip = createCommandToolbar<PrintDesignerContext>(doc, { ...bar, orientation: 'vertical' })
-    pageStrip.element.slot = 'canvas-end'
+    pageStrip.element.slot = PRINT_DESIGNER_PANELS.pages
 
     const paper = createAuthoredElement(doc, 'div', { 'data-part': 'paper' })
     const frames = createAuthoredElement(doc, 'div', { 'data-part': 'frames' })
@@ -1658,7 +1666,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const issueSummary = issues.summary
     issueSummary.slot = 'issues-actions'
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, palette, workspace, pageStrip.element, properties, issues, issueSummary]) as XhDesignerFrameElement
-    frame.addEventListener('panels-change', this.#onPanelsChange)
+    frame.addEventListener('layout-change', this.#onLayoutChange)
     const selectionStatus = createStatusItem(doc, { value: '' })
     selectionStatus.element.slot = 'status-start'
     const clientStatus = createStatusItem(doc, { value: '' })
@@ -1892,15 +1900,12 @@ export class XhPrintDesigner extends XhReactiveElement {
       layers.frame.append(layers.headerBar.element)
   }
 
-  /** 画布右侧的翻页条：panels 里没有 pages 或处于预览态时收起。 */
+  /** 画布右侧的翻页条：外框里的画布浮动件，显隐由布局管；预览态不登记它。 */
   #renderPageStrip(layers: Layers, t: PrintDesignerTranslations): void {
-    const shown = parseDesignerPanels(this.panels)
-    const hidden = this.mode === 'preview' || (shown !== undefined && !shown.has('pages'))
-    layers.pageStrip.element.hidden = hidden
-    if (!hidden) {
-      const { commands } = this.#model()
-      layers.pageStrip.update(PRINT_PAGE_STRIP_LAYOUT, commands, this.#context(), t.pages)
-    }
+    if (this.mode === 'preview')
+      return
+    const { commands } = this.#model()
+    layers.pageStrip.update(PRINT_PAGE_STRIP_LAYOUT, commands, this.#context(), t.pages)
   }
 
   /**
@@ -2515,8 +2520,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /** 标尺显示时画布放进标尺框，不显示时直接放在工作区；预览态两者都收起。 */
   #placeCanvas(layers: Layers, preview: boolean): void {
-    const shown = parseDesignerPanels(this.panels)
-    const rulers = !preview && (shown === undefined || shown.has('rulers'))
+    const rulers = !preview && this.#resolvedSettings[PRINT_SETTING_KEYS.rulers] !== false
     if (rulers && !layers.ruler.contains(layers.menu))
       layers.ruler.append(layers.menu)
     else if (!rulers && layers.ruler.contains(layers.menu))
