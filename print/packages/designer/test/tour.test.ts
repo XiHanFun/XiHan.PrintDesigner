@@ -117,16 +117,26 @@ describe('帮助、快捷键与关于', () => {
     expect([dialog.open, tour(element).running]).toEqual([false, true])
   })
 
-  it('快捷键表从命令表生成，打印自己那组末尾补上 Backspace 删除、Enter 编辑表格与 Ctrl / ⌘ + S 保存', async () => {
+  it('快捷键表从命令表生成，打印自己那组末尾补上剪贴板三键、Backspace 删除、Enter 编辑表格与 Ctrl / ⌘ + S 保存；通用里方向键与 Esc 按打印的做法改写', async () => {
     const element = await mount(el => (el.autoTour = false))
     const groups = settings(element).shortcuts!.groups
     const designerRows = groups.find(group => group.id === 'designer')!.rows
-    expect(designerRows.slice(-3)).toEqual([
+    expect(designerRows.slice(-6)).toEqual([
+      { label: 'Copy', keys: [['Mod', 'C']] },
+      { label: 'Cut', keys: [['Mod', 'X']] },
+      { label: 'Paste', keys: [['Mod', 'V']] },
       { label: 'Delete', keys: [['Backspace']] },
       { label: 'Edit table', keys: [['Enter']] },
       { label: 'Save', keys: [['Mod', 'S']] },
     ])
     expect(groups.find(group => group.id === 'edit')!.rows.some(row => row.keys.some(keys => keys.join('+') === 'Mod+Z'))).toBe(true)
+    expect(settings(element).shortcuts!.commonKeys!.map(key => [key.id, key.label])).toEqual([
+      ['nudge', 'Move the selection; pan the canvas when nothing is selected'],
+      ['nudgeLarge', undefined],
+      ['pan', undefined],
+      ['selectionToolbar', undefined],
+      ['cancel', 'Cancel a drag, leave table editing, or clear the selection'],
+    ])
   })
 
   it('关于页写打印设计器的版本与许可证，后面接扩展给的几行', async () => {

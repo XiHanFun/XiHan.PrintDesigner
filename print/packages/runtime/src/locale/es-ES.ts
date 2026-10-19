@@ -163,6 +163,8 @@ const designer: PrintDesignerLocale = {
     'Ctrl / ⌘ + S pide a la aplicación que guarde la plantilla; el diseñador no guarda por sí mismo.',
   ],
   shortcutSave: 'Guardar',
+  shortcutNudge: 'Mover la selección; sin selección, desplazar el lienzo',
+  shortcutCancel: 'Cancelar un arrastre, salir de la edición de tabla o quitar la selección',
   settingsVia: 'Imprimir con',
   settingsViaHint: 'El cliente local envía las páginas directamente a la impresora y, si no está disponible, recurre al cuadro de impresión del navegador. Con «Navegador» siempre se abre el cuadro de impresión.',
   settingsViaOptions: { client: 'Cliente local', browser: 'Navegador' },

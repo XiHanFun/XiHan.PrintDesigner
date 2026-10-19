@@ -152,6 +152,8 @@ const designer: PrintDesignerLocale = {
     'Strg / ⌘ + S bittet die umgebende Anwendung, die Vorlage zu speichern; der Designer speichert nicht selbst.',
   ],
   shortcutSave: 'Speichern',
+  shortcutNudge: 'Auswahl verschieben; ohne Auswahl die Arbeitsfläche verschieben',
+  shortcutCancel: 'Ziehen abbrechen, Tabellenbearbeitung verlassen oder Auswahl aufheben',
   settingsVia: 'Drucken über',
   settingsViaHint: 'Der lokale Client schickt die Seiten direkt an den Drucker und weicht auf den Druckdialog des Browsers aus, wenn er nicht erreichbar ist. Mit „Browser“ öffnet sich immer der Druckdialog.',
   settingsViaOptions: { client: 'Lokaler Client', browser: 'Browser' },

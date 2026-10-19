@@ -152,6 +152,8 @@ const designer: PrintDesignerLocale = {
     'Ctrl / ⌘ + S を押すと、ホストのシステムにテンプレートの保存を依頼します。デザイナー自身は保存しません。',
   ],
   shortcutSave: '保存',
+  shortcutNudge: '選択した要素を移動。選択がないときはキャンバスをスクロール',
+  shortcutCancel: 'ドラッグを取り消す、表の編集を終える、または選択を解除',
   settingsVia: '印刷方法',
   settingsViaHint: 'ローカルクライアントはページを直接プリンターに送り、接続できないときはブラウザーの印刷ダイアログに切り替えます。ブラウザーを選ぶと常に印刷ダイアログを開きます。',
   settingsViaOptions: { client: 'ローカルクライアント', browser: 'ブラウザー' },
