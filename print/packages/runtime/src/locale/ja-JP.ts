@@ -60,7 +60,6 @@ const designer: PrintDesignerLocale = {
   pageTitle: position => `${position} ページ目`,
   regions: REGION_NAMES,
   bandVariants: { default: '既定', first: '最初のページ', last: '最後のページ', odd: '奇数ページ', even: '偶数ページ' },
-  bandVariant: region => `${REGION_NAMES[region]}のバリエーション`,
   addBandVariant: 'バリエーションを追加',
   removeBandVariant: 'バリエーションを削除',
   resizeBand: region => `${REGION_NAMES[region]}の高さを変更`,

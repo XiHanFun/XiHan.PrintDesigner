@@ -60,7 +60,6 @@ const designer: PrintDesignerLocale = {
   pageTitle: position => `Seite ${position}`,
   regions: REGION_NAMES,
   bandVariants: { default: 'Standard', first: 'Erste Seite', last: 'Letzte Seite', odd: 'Ungerade Seiten', even: 'Gerade Seiten' },
-  bandVariant: region => region === 'header' ? 'Kopfzeilenvariante' : 'Fußzeilenvariante',
   addBandVariant: 'Variante hinzufügen',
   removeBandVariant: 'Variante löschen',
   resizeBand: region => `Höhe der ${REGION_NAMES[region]} ändern`,

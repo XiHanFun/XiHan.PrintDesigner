@@ -60,7 +60,6 @@ const designer: PrintDesignerLocale = {
   pageTitle: position => `第 ${position} 页`,
   regions: REGION_NAMES,
   bandVariants: { default: '默认', first: '首页', last: '末页', odd: '奇数页', even: '偶数页' },
-  bandVariant: region => `${REGION_NAMES[region]}变体`,
   addBandVariant: '新增变体',
   removeBandVariant: '删除变体',
   resizeBand: region => `调整${REGION_NAMES[region]}高度`,

@@ -1058,7 +1058,7 @@ describe('<xh-print-designer>', () => {
     expect(designer.getSelection()).toEqual({ elements: ['remark'] })
   })
 
-  it('翻页条与带区变体：新增页面切过去，变体菜单列出现有与可新增的变体', async () => {
+  it('翻页条与带区变体：新增页面切过去，变体菜单列出现有与可新增的变体；菜单按钮以显示的文字为名', async () => {
     const add = designer.querySelector<HTMLButtonElement>('[slot="pages"] button[value="add-page"]')!
     add.click()
     expect([designer.schema.pages.length, designer.activePageId]).toEqual([2, 'page-1'])
@@ -1066,6 +1066,8 @@ describe('<xh-print-designer>', () => {
     expect(designer.querySelector('[slot="pages"] button[value="page-menu"]')!.getAttribute('aria-label')).toBe('Page 2 / 2: Page 2')
     const values = Array.from(designer.querySelectorAll('[data-part="band-menu"][data-region="footer"] [value]'), item => item.getAttribute('value'))
     expect(values).toEqual(['show:default', 'add:first', 'add:last', 'add:odd', 'add:even'])
+    const trigger = designer.querySelector('[data-part="band-menu"][data-region="footer"] > xh-button > button')!
+    expect([trigger.textContent, trigger.hasAttribute('aria-label')]).toEqual(['Footer · Default', false])
   })
 
   it('外框里工具栏与画布总是显示，翻页条是画布浮动件；面板都隐藏了画布照样在', async () => {

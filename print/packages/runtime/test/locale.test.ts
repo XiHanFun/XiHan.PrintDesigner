@@ -73,7 +73,6 @@ describe('各语言的语言包', () => {
     expect(preview.sheetLabel(2, 5)).toMatch(/2[\s\S]*5|5[\s\S]*2/)
     const t = designerOf(translations)
     expect(t.pageTitle(7)).toContain('7')
-    expect(t.bandVariant('header')).not.toBe(t.bandVariant('footer'))
     expect(t.resizeBand('header')).not.toBe(t.resizeBand('footer'))
     expect(t.resizeColumn('Qty')).toContain('Qty')
     expect(t.newColumnTitle(4)).toContain('4')
