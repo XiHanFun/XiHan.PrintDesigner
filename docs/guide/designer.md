@@ -107,14 +107,16 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 设置是用户偏好，每人每机一份，不随模板保存。`openSettings(section?)` 打开设置对话框，左边一个分区一页：
 
-- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色、工具栏按钮的显示方式（图标、文字、图标和文字，缺省只显示图标）与状态栏开关。工具栏的显示方式只走设置，没有单独的属性；画布上的翻页条总是只显示图标。
+- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色与状态栏开关。
+- 「布局」（`layout`）：逐块面板一行，改显示、停在哪一栏、先后与收起，表下「恢复默认布局」；改的就是上文「面板布局」那一份。
+- 「工具栏」（`toolbar`）：按钮的显示方式（图标、文字、图标和文字，缺省只显示图标）、显示工具栏，以及按钮表：藏起不用的按钮、换先后与分组，「恢复默认」回到宿主排好的样子。显示方式与显示工具栏只走设置，没有单独的属性；画布上的翻页条总是只显示图标。按钮表从宿主用 `commandLayout` 排好的工具栏起步，只管顶部工具栏，顶栏、选中工具条与右键菜单不在里面。
 - 「打印」（`print`）：打印方式、显示网格、网格间距、吸附对齐、显示边距线、标尺。打印方式只在给了 `printClient` 时才有，选本地客户端（缺省）还是浏览器：本地客户端直接交给打印机，连不上时退回浏览器的打印对话框；选浏览器时 `print()` 总是弹出浏览器的打印对话框。网格缺省不显示，间距缺省 1 mm，按当前缩放挤得太密时改按间距的整数倍画；边距线与标尺缺省显示。
 - 「本地客户端」（`printClient`）：给了 `printClient` 才有这一页，写连接状态：已连接、未连接或未安装。「测试连接」调宿主给的 `printClient` 的 `connect()` 连一次；没找到客户端（`CLIENT_UNAVAILABLE`）时写未安装，这时也可能是装了没有运行。没连上时下面有「下载客户端」链接，缺省指向本站的[本地打印客户端](./client)一页（`PRINT_CLIENT_DOWNLOAD_URL`），宿主用 `clientDownloadUrl`（attribute `client-download-url`）换成自己的地址。端口与来源授权仍由宿主建连接时与客户端管，设计器不自己建连接。
-- 扩展登记的分区，排在后面。分区 id 与 `general`、`print`、`printClient` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
+- 扩展登记的分区，排在后面。分区 id 与 `general`、`layout`、`toolbar`、`print`、`printClient` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
 
 <<< @/examples/snippets/settings.ts#open
 
-值是扁平的键值，键是「分区 id.条目 id」，如 `general.theme`、`print.showGrid`，没写的键取缺省值。宿主给缺省、锁定条目或读值时用常量，不手写键：「打印」分区的 id 与各条目的键是包入口导出的 `PRINT_SETTINGS_SECTION` 与 `PRINT_SETTING_KEYS`，「本地客户端」分区的 id 是 `PRINT_CLIENT_SETTINGS_SECTION`，「基础」分区的键是 `@xihan-ui/designer-shell` 的 `DESIGNER_SETTING_KEYS`。`settings` 赋值即生效；用户在对话框里或用工具栏的网格、吸附开关改了一条，设计器换成新的一份并派发 `settings-change`，宿主存起来、下次赋回。`settingsPolicy` 隐藏或锁定条目，键是条目键或分区 id：`hidden` 不显示，一个分区的条目全藏了就没有这一页；`locked` 只读，说明换成「由所在系统管理」。
+值是扁平的键值，键是「分区 id.条目 id」，如 `general.theme`、`print.showGrid`，没写的键取缺省值。宿主给缺省、锁定条目或读值时用常量，不手写键：「打印」分区的 id 与各条目的键是包入口导出的 `PRINT_SETTINGS_SECTION` 与 `PRINT_SETTING_KEYS`，「本地客户端」分区的 id 是 `PRINT_CLIENT_SETTINGS_SECTION`，「基础」「布局」「工具栏」三页的键是 `@xihan-ui/designer-shell` 的 `DESIGNER_SETTING_KEYS`（如工具栏的显示方式 `toolbar.display`、显示工具栏 `toolbar.visible`、按钮表 `toolbar.layout`）。`settings` 赋值即生效；用户在对话框里或用工具栏的网格、吸附开关改了一条，设计器换成新的一份并派发 `settings-change`，宿主存起来、下次赋回。`settingsPolicy` 隐藏或锁定条目，键是条目键或分区 id：`hidden` 不显示，一个分区的条目全藏了就没有这一页；`locked` 只读，说明换成「由所在系统管理」。
 
 <<< @/examples/snippets/settings.ts#host
 

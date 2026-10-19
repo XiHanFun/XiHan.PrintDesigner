@@ -11,8 +11,9 @@ import type { TextMeasurer } from '@xihan-ui/viz'
 import type { PrintDesignerContext, PrintDesignerExtension, XhPrintDesigner } from '../src'
 import { createDocument, createElementRegistry, createPage } from '@xihan-print/core'
 import { DesignerExtensionError } from '@xihan-ui/designer-kit'
+import { DESIGNER_SETTING_KEYS } from '@xihan-ui/designer-shell'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { definePrintDesigner, PRINT_CLIENT_DOWNLOAD_URL, PRINT_CLIENT_SETTINGS_SECTION, PRINT_SETTING_KEYS, PRINT_SETTINGS_SECTION } from '../src'
+import { definePrintDesigner, PRINT_CLIENT_DOWNLOAD_URL, PRINT_CLIENT_SETTINGS_SECTION, PRINT_SETTING_KEYS, PRINT_SETTINGS_SECTION, PRINT_TOOLBAR_LAYOUT } from '../src'
 
 const registry = createElementRegistry()
 
@@ -63,7 +64,7 @@ function row(key: string): HTMLElement | null {
 }
 
 function pages(): string[] {
-  return Array.from(document.querySelectorAll('xh-tabs [data-xh-part="list"] > button'), button => button.getAttribute('value')!)
+  return Array.from(document.querySelectorAll('[data-scope="designer-settings"][data-part="pages"] > xh-tabs [data-xh-part="list"] > button'), button => button.getAttribute('value')!)
 }
 
 function toggle(key: string, checked: boolean): void {
@@ -75,11 +76,11 @@ function toolbarButton(designer: XhPrintDesigner, value: string): HTMLButtonElem
 }
 
 describe('设置', () => {
-  it('openSettings 打开设置对话框：基础在前、打印在后，打印分区列出网格、吸附、边距线与标尺；没给 printClient 时没有打印方式', async () => {
+  it('openSettings 打开设置对话框：基础、布局、工具栏在前，打印在后，打印分区列出网格、吸附、边距线与标尺；没给 printClient 时没有打印方式', async () => {
     const designer = await mount()
     designer.openSettings(PRINT_SETTINGS_SECTION)
     await settle(designer)
-    expect(pages()).toEqual(['general', 'print'])
+    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'print'])
     expect(Object.values(PRINT_SETTING_KEYS).map(key => row(key) !== null)).toEqual([false, true, true, true, true, true])
     expect(row('general.theme')).not.toBeNull()
     expect([PRINT_SETTINGS_SECTION, Object.values(PRINT_SETTING_KEYS).every(key => key.startsWith(`${PRINT_SETTINGS_SECTION}.`))]).toEqual(['print', true])
@@ -87,7 +88,7 @@ describe('设置', () => {
 
   it('settingsPolicy 隐藏条目或整个分区，锁定的只读', async () => {
     const designer = await mount((element) => {
-      element.settingsPolicy = { 'general': 'hidden', 'print.snap': 'locked' }
+      element.settingsPolicy = { 'general': 'hidden', 'layout': 'hidden', 'toolbar': 'hidden', 'print.snap': 'locked' }
     })
     designer.openSettings()
     await settle(designer)
@@ -186,21 +187,51 @@ describe('设置', () => {
     expect(errors).toEqual([expect.objectContaining({ operation: 'read', key: 'broken' })])
   })
 
-  it('工具栏显示方式取设置里的 general.toolbarDisplay，缺省只显示图标；换方式不重铺按钮，翻页条始终只显示图标', async () => {
+  it('工具栏显示方式取设置里的 toolbar.display，缺省只显示图标；换方式不重铺按钮，翻页条始终只显示图标', async () => {
     const designer = await mount()
     const shell = (): Element => designer.querySelector('[data-part="command-bar"] > xh-tooltip')!
     const strip = (): Element => designer.querySelector('[slot="pages"]')!
     const undo = toolbarButton(designer, 'undo')
     expect([shell().getAttribute('data-display'), strip().getAttribute('data-display')]).toEqual(['icon', 'icon'])
-    designer.settings = { 'general.toolbarDisplay': 'both' }
+    designer.settings = { [DESIGNER_SETTING_KEYS.toolbarDisplay]: 'both' }
     await settle(designer)
     expect(shell().getAttribute('data-display')).toBe('both')
-    designer.settings = { 'general.toolbarDisplay': 'text' }
+    designer.settings = { [DESIGNER_SETTING_KEYS.toolbarDisplay]: 'text' }
     await settle(designer)
     expect([shell().getAttribute('data-display'), strip().getAttribute('data-display'), toolbarButton(designer, 'undo')]).toEqual(['text', 'icon', undo])
     designer.openSettings()
     await settle(designer)
-    expect(row('general.toolbarDisplay')).not.toBeNull()
+    expect(row(DESIGNER_SETTING_KEYS.toolbarDisplay)).not.toBeNull()
+  })
+
+  it('设置里关掉显示工具栏时外框不登记工具栏，预览态也一样；再打开就回来', async () => {
+    const designer = await mount()
+    const regions = (): string[] => designer.querySelector<HTMLElement & { regions?: readonly { name: string }[] }>('xh-designer-frame')!.regions!.map(region => region.name)
+    expect(regions()).toContain('toolbar')
+    designer.settings = { [DESIGNER_SETTING_KEYS.toolbarVisible]: false }
+    await settle(designer)
+    expect(regions()).not.toContain('toolbar')
+    designer.mode = 'preview'
+    await settle(designer)
+    expect(regions()).toEqual(['header', 'canvas'])
+    designer.mode = 'design'
+    designer.settings = {}
+    await settle(designer)
+    expect(regions()).toContain('toolbar')
+  })
+
+  it('工具栏套用户的定制：藏起的按钮不铺；「工具栏」页按缺省排列列出按钮表，「布局」页列出面板', async () => {
+    const designer = await mount()
+    expect(toolbarButton(designer, 'cut')).not.toBeNull()
+    designer.settings = { [DESIGNER_SETTING_KEYS.toolbarLayout]: { groups: PRINT_TOOLBAR_LAYOUT.map(group => [...group]), hidden: ['cut'] } }
+    await settle(designer)
+    expect([toolbarButton(designer, 'cut'), toolbarButton(designer, 'copy') !== null]).toEqual([null, true])
+    designer.openSettings('toolbar')
+    await settle(designer)
+    expect([row(DESIGNER_SETTING_KEYS.toolbarLayout) !== null, row(DESIGNER_SETTING_KEYS.toolbarVisible) !== null]).toEqual([true, true])
+    designer.openSettings('layout')
+    await settle(designer)
+    expect(row(DESIGNER_SETTING_KEYS.layout)).not.toBeNull()
   })
 
   it('扩展登记的设置分区放进对话框；分区 id 与 print、printClient、general 或彼此重名时赋值即抛错', async () => {
@@ -208,7 +239,7 @@ describe('设置', () => {
     const designer = await mount(element => (element.extensions = [{ id: 'acme', settings: [section] }]))
     designer.openSettings('acme')
     await settle(designer)
-    expect(pages()).toEqual(['general', 'print', 'acme'])
+    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'print', 'acme'])
     expect(row('acme.token')!.querySelector('xh-password-input')).not.toBeNull()
     const before = designer.extensions
     for (const id of ['print', PRINT_CLIENT_SETTINGS_SECTION, 'general']) {
@@ -261,7 +292,7 @@ describe('本地客户端', () => {
     const designer = await mount(element => (element.printClient = client))
     designer.openSettings(PRINT_CLIENT_SETTINGS_SECTION)
     await settle(designer)
-    expect(pages()).toEqual(['general', 'print', 'printClient'])
+    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'print', 'printClient'])
     const via = row(PRINT_SETTING_KEYS.via)!
     expect([via.parentElement!.firstElementChild === via, via.querySelector('[aria-pressed="true"], [aria-checked="true"], [data-state="on"]')?.textContent?.trim()]).toEqual([true, 'Local client'])
     expect(status()).toEqual({ state: 'Not connected', download: true, href: PRINT_CLIENT_DOWNLOAD_URL })
