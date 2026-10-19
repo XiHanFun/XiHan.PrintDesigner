@@ -575,6 +575,24 @@ describe('尺寸徽标', () => {
     const measure = designer.querySelector('xh-designer-transform [data-part="measure"]')!
     expect([measure.textContent, measure.querySelector('[data-part="measure-field"]')]).toEqual(['40 × 10 mm', null])
   })
+
+  it('输入框里选中文字派发的原生 select 冒泡到画布的右键菜单，不当成选了菜单条目', async () => {
+    designer.select({ elements: ['a'] })
+    await settle()
+    const errors: unknown[] = []
+    const onError = (event: ErrorEvent): void => {
+      errors.push(event.error)
+      event.preventDefault()
+    }
+    window.addEventListener('error', onError)
+    try {
+      field('width').querySelector('input')!.dispatchEvent(new Event('select', { bubbles: true }))
+    }
+    finally {
+      window.removeEventListener('error', onError)
+    }
+    expect([errors, element().width]).toEqual([[], 40])
+  })
 })
 
 describe('对齐与层级菜单', () => {
