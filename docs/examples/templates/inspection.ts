@@ -53,7 +53,7 @@ page.watermark = { text: '{{site}} 内部使用', fontSize: 16, color: '#999999'
 // #endregion bands
 
 // #region body
-const results: MapFormat = { kind: 'map', entries: [{ value: 'ok', text: '正常' }, { value: 'watch', text: '待观察' }, { value: 'fault', text: '异常' }] }
+const results: MapFormat = { kind: 'map', entries: [{ value: 'ok', label: '正常' }, { value: 'watch', label: '待观察' }, { value: 'fault', label: '异常' }] }
 
 const columns: TableColumn[] = [
   { id: 'no', title: '序号', width: 12, align: 'center', content: { kind: 'rowNumber' }, cellType: 'text' },

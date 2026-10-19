@@ -736,18 +736,20 @@ describe('<xh-print-designer>', () => {
     expect(format()).toEqual({ kind: 'map', entries: [] })
     await settle()
     expect(visible()).toEqual(['value-map'])
-    const map = editor.querySelector<Control>('xh-field-array')!
-    map.dispatchEvent(new CustomEvent('value-change', { detail: { value: [{ value: '', text: '' }], mutation: { type: 'insert', index: 0 } }, bubbles: true }))
-    expect(format()).toEqual({ kind: 'map', entries: [{ value: '', text: '' }] })
+    // 值映射是内建的选项表：只有数据值与显示文本两列，没有禁用列
+    const map = editor.querySelector<Control & { add: () => void, updateComplete: Promise<unknown> }>('[data-part="value-map"] xh-field-array')!
+    map.add()
     await settle()
-    const cells = editor.querySelectorAll<Control>('[data-xh-part="table"] > [data-xh-part="item"] xh-text-field')
-    expect(Array.from(cells, cell => cell.getAttribute('aria-label'))).toEqual(['Value of entry 1', 'Display text of entry 1'])
-    cells[0]!.dispatchEvent(new CustomEvent('value-change', { detail: { value: 'M' }, bubbles: true }))
-    cells[1]!.dispatchEvent(new CustomEvent('value-change', { detail: { value: '男' }, bubbles: true }))
-    const fallback = editor.querySelector<Control>('[data-part="value-map"] > [data-part="property"] xh-text-field')!
+    await map.updateComplete
+    expect(format()).toEqual({ kind: 'map', entries: [{ value: '' }] })
+    const cell = (index: number, column: string): Control => map.querySelectorAll<Control>(`xh-field[slot^="item-cell:"][slot$=":${column}"] xh-text-field`)[index]!
+    expect([['value', 'label'].map(column => cell(0, column).getAttribute('aria-label')), map.querySelector('xh-checkbox')]).toEqual([['Value of entry 1', 'Display text of entry 1'], null])
+    cell(0, 'value').dispatchEvent(new CustomEvent('value-change', { detail: { value: 'M' }, bubbles: true }))
+    cell(0, 'label').dispatchEvent(new CustomEvent('value-change', { detail: { value: '男' }, bubbles: true }))
+    const fallback = editor.querySelectorAll('[data-part="value-map"] > [data-part="property"]')[1]!.querySelector<Control>('xh-text-field')!
     expect(fallback.closest('[data-part="property"]')!.querySelector('[data-xh-part="label"]')!.textContent).toBe('Text when nothing matches')
     fallback.dispatchEvent(new CustomEvent('value-change', { detail: { value: '未知' }, bubbles: true }))
-    expect(format()).toEqual({ kind: 'map', entries: [{ value: 'M', text: '男' }], fallback: '未知' })
+    expect(format()).toEqual({ kind: 'map', entries: [{ value: 'M', label: '男' }], fallback: '未知' })
 
     pick(3)
     await settle()
@@ -1106,8 +1108,6 @@ describe('打印客户端', () => {
 })
 
 describe('复合编辑器里层的问题', () => {
-  type Control = HTMLElement & { updateComplete?: Promise<unknown> }
-
   async function settle(): Promise<void> {
     const panel = designer.querySelector('xh-designer-properties')!
     for (let round = 0; round < 3; round++) {
@@ -1120,33 +1120,25 @@ describe('复合编辑器里层的问题', () => {
     designer.querySelector('xh-designer-properties')!.dispatchEvent(new CustomEvent('property-change', { detail: { path, value, targets: [target], merge: 'm' } }))
   }
 
-  /** 一个子项控件上读屏看得到的：名字、aria-invalid 与描述文字。 */
-  function announced(input: HTMLElement | null): (string | null)[] {
-    const describedBy = input?.getAttribute('aria-describedby') ?? null
-    return [input?.getAttribute('aria-label') ?? null, input?.getAttribute('aria-invalid') ?? null, describedBy === null ? null : document.getElementById(describedBy)?.textContent ?? '']
-  }
-
-  it('值映射里重复的那一项：问题标在那一格，名字不变、aria-invalid 与描述落在那一格的输入框上，属性行下不重复；改掉以后收回', async () => {
+  it('值映射里重复的那一项：选项表把问题标在那一格，名字不变、aria-invalid 与描述落在那一格的输入框上，属性行下不重复；改掉以后收回', async () => {
     designer.select({ elements: ['a'] })
     await settle()
-    change(['content', 'format'], { kind: 'map', entries: [{ value: 'A', text: '甲' }, { value: 'A', text: '乙' }] }, { kind: 'text', id: 'a' })
+    change(['content', 'format'], { kind: 'map', entries: [{ value: 'A', label: '甲' }, { value: 'A', label: '乙' }] }, { kind: 'text', id: 'a' })
     await settle()
     const row = designer.querySelector<HTMLElement>('[data-path="content.format"]')!
-    const cells = Array.from(row.querySelectorAll<Control>('[data-xh-part="table"] > [data-xh-part="item"] [data-xh-part="item-cell"] > xh-text-field'))
-    await Promise.all(cells.map(cell => cell.updateComplete))
-    const inputs = cells.map(cell => cell.querySelector<HTMLElement>('input'))
-    const label = (input: HTMLElement | null): string | null => input?.closest('xh-text-field')?.getAttribute('aria-label') ?? null
-    expect(cells.map(cell => cell.hasAttribute('invalid'))).toEqual([false, false, true, false])
-    const [, invalid, text] = announced(inputs[2]!)
-    expect([label(inputs[2]!), invalid, text]).toEqual(['Value of entry 2', 'true', 'Value A is mapped more than once'])
-    expect([inputs[0]!.getAttribute('aria-invalid'), inputs[0]!.hasAttribute('aria-describedby')]).toEqual(['false', false])
+    const map = row.querySelector<HTMLElement & { updateComplete: Promise<unknown> }>('[data-part="value-map"] xh-field-array')!
+    await map.updateComplete
+    const input = (index: number, column: string): HTMLElement => map.querySelectorAll<HTMLElement>(`xh-field[slot^="item-cell:"][slot$=":${column}"] xh-text-field input`)[index]!
+    const described = (element: HTMLElement): string => (element.getAttribute('aria-describedby') ?? '').split(' ').filter(Boolean).map(id => document.getElementById(id)?.textContent ?? '').join(' ').trim()
+    const inputs = [input(0, 'value'), input(0, 'label'), input(1, 'value'), input(1, 'label')]
+    expect(inputs.map(element => element.getAttribute('aria-invalid'))).toEqual(['false', 'false', 'true', 'false'])
+    expect([inputs[2]!.getAttribute('aria-label'), described(inputs[2]!), described(inputs[0]!)]).toEqual(['Value of entry 2', 'Value A is mapped more than once', ''])
     expect(row.querySelector(':scope > [data-part="property-error"]')!.textContent).toBe('')
 
-    change(['content', 'format'], { kind: 'map', entries: [{ value: 'A', text: '甲' }, { value: 'B', text: '乙' }] }, { kind: 'text', id: 'a' })
+    change(['content', 'format'], { kind: 'map', entries: [{ value: 'A', label: '甲' }, { value: 'B', label: '乙' }] }, { kind: 'text', id: 'a' })
     await settle()
-    await cells[2]!.updateComplete
-    expect([cells[2]!.hasAttribute('invalid'), inputs[2]!.getAttribute('aria-invalid'), inputs[2]!.hasAttribute('aria-describedby')]).toEqual([false, 'false', false])
-    expect(Array.from(row.querySelectorAll<HTMLElement>('[data-part="editor-issue"]'), issue => issue.hidden)).not.toContain(false)
+    await map.updateComplete
+    expect([input(1, 'value').getAttribute('aria-invalid'), described(input(1, 'value'))]).toEqual(['false', ''])
   })
 
   it('表格列里的问题写在那一列的条目下面，条目的按钮带 aria-invalid 与描述；属性行下不重复', async () => {

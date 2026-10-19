@@ -360,9 +360,8 @@ const designer: PrintDesignerLocale = {
   pageNumberSample: text => `Ejemplo: ${text}`,
   valueFormatKind: 'Tipo de formato',
   valueFormatKinds: { none: 'Sin formato', format: 'Formato común', map: 'Asignación de valores', expression: 'Expresión' },
-  valueMapColumns: { value: 'Valor de los datos', text: 'Texto mostrado' },
+  valueMapColumns: { value: 'Valor de los datos', label: 'Texto mostrado' },
   valueMapCell: (index, column) => `${column} de la entrada ${index}`,
-  valueMapAdd: 'Añadir entrada',
   valueMapFallback: 'Mostrar si no coincide ninguna',
   issueTexts: {
     'required': () => 'Este valor es obligatorio',

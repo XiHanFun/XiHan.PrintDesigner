@@ -349,9 +349,8 @@ const designer: PrintDesignerLocale = {
   pageNumberSample: text => `例：${text}`,
   valueFormatKind: '書式の種類',
   valueFormatKinds: { none: '書式なし', format: 'よく使う書式', map: '値のマッピング', expression: '式' },
-  valueMapColumns: { value: 'データの値', text: '表示テキスト' },
+  valueMapColumns: { value: 'データの値', label: '表示テキスト' },
   valueMapCell: (index, column) => `${index} 番目の${column}`,
-  valueMapAdd: '項目を追加',
   valueMapFallback: '一致しないときに表示',
   issueTexts: {
     'required': () => '必須項目がありません',

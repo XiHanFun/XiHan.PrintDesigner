@@ -543,12 +543,12 @@
 
 ### ValueMapEntry {#valuemapentry}
 
-值映射的一项：数据值（按字符串比较）与显示文本。
+值映射的一项：数据值（按字符串比较）与显示文本，与选择类组件的选项同一形状（不带 disabled）。没有 label 时命中这一项显示为空。
 
 | 字段 | 类型 | 必填 | 说明 |
 | --- | --- | --- | --- |
 | `value` | <code>string</code> | 是 |  |
-| `text` | <code>string</code> | 是 |  |
+| `label` | <code>string</code> | 可省 |  |
 
 ### MapFormat {#mapformat}
 

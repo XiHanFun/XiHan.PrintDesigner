@@ -181,11 +181,9 @@ export interface PrintDesignerTranslations {
   /** 值格式的种类：不设格式、常用格式（数字、百分比、日期、人民币大写、数字字形）、值映射、表达式。 */
   readonly valueFormatKinds: Readonly<{ none: string, format: string, map: string, expression: string }>
   /** 值映射表的两列：数据值与显示文本。 */
-  readonly valueMapColumns: Readonly<{ value: string, text: string }>
+  readonly valueMapColumns: Readonly<{ value: string, label: string }>
   /** 值映射表里一格的名字，index 从 1 起，column 是列名。 */
   readonly valueMapCell: (index: number, column: string) => string
-  /** 值映射表下面添加一项的按钮。 */
-  readonly valueMapAdd: string
   /** 值映射里没有命中任何一项时显示的文本。 */
   readonly valueMapFallback: string
 }

@@ -349,9 +349,8 @@ const designer: PrintDesignerLocale = {
   pageNumberSample: text => `Beispiel: ${text}`,
   valueFormatKind: 'Formattyp',
   valueFormatKinds: { none: 'Kein Format', format: 'Gängiges Format', map: 'Wertzuordnung', expression: 'Ausdruck' },
-  valueMapColumns: { value: 'Datenwert', text: 'Anzeigetext' },
+  valueMapColumns: { value: 'Datenwert', label: 'Anzeigetext' },
   valueMapCell: (index, column) => `${column} von Eintrag ${index}`,
-  valueMapAdd: 'Eintrag hinzufügen',
   valueMapFallback: 'Anzeige ohne Treffer',
   issueTexts: {
     'required': () => 'Dieser Wert ist erforderlich',

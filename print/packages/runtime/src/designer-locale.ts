@@ -469,9 +469,8 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   pageNumberSample: text => `Preview: ${text}`,
   valueFormatKind: 'Format type',
   valueFormatKinds: { none: 'No format', format: 'Common format', map: 'Value map', expression: 'Expression' },
-  valueMapColumns: { value: 'Value', text: 'Display text' },
+  valueMapColumns: { value: 'Value', label: 'Display text' },
   valueMapCell: (index, column) => `${column} of entry ${index}`,
-  valueMapAdd: 'Add entry',
   valueMapFallback: 'Text when nothing matches',
   issueTexts: ISSUE_TEXTS,
 }
