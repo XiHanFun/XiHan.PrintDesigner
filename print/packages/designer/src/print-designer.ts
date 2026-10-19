@@ -957,7 +957,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#checkTour()
   }
 
-  /** 第一次在设计态铺好、画布有了尺寸之后，看要不要自动开始新手引导；每个元素只看一次，画布没有尺寸（还藏着）时等下一次。 */
+  /** 第一次在设计态铺好、画布有了尺寸之后，看要不要自动开始新手引导；每个元素只看一次，画布没有尺寸（还藏着）时等下一次，同一页里别的引导开着时不开始。 */
   #checkTour(): void {
     if (this.#tourChecked || this.mode !== 'design' || !this.#size())
       return
@@ -1126,11 +1126,11 @@ export class XhPrintDesigner extends XhReactiveElement {
     dialog.show()
   }
 
-  /** 从头开始新手引导：通用步骤加打印与扩展的步骤；预览态或没有能走的步骤时返回 false。 */
+  /** 从头开始新手引导：通用步骤加打印与扩展的步骤，同一页里别的引导开着时先收起它；预览态或没有能走的步骤时返回 false。 */
   startTour(): boolean {
     if (this.mode === 'preview')
       return false
-    return this.#ensureLayers().tour.start()
+    return this.#ensureLayers().tour.start({ force: true })
   }
 
   /** 打开导入字段对话框，给了页 id 就显示那一页：内置的是 sample 与 json-schema，扩展的字段来源用它的 id。 */

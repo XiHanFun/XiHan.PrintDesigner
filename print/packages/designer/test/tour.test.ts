@@ -108,6 +108,23 @@ describe('新手引导', () => {
     expect(element.startTour()).toBe(false)
   })
 
+  it('同一页只开一个引导：别的设计器的引导开着时不自动开始；startTour() 先收起开着的那个', async () => {
+    const first = await mount()
+    const second = await mount()
+    try {
+      await show(first)
+      expect(tour(first).running).toBe(true)
+      await show(second)
+      expect(tour(second).running).toBe(false)
+      expect(second.startTour()).toBe(true)
+      expect([tour(first).running, tour(second).running]).toEqual([false, true])
+      tour(second).stop()
+    }
+    finally {
+      first.remove()
+    }
+  })
+
   it('扩展的 tourSteps 并进来；步骤 id 重名或用了 shell. 前缀时赋值即抛错', async () => {
     const element = await mount(el => (el.autoTour = false))
     const stamps: PrintDesignerExtension = { id: '@acme/stamps', tourSteps: [{ id: '@acme/stamps.library', title: 'Stamps', description: 'Pick a stamp.', order: 200 }] }
