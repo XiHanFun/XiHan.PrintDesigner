@@ -132,6 +132,7 @@ import {
 } from '@xihan-ui/designer-kit'
 import { BUILTIN_CONTROL_KINDS, resolvePropertyEditor } from '@xihan-ui/designer-kit/properties'
 import {
+  applyToolbarCustomization,
   arrangeCommands,
   createCommandToolbar,
   createDesignerSettingsHost,
@@ -151,7 +152,10 @@ import {
   renderCommandMenu,
   resolveSettings,
   runCommand,
+  toolbarCustomizationOf,
   toolbarDisplayOf,
+  toolbarSettingsSource,
+  toolbarVisibleOf,
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
   XhDesignerPaletteElement,
@@ -677,6 +681,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   #settingsSectionsKey = ''
   #settingsSectionList: readonly DesignerSettingsSection[] = []
   #settingsDialogKey = ''
+  #toolbarSourceKey = ''
   /** 此刻生效的设置：各分区没写的条目取了缺省值。 */
   #resolvedSettings: DesignerSettings = {}
   /** 按 settingsPolicy 换算的布局管控，settingsPolicy 换了才重算。 */
@@ -1413,9 +1418,10 @@ export class XhPrintDesigner extends XhReactiveElement {
       issues: { title: t.issues, icon: CircleAlertIcon, help: t.issuesHelp },
     }
     const preview = this.mode === 'preview'
-    const kept = (region: DesignerFrameRegion): boolean => preview
+    const toolbar = toolbarVisibleOf(this.#resolvedSettings)
+    const kept = (region: DesignerFrameRegion): boolean => (region.name !== 'toolbar' || toolbar) && (preview
       ? PREVIEW_REGIONS.has(region.name)
-      : region.name !== 'status' || !this.#statusBarOff()
+      : region.name !== 'status' || !this.#statusBarOff())
     const regions = preview
       ? DESIGNER_FRAME_REGIONS.filter(kept).map(region => ({ ...region, ...own[region.name] }))
       : [
@@ -1717,6 +1723,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     frame.append(selectionStatus.element, clientStatus.element, zoomStatus.element)
     const settings = createGeneratedElement(doc, 'xh-designer-settings', { 'data-part': 'settings' }) as XhDesignerSettingsElement
     settings.editors = { [PRINT_CLIENT_STATUS_CONTROL]: this.#clientStatus.editor }
+    settings.frame = frame
     settings.addEventListener('settings-change', this.#onSettingsChange)
     this.append(frame, settings)
     const panelHost = createPanelHost<PrintDesignerContext>(frame)
@@ -1913,9 +1920,17 @@ export class XhPrintDesigner extends XhReactiveElement {
   #renderToolbar(layers: Layers): void {
     const { commands } = this.#model()
     const context = this.#context()
-    // 按钮的显示方式只取设置的 general.toolbarDisplay：换方式不重铺按钮，放不下的按新宽度收进「更多」
+    // 按钮的显示方式只取设置的 toolbar.display：换方式不重铺按钮，放不下的按新宽度收进「更多」
     layers.commandBar.setDisplay(toolbarDisplayOf(this.#resolvedSettings))
-    layers.commandBar.update(arrangeCommands('toolbar', commands, PRINT_TOOLBAR_LAYOUT, this.commandLayout), commands, context, context.commands.toolbar)
+    const arranged = arrangeCommands('toolbar', commands, PRINT_TOOLBAR_LAYOUT, this.commandLayout)
+    layers.commandBar.update(applyToolbarCustomization(arranged, toolbarCustomizationOf(this.#resolvedSettings)), commands, context, context.commands.toolbar)
+    // 设置对话框的「工具栏」页按宿主排好的这一份列出按钮表，用户的定制压在它上面
+    const source = toolbarSettingsSource(arranged, commands, context)
+    const sourceKey = JSON.stringify(source)
+    if (sourceKey !== this.#toolbarSourceKey) {
+      this.#toolbarSourceKey = sourceKey
+      layers.settings.toolbar = source
+    }
   }
 
   /** 顶栏中段的插入钮：commandLayout 把 header 排空、或处于预览态时从外框里拿掉，顶栏随之收起。 */
