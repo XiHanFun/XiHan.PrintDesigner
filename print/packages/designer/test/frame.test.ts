@@ -210,19 +210,20 @@ describe('工具栏末组', () => {
     return designer.querySelector<HTMLButtonElement>(`[data-part="command-bar"] button[value="${value}"]`)!
   }
 
-  it('末组只留面板；设置与帮助在菜单栏里，关掉菜单栏时回到末组：设置打开设置对话框，帮助在新窗口打开文档站的设计器一页', async () => {
+  it('末组只留面板，设置与帮助只在菜单栏里（菜单栏常开，设置里写 toolbar.menubar 也不起作用）：设置打开设置对话框，帮助在新窗口打开文档站的设计器一页', async () => {
     const groups = (): string[][] => Array.from(designer.querySelectorAll('[data-part="command-bar"] [data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), button => button.value))
-    expect(groups().at(-1)).toEqual(['panels'])
     designer.settings = { 'toolbar.menubar': false }
     await settle()
-    expect(groups().at(-1)).toEqual(['panels', 'settings', 'help'])
-    expect(['panels', 'settings', 'help'].map(value => [toolbarItem(value).disabled, toolbarItem(value).hasAttribute('data-icon')])).toEqual([[false, true], [false, true], [false, true]])
-    toolbarItem('settings').click()
+    expect([groups().at(-1), frame().regions!.some(item => item.name === 'menubar')]).toEqual([['panels'], true])
+    expect([toolbarItem('panels').disabled, toolbarItem('panels').hasAttribute('data-icon')]).toEqual([false, true])
+    const menubar = designer.querySelector('xh-menubar')!
+    const choose = (menu: string, id: string): void => void menubar.dispatchEvent(new CustomEvent('item-select', { detail: { menu, value: `${menu}/${id}` } }))
+    choose('file', 'settings')
     await designer.updateComplete
     expect(designer.querySelector<HTMLElement & { open?: boolean }>('xh-designer-settings')!.open).toBe(true)
     const open = vi.spyOn(window, 'open').mockReturnValue(null)
     try {
-      toolbarItem('help').click()
+      choose('help', 'help')
       expect(open).toHaveBeenCalledWith(PRINT_DESIGNER_HELP_URL, '_blank', 'noopener,noreferrer')
     }
     finally {

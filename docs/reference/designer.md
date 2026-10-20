@@ -31,14 +31,13 @@
 | `settings` | — | `DesignerSettings \| undefined` | 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme、print.showGrid；没写的键取条目的缺省值。赋值即生效；用户在设置对话框里或用工具栏上的网格、吸附开关改了以后，设计器换成新的一份并派发 settings-change。 |
 | `settingsPolicy` | — | `DesignerSettingsPolicy \| undefined` | 宿主对设置条目的管控：键是条目键或分区 id，hidden 不显示，locked 只读、说明换成「由所在系统管理」。 |
 | `settingsStorageKey` | `settings-storage-key` | `string \| undefined` | 设置存在根所在窗口 localStorage 的哪个键下：给了，连上文档时若没赋 settings 就从这里读，用户改了设置就写回去，标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。 |
-| `brands` | — | `readonly PropertySwatchOption[] \| undefined` | 设置里主题色的预设：value 是品牌 id（写成设计器根上的 data-brand），color 是色板格子的颜色。不给且没给 registerBrand 时没有主题色这一项。 |
-| `registerBrand` | — | `((id: string, color: string) => () => void) \| undefined` | 注册自定义主题色，形状与 @xihan-ui/tokens 的 registerBrand 相同；给了才许在设置里自定义主题色。 |
 | `autoTour` | `auto-tour` | `boolean \| undefined` | 第一次在设计态显示出来（画布有了尺寸）后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。 |
 
 ### 存取器
 
 | 属性 | 读写 | 类型 | 说明 |
 | --- | --- | --- | --- |
+| `xhConfig` | 只读 | `XhConfig` | 设计器这棵子树的配置：设置里选了语言时是这一语言的 UI、designer-shell 与打印语言包，跟随页面时是空对象。设计器自己、里面的元素与它弹出的浮层都按它取 locale 与文案，页面别处不受影响。 |
 | `schema` | 可读写 | `PrintDocument` | 打印模板。赋值即装载：清空历史与选择，按实际大小放到视口左上（赋回当前这一份不重新装载）；读取时得到当前模板。 |
 | `activePageId` | 可读写 | `string` | 当前页面模板的标识；赋值切换页面模板。 |
 | `canUndo` | 只读 | `boolean` | 是否有可以撤销的修改。 |
@@ -362,7 +361,6 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | `PrintPaletteEntry` | 接口 | 物料面板里的一项：扩展元素的名称与图标。 |
 | `printSelectionLayout` | 函数 | 选中工具条（命令落点 selection:&lt;主体&gt;）的缺省排列：文字类元素多出字号、粗体、斜体、下划线、删除线与左中右对齐；多选多出对齐与分布；都有层级、创建副本、复制与删除。 |
 | `PrintSelectionSubject` | 类型 | 选中工具条落在哪类选中上：都是文字类元素（文本、长文本、富文本、页码）、单个别的元素，或几个元素里有别的种类。 |
-| `printToolbarLayout` | 函数 | 工具栏此刻的缺省排列：PRINT_TOOLBAR_LAYOUT；菜单栏关掉（menubar 为假）时末组在面板后面放回设置与帮助，它们才有入口。 |
 
 ### print-designer
 

@@ -33,8 +33,6 @@ export type PrintTourStepKey = 'insert' | 'bands' | 'page' | 'pages' | 'fields' 
 export interface PrintTourStepTranslations {
   readonly title: string
   readonly description: string
-  /** 菜单栏显示着时换用的说明：多一句这一步的命令也在哪张菜单里。 */
-  readonly menubarDescription?: string
 }
 
 /** 撤销历史里一步的说明：单个元素写「种类 名称」（见 elementLabel），几个元素写个数。 */

@@ -17,7 +17,7 @@ export type {
   PrintSelectMode,
   PrintTablePart,
 } from './editor'
-export { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_MENUBAR_MENUS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printInsertCommandId, printMenubarLayout, printMenuLayout, printSelectionLayout, printToolbarLayout } from './extensions'
+export { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_MENUBAR_MENUS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, printInsertCommandId, printMenubarLayout, printMenuLayout, printSelectionLayout } from './extensions'
 export type {
   PrintDesignerCommand,
   PrintDesignerContext,

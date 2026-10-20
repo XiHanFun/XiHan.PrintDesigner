@@ -15,7 +15,7 @@ import type { XhPrintDesigner } from './print-designer'
 import { ELEMENT_CATEGORIES } from '@xihan-print/core'
 import { createPrintRuntimeModel } from '@xihan-print/runtime'
 import { DesignerExtensionError, extensionCommands, extensionEditors } from '@xihan-ui/designer-kit'
-import { collectMenubarMenus, collectPaletteSources, collectSettingsSections, collectTourSteps, designerMenubarLayout, designerMenubarMenus, designerPanelCommands, menubarVisibleOf } from '@xihan-ui/designer-shell'
+import { collectMenubarMenus, collectPaletteSources, collectSettingsSections, collectTourSteps, designerMenubarLayout, designerMenubarMenus, designerPanelCommands } from '@xihan-ui/designer-shell'
 import { BarcodeIcon, ImageIcon, MinusIcon, PageNumberIcon, QrCodeIcon, ShapeEllipseIcon, ShapeRectangleIcon, TableIcon, TextRichIcon, TextWrapIcon, TypeIcon } from '@xihan-ui/icons'
 import { PRINT_CLIENT_SETTINGS_SECTION, PRINT_SETTINGS_SECTION } from './settings'
 import { TABLE_COMMANDS } from './table-edit'
@@ -82,7 +82,7 @@ export const PRINT_DESIGNER_EXTENSION_ID = '@xihan-print/designer'
 /**
  * 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。
  * 对齐（六条）、分布（两条）与层级（四条）每条一颗钮，各成一组一字排开；放不下的收进工具栏的「更多」。
- * 设置与帮助在菜单栏里，末组只留面板；菜单栏关掉时的变化见 printToolbarLayout。
+ * 设置与帮助在菜单栏里，末组只留面板。
  */
 export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['undo', 'redo'],
@@ -94,11 +94,6 @@ export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['design', 'preview', 'page-setup', 'print'],
   ['panels'],
 ]
-
-/** 工具栏此刻的缺省排列：PRINT_TOOLBAR_LAYOUT；菜单栏关掉（menubar 为假）时末组在面板后面放回设置与帮助，它们才有入口。 */
-export function printToolbarLayout(menubar: boolean = true): (readonly string[])[] {
-  return menubar ? [...PRINT_TOOLBAR_LAYOUT] : [...PRINT_TOOLBAR_LAYOUT.slice(0, -1), [...PRINT_TOOLBAR_LAYOUT.at(-1)!, 'settings', 'help']]
-}
 
 /** 打印自己在菜单栏上的两张菜单的 id：插入、页面；宿主写 commandLayout 的 menubar:<菜单 id> 时用。 */
 export const PRINT_MENUBAR_MENUS = {
@@ -253,17 +248,13 @@ function tourStep(key: PrintTourStepKey, target: DesignerTourTarget, order: numb
     target,
     order,
     title: ({ translations }) => translations.tourSteps[key].title,
-    description: ({ translations, settings }) => {
-      const text = translations.tourSteps[key]
-      return (menubarVisibleOf(settings) ? text.menubarDescription : undefined) ?? text.description
-    },
+    description: ({ translations }) => translations.tourSteps[key].description,
   }
 }
 
 /**
  * 新手引导里打印自己的几步，排在通用步骤之后：插入菜单、页眉页脚、页面菜单、页面模板、字段物料与打印。两张菜单的步骤指向
- * 菜单栏上的入口，菜单栏关掉时由零件跳过；菜单栏显示着时，字段物料与打印的说明多一句它们也在「文件」菜单里。
- * 目标看不见的那步由零件跳过。
+ * 菜单栏上的入口；字段物料与打印的说明带一句它们也在「文件」菜单里。目标看不见的那步由零件跳过。
  */
 export const PRINT_TOUR_STEPS: readonly DesignerTourStep<PrintDesignerContext>[] = [
   tourStep('insert', { menubar: PRINT_MENUBAR_MENUS.insert }, 100),

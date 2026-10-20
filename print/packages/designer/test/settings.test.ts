@@ -77,11 +77,11 @@ function toolbarButton(designer: XhPrintDesigner, value: string): HTMLButtonElem
 }
 
 describe('设置', () => {
-  it('openSettings 打开设置对话框：基础、布局、工具栏在前，打印在后，打印分区列出网格、吸附、边距线与标尺；没给 printClient 时没有打印方式', async () => {
+  it('openSettings 打开设置对话框：基础、语言、布局、工具栏在前，打印在后，打印分区列出网格、吸附、边距线与标尺；没给 printClient 时没有打印方式', async () => {
     const designer = await mount()
     designer.openSettings(PRINT_SETTINGS_SECTION)
     await settle(designer)
-    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'print', 'help', 'shortcuts', 'about'])
+    expect(pages()).toEqual(['general', 'language', 'layout', 'toolbar', 'print', 'help', 'shortcuts', 'about'])
     expect(Object.values(PRINT_SETTING_KEYS).map(key => row(key) !== null)).toEqual([false, true, true, true, true, true])
     expect(row('general.theme')).not.toBeNull()
     expect([PRINT_SETTINGS_SECTION, Object.values(PRINT_SETTING_KEYS).every(key => key.startsWith(`${PRINT_SETTINGS_SECTION}.`))]).toEqual(['print', true])
@@ -93,7 +93,7 @@ describe('设置', () => {
     })
     designer.openSettings()
     await settle(designer)
-    expect(pages()).toEqual(['print', 'help', 'shortcuts', 'about'])
+    expect(pages()).toEqual(['language', 'print', 'help', 'shortcuts', 'about'])
     expect(row('print.snap')!.querySelector('xh-field')!.hasAttribute('read-only')).toBe(true)
   })
 
@@ -156,11 +156,25 @@ describe('设置', () => {
     expect(seen[0]).toMatchObject({ 'print.showGrid': false, 'print.gridSize': 2, 'print.snap': true, 'print.showMargins': true })
   })
 
-  it('主题与主题色落在设计器元素上：亮暗写 data-theme，预设主题色写 data-brand，跟随页面时去掉', async () => {
-    const designer = await mount((element) => {
-      element.brands = [{ value: 'green', color: '#16a34a' }]
-      element.settings = { 'general.theme': 'dark' }
-    })
+  it('「语言」一页选了语言：等语言包取到，打印自己的文案、外壳的菜单栏与工具栏里的元素都换成这种语言；设回跟随页面，xhConfig 是空对象', async () => {
+    const designer = await mount()
+    const label = (value: string): string | null => toolbarButton(designer, value).getAttribute('aria-label')
+    const menus = (): (string | undefined)[] => designer.querySelector<HTMLElement & { collection?: { label?: string }[] }>('xh-menubar')!.collection!.map(menu => menu.label)
+    expect([label('print'), menus()[0], designer.xhConfig]).toEqual(['Print', 'File', {}])
+    designer.settings = { [DESIGNER_SETTING_KEYS.language]: 'zh-CN' }
+    await vi.waitFor(() => expect(label('print')).toBe('打印'), { timeout: 5000 })
+    expect([label('undo'), menus().slice(0, 4), designer.xhConfig.locale]).toEqual(['撤销', ['文件', '编辑', '视图', '插入'], 'zh-CN'])
+    designer.settings = {}
+    await vi.waitFor(() => expect(label('print')).toBe('Print'), { timeout: 5000 })
+    expect(designer.xhConfig).toEqual({})
+  })
+
+  it('主题与主题色落在设计器元素上：亮暗写 data-theme，预设主题色写 data-brand，跟随页面时去掉；主题色内置在「基础」里，设计器上没有 brands、registerBrand', async () => {
+    const designer = await mount(element => (element.settings = { 'general.theme': 'dark' }))
+    expect(['brands' in designer, 'registerBrand' in designer]).toEqual([false, false])
+    designer.openSettings('general')
+    await settle(designer)
+    expect(row('general.brand')).not.toBeNull()
     expect(designer.getAttribute('data-theme')).toBe('dark')
     designer.settings = { 'general.brand': 'green' }
     await designer.updateComplete
@@ -240,7 +254,7 @@ describe('设置', () => {
     const designer = await mount(element => (element.extensions = [{ id: 'acme', settings: [section] }]))
     designer.openSettings('acme')
     await settle(designer)
-    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'print', 'acme', 'help', 'shortcuts', 'about'])
+    expect(pages()).toEqual(['general', 'language', 'layout', 'toolbar', 'print', 'acme', 'help', 'shortcuts', 'about'])
     expect(row('acme.token')!.querySelector('xh-password-input')).not.toBeNull()
     const before = designer.extensions
     for (const id of ['print', PRINT_CLIENT_SETTINGS_SECTION, 'general']) {
@@ -293,7 +307,7 @@ describe('本地客户端', () => {
     const designer = await mount(element => (element.printClient = client))
     designer.openSettings(PRINT_CLIENT_SETTINGS_SECTION)
     await settle(designer)
-    expect(pages()).toEqual(['general', 'layout', 'toolbar', 'print', 'printClient', 'help', 'shortcuts', 'about'])
+    expect(pages()).toEqual(['general', 'language', 'layout', 'toolbar', 'print', 'printClient', 'help', 'shortcuts', 'about'])
     const via = row(PRINT_SETTING_KEYS.via)!
     expect([via.parentElement!.firstElementChild === via, via.querySelector('[aria-pressed="true"], [aria-checked="true"], [data-state="on"]')?.textContent?.trim()]).toEqual([true, 'Local client'])
     expect(status()).toEqual({ state: 'Not connected', download: true, href: PRINT_CLIENT_DOWNLOAD_URL })

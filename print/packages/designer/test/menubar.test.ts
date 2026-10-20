@@ -100,7 +100,7 @@ function regions(): string[] {
 }
 
 describe('菜单栏', () => {
-  it('外框最上一条：文件、编辑、视图、插入、页面、帮助六张菜单；保存、导入字段、打印与设置在文件里，设计与预览、缩放、拖动、网格与吸附、面板与外观在视图里（外观子菜单是三条显示开关），引导、帮助、快捷键与关于在帮助里', () => {
+  it('外框最上一条：文件、编辑、视图、插入、页面、帮助六张菜单；保存、导入字段、打印与设置在文件里，设计与预览、缩放、拖动、网格与吸附、面板与外观在视图里（外观子菜单是工具栏与状态栏两条显示开关），引导、帮助、快捷键与关于在帮助里', () => {
     expect(regions()[0]).toBe('menubar')
     expect(menubar().closest('[data-part="region"]')!.getAttribute('data-region')).toBe('menubar')
     expect(menubar().collection!.map(node => [node.value, node.label])).toEqual([['file', 'File'], ['edit', 'Edit'], ['view', 'View'], ['insert', 'Insert'], ['page', 'Page'], ['help', 'Help']])
@@ -111,7 +111,7 @@ describe('菜单栏', () => {
     expect(items('help')).toEqual(['start-tour', 'help', 'shortcuts', 'about'])
     expect(menubar().checkboxValue).toEqual(['view/design', 'view/snap'])
     const appearance = item('view', 'appearance')
-    const toggles = ['show-toolbar', 'show-status-bar', 'show-menubar'].map(id => `view/appearance/command:${id}`)
+    const toggles = ['show-toolbar', 'show-status-bar'].map(id => `view/appearance/command:${id}`)
     expect([appearance.label, appearance.icon?.name, item('view', 'panels').icon?.name]).toEqual(['Appearance', 'eye', 'panel-left'])
     expect([appearance.children!.map(child => child.value), appearance.checkboxValue]).toEqual([toggles, toggles])
   })
@@ -125,18 +125,18 @@ describe('菜单栏', () => {
     expect(designer.mode).toBe('design')
   })
 
-  it('「视图 → 外观」的显示开关改设置并派发 settings-change：关掉状态栏外框不登记它，关掉菜单栏外框也不登记菜单栏', async () => {
+  it('「视图 → 外观」的显示开关改设置并派发 settings-change：关掉状态栏外框不登记它；菜单栏常开，设置里写 toolbar.menubar 也照样登记', async () => {
     const changes: [string, unknown][] = []
     designer.addEventListener('settings-change', event => changes.push([(event as CustomEvent<{ key: string }>).detail.key, (event as CustomEvent<{ value: unknown }>).detail.value]))
     choose('view', 'appearance/command:show-status-bar')
     await settle()
     expect([changes, regions().includes('status')]).toEqual([[['general.statusBar', false]], false])
-    choose('view', 'appearance/command:show-menubar')
+    designer.settings = { ...designer.settings, 'toolbar.menubar': false }
     await settle()
-    expect([changes.at(-1), regions().includes('menubar'), menubar().closest('[data-part="parked"]') !== null]).toEqual([['toolbar.menubar', false], false, true])
+    expect([regions()[0], menubar().closest('[data-part="parked"]')]).toEqual(['menubar', null])
     designer.mode = 'preview'
     await settle()
-    expect(regions()).toEqual(['toolbar', 'canvas'])
+    expect(regions()).toEqual(['menubar', 'toolbar', 'canvas'])
   })
 
   it('「文件 → 保存」与画布上的 Ctrl / ⌘ + S 都走外壳的 save 命令，各派发一次 save；预览态也能从菜单保存', async () => {
