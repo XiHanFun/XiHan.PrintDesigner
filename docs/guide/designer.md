@@ -76,7 +76,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 | 菜单 | 条目 |
 | --- | --- |
-| 文件 | 设置 |
+| 文件 | 保存；设置 |
 | 编辑 | 撤销、重做；剪切、复制、粘贴、删除、创建副本；全选；编辑 JSON |
 | 视图 | 设计、预览；放大、缩小、适合窗口、实际大小；拖动；面板（子菜单，就是工具栏上「面板」那一张）；显示工具栏、状态栏与菜单栏 |
 | 帮助 | 开始引导、帮助、快捷键；关于 |
@@ -163,7 +163,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - 「本地客户端」（`printClient`）：给了 `printClient` 才有这一页，写连接状态：已连接、未连接或未安装。「测试连接」调宿主给的 `printClient` 的 `connect()` 连一次；没找到客户端（`CLIENT_UNAVAILABLE`）时写未安装，这时也可能是装了没有运行。没连上时下面有「下载客户端」链接，缺省指向本站的[本地打印客户端](./client)一页（`PRINT_CLIENT_DOWNLOAD_URL`），宿主用 `clientDownloadUrl`（attribute `client-download-url`）换成自己的地址。端口与来源授权仍由宿主建连接时与客户端管，设计器不自己建连接。
 - 扩展登记的分区，排在后面。分区 id 与 `general`、`layout`、`toolbar`、`help`、`shortcuts`、`about`、`print`、`printClient` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
 - 「帮助」（`help`）：几段操作说明，下面是「开始引导」与「帮助」两颗钮，按了先关上对话框再开始引导或打开本站的设计器一页。
-- 「快捷键」（`shortcuts`）：按命令表列出全部快捷键，分通用、编辑、打印设计器与扩展几组，第二快捷键写在同一行；打印设计器那组末尾补上不是命令的 Ctrl / ⌘ + C、X、V 复制剪切粘贴，Backspace 删除，Enter 编辑表格与 Ctrl / ⌘ + S 保存；「通用」里方向键一行写明没有选中时平移画布，Esc 一行写明取消拖动、退出表格编辑或取消选择，其余照 designer-shell 的通用行（含 F10 进菜单栏）。
+- 「快捷键」（`shortcuts`）：按命令表列出全部快捷键，分通用、编辑、打印设计器与扩展几组，第二快捷键写在同一行；打印设计器那组末尾补上不是命令的 Ctrl / ⌘ + C、X、V 复制剪切粘贴，Backspace 删除与 Enter 编辑表格；保存是外壳的命令，列在「通用」里；「通用」里方向键一行写明没有选中时平移画布，Esc 一行写明取消拖动、退出表格编辑或取消选择，其余照 designer-shell 的通用行（含 F10 进菜单栏）。
 - 「关于」（`about`）：打印设计器的版本（包入口导出的 `PRINT_VERSION`，与包版本一致）与许可证，后面接扩展给的几行。
 
 <<< @/examples/snippets/settings.ts#open
@@ -200,7 +200,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | Ctrl / ⌘ + C、X、V | 复制、剪切、粘贴，走系统剪贴板 |
 | Ctrl / ⌘ + D | 创建副本 |
 | Ctrl / ⌘ + A | 全选当前页面模板里看得见的元素 |
-| Ctrl / ⌘ + S | 派发 `save` |
+| Ctrl / ⌘ + S | 保存：执行外壳的 `save` 命令，派发 `save` |
 | Ctrl / ⌘ + Shift + J | 打开编辑 JSON 的对话框 |
 | Ctrl / ⌘ + , | 打开设置对话框 |
 | Ctrl / ⌘ + ]、[ | 上移一层、下移一层 |
@@ -221,7 +221,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ## 保存与事件
 
-设计器不保存模板。每次修改派发 `schema-change`，`detail.schema` 是改完的模板；一次拖动、一次属性编辑合成一次。按 Ctrl / ⌘ + S 时派发 `save`，宿主保存成功后调用 `markSaved()`：
+设计器不保存模板。每次修改派发 `schema-change`，`detail.schema` 是改完的模板；一次拖动、一次属性编辑合成一次。选「文件 → 保存」或在画布上按 Ctrl / ⌘ + S 时（都是外壳的 `save` 命令，预览态只能从菜单保存）派发 `save`，宿主保存成功后调用 `markSaved()`：
 
 <<< @/examples/demos/designer.ts#save
 
@@ -348,7 +348,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 视图 | `pan-tool`（designer-shell 内置，拖动工具，按下状态跟外框的 `canvasTool`） `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `page-setup` `print` |
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
 | 文字格式 | `font-size` `text-bold` `text-italic` `text-underline` `text-line-through` `text-align-left` `text-align-center` `text-align-right`：缺省排在 `selection:text` 的选中工具条上 |
-| 面板、设置与帮助 | `panels` `settings` `help`：designer-shell 内置，排在工具栏末组，也在菜单栏里（面板在视图菜单，设置在文件菜单，帮助在帮助菜单）。「面板」点开菜单开关各块面板，「设置」打开设置对话框（Ctrl / ⌘ + ,），「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`）。`panels-toggle-all` `panels-restore` `layout-reset` 排在「面板」菜单末尾。`start-tour` 开始新手引导，`shortcuts`、`about` 打开设置的快捷键页与关于页，都在帮助菜单；`edit-json` 打开编辑 JSON 的对话框（Ctrl / ⌘ + Shift + J），在编辑菜单与画布空白处右键菜单的末组；`show-toolbar` `show-status-bar` `show-menubar` 是视图菜单里的显示开关 |
+| 保存、面板、设置与帮助 | `save` `panels` `settings` `help`：designer-shell 内置。「保存」（Ctrl / ⌘ + S）派发 `save`，在文件菜单；其余三条排在工具栏末组，也在菜单栏里（面板在视图菜单，设置在文件菜单，帮助在帮助菜单）。「面板」点开菜单开关各块面板，「设置」打开设置对话框（Ctrl / ⌘ + ,），「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`）。`panels-toggle-all` `panels-restore` `layout-reset` 排在「面板」菜单末尾。`start-tour` 开始新手引导，`shortcuts`、`about` 打开设置的快捷键页与关于页，都在帮助菜单；`edit-json` 打开编辑 JSON 的对话框（Ctrl / ⌘ + Shift + J），在编辑菜单与画布空白处右键菜单的末组；`show-toolbar` `show-status-bar` `show-menubar` 是视图菜单里的显示开关 |
 | 面板开关 | `panel:<面板 id>`：每块面板一条，含扩展登记的面板（`panel:<区名>`），文字是面板标题、勾选的是看得见的，宿主锁定的面板不可用；不排在任何位置，可以经 `commandLayout` 放上工具栏 |
 | 页面模板 | `previous-page` `page-menu` `next-page` `add-page` `duplicate-page` `remove-page`：固定排在翻页条上（`PRINT_PAGE_STRIP_LAYOUT`），不经 `commandLayout`；`move-page-up` `move-page-down` 在页码菜单里 |
 

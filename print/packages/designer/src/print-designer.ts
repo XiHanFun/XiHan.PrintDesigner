@@ -194,7 +194,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileCodeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HandIcon, HistoryIcon, ImageIcon, InfoIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MapIcon, MaximizeIcon, MenuIcon, MinusIcon, PageNumberIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, ShapeEllipseIcon, ShapeRectangleIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TextRichIcon, TextWrapIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileCodeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HandIcon, HistoryIcon, ImageIcon, InfoIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MapIcon, MaximizeIcon, MenuIcon, MinusIcon, PageNumberIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, SaveIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, ShapeEllipseIcon, ShapeRectangleIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TextRichIcon, TextWrapIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -233,7 +233,10 @@ export interface PrintDesignerEventMap {
   'issues-change': CustomEvent<{ issues: readonly ValidationIssue[] }>
   /** 视口变了，取值同 getViewport()。 */
   'viewport-change': CustomEvent<{ viewport: Viewport }>
-  /** 设计态下焦点在设计器里（输入框与面板之外）时按了 Ctrl / ⌘ + S；设计器不保存，宿主保存后调用 markSaved()。 */
+  /**
+   * 执行了保存命令 save：选了菜单栏的「文件 → 保存」，或设计态下焦点在设计器里（输入框与面板之外）时按了 Ctrl / ⌘ + S；
+   * 设计器不保存，宿主保存后调用 markSaved()。
+   */
   'save': CustomEvent<Record<string, never>>
   /** 双击元素；双击表格时同时进入表格编辑态。 */
   'element-dblclick': CustomEvent<{ id: string }>
@@ -1011,7 +1014,6 @@ export class XhPrintDesigner extends XhReactiveElement {
         { label: context.commands.paste, keys: [['Mod', 'V']] },
         { label: context.commands.delete, keys: [['Backspace']] },
         { label: t.editTable, keys: [['Enter']] },
-        { label: t.shortcutSave, keys: [['Mod', 'S']] },
       ],
     })
     const about = { product: t.label, version: PRINT_VERSION, license: 'MIT', rows: model.list.flatMap(extension => extension.about ?? []) }
@@ -1372,9 +1374,10 @@ export class XhPrintDesigner extends XhReactiveElement {
       announce: (context, message) => context.frame?.announce(message),
       icons: { undo: UndoIcon, redo: RedoIcon, clearHistory: EraserIcon },
     })
-    // designer-shell 内置的面板、设置、帮助与显示开关，缺省落在菜单栏，面板与拖动也上工具栏；设计器自己的每块面板一条开关命令 panel:<面板 id>
+    // designer-shell 内置的保存、面板、设置、帮助与显示开关，缺省落在菜单栏，面板与拖动也上工具栏；设计器自己的每块面板一条开关命令 panel:<面板 id>
     const shell = designerShellCommands<PrintDesignerContext>({
       translations: context => context.commands,
+      save: () => emitEvent(this, 'save', {}),
       frame: context => context.frame,
       openSettings: ({ designer }, section) => designer.openSettings(section),
       settings: {
@@ -1387,7 +1390,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       startTour: ({ designer }) => designer.startTour(),
       openJsonEditor: ({ designer }) => designer.openJsonEditor(),
       fieldImportDisabled: () => !this.#fieldImportAllowed(),
-      icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon, panTool: HandIcon, about: InfoIcon },
+      icons: { save: SaveIcon, panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon, panTool: HandIcon, about: InfoIcon },
     })
     const panels = designerPanelCommands<PrintDesignerContext>({ panels: Object.values(PRINT_DESIGNER_PANELS), frame: context => context.frame })
     return [...history, ...builtin, ...this.#formatCommands(), this.#pageSetup(), this.#pageMenu(), ...shell, ...panels]
@@ -3589,14 +3592,9 @@ export class XhPrintDesigner extends XhReactiveElement {
       event.preventDefault()
   }
 
-  /** 命令没有接住的 Ctrl / ⌘ 组合：S 派发 save；设计器占用的其余组合此刻不可用时也不交给浏览器。 */
+  /** 命令没有接住的 Ctrl / ⌘ 组合：设计器占用的组合此刻不可用时也不交给浏览器。 */
   #onCommandKey(event: KeyboardEvent): boolean {
-    const key = event.key.toLowerCase()
-    if (key === 's') {
-      emitEvent(this, 'save', {})
-      return true
-    }
-    return RESERVED_COMMAND_KEYS.has(key)
+    return RESERVED_COMMAND_KEYS.has(event.key.toLowerCase())
   }
 
   #onPlainKey(event: KeyboardEvent): boolean {

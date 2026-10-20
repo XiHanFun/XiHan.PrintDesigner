@@ -74,11 +74,11 @@ function regions(): string[] {
 }
 
 describe('菜单栏', () => {
-  it('外框最上一条：文件、编辑、视图、帮助四张菜单；设置在文件里，设计与预览、缩放、拖动、面板与显示开关在视图里，引导、帮助、快捷键与关于在帮助里', () => {
+  it('外框最上一条：文件、编辑、视图、帮助四张菜单；保存与设置在文件里，设计与预览、缩放、拖动、面板与显示开关在视图里，引导、帮助、快捷键与关于在帮助里', () => {
     expect(regions()[0]).toBe('menubar')
     expect(menubar().closest('[data-part="region"]')!.getAttribute('data-region')).toBe('menubar')
     expect(menubar().collection!.map(node => [node.value, node.label])).toEqual([['file', 'File'], ['edit', 'Edit'], ['view', 'View'], ['help', 'Help']])
-    expect(items('file')).toEqual(['settings'])
+    expect(items('file')).toEqual(['save', 'settings'])
     expect(items('edit')).toEqual(['undo', 'redo', 'cut', 'copy', 'paste', 'delete', 'duplicate', 'select-all', 'edit-json'])
     expect(items('view')).toEqual(['design', 'preview', 'zoom-in', 'zoom-out', 'zoom-to-fit', 'zoom-to-actual', 'pan-tool', 'panels', 'show-toolbar', 'show-status-bar', 'show-menubar'])
     expect(items('help')).toEqual(['start-tour', 'help', 'shortcuts', 'about'])
@@ -108,6 +108,20 @@ describe('菜单栏', () => {
     expect(regions()).toEqual(['toolbar', 'canvas'])
   })
 
+  it('「文件 → 保存」与画布上的 Ctrl / ⌘ + S 都走外壳的 save 命令，各派发一次 save；预览态也能从菜单保存', async () => {
+    const saves: string[] = []
+    designer.addEventListener('save', () => saves.push(designer.mode))
+    choose('file', 'save')
+    const viewport = designer.querySelector<HTMLElement>('[data-part="viewport"]')!
+    const ctrlS = new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })
+    viewport.dispatchEvent(ctrlS)
+    expect([saves, ctrlS.defaultPrevented]).toEqual([['design', 'design'], true])
+    designer.mode = 'preview'
+    await settle()
+    choose('file', 'save')
+    expect(saves).toEqual(['design', 'design', 'preview'])
+  })
+
   it('「快捷键」「关于」打开设置对话框的那一页，「设置」打开对话框', async () => {
     type SettingsHost = HTMLElement & { open?: boolean, section?: string }
     const dialog = designer.querySelector<SettingsHost>('xh-designer-settings')!
@@ -123,13 +137,13 @@ describe('菜单栏', () => {
     expect(dialog.open).toBe(true)
   })
 
-  it('宿主命令写 placement menubar:file 进文件菜单，自成一组；commandLayout 的 menubar:<菜单> 整份改写，给空数组就不要这张菜单', async () => {
+  it('宿主命令写 placement menubar:file 进文件菜单，自成一组排在设置之前；commandLayout 的 menubar:<菜单> 整份改写，给空数组就不要这张菜单', async () => {
     designer.extensions = [{ id: '@acme/host', commands: [{ id: '@acme/host.back', label: 'Back to list', placement: ['menubar:file'], run: () => {} }] }]
     await settle()
-    expect(items('file')).toEqual(['settings', '@acme/host.back'])
-    designer.commandLayout = { 'menubar:file': [['@acme/host.back'], ['settings']], 'menubar:help': [] }
+    expect(items('file')).toEqual(['save', '@acme/host.back', 'settings'])
+    designer.commandLayout = { 'menubar:file': [['settings'], ['@acme/host.back']], 'menubar:help': [] }
     await settle()
-    expect(items('file')).toEqual(['@acme/host.back', 'settings'])
+    expect(items('file')).toEqual(['settings', '@acme/host.back'])
     expect(menubar().collection!.map(node => node.value)).toEqual(['file', 'edit', 'view'])
   })
 
