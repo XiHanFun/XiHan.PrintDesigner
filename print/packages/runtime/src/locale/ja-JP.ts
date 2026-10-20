@@ -49,6 +49,7 @@ const designer: PrintDesignerLocale = {
   snap: 'スナップ',
   print: '印刷',
   pages: 'ページテンプレート',
+  minimap: 'ミニマップ',
   addPage: 'ページを追加',
   removePage: 'ページを削除',
   previousPage: '前のページ',

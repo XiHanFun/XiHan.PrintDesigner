@@ -57,6 +57,7 @@ const designer: PrintDesignerLocale = {
   snap: 'Magnétisme',
   print: 'Imprimer',
   pages: 'Modèles de page',
+  minimap: 'Mini-carte',
   addPage: 'Ajouter une page',
   removePage: 'Supprimer la page',
   previousPage: 'Page précédente',

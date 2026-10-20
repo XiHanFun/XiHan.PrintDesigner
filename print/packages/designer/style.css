@@ -43,6 +43,11 @@ xh-print-designer [data-part='workspace'] > xh-designer-ruler {
   flex: 1 1 auto;
 }
 
+/* 小地图落在画布左下角：标尺显示着时让出左侧标尺的宽度 */
+xh-print-designer[data-rulers] [data-part='minimap'] {
+  margin-inline-start: var(--xh-space-5);
+}
+
 xh-print-designer [data-print-canvas],
 xh-print-designer [data-print-canvas-root],
 xh-print-designer [data-print-canvas-menu] {

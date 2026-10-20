@@ -49,6 +49,7 @@ const designer: PrintDesignerLocale = {
   snap: 'Einrasten',
   print: 'Drucken',
   pages: 'Seitenvorlagen',
+  minimap: 'Übersichtskarte',
   addPage: 'Seite hinzufügen',
   removePage: 'Seite löschen',
   previousPage: 'Vorherige Seite',

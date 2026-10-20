@@ -52,6 +52,7 @@ const designer: PrintDesignerLocale = {
   snap: 'Encaixar',
   print: 'Imprimir',
   pages: 'Modelos de página',
+  minimap: 'Minimapa',
   addPage: 'Adicionar página',
   removePage: 'Excluir página',
   previousPage: 'Página anterior',
