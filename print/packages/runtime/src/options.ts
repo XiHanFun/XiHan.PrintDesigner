@@ -3,11 +3,30 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { IssueParams, PaginateOptions } from '@xihan-print/core'
+import type { IssueParams, PaginateOptions, PaginationStep } from '@xihan-print/core'
 import type { ExpressionEngine, ValueFormatter } from '@xihan-ui/expression'
 import type { TextMeasurer } from '@xihan-ui/viz'
 import type { PrintRuntimeExtension } from './extensions'
 import { formatValue } from '@xihan-ui/expression'
+
+/**
+ * 打印的环节：paginate 分页，render 把输出页画成 DOM，resources 等图片与字体就绪（交给本地客户端时是把它们取来随任务带去），
+ * document 把输出页、资源与样式合成交给本地客户端的一份文档，print 交给浏览器的打印对话框。
+ */
+export type PrintPhase = 'paginate' | 'render' | 'resources' | 'document' | 'print'
+
+/** 分页与打印各环节的回调，给调试日志用；不给就不报，结果照旧。 */
+export interface PrintTrace {
+  /** 分页的每一步，见 @xihan-print/core 的 PaginationStep。 */
+  readonly step?: (step: PaginationStep) => void
+  /** 一个环节开始时调，返回的函数在它结束时调，结束时带上这一环节的数据，如输出页数、资源个数与字节数。 */
+  readonly phase?: (phase: PrintPhase) => (details?: Readonly<Record<string, unknown>>) => void
+}
+
+/** 开始一个环节，返回结束时调的函数；没给 trace.phase 时什么都不做。 */
+export function startPhase(trace: PrintTrace | undefined, phase: PrintPhase): (details?: Readonly<Record<string, unknown>>) => void {
+  return trace?.phase?.(phase) ?? (() => {})
+}
 
 /** 分页用到的注入项：预览元素的属性与 printDocument 的选项共用这一组。 */
 export interface PrintRenderOptions {
@@ -25,6 +44,8 @@ export interface PrintRenderOptions {
   readonly maxSheets?: number
   /** 扩展：元素种类、渲染、编辑方式与规则，内置扩展自动排在最前。 */
   readonly extensions?: readonly PrintRuntimeExtension[]
+  /** 分页与打印各环节的回调，给调试日志用，见 PrintTrace。 */
+  readonly trace?: PrintTrace
 }
 
 /** 运行时无法完成分页或打印的原因：拿不到文字度量器、没有给模板。 */
@@ -67,5 +88,7 @@ export function resolvePaginateOptions(options: PrintRenderOptions, defaults: Re
     resolved.maxSheets = options.maxSheets
   if (options.extensions !== undefined)
     resolved.extensions = options.extensions
+  if (options.trace?.step !== undefined)
+    resolved.trace = options.trace.step
   return resolved
 }

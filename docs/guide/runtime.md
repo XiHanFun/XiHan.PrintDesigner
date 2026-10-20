@@ -74,6 +74,15 @@
 
 预览元素把错误转成 `pagination-error` 事件；`print()` 与 `printDocument` 直接抛出，不打开打印对话框。问题码见[问题码与诊断](../reference/issues)。
 
+## 调试回调
+
+预览元素的 `trace` 属性与 `printDocument`、`paginateDocument`、打印客户端各方法的 `trace` 选项收一组回调，给调试日志用，不给就不报，结果照旧：
+
+- `step(step)`：分页的每一步，形状是 `@xihan-print/core` 的 `PaginationStep`——`page` 开始排一个页面模板，`reflow` 按假定页数选的页眉页脚变体不对而重排，`split` 跨页元素续排到后续输出页，`move` 元素放不下整块挪到下一页，`done` 这个页面模板排完。重排时只报最后采用的那一次的 `split` 与 `move`。底层的 `paginate` 也收同样的 `trace` 选项。
+- `phase(phase)`：一个环节开始时调，返回在它结束时调的函数，结束时带上这一环节的数据。环节有 `paginate`（分页，带输出页数）、`render`（生成输出页的 DOM，带输出页数）、`resources`（等图片与字体就绪；交给本地客户端时是把它们取来随任务带去，带资源个数）、`document`（合成交给本地客户端的文档，带字节数）与 `print`（交给浏览器的打印对话框）。预览元素重新分页时报 `paginate` 与 `render`，`print()` 另报后面的环节。
+
+设计器的「调试日志」就是接在这里，见[设计器](./designer#调试日志)。
+
 ## 浏览器打印
 
 `print()`、`printDocument` 与 `printSheets` 都这样打印：

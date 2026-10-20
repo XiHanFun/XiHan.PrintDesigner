@@ -115,6 +115,7 @@
 | `PaginationDiagnosticCode` | 类型 | 分页诊断码。 |
 | `PaginationDiagnosticTarget` | 接口 | 分页诊断所在的页面（kind 为 page）或元素（kind 为 element）。 |
 | `PaginationResult` | 接口 | 分页结果。 |
+| `PaginationStep` | 类型 | 分页的一步，按发生的先后交给 PaginateOptions.trace。 |
 | `PrintLayoutError` | 类 | 分页无法进行时抛出的错误。 |
 | `PrintLayoutErrorCode` | 类型 | 分页无法进行的原因：文档有 error 级校验问题、选项不合法、测量器或格式化器返回了不合法的结果。 |
 | `RectLayoutBox` | 接口 | 矩形布局盒。 |

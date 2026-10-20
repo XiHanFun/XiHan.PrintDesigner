@@ -21,6 +21,7 @@ import type {
   ElementRegion,
   LayoutBox,
   PageBandKey,
+  PaginationStep,
   PrintDocument,
   PrintElement,
   PrintOperation,
@@ -32,7 +33,7 @@ import type {
   TextStyle,
   ValidationIssue,
 } from '@xihan-print/core'
-import type { PrintDesignerTranslations, PrintOutcome, PrintPreviewPrintOptions } from '@xihan-print/runtime'
+import type { PrintDesignerTranslations, PrintOutcome, PrintPhase, PrintPreviewPrintOptions, PrintTrace } from '@xihan-print/runtime'
 import type { PrintClient, PrintClientState } from '@xihan-print/runtime/client'
 import type { IconRecord, Tone } from '@xihan-ui/core'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
@@ -152,6 +153,7 @@ import {
   arrangeMenubar,
   createCommandMenubar,
   createCommandToolbar,
+  createDesignerDebugLogger,
   createDesignerSettingsHost,
   createHistoryPanel,
   createOutlinePanel,
@@ -278,6 +280,22 @@ async function loadPrintLocale(language: DesignerLanguage): Promise<XhConfig> {
   const [shared, print] = await Promise.all([loadDesignerLocale(language), import('@xihan-print/runtime/locale')])
   const pack = print[`print${language[0]!.toUpperCase()}${language.slice(1).replace('-', '')}` as keyof typeof print] as XhConfig
   return mergeXhConfig(shared, pack)
+}
+
+/** 分页一步写进调试日志的标题；输出页序号换成从 1 起。 */
+function paginationStepTitle(step: PaginationStep): string {
+  switch (step.kind) {
+    case 'page':
+      return `页面模板 ${step.pageId} 开始排，首页页码 ${step.firstNumber}`
+    case 'reflow':
+      return `页面模板 ${step.pageId} 按 ${step.assumed} 页选的页眉页脚不对，按 ${step.sheets} 页重排`
+    case 'split':
+      return `${step.elementId} 在第 ${step.from + 1} 页放不下，续排到第 ${step.to + 1} 页`
+    case 'move':
+      return `${step.elementId} 在第 ${step.from + 1} 页放不下，挪到第 ${step.to + 1} 页`
+    case 'done':
+      return `页面模板 ${step.pageId} 排完，共 ${step.sheets} 页`
+  }
 }
 
 /** 剪贴板载荷的结构版本。 */
@@ -741,6 +759,10 @@ export class XhPrintDesigner extends XhReactiveElement {
   #unregisterDrop: (() => void) | undefined
   /** 停止把宿主的 slot="menubar-end" 转交给外框。 */
   #releaseSlots: (() => void) | undefined
+  /** 调试日志：开发者模式开着时，按设置记分页的每一步、重画与打印各环节的耗时。 */
+  readonly #debug = createDesignerDebugLogger({ name: PRINT_DESIGNER_TAG, settings: () => this.#resolvedSettings })
+  /** 交给预览与打印的环节回调，跟着两路日志的开关重建。 */
+  #trace: { readonly key: string, readonly trace: PrintTrace | undefined } | undefined
   #hoverId: string | undefined
   #platform: 'mac' | 'other' | undefined
   #settingsHost: DesignerSettingsHost | undefined
@@ -916,6 +938,16 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   protected override update(changed: PropertyValues): void {
+    if (!this.#debug.enabled('render')) {
+      this.#update(changed)
+      return
+    }
+    const reasons = [...changed.keys()].map(String).join(', ')
+    this.#debug.measure('render', `update: ${reasons === '' ? 'requestUpdate' : reasons}`, () => this.#update(changed))
+  }
+
+  /** 一次重画：设置、面板、工具栏与菜单，设计态画纸与画布上的各层，预览态交给预览元素。 */
+  #update(changed: PropertyValues): void {
     super.update(changed)
     const layers = this.#ensureLayers()
     const t = this.#translations()
@@ -953,7 +985,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       return
     }
     if (this.#layoutStale) {
-      this.#layout = this.#computeLayout()
+      this.#layout = this.#debug.measure('render', 'layout: design', () => this.#computeLayout())
       this.#layoutStale = false
     }
     this.#renderPaper(layers, t)
@@ -1224,7 +1256,10 @@ export class XhPrintDesigner extends XhReactiveElement {
   async print(options: PrintPreviewPrintOptions = {}): Promise<PrintOutcome> {
     const preview = this.#ensurePreview()
     this.#syncPreview(preview)
-    return preview.print(options)
+    const end = this.#debug.start('render', 'print')
+    const outcome = await preview.print(options)
+    end(() => outcome)
+    return outcome
   }
 
   // —— 内部：模型与布局 ——
@@ -2624,6 +2659,34 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (this.timeZone !== undefined)
       preview.timeZone = this.timeZone
     preview.printClient = this.#printVia() === 'client' ? this.printClient : undefined
+    preview.trace = this.#printTrace()
+  }
+
+  /**
+   * 交给预览与打印的环节回调：分页日志开着时报分页的每一步，渲染日志开着时记分页、生成 DOM、等资源、合成文档与送打印各环节的耗时；
+   * 两路都关着（或开发者模式关着）时为 undefined。
+   */
+  #printTrace(): PrintTrace | undefined {
+    const pagination = this.#debug.enabled('pagination')
+    const render = this.#debug.enabled('render')
+    const key = `${pagination}:${render}`
+    if (this.#trace?.key !== key) {
+      const trace: PrintTrace | undefined = !pagination && !render
+        ? undefined
+        : {
+            ...(pagination ? { step: (step: PaginationStep) => this.#debug.log('pagination', paginationStepTitle(step), () => step) } : {}),
+            ...(render
+              ? {
+                  phase: (phase: PrintPhase) => {
+                    const end = this.#debug.start('render', `phase: ${phase}`)
+                    return (details?: Readonly<Record<string, unknown>>) => end(details === undefined ? undefined : () => details)
+                  },
+                }
+              : {}),
+          }
+      this.#trace = { key, trace }
+    }
+    return this.#trace.trace
   }
 
   /** 打印方式：给了 printClient、设置里又没选浏览器时经本地客户端，否则用浏览器打印。 */

@@ -11,7 +11,7 @@ export type { PrintElementRenderContext, PrintElementRenderer, PrintRuntimeExten
 export { mergePaginationResults } from './merge'
 export type { MergedPaginationDiagnostic, MergedPaginationPart, MergedPaginationResult } from './merge'
 export { PrintRuntimeError } from './options'
-export type { PrintRenderOptions, PrintRuntimeErrorCode } from './options'
+export type { PrintPhase, PrintRenderOptions, PrintRuntimeErrorCode, PrintTrace } from './options'
 export { paginateDocument, printDocument, printSheets } from './print'
 export type { PaginateDocumentOptions, PrintOptions, PrintOutcome, PrintSheetsOptions } from './print'
 export { definePrintPreview, PRINT_PREVIEW_TAG, XhPrintPreview } from './print-preview'

@@ -9,7 +9,7 @@ import type { ExtensionElement, PageNumberElement, PrintElement } from '../schem
 import type { PageBandKey } from '../schema/options'
 import type { IssueParams } from '../validation/issues'
 import type { BodyItem } from './body'
-import type { DiagnosticScope, LayoutContext, PendingDiagnostic } from './context'
+import type { BodyStep, DiagnosticScope, LayoutContext, PendingDiagnostic } from './context'
 import type { BodyGeometry } from './placement'
 import type {
   LayoutBox,
@@ -18,6 +18,7 @@ import type {
   PaginationDiagnostic,
   PaginationDiagnosticCode,
   PaginationResult,
+  PaginationStep,
   TextLayoutBox,
 } from './types'
 import { withSeverity } from '@xihan-ui/designer-kit/schema'
@@ -83,19 +84,25 @@ function prepareBodyItem(element: PrintElement, index: number, context: LayoutCo
   }
 }
 
-/** 把一次排版尝试中的诊断暂存起来，只有采用的那次才提交。 */
+/** 把一次排版尝试中的诊断与分页步骤暂存起来，只有采用的那次才提交。 */
 function bufferedContext(context: LayoutContext): { context: LayoutContext, commit: () => void } {
   const buffer: [PaginationDiagnosticCode, DiagnosticScope, IssueParams | undefined][] = []
+  const steps: BodyStep[] = []
+  const trace = context.trace
   return {
-    context: { ...context, report: (code, scope, params) => buffer.push([code, scope, params]) },
+    context: { ...context, report: (code, scope, params) => buffer.push([code, scope, params]), ...(trace === undefined ? {} : { trace: step => steps.push(step) }) },
     commit: () => {
       for (const [code, scope, params] of buffer)
         context.report(code, scope, params)
+      for (const step of steps)
+        trace?.(step)
     },
   }
 }
 
-function layoutPage(page: PrintPage, pageIndex: number, firstNumber: number, limit: number, context: LayoutContext): PageLayout {
+function layoutPage(page: PrintPage, pageIndex: number, firstNumber: number, limit: number, outer: LayoutContext, trace: ((step: PaginationStep) => void) | undefined): PageLayout {
+  trace?.({ kind: 'page', pageId: page.id, pageIndex, firstNumber })
+  const context: LayoutContext = trace === undefined ? outer : { ...outer, trace: step => trace({ ...step, pageId: page.id }) }
   const paper = getPaperSize(page)
   const items = page.elements.map((element, index) =>
     prepareBodyItem(element, index, context, elementScope(['pages', pageIndex, 'elements'], index, element)),
@@ -147,9 +154,11 @@ function layoutPage(page: PrintPage, pageIndex: number, firstNumber: number, lim
       sheetCount = assumedLast + 1
       break
     }
+    trace?.({ kind: 'reflow', pageId: page.id, assumed: assumedLast + 1, sheets: used })
     assumedLast = used - 1
   }
   commit()
+  trace?.({ kind: 'done', pageId: page.id, sheets: sheetCount })
 
   const watermark = page.watermark === undefined
     ? undefined
@@ -203,6 +212,8 @@ function checkOptions(options: PaginateOptions): number {
     throw new PrintLayoutError('option.invalid', { option: 'maxSheets' })
   if (options.formatter !== undefined && typeof options.formatter !== 'function')
     throw new PrintLayoutError('option.invalid', { option: 'formatter' })
+  if (options.trace !== undefined && typeof options.trace !== 'function')
+    throw new PrintLayoutError('option.invalid', { option: 'trace' })
   return maxSheets
 }
 
@@ -251,7 +262,7 @@ export function paginate(document: PrintDocument, data: unknown, options: Pagina
     }
     const continues = page.numbering.continuous && lastNumber !== undefined
     const firstNumber = continues ? (lastNumber as number) + 1 : page.numbering.start
-    const layout = layoutPage(page, pageIndex, firstNumber, budget, context)
+    const layout = layoutPage(page, pageIndex, firstNumber, budget, context, options.trace)
     if (!continues || runs.length === 0)
       runs.push([])
     runs.at(-1)?.push(...layout.sheets)

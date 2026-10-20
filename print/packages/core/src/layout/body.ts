@@ -70,6 +70,8 @@ function placeFixed(
     context.report('layout.sheetLimit', scope, { limit: geometry.limit })
     return { boxes: [], end: start, truncated: true }
   }
+  if (cursor.sheet !== start.sheet)
+    context.trace?.({ kind: 'move', elementId: element.id, from: start.sheet, to: cursor.sheet })
   return {
     boxes: [{ sheet: cursor.sheet, box: { ...item.box, y: cursor.y } }],
     end: { sheet: cursor.sheet, y: cursor.y + element.height },
@@ -88,8 +90,11 @@ function placeFlow(
   const body = geometry.bodyRect(cursor.sheet)
   if (cursor.y < body.y)
     cursor = { sheet: cursor.sheet, y: body.y }
-  if (cursor.y >= bodyBottom(body) - LAYOUT_EPSILON)
-    cursor = nextSheetTop(cursor.sheet, geometry)
+  if (cursor.y >= bodyBottom(body) - LAYOUT_EPSILON) {
+    const next = nextSheetTop(cursor.sheet, geometry)
+    context.trace?.({ kind: 'move', elementId: item.element.id, from: cursor.sheet, to: next.sheet })
+    cursor = next
+  }
   switch (item.kind) {
     case 'table':
       return placeTable(item.prepared, cursor, geometry, context, scope)
@@ -122,6 +127,10 @@ export function layoutBody(items: readonly BodyItem[], geometry: BodyGeometry, c
       ? placeFixed(item, cursor, displaced, geometry, context, scope)
       : placeFlow(item, cursor, geometry, context, scope)
     truncated ||= placement.truncated
+    if (item.kind !== 'fixed' && placement.boxes.length > 1) {
+      const sheets = placement.boxes.map(box => box.sheet)
+      context.trace?.({ kind: 'split', elementId: item.element.id, from: Math.min(...sheets), to: Math.max(...sheets) })
+    }
     results.set(item.index, placement)
     placed.push({ designBottom: item.element.y + item.element.height, end: placement.end })
   }

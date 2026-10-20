@@ -12,7 +12,7 @@ import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { PrintClient } from './client/client'
 import type { ClientPrintOptions } from './client/protocol'
 import type { PrintRuntimeExtension } from './extensions'
-import type { PrintRuntimeErrorCode } from './options'
+import type { PrintRuntimeErrorCode, PrintTrace } from './options'
 import type { PrintOutcome, PrintSheetsOptions } from './print'
 import type { PrintPreviewTranslations } from './translations'
 import { paginate, PrintLayoutError } from '@xihan-print/core'
@@ -21,7 +21,7 @@ import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { shouldFallBack } from './client/errors'
 import { createPrintRuntimeModel } from './extensions'
-import { PrintRuntimeError, resolvePaginateOptions } from './options'
+import { PrintRuntimeError, resolvePaginateOptions, startPhase } from './options'
 import { printSheets } from './print'
 import { renderSheets } from './render/sheets'
 import { DEFAULT_PRINT_PREVIEW_TRANSLATIONS } from './translations'
@@ -71,6 +71,7 @@ export class XhPrintPreview extends XhReactiveElement {
     timeZone: { type: String, attribute: 'time-zone' },
     zoom: { type: Number },
     printClient: { attribute: false },
+    trace: { attribute: false },
   }
 
   /** 打印模板。 */
@@ -93,6 +94,8 @@ export class XhPrintPreview extends XhReactiveElement {
   declare zoom: number | undefined
   /** 本地打印客户端（@xihan-print/runtime/client 的 createPrintClient）：给了时 print() 先交给它静默打印，连不上客户端才退回浏览器打印。 */
   declare printClient: PrintClient | undefined
+  /** 分页与打印各环节的回调，给调试日志用：重新分页时报分页的每一步与分页、生成 DOM 两个环节，print() 另报后面的环节。换它不重新分页。 */
+  declare trace: PrintTrace | undefined
 
   readonly #config = new XhConfigController(this)
   #extensions: readonly PrintRuntimeExtension[] | undefined
@@ -176,7 +179,7 @@ export class XhPrintPreview extends XhReactiveElement {
     const { title, ...clientOptions } = options
     if (this.printClient !== undefined) {
       try {
-        const status = await this.printClient.printSheets(result, { ...clientOptions, document: this.ownerDocument, ...this.#extensionOptions() }).done
+        const status = await this.printClient.printSheets(result, { ...clientOptions, document: this.ownerDocument, ...this.#extensionOptions(), ...this.#traceOptions() }).done
         return { sheets: status.sheets ?? result.sheets.length, diagnostics: result.diagnostics, via: 'client' }
       }
       catch (error) {
@@ -185,16 +188,21 @@ export class XhPrintPreview extends XhReactiveElement {
       }
     }
     const sheetsOptions: PrintSheetsOptions = title === undefined
-      ? { document: this.ownerDocument, ...this.#extensionOptions() }
-      : { document: this.ownerDocument, title, ...this.#extensionOptions() }
+      ? { document: this.ownerDocument, ...this.#extensionOptions(), ...this.#traceOptions() }
+      : { document: this.ownerDocument, title, ...this.#extensionOptions(), ...this.#traceOptions() }
     await printSheets(result, sheetsOptions)
     return { sheets: result.sheets.length, diagnostics: result.diagnostics, via: 'browser' }
+  }
+
+  /** 打印时交下去的环节回调。 */
+  #traceOptions(): { trace?: PrintTrace } {
+    return this.trace === undefined ? {} : { trace: this.trace }
   }
 
   #compute(): PaginationResult {
     if (this.schema === undefined)
       throw new PrintRuntimeError('schema.missing')
-    return paginate(this.schema, this.data, resolvePaginateOptions(this, {
+    const options = resolvePaginateOptions(this, {
       measurer: () => {
         if (this.#canvasMeasurer === undefined)
           this.#canvasMeasurer = createCanvasMeasurer(this.ownerDocument)
@@ -204,7 +212,11 @@ export class XhPrintPreview extends XhReactiveElement {
         this.#engine ??= createExpressionEngine()
         return this.#engine
       },
-    }))
+    })
+    const done = startPhase(this.trace, 'paginate')
+    const result = paginate(this.schema, this.data, options)
+    done({ sheets: result.sheets.length })
+    return result
   }
 
   #repaginate(): void {
@@ -218,7 +230,9 @@ export class XhPrintPreview extends XhReactiveElement {
     try {
       const result = this.#compute()
       this.#result = result
+      const rendered = startPhase(this.trace, 'render')
       renderSheets(result, sheets, { renderers: createPrintRuntimeModel(this.#extensions).renderers })
+      rendered({ sheets: result.sheets.length })
       this.#label()
       emitEvent(this, 'paginated', { sheets: result.sheets.length, diagnostics: result.diagnostics })
     }

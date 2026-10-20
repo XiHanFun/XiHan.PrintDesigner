@@ -5,8 +5,10 @@
 
 import type { PaginationResult } from '@xihan-print/core'
 import type { PrintRuntimeExtension } from '../extensions'
+import type { PrintTrace } from '../options'
 import type { ClientDocument, ClientResource, ClientSheetGroup } from './protocol'
 import { createPrintRuntimeModel } from '../extensions'
+import { startPhase } from '../options'
 import { pageRules, PRINT_CSS } from '../render/page'
 import { renderSheets } from '../render/sheets'
 import { toBase64 } from './base64'
@@ -21,6 +23,8 @@ export interface ClientDocumentOptions {
   readonly fetch?: typeof fetch
   /** 扩展：扩展元素按它们给的渲染画出，与分页用同一份。 */
   readonly extensions?: readonly PrintRuntimeExtension[]
+  /** 各环节的回调：报生成 DOM、取资源与合成文档三个环节的起止，见 PrintTrace。 */
+  readonly trace?: PrintTrace
 }
 
 /** 消息里除文档以外的字段预留的字节数。 */
@@ -173,8 +177,11 @@ export async function buildClientDocument(result: PaginationResult, options: Cli
   const charset = doc.createElement('meta')
   charset.setAttribute('charset', 'utf-8')
   doc.head.prepend(charset)
+  const rendered = startPhase(options.trace, 'render')
   renderSheets(result, doc.body, { previewOnly: false, renderers: createPrintRuntimeModel(options.extensions).renderers })
+  rendered({ sheets: result.sheets.length })
 
+  const fetched = startPhase(options.trace, 'resources')
   const pending: Promise<void>[] = []
   for (const image of Array.from(doc.body.querySelectorAll('img'))) {
     const src = image.getAttribute('src')
@@ -193,13 +200,17 @@ export async function buildClientDocument(result: PaginationResult, options: Cli
   }
   const faces = fontFaces(source, usedFamilies(doc.body), collector, fetcher)
   await Promise.all(pending)
+  const faceRules = await faces
+  fetched({ resources: collector.resources.length })
 
+  const assembled = startPhase(options.trace, 'document')
   const style = doc.createElement('style')
-  style.textContent = [pageRules(result), PRINT_CSS, ...await faces].join('\n')
+  style.textContent = [pageRules(result), PRINT_CSS, ...faceRules].join('\n')
   doc.head.append(style)
   const html = `<!doctype html>\n${doc.documentElement.outerHTML}`
   const size = new TextEncoder().encode(html).length + collector.resources.reduce((sum, resource) => sum + resource.data.length + resource.type.length, 0)
   if (size + ENVELOPE_BYTES > MAX_MESSAGE_BYTES)
     throw new PrintClientError('DOCUMENT_TOO_LARGE', '文档超过单条消息 96 MiB 的上限', { bytes: size, limit: MAX_MESSAGE_BYTES })
+  assembled({ bytes: size })
   return { html, resources: collector.resources, sheets: sheetGroups(result) }
 }
