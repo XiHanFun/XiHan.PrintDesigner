@@ -46,6 +46,8 @@ export function mount(host: HTMLElement): () => void {
   // #endregion render
   // 文档页上不自动开始新手引导，示例里从「帮助」菜单开始
   designer.autoTour = false
+  // 这一页有两个设计器：各写一个草稿键，打开自动保存时两边的草稿不串
+  designer.draftKey = 'docs-delivery'
 
   // #region save
   // 写成设计器的子元素、带 slot="menubar-end"，放在菜单栏右边一段

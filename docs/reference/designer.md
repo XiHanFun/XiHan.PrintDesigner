@@ -31,6 +31,7 @@
 | `settings` | — | `DesignerSettings \| undefined` | 设置的值：扁平的键值，键是「分区 id.条目 id」，如 general.theme、print.showGrid；没写的键取条目的缺省值。赋值即生效；用户在设置对话框里或用工具栏上的网格、吸附开关改了以后，设计器换成新的一份并派发 settings-change。 |
 | `settingsPolicy` | — | `DesignerSettingsPolicy \| undefined` | 宿主对设置条目的管控：键是条目键或分区 id，hidden 不显示，locked 只读、说明换成「由所在系统管理」。 |
 | `settingsStorageKey` | `settings-storage-key` | `string \| undefined` | 设置存在根所在窗口 localStorage 的哪个键下：给了，连上文档时若没赋 settings 就从这里读，用户改了设置就写回去，标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。 |
+| `draftKey` | `draft-key` | `string \| undefined` | 自动保存草稿的键：区分同一页、同一种设计器里的不同模板（宿主写模板 id）；不给时按页面地址区分。设置里开着自动保存时，未保存的修改停手约一秒存成这台浏览器里的草稿，保存（markSaved）后删掉；下次装进同一个键的模板、和草稿不一样时问恢复还是丢弃。同名 attribute draft-key。 |
 | `autoTour` | `auto-tour` | `boolean \| undefined` | 第一次在设计态显示出来（画布有了尺寸）后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。 |
 
 ### 存取器

@@ -45,6 +45,7 @@ export function mount(host: HTMLElement): () => void {
   designer.schema = schema
   // #endregion use
   designer.autoTour = false
+  designer.draftKey = 'docs-editors'
   host.append(designer)
   designer.select({ elements: ['pickup-code'] })
   return () => host.replaceChildren()
