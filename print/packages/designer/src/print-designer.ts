@@ -1983,7 +1983,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const menu = createAuthoredElement(doc, 'xh-context-menu', { 'size': 'sm', 'data-print-canvas-menu': '' }, [
       createAuthoredElement(doc, 'div', { 'data-xh-part': 'root', 'data-print-canvas-root': '' }, [trigger, createAuthoredElement(doc, 'div', { 'data-xh-part': 'positioner' }, [menuContent])]),
     ])
-    menu.addEventListener('select', this.#onMenuSelect)
+    menu.addEventListener('item-select', this.#onMenuSelect)
     this.#fillMenu(menuContent, 'blank')
     const palette = createAuthoredElement(doc, 'xh-designer-palette', { 'slot': 'palette', 'data-part': 'palette', 'headless': true }) as XhDesignerPaletteElement
     palette.addEventListener('item-activate', this.#onPaletteActivate)
@@ -2404,7 +2404,7 @@ export class XhPrintDesigner extends XhReactiveElement {
         createAuthoredElement(doc, 'div', { 'data-xh-part': 'positioner' }, [createAuthoredElement(doc, 'div', { 'data-xh-part': 'content' }, items)]),
       ])
       menu.style.top = `${rect.y}mm`
-      menu.addEventListener('select', (event) => {
+      menu.addEventListener('item-select', (event) => {
         const { value } = (event as CustomEvent<{ value: string }>).detail
         const [action, key] = value.split(':') as [string, PageBandKey | undefined]
         if (action === 'show' && key !== undefined)
@@ -2850,7 +2850,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       field.addEventListener('focusout', () => context.commit())
       // 菜单的事件只在编辑器里用，不冒到设计器
       menu.addEventListener('open-change', event => event.stopPropagation())
-      menu.addEventListener('select', (event) => {
+      menu.addEventListener('item-select', (event) => {
         event.stopPropagation()
         const token = `{{${(event as CustomEvent<{ value: string }>).detail.value}}}`
         const text = current()
@@ -3458,7 +3458,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   readonly #onMenuSelect = (event: Event): void => {
-    // 画布里输入框选中文字时的原生 select 与页眉页脚菜单的 select 都会冒泡到这里
+    // 页眉页脚菜单在画布里，它的 item-select 会冒泡到这里
     if (event.target !== event.currentTarget)
       return
     runCommand(this.#model().commands, (event as CustomEvent<{ value: string }>).detail.value, this.#context())
