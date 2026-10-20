@@ -109,6 +109,7 @@ describe('菜单栏', () => {
     expect(items('view')).toEqual(['design', 'preview', 'zoom-in', 'zoom-out', 'zoom-to-fit', 'zoom-to-actual', 'pan-tool', 'grid', 'snap', 'panels', 'appearance'])
     expect([item('view', 'grid').separatorBefore, item('view', 'panels').separatorBefore]).toEqual([true, true])
     expect(items('help')).toEqual(['start-tour', 'help', 'shortcuts', 'about'])
+    expect(['start-tour', 'help', 'shortcuts', 'about'].map(id => item('help', id).icon?.name)).toEqual(['map', 'circle-help', undefined, 'info'])
     expect(menubar().checkboxValue).toEqual(['view/design', 'view/snap'])
     const appearance = item('view', 'appearance')
     const toggles = ['show-toolbar', 'show-status-bar'].map(id => `view/appearance/command:${id}`)
