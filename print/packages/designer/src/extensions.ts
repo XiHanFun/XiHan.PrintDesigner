@@ -81,6 +81,7 @@ export const PRINT_DESIGNER_EXTENSION_ID = '@xihan-print/designer'
 /**
  * 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。
  * 对齐（六条）、分布（两条）与层级（四条）每条一颗钮，各成一组一字排开；放不下的收进工具栏的「更多」。
+ * 设置与帮助在菜单栏里，末组只留面板；菜单栏关掉时的变化见 printToolbarLayout。
  */
 export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['undo', 'redo'],
@@ -90,8 +91,13 @@ export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['bring-to-front', 'bring-forward', 'send-backward', 'send-to-back'],
   ['pan-tool', 'zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual', 'grid', 'snap'],
   ['design', 'preview', 'page-setup', 'print'],
-  ['panels', 'settings', 'help'],
+  ['panels'],
 ]
+
+/** 工具栏此刻的缺省排列：PRINT_TOOLBAR_LAYOUT；菜单栏关掉（menubar 为假）时末组在面板后面放回设置与帮助，它们才有入口。 */
+export function printToolbarLayout(menubar: boolean = true): (readonly string[])[] {
+  return menubar ? [...PRINT_TOOLBAR_LAYOUT] : [...PRINT_TOOLBAR_LAYOUT.slice(0, -1), [...PRINT_TOOLBAR_LAYOUT.at(-1)!, 'settings', 'help']]
+}
 
 /**
  * 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.<面板 id>）时用。

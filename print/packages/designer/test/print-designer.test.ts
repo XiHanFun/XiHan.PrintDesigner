@@ -1056,7 +1056,7 @@ describe('<xh-print-designer>', () => {
     }]
     await designer.updateComplete
     const toolbarItems = (): string[] => Array.from(designer.querySelectorAll<HTMLButtonElement>('[data-part="command-bar"] button[data-xh-part="item"]'), item => item.value)
-    expect(toolbarItems().slice(-8)).toEqual(['design', 'preview', 'page-setup', 'print', 'panels', 'settings', 'help', '@acme/hello.run'])
+    expect(toolbarItems().slice(-6)).toEqual(['design', 'preview', 'page-setup', 'print', 'panels', '@acme/hello.run'])
     expect(designer.querySelector('[data-part="command-bar"] button[value="@acme/hello.run"]')!.textContent).toBe('Hello 2')
     expect(['grid', 'snap'].map(value => designer.querySelector(`[data-part="command-bar"] button[value="${value}"]`)!.getAttribute('aria-pressed'))).toEqual(['false', 'true'])
 

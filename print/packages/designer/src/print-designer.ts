@@ -202,7 +202,7 @@ import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuEle
 import { createDialogService } from '@xihan-ui/web-components/services'
 import { createPrintClientStatus } from './client-status'
 import { createPrintEditor, elementRect } from './editor'
-import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, PRINT_TOUR_STEPS, printMenuLayout, printSelectionLayout } from './extensions'
+import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOUR_STEPS, printMenuLayout, printSelectionLayout, printToolbarLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { describePrintOperations, elementsLabel, identitiesIn } from './history-labels'
 import { printOutline } from './outline'
@@ -2280,7 +2280,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const context = this.#context()
     // 按钮的显示方式只取设置的 toolbar.display：换方式不重铺按钮，放不下的按新宽度收进「更多」
     layers.commandBar.setDisplay(toolbarDisplayOf(this.#resolvedSettings))
-    const arranged = arrangeCommands('toolbar', commands, PRINT_TOOLBAR_LAYOUT, this.commandLayout)
+    const arranged = arrangeCommands('toolbar', commands, printToolbarLayout(menubarVisibleOf(this.#resolvedSettings)), this.commandLayout)
     layers.commandBar.update(applyToolbarCustomization(arranged, toolbarCustomizationOf(this.#resolvedSettings)), commands, context, context.commands.toolbar)
     // 设置对话框的「工具栏」页按宿主排好的这一份列出按钮表，用户的定制压在它上面
     const source = toolbarSettingsSource(arranged, commands, context)
