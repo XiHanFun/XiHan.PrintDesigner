@@ -1449,7 +1449,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       startTour: ({ designer }) => designer.startTour(),
       openJsonEditor: ({ designer }) => designer.openJsonEditor(),
       fieldImportDisabled: () => !this.#fieldImportAllowed(),
-      icons: { save: SaveIcon, panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon, panTool: HandIcon, about: InfoIcon, appearance: EyeIcon },
+      icons: { save: SaveIcon, panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon, panTool: HandIcon, about: InfoIcon, appearance: EyeIcon, startTour: MapIcon },
     })
     const panels = designerPanelCommands<PrintDesignerContext>({ panels: Object.values(PRINT_DESIGNER_PANELS), frame: context => context.frame })
     return [...history, ...builtin, ...this.#formatCommands(), this.#pageSetup(), this.#pageMenu(), ...this.#pageCommands(), ...this.#bandCommands(), ...shell, ...panels]
