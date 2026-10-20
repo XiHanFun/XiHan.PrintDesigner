@@ -160,7 +160,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 设置是用户偏好，每人每机一份，不随模板保存。`openSettings(section?)` 打开设置对话框，左边一个分区一页：
 
-- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色（跟随页面、八种预设与自定义颜色）、状态栏开关、开发者模式与分页、渲染两条调试日志。开发者模式缺省关，关着时编辑 JSON 这类调试查看的入口都不出现，两条调试日志也不能开，见下文「调试日志」。
+- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色（跟随页面、八种预设与自定义颜色）、状态栏开关、自动保存、开发者模式与分页、渲染两条调试日志。开发者模式缺省关，关着时编辑 JSON 这类调试查看的入口都不出现，两条调试日志也不能开，见下文「调试日志」。
 - 「语言」（`language`）：设计器的界面语言，缺省跟随页面；也可以跟随系统，或选 XiHan.UI 的十种语言之一。只作用于这台设计器：设计器自己、外壳零件与里面的元素（含弹出的菜单、对话框这些浮层）一起换，页面别处不变；跟随系统按浏览器的语言偏好挑最接近的一种，挑不到用英文。语言包选了才按需加载。键是 `language.locale`（`DESIGNER_SETTING_KEYS.language`）。
 - 「布局」（`layout`）：逐块面板一行，改显示、停在哪一栏、先后与收起，表下「恢复默认布局」；改的就是上文「面板布局」那一份。
 - 「工具栏」（`toolbar`）：按钮的显示方式（图标、文字、图标和文字，缺省只显示图标）、显示工具栏，以及按钮表：藏起不用的按钮、换先后与分组，「恢复默认」回到宿主排好的样子。显示方式与显示工具栏只走设置，没有单独的属性；画布上的翻页条总是只显示图标。按钮表从宿主用 `commandLayout` 排好的工具栏起步，只管顶部工具栏，菜单栏、选中工具条与右键菜单不在里面。
@@ -251,6 +251,13 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`。
 
 也可以用方法操作：`execute(operations)` 执行一组编辑操作并记为一步撤销（操作见 `@xihan-print/core` 的 `PrintOperation`），`addElement`、`select`、`copy`、`paste`、`align`、`reorder`、`zoomToFit`、`scrollToElement` 等与界面上的命令一致。`print()` 按当前模板与 `data` 打印，给了 `printClient` 时交给本地打印客户端。
+
+### 自动保存本机草稿
+
+设置「基础」里打开自动保存（`general.autoSave`，缺省关）后，有未保存的修改时停手约一秒，设计器把整份模板存成这台浏览器里的草稿，连着改只存最后一次；保存了（宿主调 `markSaved()`）草稿就删掉。下次宿主装进同一个草稿键的模板、和草稿不一样时，弹框问恢复还是丢弃：恢复把草稿整份换上，记一步撤销（草稿有错误级校验问题时不换，如扩展换了）；丢弃即删；一样就悄悄删掉。只读时不问。
+
+- 草稿键：设计器的 `draftKey`（attribute `draft-key`）写模板 id，区分同一页、同一种设计器里的不同模板；不写时按页面地址（路径、查询与锚点）区分。
+- 草稿只存在本机，宿主不用存，也不用接新事件。要关掉这一项，用 `settingsPolicy` 把 `general.autoSave` 藏起或锁住，或在 `settings` 里预先写开或关。
 
 ## 编辑 JSON
 

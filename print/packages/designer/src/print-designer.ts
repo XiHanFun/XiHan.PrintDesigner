@@ -43,6 +43,7 @@ import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
 import type {
   CommandMenubar,
   CommandToolbar,
+  DesignerAutosave,
   DesignerCommandLayout,
   DesignerCommandsTranslations,
   DesignerFieldImportEventMap,
@@ -151,8 +152,10 @@ import {
   applyToolbarCustomization,
   arrangeCommands,
   arrangeMenubar,
+  autoSaveOf,
   createCommandMenubar,
   createCommandToolbar,
+  createDesignerAutosave,
   createDesignerDebugLogger,
   createDesignerSettingsHost,
   createHistoryPanel,
@@ -639,6 +642,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     settings: { attribute: false },
     settingsPolicy: { attribute: false },
     settingsStorageKey: { attribute: 'settings-storage-key', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
+    draftKey: { attribute: 'draft-key', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     autoTour: { converter: BOOLEAN_CONVERTER, attribute: 'auto-tour' },
   }
 
@@ -695,6 +699,12 @@ export class XhPrintDesigner extends XhReactiveElement {
    * 标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。
    */
   declare settingsStorageKey: string | undefined
+  /**
+   * 自动保存草稿的键：区分同一页、同一种设计器里的不同模板（宿主写模板 id）；不给时按页面地址区分。
+   * 设置里开着自动保存时，未保存的修改停手约一秒存成这台浏览器里的草稿，保存（markSaved）后删掉；下次装进同一个键的模板、
+   * 和草稿不一样时问恢复还是丢弃。同名 attribute draft-key。
+   */
+  declare draftKey: string | undefined
   /**
    * 第一次在设计态显示出来（画布有了尺寸）后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。
    * 写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。
@@ -763,6 +773,20 @@ export class XhPrintDesigner extends XhReactiveElement {
   readonly #debug = createDesignerDebugLogger({ name: PRINT_DESIGNER_TAG, settings: () => this.#resolvedSettings })
   /** 交给预览与打印的环节回调，跟着两路日志的开关重建。 */
   #trace: { readonly key: string, readonly trace: PrintTrace | undefined } | undefined
+  /** 自动保存本机草稿。 */
+  readonly #autosave: DesignerAutosave = createDesignerAutosave({
+    root: this,
+    kind: PRINT_DESIGNER_TAG,
+    key: () => this.draftKey,
+    enabled: () => autoSaveOf(this.#resolvedSettings),
+    snapshot: () => this.#editor.document as unknown as JsonValue,
+    restore: document => this.#restoreDraft(document),
+    confirm: options => this.#dialogService().confirm(options),
+    translations: () => this.#commandTexts(),
+  })
+
+  /** 宿主在元素连上文档之前装进的模板：连上以后再看有没有草稿。 */
+  #draftCheckPending = false
   #hoverId: string | undefined
   #platform: 'mac' | 'other' | undefined
   #settingsHost: DesignerSettingsHost | undefined
@@ -830,6 +854,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       }
       if (change.cause === 'save') {
         this.#syncDirty()
+        this.#autosave.changed(this.#editor.history.dirty)
         return
       }
       this.#layoutStale = true
@@ -892,6 +917,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#releaseSlots = forwardFrameSlots(this, layers.frame, ['menubar-end'])
     this.#host.assign(this.#extensions ?? NO_EXTENSIONS)
     this.requestUpdate()
+    if (this.#draftCheckPending)
+      void this.updateComplete.then(() => this.#checkDraft())
   }
 
   override disconnectedCallback(): void {
@@ -900,6 +927,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#settingsHost = undefined
     this.#dialogs?.dispose()
     this.#dialogs = undefined
+    this.#autosave.dispose()
     this.#clientWatch?.off()
     this.#clientWatch = undefined
     this.#clientStatus.detach()
@@ -1735,6 +1763,10 @@ export class XhPrintDesigner extends XhReactiveElement {
   #onDocumentChange(cause: string, operations: readonly PrintOperation[]): void {
     this.#scheduleIssues()
     this.#syncDirty()
+    if (cause === 'reset')
+      this.#checkDraft()
+    else
+      this.#autosave.changed(this.#editor.history.dirty)
     if (cause === 'execute' && this.#editor.history.inTransaction) {
       this.#transactionOperations.push(...operations)
       return
@@ -1755,6 +1787,25 @@ export class XhPrintDesigner extends XhReactiveElement {
     else if (cause === 'execute' || cause === 'undo' || cause === 'redo') {
       this.#emitSchemaChange(operations, cause)
     }
+  }
+
+  /** 宿主装进了一份模板：同一个草稿键下有和它不一样的草稿就问恢复还是丢弃；还没连上文档时等连上再问，只读时不问。 */
+  #checkDraft(): void {
+    if (!this.isConnected) {
+      this.#draftCheckPending = true
+      return
+    }
+    this.#draftCheckPending = false
+    if (!this.#readOnly)
+      void this.#autosave.loaded(this.#editor.document as unknown as JsonValue)
+  }
+
+  /** 恢复草稿：没有错误级校验问题时整份换上，记一步撤销；有错误（如扩展换了）时不换。 */
+  #restoreDraft(document: JsonValue): void {
+    if (this.#readOnly || !validateDocument(document, { extensions: this.#model().list, expressionEngine: this.#engine() }).valid)
+      return
+    this.#tableEdit = undefined
+    this.#editor.execute([{ type: 'replaceDocument', document: document as unknown as PrintDocument }])
   }
 
   #emitSchemaChange(operations: readonly PrintOperation[], kind: PrintSchemaChangeKind): void {
