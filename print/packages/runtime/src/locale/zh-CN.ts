@@ -175,8 +175,6 @@ const designer: PrintDesignerLocale = {
   alignTextCenter: '文字居中',
   alignTextRight: '文字右对齐',
   fontSizeMenu: size => `字号：${size}`,
-  alignMenu: '对齐与分布',
-  layerMenu: '层级',
   propertyGroups: {
     layout: '布局',
     content: '内容',

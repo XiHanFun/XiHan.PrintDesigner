@@ -175,8 +175,6 @@ const designer: PrintDesignerLocale = {
   alignTextCenter: '文字置中',
   alignTextRight: '文字靠右對齊',
   fontSizeMenu: size => `字型大小：${size}`,
-  alignMenu: '對齊與分佈',
-  layerMenu: '層級',
   propertyGroups: {
     layout: '版面配置',
     content: '內容',

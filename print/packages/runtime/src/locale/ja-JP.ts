@@ -175,8 +175,6 @@ const designer: PrintDesignerLocale = {
   alignTextCenter: '文字を中央揃え',
   alignTextRight: '文字を右揃え',
   fontSizeMenu: size => `フォントサイズ：${size}`,
-  alignMenu: '整列と分布',
-  layerMenu: '重なり順',
   propertyGroups: {
     layout: 'レイアウト',
     content: '内容',

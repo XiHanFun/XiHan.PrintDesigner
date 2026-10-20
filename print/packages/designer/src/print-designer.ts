@@ -1372,29 +1372,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon },
     })
     const panels = designerPanelCommands<PrintDesignerContext>({ panels: Object.values(PRINT_DESIGNER_PANELS), frame: context => context.frame })
-    return [...history, ...builtin, ...this.#arrangeMenus(), ...this.#formatCommands(), ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell, ...panels]
-  }
-
-  /** 工具栏上的「对齐与分布」「层级」两个菜单：条目就是对应的内置命令，按它们的文字、图标与可用状态铺，选中即执行。 */
-  #arrangeMenus(): PrintDesignerCommand[] {
-    const aligns = Object.keys(ALIGN)
-    const orders = Object.keys(REORDER)
-    return [
-      {
-        id: 'align-menu',
-        label: ({ translations }) => translations.alignMenu,
-        icon: AlignObjectsLeftIcon,
-        enabled: () => [...aligns, 'distribute-horizontal'].some(id => this.#commandEnabled(id as Command)),
-        menu: () => [...aligns, 'separator', 'distribute-horizontal', 'distribute-vertical'],
-      },
-      {
-        id: 'layer-menu',
-        label: ({ translations }) => translations.layerMenu,
-        icon: BringToFrontIcon,
-        enabled: () => orders.some(id => this.#commandEnabled(id as Command)),
-        menu: () => orders,
-      },
-    ]
+    return [...history, ...builtin, ...this.#formatCommands(), ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell, ...panels]
   }
 
   /**

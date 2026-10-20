@@ -80,12 +80,14 @@ export const PRINT_DESIGNER_EXTENSION_ID = '@xihan-print/designer'
 
 /**
  * 工具栏的缺省排列；commandLayout 没写 toolbar 时用它，再把 placement 含 toolbar 的扩展命令追加成一组。
- * 对齐、分布与层级各收进一个菜单（align-menu、layer-menu），单条命令照样能经 commandLayout 排上工具栏。
+ * 对齐（六条）、分布（两条）与层级（四条）每条一颗钮，各成一组一字排开；放不下的收进工具栏的「更多」。
  */
 export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
   ['undo', 'redo'],
   ['cut', 'copy', 'paste', 'duplicate', 'delete'],
-  ['align-menu', 'layer-menu'],
+  ['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom'],
+  ['distribute-horizontal', 'distribute-vertical'],
+  ['bring-to-front', 'bring-forward', 'send-backward', 'send-to-back'],
   ['zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual', 'grid', 'snap'],
   ['design', 'preview', 'page-setup', 'print'],
   ['panels', 'settings', 'help'],
@@ -118,15 +120,16 @@ export type PrintSelectionSubject = 'text' | 'element' | 'multiple'
 
 /**
  * 选中工具条（命令落点 selection:<主体>）的缺省排列：文字类元素多出字号、粗体、斜体、下划线、删除线与左中右对齐；
- * 多选多出对齐与分布；都有层级、创建副本、复制与删除。
+ * 多选多出对齐与分布；都有层级、创建副本、复制与删除。对齐、分布与层级每条一颗钮，放不下的收进选中工具条的「更多」。
  */
 export function printSelectionLayout(subject: PrintSelectionSubject): string[][] {
-  const common = [['duplicate', 'copy', 'delete']]
+  const layer = ['bring-to-front', 'bring-forward', 'send-backward', 'send-to-back']
+  const common = [layer, ['duplicate', 'copy', 'delete']]
   if (subject === 'text')
-    return [['font-size'], ['text-bold', 'text-italic', 'text-underline', 'text-line-through'], ['text-align-left', 'text-align-center', 'text-align-right'], ['layer-menu'], ...common]
+    return [['font-size'], ['text-bold', 'text-italic', 'text-underline', 'text-line-through'], ['text-align-left', 'text-align-center', 'text-align-right'], ...common]
   if (subject === 'multiple')
-    return [['align-menu', 'layer-menu'], ...common]
-  return [['layer-menu'], ...common]
+    return [['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom'], ['distribute-horizontal', 'distribute-vertical'], ...common]
+  return common
 }
 
 /** 右键菜单落在哪类对象上：画布空白处、元素，或表格编辑态里的表格部位。 */

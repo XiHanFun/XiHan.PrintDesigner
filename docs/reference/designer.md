@@ -220,8 +220,6 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `alignTextLeft` | `string` |  |
 | `alignTextCenter` | `string` |  |
 | `alignTextRight` | `string` |  |
-| `alignMenu` | `string` | 工具栏上「对齐与分布」菜单的名字。 |
-| `layerMenu` | `string` | 工具栏上「层级」菜单的名字。 |
 | `propertyGroups` | `Readonly<Record<PropertyGroup, string>>` | 属性分组的名称。 |
 | `propertyNames` | `Readonly<Record<string, string>>` | 属性名：键为 formatJsonPath(path)；「对象种类:路径」覆盖同一路径在该种类上的名字，对象种类是 page、元素种类或 table-column 等表格部位。复合属性拆开后的分项用「复合种类/分项」作键，如 stroke/width、edges/top。 |
 | `propertyOptions` | `Readonly<Record<string, string>>` | select 选项名：键为选项值；「路径=选项值」覆盖该属性上的名字。 |

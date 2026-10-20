@@ -204,10 +204,6 @@ export interface PrintDesignerTranslations {
   readonly alignTextRight: string
   /** 格式工具条上字号菜单的名字：含按钮上写的字号，选中的几处字号不一时是 —。 */
   readonly fontSizeMenu: (size: string) => string
-  /** 工具栏上「对齐与分布」菜单的名字。 */
-  readonly alignMenu: string
-  /** 工具栏上「层级」菜单的名字。 */
-  readonly layerMenu: string
   /** 校验问题与分页诊断的说明，按问题码与参数生成。 */
   readonly issue: (issue: SchemaIssue) => string
   /** 属性分组的名称。 */

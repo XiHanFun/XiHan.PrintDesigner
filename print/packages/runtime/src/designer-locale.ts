@@ -484,8 +484,6 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   alignTextCenter: 'Center text',
   alignTextRight: 'Align text right',
   fontSizeMenu: size => `Font size: ${size}`,
-  alignMenu: 'Align and distribute',
-  layerMenu: 'Arrange',
   propertyGroups: {
     layout: 'Layout',
     content: 'Content',

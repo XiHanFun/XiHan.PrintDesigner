@@ -28,6 +28,9 @@ function sample(): PrintDocument {
   return createDocument({ pages: [page] })
 }
 
+const ALIGN = ['align-left', 'align-center', 'align-right', 'align-top', 'align-middle', 'align-bottom']
+const DISTRIBUTE = ['distribute-horizontal', 'distribute-vertical']
+const LAYER = ['bring-to-front', 'bring-forward', 'send-backward', 'send-to-back']
 let designer: XhPrintDesigner
 
 beforeEach(async () => {
@@ -444,7 +447,7 @@ describe('选中工具条', () => {
     return (designer.schema.pages[0]!.elements.find(element => element.id === 'a') as unknown as { style: Record<string, unknown> }).style
   }
 
-  it('按选中的主体排：文字类元素多出字号、文字样式与对齐，单个别的元素只有层级与编辑，多选多出对齐与分布；没有选中时拿掉', async () => {
+  it('按选中的主体排：文字类元素多出字号、文字样式与对齐，单个别的元素只有层级与编辑，多选多出对齐与分布；对齐、分布与层级每条一颗钮；没有选中时拿掉', async () => {
     expect(bar()).toBeNull()
     designer.select({ elements: ['a'] })
     await settle()
@@ -452,7 +455,7 @@ describe('选中工具条', () => {
       ['font-size'],
       ['text-bold', 'text-italic', 'text-underline', 'text-line-through'],
       ['text-align-left', 'text-align-center', 'text-align-right'],
-      ['layer-menu'],
+      LAYER,
       ['duplicate', 'copy', 'delete'],
     ])
     expect(bar()!.querySelector('[data-xh-part="root"]')!.getAttribute('aria-label')).toBe('Selection')
@@ -460,10 +463,10 @@ describe('选中工具条', () => {
     const rect = designer.addElement('rect', { x: 120, y: 120 })
     designer.select({ elements: [rect.id] })
     await settle()
-    expect(groups()).toEqual([['layer-menu'], ['duplicate', 'copy', 'delete']])
+    expect(groups()).toEqual([LAYER, ['duplicate', 'copy', 'delete']])
     designer.select({ elements: ['a', rect.id] })
     await settle()
-    expect(groups()).toEqual([['align-menu', 'layer-menu'], ['duplicate', 'copy', 'delete']])
+    expect(groups()).toEqual([ALIGN, DISTRIBUTE, LAYER, ['duplicate', 'copy', 'delete']])
     designer.select({ elements: [] })
     await settle()
     expect(bar()).toBeNull()
@@ -474,7 +477,7 @@ describe('选中工具条', () => {
     designer.extensions = [{ id: '@acme/stamp', commands: [{ id: '@acme/stamp.rotate', label: 'Rotate', placement: ['selection:element'], run: () => {} }] }]
     designer.select({ elements: [rect.id] })
     await settle()
-    expect(groups()).toEqual([['layer-menu'], ['duplicate', 'copy', 'delete'], ['@acme/stamp.rotate']])
+    expect(groups()).toEqual([LAYER, ['duplicate', 'copy', 'delete'], ['@acme/stamp.rotate']])
     designer.commandLayout = { 'selection:element': [['delete']] }
     await settle()
     expect(groups()).toEqual([['delete']])
@@ -595,21 +598,21 @@ describe('尺寸徽标', () => {
   })
 })
 
-describe('对齐与层级菜单', () => {
-  it('工具栏上「对齐与分布」「层级」是菜单，条目就是对应的内置命令；没选中时不可用，选中后执行条目', async () => {
-    const button = (value: string): HTMLButtonElement => designer.querySelector<HTMLButtonElement>(`[data-part="command-bar"] button[value="${value}"]`)!
-    expect([button('align-menu').disabled, button('layer-menu').disabled]).toEqual([true, true])
-    expect(designer.querySelector('[data-part="command-bar"] button[value="align-left"]')).toBeNull()
+describe('对齐、分布与层级', () => {
+  it('顶部工具栏上每条一颗图标钮，一字排开：对齐六颗、分布两颗、层级四颗各成一组，不收成菜单；没选中时不可用，选中后点了就执行', async () => {
+    const button = (value: string): HTMLButtonElement | null => designer.querySelector<HTMLButtonElement>(`[data-part="command-bar"] button[value="${value}"]`)
+    const groups = Array.from(designer.querySelectorAll('[data-part="command-bar"] [data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), item => item.value))
+    for (const group of [ALIGN, DISTRIBUTE, LAYER])
+      expect(groups).toContainEqual(group)
+    expect([button('align-menu'), button('layer-menu')]).toEqual([null, null])
+    expect([...ALIGN, ...DISTRIBUTE, ...LAYER].filter(id => !button(id)!.hasAttribute('data-icon'))).toEqual([])
+    expect([...ALIGN, ...DISTRIBUTE, ...LAYER].filter(id => !button(id)!.disabled)).toEqual([])
     const rect = designer.addElement('rect', { x: 120, y: 120 })
     designer.select({ elements: ['a', rect.id] })
     await settle()
-    expect([button('align-menu').disabled, button('layer-menu').disabled]).toEqual([false, false])
-    button('align-menu').click()
-    await settle()
-    const menu = document.querySelector('[role="menu"][aria-label="Align and distribute"]')!
-    const items = Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]'))
-    expect(items.map(item => item.textContent?.trim())).toEqual(['Align left', 'Align centers horizontally', 'Align right', 'Align top', 'Align centers vertically', 'Align bottom', 'Distribute horizontally', 'Distribute vertically'])
-    items[0]!.click()
+    expect([...ALIGN, ...LAYER].filter(id => button(id)!.disabled)).toEqual([])
+    expect(button('align-left')!.getAttribute('aria-label')).toBe('Align left')
+    button('align-left')!.click()
     await settle()
     const left = designer.schema.pages[0]!.elements.filter(element => element.id === 'a' || element.id === rect.id).map(element => element.x)
     expect(new Set(left).size).toBe(1)
