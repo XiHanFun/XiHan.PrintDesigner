@@ -52,11 +52,42 @@ function apply(value: JsonValue): void {
 }
 
 describe('编辑 JSON', () => {
-  it('ctrl / ⌘ + Shift + J 打开对话框，写出当前模板；空白处的右键菜单里也有这一条', async () => {
-    designer.querySelector<HTMLElement>('[data-part="viewport"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'J', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true }))
+  /** 在画布上按 Ctrl + Shift + J，返回按键有没有被设计器接走。 */
+  function ctrlShiftJ(): boolean {
+    const event = new KeyboardEvent('keydown', { key: 'J', ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true })
+    designer.querySelector<HTMLElement>('[data-part="viewport"]')!.dispatchEvent(event)
+    return event.defaultPrevented
+  }
+
+  /** 在画布空白处右键，返回菜单里的条目。 */
+  function blankMenu(): string[] {
+    designer.querySelector<HTMLElement>('[data-part="viewport"]')!.dispatchEvent(new MouseEvent('contextmenu', { clientX: 5000, clientY: 5000, bubbles: true, cancelable: true }))
+    const content = designer.querySelector('[data-print-canvas-root] > [data-xh-part="positioner"] > [data-xh-part="content"]')!
+    return Array.from(content.querySelectorAll('[data-xh-part="item"]'), item => item.getAttribute('value')!)
+  }
+
+  /** 菜单栏「编辑」菜单里的命令 id。 */
+  function editMenu(): string[] {
+    const menubar = designer.querySelector<HTMLElement & { collection?: { value: string, items?: { value: string }[] }[] }>('xh-menubar')!
+    return menubar.collection!.find(menu => menu.value === 'edit')!.items!.map(item => item.value.slice('edit/'.length))
+  }
+
+  it('开发者模式开着时：ctrl / ⌘ + Shift + J 打开对话框，写出当前模板；空白处的右键菜单与「编辑」菜单末尾也有这一条', async () => {
+    designer.settings = { 'general.developer': true }
+    await designer.updateComplete
+    expect(ctrlShiftJ()).toBe(true)
     await designer.updateComplete
     expect([editor().open, editor().value, editor().readonly]).toEqual([true, designer.schema, false])
-    expect(printMenuLayout('blank', false).at(-1)).toEqual(['edit-json'])
+    expect([printMenuLayout('blank', false).at(-1), blankMenu().at(-1), editMenu().at(-1)]).toEqual([['edit-json'], 'edit-json', 'edit-json'])
+  })
+
+  it('开发者模式关着时没有编辑 JSON：快捷键不接、空白处右键菜单与「编辑」菜单里都没有；openJsonEditor() 照样能打开', async () => {
+    expect(ctrlShiftJ()).toBe(false)
+    await designer.updateComplete
+    expect([editor().open === true, blankMenu().includes('edit-json'), editMenu().includes('edit-json')]).toEqual([false, false, false])
+    designer.openJsonEditor()
+    await designer.updateComplete
+    expect(editor().open).toBe(true)
   })
 
   it('按打印的校验报问题：说明与所在对象的名字取打印的文案；连页面列表都没有时只写说明', async () => {

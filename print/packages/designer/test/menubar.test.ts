@@ -105,7 +105,7 @@ describe('菜单栏', () => {
     expect(menubar().closest('[data-part="region"]')!.getAttribute('data-region')).toBe('menubar')
     expect(menubar().collection!.map(node => [node.value, node.label])).toEqual([['file', 'File'], ['edit', 'Edit'], ['view', 'View'], ['insert', 'Insert'], ['page', 'Page'], ['help', 'Help']])
     expect(items('file')).toEqual(['save', 'import-fields', 'print', 'settings'])
-    expect(items('edit')).toEqual(['undo', 'redo', 'cut', 'copy', 'paste', 'delete', 'duplicate', 'select-all', 'edit-json'])
+    expect(items('edit')).toEqual(['undo', 'redo', 'cut', 'copy', 'paste', 'delete', 'duplicate', 'select-all'])
     expect(items('view')).toEqual(['design', 'preview', 'zoom-in', 'zoom-out', 'zoom-to-fit', 'zoom-to-actual', 'pan-tool', 'grid', 'snap', 'panels', 'appearance'])
     expect([item('view', 'grid').separatorBefore, item('view', 'panels').separatorBefore]).toEqual([true, true])
     expect(items('help')).toEqual(['start-tour', 'help', 'shortcuts', 'about'])
