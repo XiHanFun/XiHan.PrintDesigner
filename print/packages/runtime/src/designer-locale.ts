@@ -358,6 +358,7 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   snap: 'Snap',
   print: 'Print',
   pages: 'Page templates',
+  minimap: 'Minimap',
   addPage: 'Add page',
   removePage: 'Delete page',
   previousPage: 'Previous page',

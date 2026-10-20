@@ -85,6 +85,8 @@ export interface PrintDesignerTranslations {
   readonly print: string
   /** 画布右侧翻页条的可访问名。 */
   readonly pages: string
+  /** 画布左下角小地图的名字：面板菜单与设置的「布局」页里用。 */
+  readonly minimap: string
   readonly previousPage: string
   readonly nextPage: string
   readonly addPage: string

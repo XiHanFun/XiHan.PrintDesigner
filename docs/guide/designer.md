@@ -40,6 +40,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 画布 | 中间 | — | 按纸张显示当前页面模板的页眉、正文与页脚，区的标签上切换页眉页脚的变体 |
 | 标尺 | 画布上边与左边 | — | 毫米标尺；从标尺拖出参考线，参考线存进页面模板，只用于对位、不打印。设置里可以关掉 |
 | 翻页条 | 画布右侧中间 | `pages` | 画布上的浮动件，只能显示或隐藏。上一页、页码、下一页，新增、复制、删除页面模板。页码钮上写「第几个 / 共几个」，点它列出全部页面模板，点一项切过去，下面是上移、下移页面 |
+| 小地图 | 画布左下角 | `minimap` | 画布上的浮动件，只能显示或隐藏。按页显示：当前页面模板的纸一块淡色，当前显示的页眉页脚变体与正文里的元素各一块，框出画布此刻看到的范围；在上面按下或拖动，视口中心移到那里。键盘上，画布没有选中元素时按方向键平移视口 |
 | 选中工具条 | 选中框上方 | — | 选中元素时浮出：层级四颗钮、创建副本、复制与删除；文字类元素多出字号（钮上写当前字号）、文字样式与左中右对齐，多选多出对齐六颗与分布两颗，见「画布操作」 |
 | 尺寸徽标 | 选中框下方 | — | 选中元素时常驻宽 × 高（mm），单选时可以直接改，见「画布操作」 |
 | 属性 | 右栏 | `properties` | 编辑选中的元素，多选时只显示共同的属性；没有选中时编辑页面设置；表格编辑态里编辑选中的表格部位 |
@@ -52,7 +53,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 ### 面板布局
 
 - 面板头上的「×」隐藏这块面板，收起钮（或双击面板头）收成只剩标题条，「更多」菜单里换到别的栏、调先后、浮出成小窗或停靠回去。按住面板头拖：拖到外框边上换栏，拖到两块面板之间调先后，拖到画布上浮出成小窗；小窗不出外框。
-- 工具栏的「面板」菜单列出物料、属性、问题、翻页条、页面结构与历史记录，勾选的显示；末尾是「显示 / 隐藏所有面板」（Ctrl / ⌘ + \）、「还原面板显隐」（Ctrl / ⌘ + Shift + \，位置与大小不动）与「恢复默认布局」。
+- 工具栏的「面板」菜单列出物料、属性、问题、翻页条、小地图、页面结构与历史记录，勾选的显示；末尾是「显示 / 隐藏所有面板」（Ctrl / ⌘ + \）、「还原面板显隐」（Ctrl / ⌘ + Shift + \，位置与大小不动）与「恢复默认布局」。
 - 布局一改，设计器就把整份布局写进设置的 `layout.panels`（`DESIGNER_SETTING_KEYS.layout`），派发 `settings-change`，宿主存起来、下次随 `settings` 赋回即可；给了 `settingsStorageKey` 时设计器自己存。拖分隔条只在松手时写一次。
 - 宿主用 `defaultLayout` 给缺省布局：用户没存过布局时用它，「恢复默认布局」也回到它。用 `settingsPolicy` 管控：`layout.panels` 锁定整份布局，`layout.panels.<面板 id>` 写 `hidden` 就没有这块面板、写 `locked` 就固定这块面板。面板 id 见包入口导出的 `PRINT_DESIGNER_PANELS`。
 
@@ -332,7 +333,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 <<< @/examples/snippets/designer-panels.ts#example
 
-- 区名与内置区（`header`、`toolbar`、`pages`、`palette`、`outline`、`canvas`、`properties`、`history`、`issues`、`status`）或别的扩展的重名时，赋值时抛 `DesignerExtensionError`，设计器保持赋值前的状态。
+- 区名与内置区（`header`、`toolbar`、`pages`、`minimap`、`palette`、`outline`、`canvas`、`properties`、`history`、`issues`、`status`）或别的扩展的重名时，赋值时抛 `DesignerExtensionError`，设计器保持赋值前的状态。
 - 扩展的区同样记在面板布局里，用户能隐藏、挪动与浮出，也各有一条开关命令 `panel:<区名>`；扩展自己登记了同名命令时同样抛 `DesignerExtensionError`。预览态只保留顶栏、工具栏与画布。
 
 ### 导入

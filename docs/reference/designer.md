@@ -153,6 +153,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `snap` | `string` | 吸附其它元素与参考线的开关。 |
 | `print` | `string` |  |
 | `pages` | `string` | 画布右侧翻页条的可访问名。 |
+| `minimap` | `string` | 画布左下角小地图的名字：面板菜单与设置的「布局」页里用。 |
 | `previousPage` | `string` |  |
 | `nextPage` | `string` |  |
 | `addPage` | `string` |  |

@@ -62,6 +62,7 @@ const designer: PrintDesignerLocale = {
   snap: 'Привязка',
   print: 'Печать',
   pages: 'Шаблоны страниц',
+  minimap: 'Мини-карта',
   addPage: 'Добавить страницу',
   removePage: 'Удалить страницу',
   previousPage: 'Предыдущая страница',

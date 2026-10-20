@@ -54,6 +54,8 @@ import type {
   DesignerJsonEditorEventMap,
   DesignerLayout,
   DesignerLayoutPolicy,
+  DesignerMinimapEventMap,
+  DesignerMinimapShape,
   DesignerPaletteDragPayload,
   DesignerPaletteEventMap,
   DesignerPaletteGroup,
@@ -177,6 +179,7 @@ import {
   XhDesignerFrameElement,
   XhDesignerIssuesElement,
   XhDesignerJsonEditorElement,
+  XhDesignerMinimapElement,
   XhDesignerPaletteElement,
   XhDesignerPropertiesElement,
   XhDesignerRulerElement,
@@ -185,7 +188,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileCodeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HistoryIcon, ImageIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MaximizeIcon, MinusIcon, PageNumberIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, ShapeEllipseIcon, ShapeRectangleIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TextRichIcon, TextWrapIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileCodeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HistoryIcon, ImageIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MapIcon, MaximizeIcon, MinusIcon, PageNumberIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, ShapeEllipseIcon, ShapeRectangleIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TextRichIcon, TextWrapIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -558,6 +561,8 @@ interface Layers {
   readonly tour: XhDesignerTourElement
   /** 编辑整份模板的 JSON 对话框。 */
   readonly jsonEditor: XhDesignerJsonEditorElement
+  /** 画布左下角的小地图：按页显示纸张与元素，按下或拖动把视口中心移过去。 */
+  readonly minimap: XhDesignerMinimapElement
   /** 物料面板头的命令条：导入字段。 */
   readonly paletteActions: DesignerPanelActions<PrintDesignerContext>
   /** 状态栏左段：选中的对象。 */
@@ -738,6 +743,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   #paletteView: DesignerPaletteView<PrintDesignerContext, PrintPaletteDrop> | undefined
   /** 物料来源的条目 id（含下级）：拖到画布上时据此交给来源。 */
   #sourceItems: ReadonlySet<string> = new Set()
+  /** 上一次交给小地图的图形，内容没变不重设。 */
+  #minimapKey: string | undefined
   #outlineCache: { readonly document: PrintDocument, readonly t: PrintDesignerTranslations, readonly model: PrintDesignerModel, readonly outline: PrintOutline } | undefined
   /** 扩展登记的字段来源，模型换了才重取。 */
   #fieldSources: { readonly model: PrintDesignerModel, readonly sources: readonly DesignerFieldSource[] } | undefined
@@ -950,6 +957,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       this.#layoutStale = false
     }
     this.#renderPaper(layers, t)
+    this.#syncMinimap(layers)
     this.#syncOverlay(layers)
     this.#syncRuler(layers)
     if (!this.#fitIfPending())
@@ -1666,6 +1674,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       : [
           ...DESIGNER_FRAME_REGIONS.filter(kept).map(region => ({ ...region, ...own[region.name] })),
           { name: PRINT_DESIGNER_PANELS.pages, position: 'overlay', anchor: 'end', label: t.pages, icon: FileIcon } satisfies DesignerFrameRegion,
+          { name: PRINT_DESIGNER_PANELS.minimap, position: 'overlay', anchor: 'bottom-start', label: t.minimap, icon: MapIcon } satisfies DesignerFrameRegion,
           ...this.#model().list.flatMap(extension => (extension.panels ?? []).map(panel => panel.region)),
         ]
     const key = JSON.stringify(regions)
@@ -1833,6 +1842,8 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   #onResize(): void {
     this.#checkTour()
+    if (this.#layers)
+      this.#layers.minimap.canvasSize = this.#size()
     if (!this.#autoFit)
       return
     this.#fitPending = true
@@ -1890,6 +1901,8 @@ export class XhPrintDesigner extends XhReactiveElement {
       layers.world.style.transform = `translate(${x}px, ${y}px) scale(${scale})`
       layers.overlay.viewport = this.#viewport
       layers.ruler.viewport = this.#viewport
+      layers.minimap.viewport = this.#viewport
+      layers.minimap.canvasSize = this.#size()
       this.style.setProperty('--xh-print-designer-zoom', String(scale))
       this.#paintGrid(layers)
       this.#renderZoomStatus(layers, this.#translations())
@@ -1911,6 +1924,31 @@ export class XhPrintDesigner extends XhReactiveElement {
       return screenToWorld(this.#viewport, { x: size.width / 2, y: size.height / 2 })
     const paper = getPaperSize(this.#editor.page)
     return { x: paper.width / 2, y: paper.height / 2 }
+  }
+
+  /** 小地图按页显示：这张纸一块淡色、当前页面模板与当前页眉页脚变体里看得见的元素各一块，范围就是这张纸；内容没变不重设。 */
+  #syncMinimap(layers: Layers): void {
+    const paper = getPaperSize(this.#editor.page)
+    const bounds: Rect = { x: 0, y: 0, width: paper.width, height: paper.height }
+    const shapes: DesignerMinimapShape[] = [
+      { kind: 'rect', rect: bounds, tone: 'muted' },
+      ...this.#editor.visibleElements().map((item): DesignerMinimapShape => ({ kind: 'rect', rect: elementRect(item.element) })),
+    ]
+    const key = JSON.stringify(shapes)
+    if (key === this.#minimapKey)
+      return
+    this.#minimapKey = key
+    layers.minimap.bounds = bounds
+    layers.minimap.shapes = shapes
+  }
+
+  /** 在小地图上按下或拖动：视口中心移到那一点，此后尺寸变化不再自动适配。 */
+  readonly #onMinimapNavigate = (event: Event): void => {
+    const size = this.#size()
+    if (!size)
+      return
+    this.#stopAutoFit()
+    this.#moveTo(centerOn(this.#viewport, (event as DesignerMinimapEventMap['navigate']).detail.center, size))
   }
 
   #zoomAtCenter(factor: number): void {
@@ -2000,7 +2038,9 @@ export class XhPrintDesigner extends XhReactiveElement {
     fieldImport.offerSample = true
     fieldImport.addEventListener('fields-import', this.#onFieldsImport)
     const paletteActions = createPanelActions<PrintDesignerContext>(doc, PRINT_DESIGNER_PANELS.palette)
-    frame.append(paletteActions.element)
+    const minimap = createGeneratedElement(doc, 'xh-designer-minimap', { 'data-part': 'minimap', 'slot': PRINT_DESIGNER_PANELS.minimap }) as XhDesignerMinimapElement
+    minimap.addEventListener('navigate', this.#onMinimapNavigate)
+    frame.append(paletteActions.element, minimap)
     const jsonEditor = createGeneratedElement(doc, 'xh-designer-json-editor', { 'data-part': 'json-editor' }) as XhDesignerJsonEditorElement
     jsonEditor.addEventListener('json-apply', this.#onJsonApply)
     const tour = createGeneratedElement(doc, 'xh-designer-tour', { 'data-part': 'tour' }) as XhDesignerTourElement
@@ -2023,7 +2063,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, selectionBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, fieldImport, jsonEditor, tour, paletteActions, selectionStatus, clientStatus, zoomStatus }
+    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, selectionBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, fieldImport, jsonEditor, tour, minimap, paletteActions, selectionStatus, clientStatus, zoomStatus }
     this.#regions = undefined
     panelHost.assign(this.#model().list, this.#context())
     return this.#layers
@@ -2965,7 +3005,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   // —— 内部：标尺与参考线 ——
 
-  /** 标尺显示时画布放进标尺框，不显示时直接放在工作区；预览态两者都收起。 */
+  /** 标尺显示时画布放进标尺框，不显示时直接放在工作区；预览态两者都收起。标尺显示着时宿主带 data-rulers。 */
   #placeCanvas(layers: Layers, preview: boolean): void {
     const rulers = !preview && this.#resolvedSettings[PRINT_SETTING_KEYS.rulers] !== false
     if (rulers && !layers.ruler.contains(layers.menu))
@@ -2974,6 +3014,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       layers.workspace.insertBefore(layers.menu, layers.preview)
     layers.ruler.hidden = !rulers
     layers.menu.hidden = preview
+    this.toggleAttribute('data-rulers', rulers)
   }
 
   /** 标尺上的参考线取当前页面模板，选中元素的范围画成淡底。 */
@@ -3672,6 +3713,7 @@ export function definePrintDesigner(): void {
   defineDesignerShellElement('xh-designer-field-import', XhDesignerFieldImportElement)
   defineDesignerShellElement('xh-designer-tour', XhDesignerTourElement)
   defineDesignerShellElement('xh-designer-json-editor', XhDesignerJsonEditorElement)
+  defineDesignerShellElement('xh-designer-minimap', XhDesignerMinimapElement)
   defineXhElement('xh-toolbar', XhToolbarElement)
   defineXhElement('xh-toggle-group', XhToggleGroupElement)
   defineXhElement('xh-button', XhButtonElement)

@@ -95,7 +95,7 @@ export const PRINT_TOOLBAR_LAYOUT: readonly (readonly string[])[] = [
 
 /**
  * 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.<面板 id>）时用。
- * pages 是画布右侧的翻页条（画布浮动件，只能显隐）。
+ * pages 是画布右侧的翻页条，minimap 是画布左下角的小地图，都是画布浮动件，只能显隐。
  */
 export const PRINT_DESIGNER_PANELS = {
   palette: 'palette',
@@ -104,6 +104,7 @@ export const PRINT_DESIGNER_PANELS = {
   history: 'history',
   issues: 'issues',
   pages: 'pages',
+  minimap: 'minimap',
 } as const
 
 /** 内置命令 help 打开的帮助页：打印文档站的设计器一页。 */

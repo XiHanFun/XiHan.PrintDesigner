@@ -49,6 +49,7 @@ const designer: PrintDesignerLocale = {
   snap: '貼齊',
   print: '列印',
   pages: '頁面範本',
+  minimap: '小地圖',
   addPage: '新增頁面',
   removePage: '刪除頁面',
   previousPage: '上一頁',
