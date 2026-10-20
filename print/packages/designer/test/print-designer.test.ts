@@ -856,7 +856,7 @@ describe('<xh-print-designer>', () => {
 
     input.setSelectionRange(input.value.length, input.value.length)
     const menu = editor.querySelector('xh-menu')!
-    menu.dispatchEvent(new CustomEvent('select', { detail: { value: '$pages' }, bubbles: true }))
+    menu.dispatchEvent(new CustomEvent('item-select', { detail: { value: '$pages' }, bubbles: true }))
     await designer.updateComplete
     await field.updateComplete
     const element = designer.schema.pages[0]!.elements.find(item => item.id === 'n') as { format: string }
@@ -1003,7 +1003,7 @@ describe('<xh-print-designer>', () => {
     at(viewport(), 'contextmenu', 20, 35)
     expect(menuItems()).toEqual(['cut', 'copy', 'duplicate', 'delete', 'bring-to-front', 'bring-forward', 'send-backward', 'send-to-back', '@acme/hello.run'])
     expect(content.querySelector('[value="duplicate"] [data-xh-part="item-shortcut"]')!.textContent).toBe('Ctrl+D')
-    designer.querySelector('xh-context-menu[data-print-canvas-menu]')!.dispatchEvent(new CustomEvent('select', { detail: { value: '@acme/hello.run' } }))
+    designer.querySelector('xh-context-menu[data-print-canvas-menu]')!.dispatchEvent(new CustomEvent('item-select', { detail: { value: '@acme/hello.run' } }))
     expect(runs).toEqual([designer])
     key('H', { ctrlKey: true, shiftKey: true })
     expect(runs).toHaveLength(2)
