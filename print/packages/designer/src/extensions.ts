@@ -10,12 +10,12 @@ import type { PrintDesignerTranslations, PrintRuntimeExtension, PrintRuntimeMode
 import type { IconRecord } from '@xihan-ui/core'
 import type { DesignerCommand, DesignerImporter } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
-import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerPaletteSource, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, DesignerTourStep, DesignerTourTarget, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
+import type { DesignerCommandsTranslations, DesignerCommandTable, DesignerMenubarMenu, DesignerPaletteSource, DesignerPropertyEditor, DesignerSettings, DesignerSettingsSection, DesignerShellExtension, DesignerTourStep, DesignerTourTarget, XhDesignerFrameElement } from '@xihan-ui/designer-shell'
 import type { XhPrintDesigner } from './print-designer'
 import { ELEMENT_CATEGORIES } from '@xihan-print/core'
 import { createPrintRuntimeModel } from '@xihan-print/runtime'
 import { DesignerExtensionError, extensionCommands, extensionEditors } from '@xihan-ui/designer-kit'
-import { collectPaletteSources, collectSettingsSections, collectTourSteps, designerPanelCommands } from '@xihan-ui/designer-shell'
+import { collectMenubarMenus, collectPaletteSources, collectSettingsSections, collectTourSteps, designerMenubarMenus, designerPanelCommands } from '@xihan-ui/designer-shell'
 import { PRINT_CLIENT_SETTINGS_SECTION, PRINT_SETTINGS_SECTION } from './settings'
 import { TABLE_COMMANDS } from './table-edit'
 
@@ -64,9 +64,9 @@ export interface PrintPaletteDrop {
 
 /**
  * 打印设计器层的扩展：运行时层的全部字段（元素种类、渲染、编辑方式与规则），加上属性编辑器、命令、面板、设置分区、导入器、
- * 物料项、物料来源与 setup。物料来源（paletteSources）的条目拖到画布上放下时，落点是 PrintPaletteDrop。
+ * 物料项、物料来源、菜单栏的菜单与 setup。物料来源（paletteSources）的条目拖到画布上放下时，落点是 PrintPaletteDrop。
  */
-export interface PrintDesignerExtension extends PrintRuntimeExtension, Pick<DesignerShellExtension<PrintDesignerContext, DesignerPropertyEditor, unknown, unknown, PrintPaletteDrop>, 'editors' | 'commands' | 'panels' | 'settings' | 'fieldSources' | 'tourSteps' | 'paletteSources' | 'about' | 'setup'> {
+export interface PrintDesignerExtension extends PrintRuntimeExtension, Pick<DesignerShellExtension<PrintDesignerContext, DesignerPropertyEditor, unknown, unknown, PrintPaletteDrop>, 'editors' | 'commands' | 'panels' | 'settings' | 'fieldSources' | 'tourSteps' | 'paletteSources' | 'menubarMenus' | 'about' | 'setup'> {
   /** 导入器：粘贴与拖放共用，按扩展顺序问 accepts，第一个接下的导入；id 不能与别的导入器重名。 */
   readonly importers?: readonly PrintDesignerImporter[]
   /** 本扩展登记的元素的物料项，键是元素类型；只能给本扩展 elements 里的类型。 */
@@ -171,6 +171,8 @@ export interface PrintDesignerModel {
   readonly tourSteps: readonly DesignerTourStep<PrintDesignerContext>[]
   /** 各扩展的物料来源，按 order 排；分组接在内置的元素分组与字段分组后面。 */
   readonly paletteSources: readonly DesignerPaletteSource<PrintDesignerContext, PrintPaletteDrop>[]
+  /** 菜单栏上的菜单：designer-shell 内置的文件、编辑、视图、帮助在前，各扩展登记的按顺序在后。 */
+  readonly menubarMenus: readonly DesignerMenubarMenu<PrintDesignerContext>[]
 }
 
 function tourStep(key: PrintTourStepKey, target: DesignerTourTarget, order: number): DesignerTourStep<PrintDesignerContext> {
@@ -193,7 +195,7 @@ export const PRINT_TOUR_STEPS: readonly DesignerTourStep<PrintDesignerContext>[]
 
 /**
  * 合出设计器用的模型；任何一处重名（含设置分区与设计器自己的 print、内建的 general 重名，引导步骤 id 重名或用了 shell. 前缀，
- * 物料来源 id 重名）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。
+ * 物料来源 id 重名，菜单栏的菜单 id 重名）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。
  */
 export function createPrintDesignerModel(builtin: PrintDesignerExtension, extensions: readonly PrintDesignerExtension[]): PrintDesignerModel {
   const list = [builtin, ...extensions]
@@ -222,7 +224,8 @@ export function createPrintDesignerModel(builtin: PrintDesignerExtension, extens
   const settings = collectSettingsSections([{ id: builtin.id, settings: own }, ...extensions]).slice(own.length)
   const tourSteps = collectTourSteps<PrintDesignerContext>([builtin, ...extensions])
   const paletteSources = collectPaletteSources<PrintDesignerContext, PrintPaletteDrop>(list)
-  return { list, runtime, editors: extensionEditors<DesignerPropertyEditor>(undefined, all), commands: withPanelCommands(extensionCommands(all), builtin, extensions), importers: all.flatMap(extension => extension.importers ?? []), palette, categories, settings, tourSteps, paletteSources }
+  const menubarMenus = collectMenubarMenus(designerMenubarMenus<PrintDesignerContext>({ translations: context => context.commands }), list)
+  return { list, runtime, editors: extensionEditors<DesignerPropertyEditor>(undefined, all), commands: withPanelCommands(extensionCommands(all), builtin, extensions), importers: all.flatMap(extension => extension.importers ?? []), palette, categories, settings, tourSteps, paletteSources, menubarMenus }
 }
 
 /** 命令表并上扩展面板的开关命令 panel:<区名>；扩展自己登记了同名命令时抛 DesignerExtensionError。 */

@@ -151,7 +151,7 @@ describe('帮助、快捷键与关于', () => {
     expect([dialog.open, tour(element).running]).toEqual([false, true])
   })
 
-  it('快捷键表从命令表生成，打印自己那组末尾补上剪贴板三键、Backspace 删除、Enter 编辑表格与 Ctrl / ⌘ + S 保存；通用里方向键与 Esc 按打印的做法改写', async () => {
+  it('快捷键表从命令表生成，打印自己那组末尾补上剪贴板三键、Backspace 删除、Enter 编辑表格与 Ctrl / ⌘ + S 保存；通用里有 F10，方向键与 Esc 按打印的做法改写', async () => {
     const element = await mount(el => (el.autoTour = false))
     const groups = settings(element).shortcuts!.groups
     const designerRows = groups.find(group => group.id === 'designer')!.rows
@@ -168,6 +168,7 @@ describe('帮助、快捷键与关于', () => {
       ['nudge', 'Move the selection; pan the canvas when nothing is selected'],
       ['nudgeLarge', undefined],
       ['pan', undefined],
+      ['menubar', undefined],
       ['selectionToolbar', undefined],
       ['cancel', 'Cancel a drag, leave table editing, or clear the selection'],
     ])

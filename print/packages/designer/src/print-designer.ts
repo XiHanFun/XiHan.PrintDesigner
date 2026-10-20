@@ -41,6 +41,7 @@ import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-enviro
 import type { AlignMode, DataField, DataFieldContent, DesignerFieldSource, DesignerImportSource, DistributeAxis, ExecuteOptions, ExtensionHost, HistoryLabel, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable, PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
 import type {
+  CommandMenubar,
   CommandToolbar,
   DesignerCommandLayout,
   DesignerCommandsTranslations,
@@ -143,6 +144,8 @@ import { BUILTIN_CONTROL_KINDS, resolvePropertyEditor } from '@xihan-ui/designer
 import {
   applyToolbarCustomization,
   arrangeCommands,
+  arrangeMenubar,
+  createCommandMenubar,
   createCommandToolbar,
   createDesignerSettingsHost,
   createHistoryPanel,
@@ -160,9 +163,12 @@ import {
   DESIGNER_TOUR_DONE_KEY,
   designerHistoryCommands,
   designerLayoutPolicy,
+  designerMenubarLayout,
   designerPanelCommands,
   designerShellCommands,
+  forwardFrameSlots,
   importSources,
+  menubarVisibleOf,
   registerDropTarget,
   renderCommandMenu,
   resolvePaletteSources,
@@ -188,7 +194,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileCodeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HandIcon, HistoryIcon, ImageIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MapIcon, MaximizeIcon, MinusIcon, PageNumberIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, ShapeEllipseIcon, ShapeRectangleIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TextRichIcon, TextWrapIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileCodeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HandIcon, HistoryIcon, ImageIcon, InfoIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MapIcon, MaximizeIcon, MenuIcon, MinusIcon, PageNumberIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, ShapeEllipseIcon, ShapeRectangleIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TextRichIcon, TextWrapIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -481,8 +487,8 @@ const RESERVED_COMMAND_KEYS: ReadonlySet<string> = new Set(['z', 'y', 'a', 'd', 
 /** 导入字段时值字段能选的内容种类。 */
 const FIELD_CONTENTS: readonly DataFieldContent[] = ['text', 'image', 'barcode', 'qrcode']
 
-/** 预览态只登记这几个区：顶栏、工具栏与画布。 */
-const PREVIEW_REGIONS: ReadonlySet<string> = new Set(['toolbar', 'canvas'])
+/** 预览态只登记这几个区：菜单栏、工具栏与画布。 */
+const PREVIEW_REGIONS: ReadonlySet<string> = new Set(['menubar', 'toolbar', 'canvas'])
 
 const NO_GUIDES: DesignerGuides = { x: [], y: [] }
 
@@ -516,6 +522,8 @@ function isPaletteDrag(payload: unknown): payload is DesignerPaletteDragPayload 
 interface Layers {
   readonly frame: XhDesignerFrameElement
   readonly panelHost: DesignerPanelHost<PrintDesignerContext>
+  /** 外框最上一条的菜单栏，窄屏时收成一颗「菜单」钮。 */
+  readonly menubar: CommandMenubar<PrintDesignerContext>
   readonly palette: XhDesignerPaletteElement
   readonly issues: XhDesignerIssuesElement
   readonly properties: XhDesignerPropertiesElement
@@ -744,6 +752,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   #gestureLabel: HistoryLabel | undefined
   #panelInputs: readonly unknown[] = []
   #unregisterDrop: (() => void) | undefined
+  /** 停止把宿主的 slot="menubar-end" 转交给外框。 */
+  #releaseSlots: (() => void) | undefined
   #hoverId: string | undefined
   #platform: 'mac' | 'other' | undefined
   #settingsHost: DesignerSettingsHost | undefined
@@ -860,6 +870,9 @@ export class XhPrintDesigner extends XhReactiveElement {
       drop: (point, payload) => this.#drop(point, payload),
       leave: () => this.#setOverlayHover(undefined),
     })
+    // 宿主写在设计器上的 slot="menubar-end"（如模板标题与保存状态）转交给外框，放在菜单栏右边
+    this.#releaseSlots?.()
+    this.#releaseSlots = forwardFrameSlots(this, layers.frame, ['menubar-end'])
     this.#host.assign(this.#extensions ?? NO_EXTENSIONS)
     this.requestUpdate()
   }
@@ -878,6 +891,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#layers?.overlay.cancel()
     this.#unregisterDrop?.()
     this.#unregisterDrop = undefined
+    this.#releaseSlots?.()
+    this.#releaseSlots = undefined
     this.#host.dispose()
   }
 
@@ -929,6 +944,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#syncProperties(layers, t)
     this.#syncFrameRegions(layers, t)
     this.#renderToolbar(layers)
+    this.#renderMenubar(layers)
     this.#renderSelectionBar(layers, t)
     this.#renderPageStrip(layers, t)
     this.#renderStatus(layers, t)
@@ -1356,17 +1372,22 @@ export class XhPrintDesigner extends XhReactiveElement {
       announce: (context, message) => context.frame?.announce(message),
       icons: { undo: UndoIcon, redo: RedoIcon, clearHistory: EraserIcon },
     })
-    // designer-shell 内置的面板、设置与帮助，排在工具栏末组；设计器自己的每块面板一条开关命令 panel:<面板 id>
+    // designer-shell 内置的面板、设置、帮助与显示开关，缺省落在菜单栏，面板与拖动也上工具栏；设计器自己的每块面板一条开关命令 panel:<面板 id>
     const shell = designerShellCommands<PrintDesignerContext>({
       translations: context => context.commands,
       frame: context => context.frame,
-      openSettings: ({ designer }) => designer.openSettings(),
+      openSettings: ({ designer }, section) => designer.openSettings(section),
+      settings: {
+        read: context => context.settings,
+        change: (_context, key, value) => this.#writeSetting(key, value),
+        policy: () => this.settingsPolicy,
+      },
       helpUrl: () => PRINT_DESIGNER_HELP_URL,
       openFieldImport: ({ designer }) => designer.openFieldImport(),
       startTour: ({ designer }) => designer.startTour(),
       openJsonEditor: ({ designer }) => designer.openJsonEditor(),
       fieldImportDisabled: () => !this.#fieldImportAllowed(),
-      icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon, panTool: HandIcon },
+      icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon, panTool: HandIcon, about: InfoIcon },
     })
     const panels = designerPanelCommands<PrintDesignerContext>({ panels: Object.values(PRINT_DESIGNER_PANELS), frame: context => context.frame })
     return [...history, ...builtin, ...this.#formatCommands(), this.#pageSetup(), this.#pageMenu(), ...shell, ...panels]
@@ -1629,7 +1650,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /**
    * 外框的区：工具栏与画布带上区名（分隔条的无障碍名称）；物料、属性与问题画成卡片，面板头写标题与帮助，
-   * 属性面板的副标题是当前编辑的对象。扩展面板的区按扩展顺序排在后面。
+   * 属性面板的副标题是当前编辑的对象。设置里关了菜单栏、工具栏或状态栏时不登记它们。扩展面板的区按扩展顺序排在后面。
    */
   #syncFrameRegions(layers: Layers, t: PrintDesignerTranslations): void {
     const heading = layers.properties.heading
@@ -1642,7 +1663,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     }
     const preview = this.mode === 'preview'
     const toolbar = toolbarVisibleOf(this.#resolvedSettings)
-    const kept = (region: DesignerFrameRegion): boolean => (region.name !== 'toolbar' || toolbar) && (preview
+    const menubar = menubarVisibleOf(this.#resolvedSettings)
+    const kept = (region: DesignerFrameRegion): boolean => (region.name !== 'toolbar' || toolbar) && (region.name !== 'menubar' || menubar) && (preview
       ? PREVIEW_REGIONS.has(region.name)
       : region.name !== 'status' || !this.#statusBarOff())
     const regions = preview
@@ -1967,6 +1989,8 @@ export class XhPrintDesigner extends XhReactiveElement {
       return this.#layers
     const doc = this.ownerDocument
     const bar = { platform: this.#kbdPlatform() }
+    const menubar = createCommandMenubar<PrintDesignerContext>(doc, { ...bar, menuIcon: MenuIcon })
+    menubar.element.slot = 'menubar'
     const commandBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
     const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'command-bar' }, [commandBar.element])
     const selectionBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
@@ -2017,7 +2041,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     // 问题列表带计数的严重程度开关放进它所在卡片的面板头
     const issueSummary = issues.summary
     issueSummary.slot = 'issues-actions'
-    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, palette, workspace, pageStrip.element, properties, issues, issueSummary]) as XhDesignerFrameElement
+    const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [menubar.element, toolbar, palette, workspace, pageStrip.element, properties, issues, issueSummary]) as XhDesignerFrameElement
     frame.addEventListener('layout-change', this.#onLayoutChange)
     // 拖动工具开关了：工具栏「拖动」钮的按下状态跟着重画
     frame.addEventListener('canvas-tool-change', () => this.requestUpdate())
@@ -2066,7 +2090,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, selectionBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, fieldImport, jsonEditor, tour, minimap, paletteActions, selectionStatus, clientStatus, zoomStatus }
+    this.#layers = { frame, panelHost, menubar, palette, issues, properties, toolbar, commandBar, selectionBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, fieldImport, jsonEditor, tour, minimap, paletteActions, selectionStatus, clientStatus, zoomStatus }
     this.#regions = undefined
     panelHost.assign(this.#model().list, this.#context())
     return this.#layers
@@ -2239,6 +2263,13 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (command === 'grid')
       return this.#resolvedSettings[PRINT_SETTING_KEYS.showGrid] === true
     return command === 'snap' ? this.#resolvedSettings[PRINT_SETTING_KEYS.snap] !== false : this.mode === command
+  }
+
+  /** 菜单栏：按命令表与 commandLayout 的 menubar:<菜单> 排出各张菜单，条目的状态取此刻的设计器。 */
+  #renderMenubar(layers: Layers): void {
+    const { commands, menubarMenus } = this.#model()
+    const context = this.#context()
+    layers.menubar.update(arrangeMenubar(menubarMenus, commands, designerMenubarLayout(commands), this.commandLayout), commands, context, context.commands)
   }
 
   #renderToolbar(layers: Layers): void {

@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 设计器：打开送货单，给出可绑定的字段树与示例数据；按 Ctrl / ⌘ + S 时由宿主保存并标记为已保存。
+// 设计器：打开送货单，给出可绑定的字段树与示例数据；保存状态放在菜单栏右边，按 Ctrl / ⌘ + S 时由宿主保存并标记为已保存。
 
 // #region setup
 import type { PrintDesignerEventMap } from '@xihan-print/designer'
@@ -44,12 +44,15 @@ export function mount(host: HTMLElement): () => void {
   designer.sampleData = data
   designer.data = data
   // #endregion render
-  // 文档页上不自动开始新手引导，示例里从设置的「帮助」页开始
+  // 文档页上不自动开始新手引导，示例里从「帮助」菜单开始
   designer.autoTour = false
 
   // #region save
-  const status = document.createElement('p')
+  // 写成设计器的子元素、带 slot="menubar-end"，放在菜单栏右边一段
+  const status = document.createElement('span')
+  status.slot = 'menubar-end'
   status.textContent = '没有修改'
+  designer.append(status)
   designer.addEventListener('dirty-change', (event) => {
     const { dirty } = (event as PrintDesignerEventMap['dirty-change']).detail
     status.textContent = dirty ? '有未保存的修改，在画布上按 Ctrl / ⌘ + S 保存' : '已保存'
@@ -60,6 +63,6 @@ export function mount(host: HTMLElement): () => void {
   })
   // #endregion save
 
-  host.append(status, designer)
+  host.append(designer)
   return () => host.replaceChildren()
 }

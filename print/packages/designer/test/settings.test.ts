@@ -205,7 +205,7 @@ describe('设置', () => {
     expect(row(DESIGNER_SETTING_KEYS.toolbarDisplay)).not.toBeNull()
   })
 
-  it('设置里关掉显示工具栏时外框不登记工具栏，预览态也一样；再打开就回来', async () => {
+  it('设置里关掉显示工具栏时外框不登记工具栏，预览态也一样（预览态只剩菜单栏与画布）；再打开就回来', async () => {
     const designer = await mount()
     const regions = (): string[] => designer.querySelector<HTMLElement & { regions?: readonly { name: string }[] }>('xh-designer-frame')!.regions!.map(region => region.name)
     expect(regions()).toContain('toolbar')
@@ -214,7 +214,7 @@ describe('设置', () => {
     expect(regions()).not.toContain('toolbar')
     designer.mode = 'preview'
     await settle(designer)
-    expect(regions()).toEqual(['canvas'])
+    expect(regions()).toEqual(['menubar', 'canvas'])
     designer.mode = 'design'
     designer.settings = {}
     await settle(designer)
