@@ -1355,7 +1355,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       announce: (context, message) => context.frame?.announce(message),
       icons: { undo: UndoIcon, redo: RedoIcon, clearHistory: EraserIcon },
     })
-    // designer-shell 内置的保存、面板、设置、帮助与显示开关，缺省落在菜单栏，面板与拖动也上工具栏；设计器自己的每块面板一条开关命令 panel:<面板 id>
+    // designer-shell 内置的保存、面板、设置、帮助与外观（三条显示开关），缺省落在菜单栏，面板与拖动也上工具栏；设计器自己的每块面板一条开关命令 panel:<面板 id>
     const shell = designerShellCommands<PrintDesignerContext>({
       translations: context => context.commands,
       save: () => emitEvent(this, 'save', {}),
@@ -1371,7 +1371,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       startTour: ({ designer }) => designer.startTour(),
       openJsonEditor: ({ designer }) => designer.openJsonEditor(),
       fieldImportDisabled: () => !this.#fieldImportAllowed(),
-      icons: { save: SaveIcon, panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon, panTool: HandIcon, about: InfoIcon },
+      icons: { save: SaveIcon, panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon, panTool: HandIcon, about: InfoIcon, appearance: EyeIcon },
     })
     const panels = designerPanelCommands<PrintDesignerContext>({ panels: Object.values(PRINT_DESIGNER_PANELS), frame: context => context.frame })
     return [...history, ...builtin, ...this.#formatCommands(), this.#pageSetup(), this.#pageMenu(), ...this.#pageCommands(), ...this.#bandCommands(), ...shell, ...panels]

@@ -37,6 +37,7 @@ interface MenubarItem {
   separatorBefore?: boolean
   tone?: string
   children?: MenubarItem[]
+  checkboxValue?: string[]
   radioValue?: Record<string, string>
 }
 
@@ -99,16 +100,20 @@ function regions(): string[] {
 }
 
 describe('菜单栏', () => {
-  it('外框最上一条：文件、编辑、视图、插入、页面、帮助六张菜单；保存、导入字段、打印与设置在文件里，设计与预览、缩放、拖动、网格与吸附、面板与显示开关在视图里，引导、帮助、快捷键与关于在帮助里', () => {
+  it('外框最上一条：文件、编辑、视图、插入、页面、帮助六张菜单；保存、导入字段、打印与设置在文件里，设计与预览、缩放、拖动、网格与吸附、面板与外观在视图里（外观子菜单是三条显示开关），引导、帮助、快捷键与关于在帮助里', () => {
     expect(regions()[0]).toBe('menubar')
     expect(menubar().closest('[data-part="region"]')!.getAttribute('data-region')).toBe('menubar')
     expect(menubar().collection!.map(node => [node.value, node.label])).toEqual([['file', 'File'], ['edit', 'Edit'], ['view', 'View'], ['insert', 'Insert'], ['page', 'Page'], ['help', 'Help']])
     expect(items('file')).toEqual(['save', 'import-fields', 'print', 'settings'])
     expect(items('edit')).toEqual(['undo', 'redo', 'cut', 'copy', 'paste', 'delete', 'duplicate', 'select-all', 'edit-json'])
-    expect(items('view')).toEqual(['design', 'preview', 'zoom-in', 'zoom-out', 'zoom-to-fit', 'zoom-to-actual', 'pan-tool', 'grid', 'snap', 'panels', 'show-toolbar', 'show-status-bar', 'show-menubar'])
+    expect(items('view')).toEqual(['design', 'preview', 'zoom-in', 'zoom-out', 'zoom-to-fit', 'zoom-to-actual', 'pan-tool', 'grid', 'snap', 'panels', 'appearance'])
     expect([item('view', 'grid').separatorBefore, item('view', 'panels').separatorBefore]).toEqual([true, true])
     expect(items('help')).toEqual(['start-tour', 'help', 'shortcuts', 'about'])
-    expect(menubar().checkboxValue).toEqual(['view/design', 'view/snap', 'view/show-toolbar', 'view/show-status-bar', 'view/show-menubar'])
+    expect(menubar().checkboxValue).toEqual(['view/design', 'view/snap'])
+    const appearance = item('view', 'appearance')
+    const toggles = ['show-toolbar', 'show-status-bar', 'show-menubar'].map(id => `view/appearance/command:${id}`)
+    expect([appearance.label, appearance.icon?.name, item('view', 'panels').icon?.name]).toEqual(['Appearance', 'eye', 'panel-left'])
+    expect([appearance.children!.map(child => child.value), appearance.checkboxValue]).toEqual([toggles, toggles])
   })
 
   it('选「视图 → 预览」切到预览态，预览态外框照样登记菜单栏，从「视图 → 设计」切回', async () => {
@@ -120,13 +125,13 @@ describe('菜单栏', () => {
     expect(designer.mode).toBe('design')
   })
 
-  it('显示开关改设置并派发 settings-change：关掉状态栏外框不登记它，关掉菜单栏外框也不登记菜单栏', async () => {
+  it('「视图 → 外观」的显示开关改设置并派发 settings-change：关掉状态栏外框不登记它，关掉菜单栏外框也不登记菜单栏', async () => {
     const changes: [string, unknown][] = []
     designer.addEventListener('settings-change', event => changes.push([(event as CustomEvent<{ key: string }>).detail.key, (event as CustomEvent<{ value: unknown }>).detail.value]))
-    choose('view', 'show-status-bar')
+    choose('view', 'appearance/command:show-status-bar')
     await settle()
     expect([changes, regions().includes('status')]).toEqual([[['general.statusBar', false]], false])
-    choose('view', 'show-menubar')
+    choose('view', 'appearance/command:show-menubar')
     await settle()
     expect([changes.at(-1), regions().includes('menubar'), menubar().closest('[data-part="parked"]') !== null]).toEqual([['toolbar.menubar', false], false, true])
     designer.mode = 'preview'
