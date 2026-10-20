@@ -178,8 +178,6 @@ const designer: PrintDesignerLocale = {
   alignTextCenter: '텍스트 가운데 맞춤',
   alignTextRight: '텍스트 오른쪽 맞춤',
   fontSizeMenu: size => `글꼴 크기: ${size}`,
-  alignMenu: '정렬 및 분포',
-  layerMenu: '배치 순서',
   propertyGroups: {
     layout: '레이아웃',
     content: '내용',

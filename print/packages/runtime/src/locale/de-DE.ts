@@ -175,8 +175,6 @@ const designer: PrintDesignerLocale = {
   alignTextCenter: 'Text zentrieren',
   alignTextRight: 'Text rechtsbündig',
   fontSizeMenu: size => `Schriftgröße: ${size}`,
-  alignMenu: 'Ausrichten und verteilen',
-  layerMenu: 'Anordnen',
   propertyGroups: {
     layout: 'Layout',
     content: 'Inhalt',

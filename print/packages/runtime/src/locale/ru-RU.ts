@@ -188,8 +188,6 @@ const designer: PrintDesignerLocale = {
   alignTextCenter: 'Выровнять текст по центру',
   alignTextRight: 'Выровнять текст по правому краю',
   fontSizeMenu: size => `Размер шрифта: ${size}`,
-  alignMenu: 'Выравнивание и распределение',
-  layerMenu: 'Порядок',
   propertyGroups: {
     layout: 'Расположение',
     content: 'Содержимое',

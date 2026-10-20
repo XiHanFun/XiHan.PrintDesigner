@@ -186,8 +186,6 @@ const designer: PrintDesignerLocale = {
   alignTextCenter: 'Centrar texto',
   alignTextRight: 'Alinear texto a la derecha',
   fontSizeMenu: size => `Tamaño de fuente: ${size}`,
-  alignMenu: 'Alinear y distribuir',
-  layerMenu: 'Organizar',
   propertyGroups: {
     layout: 'Disposición',
     content: 'Contenido',
