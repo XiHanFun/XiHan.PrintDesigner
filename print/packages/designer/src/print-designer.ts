@@ -23,7 +23,6 @@ import type {
   PageBandKey,
   PrintDocument,
   PrintElement,
-  PrintElementType,
   PrintOperation,
   PropertyGroup,
   PropertyUnit,
@@ -99,6 +98,7 @@ import type { TableCommand } from './table-edit'
 import {
   createDocument,
   createPage,
+  createPaper,
   findElement,
   getBandRect,
   getBodyRect,
@@ -106,6 +106,7 @@ import {
   getPaperSize,
   layoutDesign,
   PAGE_BAND_KEYS,
+  PAGE_ORIENTATIONS,
   PAGE_PROPERTY_GROUPS,
   planResizeTableColumn,
   PROPERTY_GROUPS,
@@ -128,9 +129,11 @@ import {
   formatLength,
   HISTORY_NUDGE_MERGE_WITHIN,
   hitTest,
+  isPaperPresetName,
   nudgeDelta,
   nudgeMergeKey,
   panBy,
+  PAPER_PRESET_NAMES,
   revealRect,
   screenToWorld,
   selectInMarquee,
@@ -163,7 +166,6 @@ import {
   DESIGNER_TOUR_DONE_KEY,
   designerHistoryCommands,
   designerLayoutPolicy,
-  designerMenubarLayout,
   designerPanelCommands,
   designerShellCommands,
   forwardFrameSlots,
@@ -194,7 +196,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileCodeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HandIcon, HistoryIcon, ImageIcon, InfoIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MapIcon, MaximizeIcon, MenuIcon, MinusIcon, PageNumberIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, SaveIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, ShapeEllipseIcon, ShapeRectangleIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TextRichIcon, TextWrapIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileCodeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HandIcon, HistoryIcon, InfoIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MapIcon, MaximizeIcon, MenuIcon, PanelLeftIcon, PencilIcon, PrinterIcon, RedoIcon, SaveIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -202,7 +204,7 @@ import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuEle
 import { createDialogService } from '@xihan-ui/web-components/services'
 import { createPrintClientStatus } from './client-status'
 import { createPrintEditor, elementRect } from './editor'
-import { createPrintDesignerModel, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOUR_STEPS, printMenuLayout, printSelectionLayout, printToolbarLayout } from './extensions'
+import { createPrintDesignerModel, elementIcon, elementName, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_MENUBAR_MENUS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOUR_STEPS, printMenubarLayout, printMenuLayout, printSelectionLayout, printToolbarLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { describePrintOperations, elementsLabel, identitiesIn } from './history-labels'
 import { printOutline } from './outline'
@@ -420,26 +422,6 @@ const ICONS: Readonly<Record<Command, IconRecord>> = {
   'split-cell': TableCellsSplitIcon,
 }
 
-/** 内置元素的种类图标：物料面板与页面结构用。 */
-const ELEMENT_ICONS: Readonly<Record<PrintElementType, IconRecord>> = {
-  text: TypeIcon,
-  longText: TextWrapIcon,
-  richText: TextRichIcon,
-  pageNumber: PageNumberIcon,
-  image: ImageIcon,
-  table: TableIcon,
-  line: MinusIcon,
-  rect: ShapeRectangleIcon,
-  ellipse: ShapeEllipseIcon,
-  barCode: BarcodeIcon,
-  matrixCode: QrCodeIcon,
-}
-
-/** 一种元素的图标：内置的取种类图标，扩展的取它物料项的图标。 */
-function elementIcon(model: PrintDesignerModel, type: string): IconRecord | undefined {
-  return Object.hasOwn(ELEMENT_ICONS, type) ? ELEMENT_ICONS[type as PrintElementType] : model.palette.get(type)?.icon
-}
-
 /** 格式工具条上的四种字形开关：命令 id、文字样式里的开关与图标。 */
 const FORMAT_FLAGS: readonly { readonly id: string, readonly flag: 'bold' | 'italic' | 'underline' | 'lineThrough', readonly icon: IconRecord }[] = [
   { id: 'text-bold', flag: 'bold', icon: BoldIcon },
@@ -590,11 +572,6 @@ function resizeHandles(element: PrintElement): DesignerTransformItem['handles'] 
 /** 角度落到 [0, 360)。 */
 function normalizeAngle(degrees: number): number {
   return ((degrees % 360) + 360) % 360
-}
-
-/** 元素类型的名字：内置类型取语言包，扩展的类型取扩展给的名称，都没有时用类型名。 */
-function elementName(t: PrintDesignerTranslations, model: PrintDesignerModel, type: string): string {
-  return Object.hasOwn(t.elements, type) ? t.elements[type as PrintElementType] : model.palette.get(type)?.label ?? type
 }
 
 /** 物料分组的名字：内置分组取语言包，扩展的分组取扩展给的名称，都没有时用分组名。 */
@@ -1243,7 +1220,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     return this.#designerModel
   }
 
-  /** 设计器自带的扩展：内置命令、页面结构与历史记录面板、新手引导里打印的几步，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 */
+  /** 设计器自带的扩展：内置命令、菜单栏的插入与页面两张菜单、页面结构与历史记录面板、新手引导里打印的几步，以及表格列与表尾行的条目、页码格式、四边边框与值格式的编辑器。 */
   #builtinExtension(): PrintDesignerExtension {
     if (this.#builtin !== undefined)
       return this.#builtin
@@ -1257,6 +1234,10 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#builtin = {
       id: PRINT_DESIGNER_EXTENSION_ID,
       commands: this.#builtinCommands(),
+      menubarMenus: [
+        { id: PRINT_MENUBAR_MENUS.insert, label: ({ translations }) => translations.menuInsert, order: 30 },
+        { id: PRINT_MENUBAR_MENUS.page, label: ({ translations }) => translations.menuPage, order: 40 },
+      ],
       panels: [this.#outlinePanel(), this.#historyPanel()],
       tourSteps: PRINT_TOUR_STEPS,
       editors: {
@@ -1393,7 +1374,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       icons: { save: SaveIcon, panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon, panTool: HandIcon, about: InfoIcon },
     })
     const panels = designerPanelCommands<PrintDesignerContext>({ panels: Object.values(PRINT_DESIGNER_PANELS), frame: context => context.frame })
-    return [...history, ...builtin, ...this.#formatCommands(), this.#pageSetup(), this.#pageMenu(), ...shell, ...panels]
+    return [...history, ...builtin, ...this.#formatCommands(), this.#pageSetup(), this.#pageMenu(), ...this.#pageCommands(), ...this.#bandCommands(), ...shell, ...panels]
   }
 
   /**
@@ -1542,6 +1523,105 @@ export class XhPrintDesigner extends XhReactiveElement {
           this.#editor.setActivePage(value)
       },
     }
+  }
+
+  /**
+   * 页面菜单里的纸张与方向：子菜单列出纸张预设与纵向、横向（单选，当前页面模板的打勾），选中写进当前页面模板、记一步撤销，
+   * 只读或预览态不可用；「页面设置」在属性面板里编辑当前页面模板，预览态或属性面板显示不了时不可用。
+   */
+  #pageCommands(): PrintDesignerCommand[] {
+    const editable = (): boolean => !this.#readOnly && this.mode === 'design'
+    const name = (t: PrintDesignerTranslations, key: string): string => t.propertyNames[`page:${key}`] ?? t.propertyNames[key] ?? key
+    const option = (t: PrintDesignerTranslations, key: string, value: string): string => t.propertyOptions[`${key}=${value}`] ?? t.propertyOptions[value] ?? value
+    const write = (key: 'paper' | 'orientation', value: JsonValue): void => {
+      const page = this.#editor.page
+      if (editable() && !jsonEquals(page[key] as unknown as JsonValue, value))
+        this.#editor.execute([{ type: 'updatePage', pageId: page.id, changes: [{ path: [key], value }] }])
+    }
+    return [
+      {
+        id: 'page-paper',
+        label: ({ translations }) => name(translations, 'paper'),
+        enabled: editable,
+        menu: ({ translations }) => PAPER_PRESET_NAMES.map(preset => ({ value: preset, label: option(translations, 'paper', preset), checked: this.#editor.page.paper.preset === preset, group: 'paper' })),
+        select: (value) => {
+          if (isPaperPresetName(value))
+            write('paper', createPaper(value) as unknown as JsonValue)
+        },
+      },
+      {
+        id: 'page-orientation',
+        label: ({ translations }) => name(translations, 'orientation'),
+        enabled: editable,
+        menu: ({ translations }) => PAGE_ORIENTATIONS.map(orientation => ({ value: orientation, label: option(translations, 'orientation', orientation), checked: this.#editor.page.orientation === orientation, group: 'orientation' })),
+        select: (value) => {
+          if ((PAGE_ORIENTATIONS as readonly string[]).includes(value))
+            write('orientation', value)
+        },
+      },
+      {
+        id: 'page-properties',
+        label: ({ translations }) => translations.pageSettings,
+        icon: SlidersHorizontalIcon,
+        enabled: () => this.mode === 'design' && this.#propertiesAvailable(),
+        run: () => this.#showPageProperties(),
+      },
+    ]
+  }
+
+  /** 属性面板显示得出来：外框里有它，没被宿主锁成隐藏。 */
+  #propertiesAvailable(): boolean {
+    const entry = this.#layers?.frame.panelEntries().find(item => item.name === PRINT_DESIGNER_PANELS.properties)
+    return entry !== undefined && (entry.shown || !entry.locked)
+  }
+
+  /** 在属性面板里编辑当前页面模板：退出表格编辑、取消选择，属性面板藏着时显示出来，收着时亮出来。 */
+  #showPageProperties(): void {
+    const frame = this.#layers?.frame
+    if (frame === undefined || this.mode !== 'design' || !this.#propertiesAvailable())
+      return
+    if (this.#tableEdit !== undefined)
+      this.#exitTableEdit()
+    this.#editor.clearSelection()
+    if (!frame.showsPanel(PRINT_DESIGNER_PANELS.properties))
+      frame.setPanelVisible(PRINT_DESIGNER_PANELS.properties, true)
+    frame.revealPanel(PRINT_DESIGNER_PANELS.properties)
+  }
+
+  /**
+   * 插入菜单里的页眉、页脚两条：子菜单上半是已有的变体（单选，当前显示的打勾），下半是还没有的变体，写「新增变体 · …」；
+   * 显示的不是常规时末尾是删除这个变体。与画布上区标签的变体菜单做同一件事；预览态不可用，只读时新增与删除不可用。
+   */
+  #bandCommands(): PrintDesignerCommand[] {
+    return (['header', 'footer'] as const).map((region): PrintDesignerCommand => ({
+      id: `${region}-variants`,
+      label: ({ translations }) => translations.regions[region],
+      enabled: () => this.mode === 'design',
+      menu: ({ translations }) => {
+        const set = this.#editor.page[region]
+        const current = this.#editor.bands[region]
+        const missing = PAGE_BAND_KEYS.filter(key => set[key] === undefined)
+        return [
+          ...PAGE_BAND_KEYS.filter(key => set[key] !== undefined).map(key => ({ value: `show:${key}`, label: translations.bandVariants[key], checked: key === current, group: 'band-variant' })),
+          ...(missing.length > 0 ? ['separator'] : []),
+          ...missing.map(key => ({ value: `add:${key}`, label: `${translations.addBandVariant} · ${translations.bandVariants[key]}`, ...(this.#readOnly ? { disabled: true } : {}) })),
+          ...(current !== 'default' && !this.#readOnly ? ['separator', { value: 'remove', label: translations.removeBandVariant, tone: 'danger' as const }] : []),
+        ]
+      },
+      select: value => this.#selectBand(region, value),
+    }))
+  }
+
+  /** 页眉页脚变体菜单选中一项：show:<变体> 切过去，add:<变体> 新增并切过去，remove 删除显示着的变体；只读时只能切换。 */
+  #selectBand(region: 'header' | 'footer', value: string): void {
+    const [action, key] = value.split(':') as [string, PageBandKey | undefined]
+    const current = this.#editor.bands[region]
+    if (action === 'show' && key !== undefined)
+      this.#editor.setBandVariant(region, key)
+    else if (action === 'add' && key !== undefined && key !== 'default' && !this.#readOnly)
+      this.#editor.addBand(region, key)
+    else if (action === 'remove' && current !== 'default' && !this.#readOnly)
+      this.#editor.removeBand(region, current)
   }
 
   /** 交给命令与扩展 setup 的上下文。 */
@@ -2272,7 +2352,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   #renderMenubar(layers: Layers): void {
     const { commands, menubarMenus } = this.#model()
     const context = this.#context()
-    layers.menubar.update(arrangeMenubar(menubarMenus, commands, designerMenubarLayout(commands), this.commandLayout), commands, context, context.commands)
+    layers.menubar.update(arrangeMenubar(menubarMenus, commands, printMenubarLayout(commands, this.#model().runtime.elements), this.commandLayout), commands, context, context.commands)
   }
 
   #renderToolbar(layers: Layers): void {
@@ -2446,16 +2526,7 @@ export class XhPrintDesigner extends XhReactiveElement {
         createAuthoredElement(doc, 'div', { 'data-xh-part': 'positioner' }, [createAuthoredElement(doc, 'div', { 'data-xh-part': 'content' }, items)]),
       ])
       menu.style.top = `${rect.y}mm`
-      menu.addEventListener('item-select', (event) => {
-        const { value } = (event as CustomEvent<{ value: string }>).detail
-        const [action, key] = value.split(':') as [string, PageBandKey | undefined]
-        if (action === 'show' && key !== undefined)
-          this.#editor.setBandVariant(region, key)
-        else if (action === 'add' && key !== undefined && key !== 'default' && !this.#readOnly)
-          this.#editor.addBand(region, key)
-        else if (action === 'remove' && current !== 'default' && !this.#readOnly)
-          this.#editor.removeBand(region, current)
-      })
+      menu.addEventListener('item-select', event => this.#selectBand(region, (event as CustomEvent<{ value: string }>).detail.value))
       return menu
     }))
   }

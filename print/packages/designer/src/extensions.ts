@@ -5,7 +5,7 @@
 
 // 设计器层的扩展：在运行时层之上加属性编辑器、命令、面板、导入器、物料项、物料来源与装上时的回调；设计器自带的编辑器与命令也写成一个扩展。
 
-import type { ElementRegion, PrintElement } from '@xihan-print/core'
+import type { ElementRegion, ElementRegistry, PrintElement, PrintElementType } from '@xihan-print/core'
 import type { PrintDesignerTranslations, PrintRuntimeExtension, PrintRuntimeModel, PrintTourStepKey } from '@xihan-print/runtime'
 import type { IconRecord } from '@xihan-ui/core'
 import type { DesignerCommand, DesignerImporter } from '@xihan-ui/designer-kit'
@@ -15,7 +15,8 @@ import type { XhPrintDesigner } from './print-designer'
 import { ELEMENT_CATEGORIES } from '@xihan-print/core'
 import { createPrintRuntimeModel } from '@xihan-print/runtime'
 import { DesignerExtensionError, extensionCommands, extensionEditors } from '@xihan-ui/designer-kit'
-import { collectMenubarMenus, collectPaletteSources, collectSettingsSections, collectTourSteps, designerMenubarMenus, designerPanelCommands } from '@xihan-ui/designer-shell'
+import { collectMenubarMenus, collectPaletteSources, collectSettingsSections, collectTourSteps, designerMenubarLayout, designerMenubarMenus, designerPanelCommands } from '@xihan-ui/designer-shell'
+import { BarcodeIcon, ImageIcon, MinusIcon, PageNumberIcon, QrCodeIcon, ShapeEllipseIcon, ShapeRectangleIcon, TableIcon, TextRichIcon, TextWrapIcon, TypeIcon } from '@xihan-ui/icons'
 import { PRINT_CLIENT_SETTINGS_SECTION, PRINT_SETTINGS_SECTION } from './settings'
 import { TABLE_COMMANDS } from './table-edit'
 
@@ -99,6 +100,46 @@ export function printToolbarLayout(menubar: boolean = true): (readonly string[])
   return menubar ? [...PRINT_TOOLBAR_LAYOUT] : [...PRINT_TOOLBAR_LAYOUT.slice(0, -1), [...PRINT_TOOLBAR_LAYOUT.at(-1)!, 'settings', 'help']]
 }
 
+/** 打印自己在菜单栏上的两张菜单的 id：插入、页面；宿主写 commandLayout 的 menubar:<菜单 id> 时用。 */
+export const PRINT_MENUBAR_MENUS = {
+  insert: 'insert',
+  page: 'page',
+} as const
+
+/** 插入一种元素的命令 id：insert:<元素类型>。 */
+export function printInsertCommandId(type: string): string {
+  return `insert:${type}`
+}
+
+/**
+ * 菜单栏的缺省排列：在 designer-shell 四张菜单的缺省排列上，文件菜单的设置之前多出导入字段、打印两组，视图菜单的拖动之后
+ * 多出网格与吸附一组；插入菜单按物料分组（elements 的 groupByCategory）各成一组列出插入元素的命令，最后一组是页眉、页脚的变体；
+ * 页面菜单是纸张、方向与页面设置，上一页、下一页，新增、复制、删除页面，上移、下移页面。只留 commands 里有的命令，空组去掉。
+ */
+export function printMenubarLayout(commands: DesignerCommandTable<never>, elements: Pick<ElementRegistry, 'groupByCategory'>): Record<string, string[][]> {
+  const layout = designerMenubarLayout(commands)
+  const keep = (groups: readonly (readonly string[])[]): string[][] => groups.map(group => group.filter(id => commands.has(id))).filter(group => group.length > 0)
+  const file = layout.file ?? []
+  const settings = file.findIndex(group => group.includes('settings'))
+  const fileAt = settings < 0 ? file.length : settings
+  layout.file = keep([...file.slice(0, fileAt), ['import-fields'], ['print'], ...file.slice(fileAt)])
+  const view = layout.view ?? []
+  const pan = view.findIndex(group => group.includes('pan-tool'))
+  const viewAt = pan < 0 ? view.length : pan + 1
+  layout.view = keep([...view.slice(0, viewAt), ['grid', 'snap'], ...view.slice(viewAt)])
+  layout[PRINT_MENUBAR_MENUS.insert] = keep([
+    ...elements.groupByCategory().map(group => group.prototypes.map(prototype => printInsertCommandId(prototype.type))),
+    ['header-variants', 'footer-variants'],
+  ])
+  layout[PRINT_MENUBAR_MENUS.page] = keep([
+    ['page-paper', 'page-orientation', 'page-properties'],
+    ['previous-page', 'next-page'],
+    ['add-page', 'duplicate-page', 'remove-page'],
+    ['move-page-up', 'move-page-down'],
+  ])
+  return layout
+}
+
 /**
  * 设计器的面板 id：宿主写 defaultLayout、settingsPolicy（layout.panels.<面板 id>）时用。
  * pages 是画布右侧的翻页条，minimap 是画布左下角的小地图，都是画布浮动件，只能显隐。
@@ -155,6 +196,31 @@ export function printMenuLayout(subject: PrintMenuSubject, tableSelected: boolea
   ]
 }
 
+/** 内置元素的种类图标：物料面板、页面结构与插入菜单用。 */
+const ELEMENT_ICONS: Readonly<Record<PrintElementType, IconRecord>> = {
+  text: TypeIcon,
+  longText: TextWrapIcon,
+  richText: TextRichIcon,
+  pageNumber: PageNumberIcon,
+  image: ImageIcon,
+  table: TableIcon,
+  line: MinusIcon,
+  rect: ShapeRectangleIcon,
+  ellipse: ShapeEllipseIcon,
+  barCode: BarcodeIcon,
+  matrixCode: QrCodeIcon,
+}
+
+/** 一种元素的图标：内置的取种类图标，扩展的取它物料项的图标。 */
+export function elementIcon(model: Pick<PrintDesignerModel, 'palette'>, type: string): IconRecord | undefined {
+  return Object.hasOwn(ELEMENT_ICONS, type) ? ELEMENT_ICONS[type as PrintElementType] : model.palette.get(type)?.icon
+}
+
+/** 元素类型的名字：内置类型取语言包，扩展的类型取扩展给的名称，都没有时用类型名。 */
+export function elementName(t: PrintDesignerTranslations, model: Pick<PrintDesignerModel, 'palette'>, type: string): string {
+  return Object.hasOwn(t.elements, type) ? t.elements[type as PrintElementType] : model.palette.get(type)?.label ?? type
+}
+
 /** 一组设计器扩展合出的东西：交给 core 函数与预览的列表、运行时的模型、属性编辑器表、命令表、导入器、物料项与物料来源。 */
 export interface PrintDesignerModel {
   /** 设计器自带的扩展在前、传入的在后；校验、分页与预览都拿这一份。 */
@@ -163,7 +229,7 @@ export interface PrintDesignerModel {
   readonly runtime: PrintRuntimeModel
   /** 各扩展的属性编辑器按顺序合成一张，后面的压前面的。 */
   readonly editors: PropertyEditorTable<DesignerPropertyEditor>
-  /** 各扩展的命令，内置在前、扩展按登记顺序在后，末尾是扩展面板的开关命令 panel:<区名>。 */
+  /** 各扩展的命令，内置在前、扩展按登记顺序在后，然后是扩展面板的开关命令 panel:<区名>，末尾是每种元素一条插入命令 insert:<元素类型>。 */
   readonly commands: DesignerCommandTable<PrintDesignerContext>
   /** 各扩展的导入器，按扩展顺序。 */
   readonly importers: readonly PrintDesignerImporter[]
@@ -201,7 +267,8 @@ export const PRINT_TOUR_STEPS: readonly DesignerTourStep<PrintDesignerContext>[]
 
 /**
  * 合出设计器用的模型；任何一处重名（含设置分区与设计器自己的 print、内建的 general 重名，引导步骤 id 重名或用了 shell. 前缀，
- * 物料来源 id 重名，菜单栏的菜单 id 重名）都抛 DesignerExtensionError，物料项给了别处登记的元素类型时抛 TypeError。
+ * 物料来源 id 重名，菜单栏的菜单 id 重名，扩展的命令占了 panel:<区名> 或 insert:<元素类型>）都抛 DesignerExtensionError，
+ * 物料项给了别处登记的元素类型时抛 TypeError。
  */
 export function createPrintDesignerModel(builtin: PrintDesignerExtension, extensions: readonly PrintDesignerExtension[]): PrintDesignerModel {
   const list = [builtin, ...extensions]
@@ -231,7 +298,7 @@ export function createPrintDesignerModel(builtin: PrintDesignerExtension, extens
   const tourSteps = collectTourSteps<PrintDesignerContext>([builtin, ...extensions])
   const paletteSources = collectPaletteSources<PrintDesignerContext, PrintPaletteDrop>(list)
   const menubarMenus = collectMenubarMenus(designerMenubarMenus<PrintDesignerContext>({ translations: context => context.commands }), list)
-  return { list, runtime, editors: extensionEditors<DesignerPropertyEditor>(undefined, all), commands: withPanelCommands(extensionCommands(all), builtin, extensions), importers: all.flatMap(extension => extension.importers ?? []), palette, categories, settings, tourSteps, paletteSources, menubarMenus }
+  return { list, runtime, editors: extensionEditors<DesignerPropertyEditor>(undefined, all), commands: withInsertCommands(withPanelCommands(extensionCommands(all), builtin, extensions), runtime.elements, palette, builtin, extensions), importers: all.flatMap(extension => extension.importers ?? []), palette, categories, settings, tourSteps, paletteSources, menubarMenus }
 }
 
 /** 命令表并上扩展面板的开关命令 panel:<区名>；扩展自己登记了同名命令时抛 DesignerExtensionError。 */
@@ -241,11 +308,38 @@ function withPanelCommands(commands: DesignerCommandTable<PrintDesignerContext>,
     return commands
   const table = new Map(commands)
   for (const command of designerPanelCommands<PrintDesignerContext>({ panels, frame: context => context.frame })) {
-    if (table.has(command.id)) {
-      const owner = [builtin, ...extensions].find(extension => extension.commands?.some(item => item.id === command.id))?.id ?? builtin.id
-      throw new DesignerExtensionError('command', command.id, [builtin.id, owner])
-    }
+    if (table.has(command.id))
+      throw new DesignerExtensionError('command', command.id, [builtin.id, commandOwner(command.id, builtin, extensions)])
     table.set(command.id, command)
   }
   return table
+}
+
+/**
+ * 命令表并上每种元素一条插入命令 insert:<元素类型>，内置与扩展的元素都有：文字是元素种类的名字，图标同物料面板；
+ * 执行时与点物料一样把元素放在视口中央并选中，只读或不在设计态时不可用。扩展自己登记了同名命令时抛 DesignerExtensionError。
+ */
+function withInsertCommands(commands: DesignerCommandTable<PrintDesignerContext>, elements: ElementRegistry, palette: ReadonlyMap<string, PrintPaletteEntry>, builtin: PrintDesignerExtension, extensions: readonly PrintDesignerExtension[]): DesignerCommandTable<PrintDesignerContext> {
+  const table = new Map(commands)
+  for (const { prototypes } of elements.groupByCategory()) {
+    for (const { type } of prototypes) {
+      const id = printInsertCommandId(type)
+      if (table.has(id))
+        throw new DesignerExtensionError('command', id, [builtin.id, commandOwner(id, builtin, extensions)])
+      const icon = elementIcon({ palette }, type)
+      table.set(id, {
+        id,
+        label: ({ translations }) => elementName(translations, { palette }, type),
+        ...(icon === undefined ? {} : { icon }),
+        enabled: ({ designer }) => designer.readonly !== true && designer.mode === 'design',
+        run: ({ designer }) => void designer.addElement(type),
+      })
+    }
+  }
+  return table
+}
+
+/** 登记了这条命令的扩展的 id；哪个扩展都没登记时是设计器自带的扩展。 */
+function commandOwner(id: string, builtin: PrintDesignerExtension, extensions: readonly PrintDesignerExtension[]): string {
+  return [builtin, ...extensions].find(extension => extension.commands?.some(item => item.id === id))?.id ?? builtin.id
 }

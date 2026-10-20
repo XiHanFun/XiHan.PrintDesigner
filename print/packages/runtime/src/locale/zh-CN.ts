@@ -50,6 +50,8 @@ const designer: PrintDesignerLocale = {
   print: '打印',
   pages: '页面模板',
   minimap: '小地图',
+  menuInsert: '插入',
+  menuPage: '页面',
   addPage: '新增页面',
   removePage: '删除页面',
   previousPage: '上一页',

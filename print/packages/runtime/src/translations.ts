@@ -87,6 +87,10 @@ export interface PrintDesignerTranslations {
   readonly pages: string
   /** 画布左下角小地图的名字：面板菜单与设置的「布局」页里用。 */
   readonly minimap: string
+  /** 菜单栏上「插入」菜单的名字：各种元素与页眉页脚的变体。 */
+  readonly menuInsert: string
+  /** 菜单栏上「页面」菜单的名字：纸张、方向与页面模板。 */
+  readonly menuPage: string
   readonly previousPage: string
   readonly nextPage: string
   readonly addPage: string
