@@ -77,7 +77,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 菜单 | 条目 |
 | --- | --- |
 | 文件 | 保存；导入字段；打印；设置 |
-| 编辑 | 撤销、重做；剪切、复制、粘贴、删除、创建副本；全选；编辑 JSON |
+| 编辑 | 撤销、重做；剪切、复制、粘贴、删除、创建副本；全选；编辑 JSON（开发者模式开着时） |
 | 视图 | 设计、预览；放大、缩小、适合窗口、实际大小；拖动；网格、吸附；面板（子菜单，就是工具栏上「面板」那一张）、外观（子菜单：显示工具栏与状态栏） |
 | 插入 | 各种元素，按物料分组各成一组，扩展的元素排在它的分组里；页眉、页脚（子菜单，见下） |
 | 页面 | 纸张、方向（子菜单，单选）、页面设置；上一页、下一页；新增、复制、删除页面；上移、下移页面 |
@@ -160,7 +160,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 设置是用户偏好，每人每机一份，不随模板保存。`openSettings(section?)` 打开设置对话框，左边一个分区一页：
 
-- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色（跟随页面、八种预设与自定义颜色）与状态栏开关。
+- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色（跟随页面、八种预设与自定义颜色）、状态栏开关与开发者模式。开发者模式缺省关，关着时编辑 JSON 这类调试查看的入口都不出现。
 - 「语言」（`language`）：设计器的界面语言，缺省跟随页面；也可以跟随系统，或选 XiHan.UI 的十种语言之一。只作用于这台设计器：设计器自己、外壳零件与里面的元素（含弹出的菜单、对话框这些浮层）一起换，页面别处不变；跟随系统按浏览器的语言偏好挑最接近的一种，挑不到用英文。语言包选了才按需加载。键是 `language.locale`（`DESIGNER_SETTING_KEYS.language`）。
 - 「布局」（`layout`）：逐块面板一行，改显示、停在哪一栏、先后与收起，表下「恢复默认布局」；改的就是上文「面板布局」那一份。
 - 「工具栏」（`toolbar`）：按钮的显示方式（图标、文字、图标和文字，缺省只显示图标）、显示工具栏，以及按钮表：藏起不用的按钮、换先后与分组，「恢复默认」回到宿主排好的样子。显示方式与显示工具栏只走设置，没有单独的属性；画布上的翻页条总是只显示图标。按钮表从宿主用 `commandLayout` 排好的工具栏起步，只管顶部工具栏，菜单栏、选中工具条与右键菜单不在里面。
@@ -209,7 +209,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | Ctrl / ⌘ + D | 创建副本 |
 | Ctrl / ⌘ + A | 全选当前页面模板里看得见的元素 |
 | Ctrl / ⌘ + S | 保存：执行外壳的 `save` 命令，派发 `save` |
-| Ctrl / ⌘ + Shift + J | 打开编辑 JSON 的对话框 |
+| Ctrl / ⌘ + Shift + J | 打开编辑 JSON 的对话框（开发者模式开着时；关着时交给浏览器） |
 | Ctrl / ⌘ + , | 打开设置对话框 |
 | Ctrl / ⌘ + ]、[ | 上移一层、下移一层 |
 | Ctrl / ⌘ + Shift + ]、[ | 置于顶层、置于底层 |
@@ -245,7 +245,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ## 编辑 JSON
 
-按 Ctrl / ⌘ + Shift + J，或在画布空白处的右键菜单里选「编辑 JSON」，打开编辑整份模板 JSON 的对话框；也可以调 `openJsonEditor()`。
+设置「基础」里开着开发者模式（`general.developer`，`DESIGNER_SETTING_KEYS.developer`）时，按 Ctrl / ⌘ + Shift + J，或在「编辑」菜单、画布空白处的右键菜单里选「编辑 JSON」，打开编辑整份模板 JSON 的对话框。开发者模式关着时这几处都没有它，快捷键交给浏览器；`openJsonEditor()` 照样能调。宿主要让用户用它，就在 `settings` 里预先写 `'general.developer': true`，或用 `settingsPolicy` 锁住这一条。
 
 - 框里写出当前模板，缩进两格。边改边解析、按打印的校验报问题（与 `validate()` 同一套：结构、元素登记表与表达式），问题列在框下，点一条光标跳到那个路径在文字里的位置。
 - 解析失败或有错误级的问题时「应用」不可用；没有错误时按「应用」整份换上，记一步撤销「编辑 JSON」，派发 `kind` 为 `execute` 的 `schema-change`。撤销就回到改之前的那份。
@@ -356,7 +356,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 视图 | `pan-tool`（designer-shell 内置，拖动工具，按下状态跟外框的 `canvasTool`） `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `page-setup` `print`：`grid` `snap` 也在视图菜单，`print` 也在文件菜单 |
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
 | 文字格式 | `font-size` `text-bold` `text-italic` `text-underline` `text-line-through` `text-align-left` `text-align-center` `text-align-right`：缺省排在 `selection:text` 的选中工具条上 |
-| 保存、面板、设置与帮助 | `save` `panels` `settings` `help`：designer-shell 内置。「保存」（Ctrl / ⌘ + S）派发 `save`，在文件菜单；其余三条在菜单栏里（面板在视图菜单，设置在文件菜单，帮助在帮助菜单），「面板」也排在工具栏末组。「面板」点开菜单开关各块面板，「设置」打开设置对话框（Ctrl / ⌘ + ,），「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`）。`panels-toggle-all` `panels-restore` `layout-reset` 排在「面板」菜单末尾。`start-tour` 开始新手引导，`shortcuts`、`about` 打开设置的快捷键页与关于页，都在帮助菜单；`edit-json` 打开编辑 JSON 的对话框（Ctrl / ⌘ + Shift + J），在编辑菜单与画布空白处右键菜单的末组；`show-toolbar` `show-status-bar` 是显示开关，收在视图菜单的「外观」（`appearance`）子菜单里 |
+| 保存、面板、设置与帮助 | `save` `panels` `settings` `help`：designer-shell 内置。「保存」（Ctrl / ⌘ + S）派发 `save`，在文件菜单；其余三条在菜单栏里（面板在视图菜单，设置在文件菜单，帮助在帮助菜单），「面板」也排在工具栏末组。「面板」点开菜单开关各块面板，「设置」打开设置对话框（Ctrl / ⌘ + ,），「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`）。`panels-toggle-all` `panels-restore` `layout-reset` 排在「面板」菜单末尾。`start-tour` 开始新手引导，`shortcuts`、`about` 打开设置的快捷键页与关于页，都在帮助菜单；`edit-json` 打开编辑 JSON 的对话框（Ctrl / ⌘ + Shift + J），在编辑菜单与画布空白处右键菜单的末组，只在开发者模式开着时存在；`show-toolbar` `show-status-bar` 是显示开关，收在视图菜单的「外观」（`appearance`）子菜单里 |
 | 面板开关 | `panel:<面板 id>`：每块面板一条，含扩展登记的面板（`panel:<区名>`），文字是面板标题、勾选的是看得见的，宿主锁定的面板不可用；不排在任何位置，可以经 `commandLayout` 放上工具栏 |
 | 页面模板 | `previous-page` `page-menu` `next-page` `add-page` `duplicate-page` `remove-page`：翻页条上的排列固定（`PRINT_PAGE_STRIP_LAYOUT`），不经 `commandLayout`；`move-page-up` `move-page-down` 在页码菜单里。除了页码，这几条也在页面菜单里 |
 | 页面菜单 | `page-paper` `page-orientation`：纸张与方向的子菜单；`page-properties`：在属性面板里编辑当前页面模板 |
