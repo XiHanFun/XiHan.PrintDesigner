@@ -33,7 +33,7 @@ export function lockFirst(designer: XhPrintDesigner): void {
 // #endregion layout
 
 // #region menubar
-// 宿主自己的「新建」「返回列表」挂进文件菜单，新建同时上工具栏；再把文件菜单排成新建、返回列表、设置三组
+// 宿主自己的「新建」「返回列表」挂进文件菜单，新建同时上工具栏；再把文件菜单排成新建与保存、返回列表、设置三组
 export function hostCommands(designer: XhPrintDesigner, actions: { readonly create: () => void, readonly back: () => void }): void {
   designer.extensions = [{
     id: '@acme/host',
@@ -42,6 +42,6 @@ export function hostCommands(designer: XhPrintDesigner, actions: { readonly crea
       { id: '@acme/host.back', label: '返回列表', placement: ['menubar:file'], run: actions.back },
     ],
   }]
-  designer.commandLayout = { 'menubar:file': [['@acme/host.new'], ['@acme/host.back'], ['settings']] }
+  designer.commandLayout = { 'menubar:file': [['@acme/host.new', 'save'], ['@acme/host.back'], ['settings']] }
 }
 // #endregion menubar

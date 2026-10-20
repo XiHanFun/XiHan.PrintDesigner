@@ -92,7 +92,7 @@
 | `dirty-change` | `{ dirty: boolean }` | 是否有未保存的修改变了。 |
 | `issues-change` | `{ issues: readonly ValidationIssue[] }` | 模板改动或登记表、表达式引擎换了之后重新校验，detail 为全部校验问题。 |
 | `viewport-change` | `{ viewport: Viewport }` | 视口变了，取值同 getViewport()。 |
-| `save` | `Record<string, never>` | 设计态下焦点在设计器里（输入框与面板之外）时按了 Ctrl / ⌘ + S；设计器不保存，宿主保存后调用 markSaved()。 |
+| `save` | `Record<string, never>` | 执行了保存命令 save：选了菜单栏的「文件 → 保存」，或设计态下焦点在设计器里（输入框与面板之外）时按了 Ctrl / ⌘ + S；设计器不保存，宿主保存后调用 markSaved()。 |
 | `element-dblclick` | `{ id: string }` | 双击元素；双击表格时同时进入表格编辑态。 |
 | `element-contextmenu` | `{ id: string, x: number, y: number }` | 在元素上打开右键菜单，未选中的元素先被选中；可取消，取消后不弹设计器自带的菜单。 |
 | `blank-contextmenu` | `{ x: number, y: number }` | 在画布空白处打开右键菜单；可取消，取消后不弹设计器自带的菜单。 |
@@ -201,7 +201,6 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `settingsRulersHint` | `string` |  |
 | `tourSteps` | `Readonly<Record<PrintTourStepKey, PrintTourStepTranslations>>` | 新手引导里打印自己的几步：页眉页脚、页面模板、字段物料与打印。 |
 | `helpNotes` | `readonly string[]` | 设置对话框「帮助」页的几段操作说明。 |
-| `shortcutSave` | `string` | 快捷键表里 Ctrl / ⌘ + S 那一行：派发 save，请宿主保存。 |
 | `shortcutNudge` | `string` | 快捷键表「通用」里方向键那一行：移动选中的元素，没有选中时平移画布。 |
 | `shortcutCancel` | `string` | 快捷键表「通用」里 Esc 那一行：取消拖动、退出表格编辑或取消选择。 |
 | `settingsVia` | `string` | 「打印」页里打印方式一项：经本地打印客户端，还是浏览器的打印对话框。 |
