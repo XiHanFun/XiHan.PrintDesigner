@@ -1175,6 +1175,36 @@ describe('<xh-print-designer>', () => {
     expect(point.y).toBeCloseTo(0, 10)
   })
 
+  it('打开时按实际大小放：缩放 100%，纸的左上角留出边距落在视口左上；画布改尺寸不重排；换页或重设模板再这样放一次；适合窗口照旧能用', async () => {
+    const size = (width: number, height: number): void => {
+      Object.defineProperty(viewport(), 'clientWidth', { configurable: true, value: width })
+      Object.defineProperty(viewport(), 'clientHeight', { configurable: true, value: height })
+    }
+    size(800, 600)
+    designer.requestUpdate()
+    await designer.updateComplete
+    expect(designer.getViewport()).toEqual({ x: 32, y: 32, zoom: 1 })
+    size(400, 300)
+    designer.requestUpdate()
+    await designer.updateComplete
+    expect(designer.getViewport()).toEqual({ x: 32, y: 32, zoom: 1 })
+
+    designer.schema = createDocument({ pages: [createPage({ id: 'p1' }), createPage({ id: 'p2' })] })
+    designer.zoomOut()
+    await designer.updateComplete
+    expect(designer.getViewport().zoom).toBeLessThan(1)
+    designer.activePageId = 'p2'
+    await designer.updateComplete
+    expect(designer.getViewport()).toEqual({ x: 32, y: 32, zoom: 1 })
+    designer.zoomOut()
+    designer.schema = sample()
+    await designer.updateComplete
+    expect(designer.getViewport()).toEqual({ x: 32, y: 32, zoom: 1 })
+
+    designer.zoomToFit()
+    expect(designer.getViewport().zoom).toBeLessThan(1)
+  })
+
   it('适配视口时给纸张左侧的页眉页脚标签、浮在画布右侧的翻页条让出位置，纸在余下的宽度里居中', () => {
     Object.defineProperty(viewport(), 'clientWidth', { configurable: true, value: 800 })
     Object.defineProperty(viewport(), 'clientHeight', { configurable: true, value: 600 })
