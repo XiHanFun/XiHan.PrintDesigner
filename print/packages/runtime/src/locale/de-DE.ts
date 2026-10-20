@@ -50,6 +50,8 @@ const designer: PrintDesignerLocale = {
   print: 'Drucken',
   pages: 'Seitenvorlagen',
   minimap: 'Übersichtskarte',
+  menuInsert: 'Einfügen',
+  menuPage: 'Seite',
   addPage: 'Seite hinzufügen',
   removePage: 'Seite löschen',
   previousPage: 'Vorherige Seite',

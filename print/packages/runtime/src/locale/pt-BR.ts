@@ -53,6 +53,8 @@ const designer: PrintDesignerLocale = {
   print: 'Imprimir',
   pages: 'Modelos de página',
   minimap: 'Minimapa',
+  menuInsert: 'Inserir',
+  menuPage: 'Página',
   addPage: 'Adicionar página',
   removePage: 'Excluir página',
   previousPage: 'Página anterior',

@@ -63,6 +63,8 @@ const designer: PrintDesignerLocale = {
   print: 'Печать',
   pages: 'Шаблоны страниц',
   minimap: 'Мини-карта',
+  menuInsert: 'Вставка',
+  menuPage: 'Страница',
   addPage: 'Добавить страницу',
   removePage: 'Удалить страницу',
   previousPage: 'Предыдущая страница',

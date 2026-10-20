@@ -354,7 +354,7 @@ describe('状态栏', () => {
 })
 
 describe('外框', () => {
-  it('没有顶栏与插入钮：外框没有 header 区，设计器里没有 insert:<种类> 的钮，插入元素只从物料面板来', async () => {
+  it('没有顶栏与插入钮：外框没有 header 区，工具栏上没有 insert:<种类> 的钮，插入元素从物料面板或菜单栏的「插入」来', async () => {
     expect(frame().regions!.map(region => region.name)).not.toContain('header')
     expect(designer.querySelector('[slot="header-center"]')).toBeNull()
     expect(designer.querySelector('button[value^="insert:"]')).toBeNull()

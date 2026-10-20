@@ -359,6 +359,8 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   print: 'Print',
   pages: 'Page templates',
   minimap: 'Minimap',
+  menuInsert: 'Insert',
+  menuPage: 'Page',
   addPage: 'Add page',
   removePage: 'Delete page',
   previousPage: 'Previous page',

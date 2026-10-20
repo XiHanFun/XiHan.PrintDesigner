@@ -50,6 +50,8 @@ const designer: PrintDesignerLocale = {
   print: '印刷',
   pages: 'ページテンプレート',
   minimap: 'ミニマップ',
+  menuInsert: '挿入',
+  menuPage: 'ページ',
   addPage: 'ページを追加',
   removePage: 'ページを削除',
   previousPage: '前のページ',
