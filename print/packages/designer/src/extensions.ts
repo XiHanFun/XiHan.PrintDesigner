@@ -15,7 +15,7 @@ import type { XhPrintDesigner } from './print-designer'
 import { ELEMENT_CATEGORIES } from '@xihan-print/core'
 import { createPrintRuntimeModel } from '@xihan-print/runtime'
 import { DesignerExtensionError, extensionCommands, extensionEditors } from '@xihan-ui/designer-kit'
-import { collectMenubarMenus, collectPaletteSources, collectSettingsSections, collectTourSteps, designerMenubarLayout, designerMenubarMenus, designerPanelCommands } from '@xihan-ui/designer-shell'
+import { collectMenubarMenus, collectPaletteSources, collectSettingsSections, collectTourSteps, designerMenubarLayout, designerMenubarMenus, designerPanelCommands, menubarVisibleOf } from '@xihan-ui/designer-shell'
 import { BarcodeIcon, ImageIcon, MinusIcon, PageNumberIcon, QrCodeIcon, ShapeEllipseIcon, ShapeRectangleIcon, TableIcon, TextRichIcon, TextWrapIcon, TypeIcon } from '@xihan-ui/icons'
 import { PRINT_CLIENT_SETTINGS_SECTION, PRINT_SETTINGS_SECTION } from './settings'
 import { TABLE_COMMANDS } from './table-edit'
@@ -253,16 +253,25 @@ function tourStep(key: PrintTourStepKey, target: DesignerTourTarget, order: numb
     target,
     order,
     title: ({ translations }) => translations.tourSteps[key].title,
-    description: ({ translations }) => translations.tourSteps[key].description,
+    description: ({ translations, settings }) => {
+      const text = translations.tourSteps[key]
+      return (menubarVisibleOf(settings) ? text.menubarDescription : undefined) ?? text.description
+    },
   }
 }
 
-/** 新手引导里打印自己的几步，排在通用步骤之后：页眉页脚、页面模板、字段物料与打印。目标看不见的那步由零件跳过。 */
+/**
+ * 新手引导里打印自己的几步，排在通用步骤之后：插入菜单、页眉页脚、页面菜单、页面模板、字段物料与打印。两张菜单的步骤指向
+ * 菜单栏上的入口，菜单栏关掉时由零件跳过；菜单栏显示着时，字段物料与打印的说明多一句它们也在「文件」菜单里。
+ * 目标看不见的那步由零件跳过。
+ */
 export const PRINT_TOUR_STEPS: readonly DesignerTourStep<PrintDesignerContext>[] = [
-  tourStep('bands', { selector: '[data-part="band-menu"][data-region="header"]' }, 100),
-  tourStep('pages', { panel: PRINT_DESIGNER_PANELS.pages }, 110),
-  tourStep('fields', { panel: PRINT_DESIGNER_PANELS.palette }, 120),
-  tourStep('print', { command: 'print' }, 130),
+  tourStep('insert', { menubar: PRINT_MENUBAR_MENUS.insert }, 100),
+  tourStep('bands', { selector: '[data-part="band-menu"][data-region="header"]' }, 110),
+  tourStep('page', { menubar: PRINT_MENUBAR_MENUS.page }, 120),
+  tourStep('pages', { panel: PRINT_DESIGNER_PANELS.pages }, 130),
+  tourStep('fields', { panel: PRINT_DESIGNER_PANELS.palette }, 140),
+  tourStep('print', { command: 'print' }, 150),
 ]
 
 /**
