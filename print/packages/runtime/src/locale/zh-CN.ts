@@ -169,8 +169,6 @@ const designer: PrintDesignerLocale = {
   statusZoom: '缩放',
   statusClient: '打印客户端',
   statusClientStates: { idle: '未连接', connecting: '连接中', open: '已连接', reconnecting: '重连中', closed: '已断开' },
-  insertToolbar: '插入元素',
-  insertElement: label => `添加「${label}」`,
   selectionToolbar: '选中的元素',
   alignTextLeft: '文字左对齐',
   alignTextCenter: '文字居中',

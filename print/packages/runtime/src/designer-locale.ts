@@ -478,8 +478,6 @@ export const PRINT_DESIGNER_EN_US: PrintDesignerLocale = {
   statusZoom: 'Zoom',
   statusClient: 'Print client',
   statusClientStates: { idle: 'Not connected', connecting: 'Connecting', open: 'Connected', reconnecting: 'Reconnecting', closed: 'Disconnected' },
-  insertToolbar: 'Insert elements',
-  insertElement: label => `Add "${label}"`,
   selectionToolbar: 'Selection',
   alignTextLeft: 'Align text left',
   alignTextCenter: 'Center text',

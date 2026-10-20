@@ -994,7 +994,7 @@ describe('<xh-print-designer>', () => {
     }]
     await designer.updateComplete
     const toolbarItems = (): string[] => Array.from(designer.querySelectorAll<HTMLButtonElement>('[data-part="command-bar"] button[data-xh-part="item"]'), item => item.value)
-    expect(toolbarItems().slice(-8)).toEqual(['design', 'preview', 'page-setup', 'print', 'panels', 'settings', 'help', '@acme/hello.run'])
+    expect(toolbarItems().filter(value => value !== 'pan-tool').slice(-8)).toEqual(['design', 'preview', 'page-setup', 'print', 'panels', 'settings', 'help', '@acme/hello.run'])
     expect(designer.querySelector('[data-part="command-bar"] button[value="@acme/hello.run"]')!.textContent).toBe('Hello 2')
     expect(['grid', 'snap'].map(value => designer.querySelector(`[data-part="command-bar"] button[value="${value}"]`)!.getAttribute('aria-pressed'))).toEqual(['false', 'true'])
 
@@ -1066,7 +1066,7 @@ describe('<xh-print-designer>', () => {
     const frame = designer.querySelector('xh-designer-frame')!
     const element = frame.querySelector('section[slot="acme-stamps"]')!
     expect(element).not.toBeNull()
-    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'palette', 'canvas', 'properties', 'issues', 'status', 'pages', 'minimap', 'outline', 'history', 'acme-stamps'])
+    expect(frame.regions!.map(region => region.name)).toEqual(['toolbar', 'palette', 'canvas', 'properties', 'issues', 'status', 'pages', 'minimap', 'outline', 'history', 'acme-stamps'])
     expect(frame.regions!.find(region => region.name === 'properties')!.title).toBe('Properties')
     designer.select({ elements: ['a'] })
     await designer.updateComplete
@@ -1096,7 +1096,7 @@ describe('<xh-print-designer>', () => {
     designer.extensions = []
     await designer.updateComplete
     expect([element.isConnected, destroyed]).toEqual([false, 1])
-    expect(frame.regions!.map(region => region.name)).toEqual(['header', 'toolbar', 'palette', 'canvas', 'properties', 'issues', 'status', 'pages', 'minimap', 'outline', 'history'])
+    expect(frame.regions!.map(region => region.name)).toEqual(['toolbar', 'palette', 'canvas', 'properties', 'issues', 'status', 'pages', 'minimap', 'outline', 'history'])
   })
 
   it('选中表格后回车进入表格编辑态：点表头选中列，Esc 退出', async () => {

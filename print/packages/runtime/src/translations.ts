@@ -195,10 +195,6 @@ export interface PrintDesignerTranslations {
   readonly statusClient: string
   /** 打印客户端连接状态的说法。 */
   readonly statusClientStates: Readonly<Record<PrintClientState, string>>
-  /** 顶栏插入钮那一条工具栏的名字。 */
-  readonly insertToolbar: string
-  /** 顶栏插入钮的名字，label 是元素种类的名称。 */
-  readonly insertElement: (label: string) => string
   /** 选中元素后浮在选中框上方的选中工具条的名字。 */
   readonly selectionToolbar: string
   readonly alignTextLeft: string

@@ -431,16 +431,6 @@ function elementIcon(model: PrintDesignerModel, type: string): IconRecord | unde
   return Object.hasOwn(ELEMENT_ICONS, type) ? ELEMENT_ICONS[type as PrintElementType] : model.palette.get(type)?.icon
 }
 
-/** 顶栏插入钮：常用的内置元素与图标，按这个次序排。 */
-const QUICK_INSERTS: readonly { readonly type: PrintElementType, readonly icon: IconRecord }[] = [
-  { type: 'text', icon: TypeIcon },
-  { type: 'image', icon: ImageIcon },
-  { type: 'barCode', icon: BarcodeIcon },
-  { type: 'matrixCode', icon: QrCodeIcon },
-  { type: 'table', icon: TableIcon },
-  { type: 'line', icon: MinusIcon },
-]
-
 /** 格式工具条上的四种字形开关：命令 id、文字样式里的开关与图标。 */
 const FORMAT_FLAGS: readonly { readonly id: string, readonly flag: 'bold' | 'italic' | 'underline' | 'lineThrough', readonly icon: IconRecord }[] = [
   { id: 'text-bold', flag: 'bold', icon: BoldIcon },
@@ -492,7 +482,7 @@ const RESERVED_COMMAND_KEYS: ReadonlySet<string> = new Set(['z', 'y', 'a', 'd', 
 const FIELD_CONTENTS: readonly DataFieldContent[] = ['text', 'image', 'barcode', 'qrcode']
 
 /** 预览态只登记这几个区：顶栏、工具栏与画布。 */
-const PREVIEW_REGIONS: ReadonlySet<string> = new Set(['header', 'toolbar', 'canvas'])
+const PREVIEW_REGIONS: ReadonlySet<string> = new Set(['toolbar', 'canvas'])
 
 const NO_GUIDES: DesignerGuides = { x: [], y: [] }
 
@@ -533,8 +523,6 @@ interface Layers {
   readonly commandBar: CommandToolbar<PrintDesignerContext>
   /** 选中元素时浮在选中框上方的选中工具条。 */
   readonly selectionBar: CommandToolbar<PrintDesignerContext>
-  /** 顶栏中段的插入钮。 */
-  readonly headerBar: CommandToolbar<PrintDesignerContext>
   /** 画布右侧中间的竖排翻页条。 */
   readonly pageStrip: CommandToolbar<PrintDesignerContext>
   readonly workspace: HTMLElement
@@ -941,7 +929,6 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#syncProperties(layers, t)
     this.#syncFrameRegions(layers, t)
     this.#renderToolbar(layers)
-    this.#renderHeader(layers, t)
     this.#renderSelectionBar(layers, t)
     this.#renderPageStrip(layers, t)
     this.#renderStatus(layers, t)
@@ -1382,7 +1369,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon },
     })
     const panels = designerPanelCommands<PrintDesignerContext>({ panels: Object.values(PRINT_DESIGNER_PANELS), frame: context => context.frame })
-    return [...history, ...builtin, ...this.#formatCommands(), ...this.#quickInserts(), this.#pageSetup(), this.#pageMenu(), ...shell, ...panels]
+    return [...history, ...builtin, ...this.#formatCommands(), this.#pageSetup(), this.#pageMenu(), ...shell, ...panels]
   }
 
   /**
@@ -1471,19 +1458,6 @@ export class XhPrintDesigner extends XhReactiveElement {
     layers.selectionBar.update(groups, commands, this.#context(), t.selectionToolbar)
     if (!layers.selectionBar.element.isConnected)
       layers.overlay.append(layers.selectionBar.element)
-  }
-
-  /** 顶栏的插入钮：每种常用元素一条，按钮上图标下面写元素名，点了加到视口中央；只读或不在设计态时不可用。 */
-  #quickInserts(): PrintDesignerCommand[] {
-    return QUICK_INSERTS.map(({ type, icon }): PrintDesignerCommand => ({
-      id: `insert:${type}`,
-      label: ({ translations }) => translations.insertElement(elementName(translations, this.#model(), type)),
-      shortLabel: ({ translations }) => elementName(translations, this.#model(), type),
-      icon,
-      placement: ['header'],
-      enabled: () => !this.#readOnly && this.mode === 'design',
-      run: () => void this.addElement(type),
-    }))
   }
 
   /**
@@ -1997,8 +1971,6 @@ export class XhPrintDesigner extends XhReactiveElement {
     const toolbar = createAuthoredElement(doc, 'div', { 'slot': 'toolbar', 'data-part': 'command-bar' }, [commandBar.element])
     const selectionBar = createCommandToolbar<PrintDesignerContext>(doc, bar)
     selectionBar.element.slot = 'toolbar'
-    const headerBar = createCommandToolbar<PrintDesignerContext>(doc, { ...bar, display: 'stacked' })
-    headerBar.element.slot = 'header-center'
     const pageStrip = createCommandToolbar<PrintDesignerContext>(doc, { ...bar, orientation: 'vertical' })
     pageStrip.element.slot = PRINT_DESIGNER_PANELS.pages
 
@@ -2090,7 +2062,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.addEventListener('copy', this.#onCopy)
     this.addEventListener('cut', this.#onCut)
     this.addEventListener('paste', this.#onPaste)
-    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, selectionBar, headerBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, fieldImport, jsonEditor, tour, minimap, paletteActions, selectionStatus, clientStatus, zoomStatus }
+    this.#layers = { frame, panelHost, palette, issues, properties, toolbar, commandBar, selectionBar, pageStrip, workspace, menu, ruler, menuContent, viewport, overlay, world, paper, grid, frames, elements, watermark, decorations, bandMenus, preview, settings, fieldImport, jsonEditor, tour, minimap, paletteActions, selectionStatus, clientStatus, zoomStatus }
     this.#regions = undefined
     panelHost.assign(this.#model().list, this.#context())
     return this.#layers
@@ -2279,19 +2251,6 @@ export class XhPrintDesigner extends XhReactiveElement {
       this.#toolbarSourceKey = sourceKey
       layers.settings.toolbar = source
     }
-  }
-
-  /** 顶栏中段的插入钮：commandLayout 把 header 排空、或处于预览态时从外框里拿掉，顶栏随之收起。 */
-  #renderHeader(layers: Layers, t: PrintDesignerTranslations): void {
-    const { commands } = this.#model()
-    const header = this.mode === 'preview' ? [] : arrangeCommands('header', commands, [], this.commandLayout)
-    if (header.length === 0) {
-      layers.headerBar.element.remove()
-      return
-    }
-    layers.headerBar.update(header, commands, this.#context(), t.insertToolbar)
-    if (!layers.headerBar.element.isConnected)
-      layers.frame.append(layers.headerBar.element)
   }
 
   /** 画布右侧的翻页条：外框里的画布浮动件，显隐由布局管；预览态不登记它。 */

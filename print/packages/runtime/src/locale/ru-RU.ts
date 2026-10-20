@@ -182,8 +182,6 @@ const designer: PrintDesignerLocale = {
   statusZoom: 'Масштаб',
   statusClient: 'Клиент печати',
   statusClientStates: { idle: 'Не подключено', connecting: 'Подключение', open: 'Подключено', reconnecting: 'Переподключение', closed: 'Отключено' },
-  insertToolbar: 'Вставка элементов',
-  insertElement: label => `Добавить «${label}»`,
   selectionToolbar: 'Выделение',
   alignTextLeft: 'Выровнять текст по левому краю',
   alignTextCenter: 'Выровнять текст по центру',

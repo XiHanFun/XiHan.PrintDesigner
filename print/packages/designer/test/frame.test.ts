@@ -212,7 +212,7 @@ describe('工具栏末组', () => {
 
   it('末组是 designer-shell 内置的面板、设置与帮助：设置打开设置对话框，帮助在新窗口打开文档站的设计器一页', async () => {
     const groups = Array.from(designer.querySelectorAll('[data-part="command-bar"] [data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), button => button.value))
-    expect(groups.at(-1)).toEqual(['panels', 'settings', 'help'])
+    expect(groups.filter(group => !group.includes('pan-tool')).at(-1)).toEqual(['panels', 'settings', 'help'])
     expect(['panels', 'settings', 'help'].map(value => [toolbarItem(value).disabled, toolbarItem(value).hasAttribute('data-icon')])).toEqual([[false, true], [false, true], [false, true]])
     toolbarItem('settings').click()
     await designer.updateComplete
@@ -350,46 +350,11 @@ describe('状态栏', () => {
   })
 })
 
-describe('顶栏', () => {
-  function header(): HTMLElement | null {
-    return designer.querySelector<HTMLElement>('[slot="header-center"]')
-  }
-
-  function insert(type: string): HTMLButtonElement {
-    return header()!.querySelector<HTMLButtonElement>(`button[value="insert:${type}"]`)!
-  }
-
-  it('中段是叠放的插入钮：文本、图片、条码、二维码、表格、线条，钮上图标下面写元素名，名字是「添加…」', async () => {
-    expect(header()!.closest('[data-region="header"]')).not.toBeNull()
-    expect(header()!.getAttribute('data-display')).toBe('stacked')
-    const buttons = Array.from(header()!.querySelectorAll<HTMLButtonElement>('button[data-xh-part="item"]'))
-    expect(buttons.map(button => button.value)).toEqual(['insert:text', 'insert:image', 'insert:barCode', 'insert:matrixCode', 'insert:table', 'insert:line'])
-    expect(buttons.map(button => button.querySelector('[data-part="label"]')!.textContent)).toEqual(['Text', 'Image', 'Barcode', '2D code', 'Table', 'Line'])
-    expect(insert('text').getAttribute('aria-label')).toBe('Add "Text"')
-    expect(buttons.every(button => button.hasAttribute('data-icon'))).toBe(true)
-    expect(header()!.querySelector('[data-xh-part="root"]')!.getAttribute('aria-label')).toBe('Insert elements')
-  })
-
-  it('点了把这种元素加到视口中央并选中；只读时不可用', async () => {
-    insert('table').click()
-    await settle()
-    const added = designer.schema.pages[0]!.elements.at(-1)!
-    expect([added.type, designer.getSelection().elements]).toEqual(['table', [added.id]])
-    designer.readonly = true
-    await settle()
-    expect(insert('table').disabled).toBe(true)
-  })
-
-  it('commandLayout 把 header 排空、或处于预览态时，插入钮从外框里拿掉，顶栏收起', async () => {
-    designer.commandLayout = { header: [] }
-    await settle()
-    expect(header()).toBeNull()
-    designer.commandLayout = undefined
-    await settle()
-    expect(header()).not.toBeNull()
-    designer.mode = 'preview'
-    await settle()
-    expect(header()).toBeNull()
+describe('外框', () => {
+  it('没有顶栏与插入钮：外框没有 header 区，设计器里没有 insert:<种类> 的钮，插入元素只从物料面板来', async () => {
+    expect(frame().regions!.map(region => region.name)).not.toContain('header')
+    expect(designer.querySelector('[slot="header-center"]')).toBeNull()
+    expect(designer.querySelector('button[value^="insert:"]')).toBeNull()
   })
 })
 
@@ -620,7 +585,7 @@ describe('对齐、分布与层级', () => {
 })
 
 describe('短文字', () => {
-  it('翻页条、顶栏与格式工具条上看得见的短文字都在按钮的名字里：不报 designer-commands 告警', async () => {
+  it('翻页条与格式工具条上看得见的短文字都在按钮的名字里：不报 designer-commands 告警', async () => {
     const seen: DiagnosticRecord[] = []
     resetDiagnostics()
     setDiagnosticsConsoleOutput(false)

@@ -216,7 +216,6 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `statusZoom` | `string` | 状态栏右段缩放一项的标签。 |
 | `statusClient` | `string` | 状态栏右段打印客户端一项的标签。 |
 | `statusClientStates` | `Readonly<Record<PrintClientState, string>>` | 打印客户端连接状态的说法。 |
-| `insertToolbar` | `string` | 顶栏插入钮那一条工具栏的名字。 |
 | `selectionToolbar` | `string` | 选中元素后浮在选中框上方的选中工具条的名字。 |
 | `alignTextLeft` | `string` |  |
 | `alignTextCenter` | `string` |  |
@@ -243,7 +242,6 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `newColumnTitle(position: number): string` | 新插入的列的标题，position 从 1 开始。 |
 | `statusElements(count: number): string` | 状态栏左段没有选中时的值：当前页面模板上可见的元素个数。 |
 | `statusGeometry(x: string, y: string, width: string, height: string): string` | 状态栏左段选中一个元素时的值：入参是格式化后的位置与尺寸（mm）。 |
-| `insertElement(label: string): string` | 顶栏插入钮的名字，label 是元素种类的名称。 |
 | `fontSizeMenu(size: string): string` | 格式工具条上字号菜单的名字：含按钮上写的字号，选中的几处字号不一时是 —。 |
 | `issue(issue: SchemaIssue): string` | 校验问题与分页诊断的说明，按问题码与参数生成。 |
 | `propertyPart(parent: string, part: string): string` | 复合属性拆开后分项的名字，如「页边距 · 上」。 |
