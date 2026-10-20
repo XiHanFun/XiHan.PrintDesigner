@@ -721,8 +721,10 @@ export class XhPrintDesigner extends XhReactiveElement {
   #layers: Layers | undefined
   /** 内部视口：世界坐标为纸张坐标（mm），zoom 为每毫米的屏幕像素。 */
   #viewport: Viewport = { x: 0, y: 0, zoom: PX_PER_MM }
-  #autoFit = true
-  #fitPending = true
+  #autoFit = false
+  #fitPending = false
+  /** 等画布有了尺寸就按实际大小放：打开、换页与重设模板时排上。 */
+  #placePending = true
   #layout: DesignLayout | undefined
   #layoutStale = true
   #canvasMeasurer: CanvasMeasurer | null | undefined
@@ -801,7 +803,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       if (change.kind === 'page') {
         this.#tableEdit = undefined
         this.#layoutStale = true
-        this.#startAutoFit()
+        this.#startActualPlacement()
         this.requestUpdate()
         emitEvent(this, 'page-change', { pageId: change.pageId })
         return
@@ -821,7 +823,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     })
   }
 
-  /** 打印模板。赋值即装载：清空历史与选择，重新自动适配（赋回当前这一份不重新装载）；读取时得到当前模板。 */
+  /** 打印模板。赋值即装载：清空历史与选择，按实际大小放到视口左上（赋回当前这一份不重新装载）；读取时得到当前模板。 */
   get schema(): PrintDocument {
     return this.#editor.document
   }
@@ -831,7 +833,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       return
     this.#tableEdit = undefined
     this.#editor.load(value)
-    this.#startAutoFit()
+    this.#startActualPlacement()
   }
 
   /** 当前页面模板的标识；赋值切换页面模板。 */
@@ -960,7 +962,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#syncMinimap(layers)
     this.#syncOverlay(layers)
     this.#syncRuler(layers)
-    if (!this.#fitIfPending())
+    if (!this.#fitIfPending() && !this.#placeIfPending())
       this.#applyViewport(false)
     this.#checkTour()
   }
@@ -1833,17 +1835,28 @@ export class XhPrintDesigner extends XhReactiveElement {
   #startAutoFit(): void {
     this.#autoFit = true
     this.#fitPending = true
+    this.#placePending = false
+  }
+
+  /** 排上一次按实际大小放，不再跟着尺寸自动适配。 */
+  #startActualPlacement(): void {
+    this.#autoFit = false
+    this.#fitPending = false
+    this.#placePending = true
   }
 
   #stopAutoFit(): void {
     this.#autoFit = false
     this.#fitPending = false
+    this.#placePending = false
   }
 
   #onResize(): void {
     this.#checkTour()
     if (this.#layers)
       this.#layers.minimap.canvasSize = this.#size()
+    if (this.#placeIfPending())
+      return
     if (!this.#autoFit)
       return
     this.#fitPending = true
@@ -1861,6 +1874,20 @@ export class XhPrintDesigner extends XhReactiveElement {
     const end = Math.max(FIT_PADDING, insets.end)
     const fit = fitRect({ x: 0, y: 0, width: paper.width, height: paper.height }, { width: Math.max(0, size.width - start - end + 2 * FIT_PADDING), height: size.height }, { padding: FIT_PADDING, maxZoom: PX_PER_MM, limits: ZOOM_LIMITS })
     this.#moveTo({ ...fit, x: fit.x + start - FIT_PADDING })
+    return true
+  }
+
+  /**
+   * 排着按实际大小放、画布有了尺寸且不在预览态时放：缩放 100%，纸的左上角落在视口左上，上边留 FIT_PADDING，
+   * 左边留 FIT_PADDING 与页眉页脚标签宽度中较大的那个。放了返回 true。
+   */
+  #placeIfPending(): boolean {
+    const size = this.#size()
+    if (!this.#placePending || !size || this.mode === 'preview')
+      return false
+    this.#placePending = false
+    const start = this.#layers === undefined ? 0 : this.#bandMenuGutter(this.#layers)
+    this.#moveTo({ x: Math.max(FIT_PADDING, start), y: FIT_PADDING, zoom: PX_PER_MM })
     return true
   }
 
