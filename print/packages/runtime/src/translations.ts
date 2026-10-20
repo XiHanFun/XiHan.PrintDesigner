@@ -27,12 +27,14 @@ export const DEFAULT_PRINT_PREVIEW_TRANSLATIONS: PrintPreviewTranslations = {
 export type PrintTablePartKind = 'column' | 'header' | 'body' | 'footerRow' | 'footerCell'
 
 /** 新手引导里打印自己那几步的键。 */
-export type PrintTourStepKey = 'bands' | 'pages' | 'fields' | 'print'
+export type PrintTourStepKey = 'insert' | 'bands' | 'page' | 'pages' | 'fields' | 'print'
 
 /** 新手引导一步的标题与说明。 */
 export interface PrintTourStepTranslations {
   readonly title: string
   readonly description: string
+  /** 菜单栏显示着时换用的说明：多一句这一步的命令也在哪张菜单里。 */
+  readonly menubarDescription?: string
 }
 
 /** 撤销历史里一步的说明：单个元素写「种类 名称」（见 elementLabel），几个元素写个数。 */

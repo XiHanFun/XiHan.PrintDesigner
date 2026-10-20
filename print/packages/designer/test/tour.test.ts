@@ -10,8 +10,9 @@ import type { XhDesignerSettingsElement, XhDesignerTourElement } from '@xihan-ui
 import type { TextMeasurer } from '@xihan-ui/viz'
 import type { PrintDesignerExtension, XhPrintDesigner } from '../src'
 import { createDocument, createElementRegistry, createPage } from '@xihan-print/core'
+import { DEFAULT_PRINT_DESIGNER_TRANSLATIONS } from '@xihan-print/runtime'
 import { DesignerExtensionError } from '@xihan-ui/designer-kit'
-import { DESIGNER_TOUR_DONE_KEY } from '@xihan-ui/designer-shell'
+import { DESIGNER_SETTING_KEYS, DESIGNER_TOUR_DONE_KEY } from '@xihan-ui/designer-shell'
 import { afterEach, describe, expect, it } from 'vitest'
 import { definePrintDesigner, PRINT_VERSION } from '../src'
 
@@ -91,10 +92,17 @@ describe('新手引导', () => {
     expect(tour(element).running).toBe(false)
   })
 
-  it('打印自己的几步排在通用步骤之后：页眉页脚、页面模板、字段物料与打印；startTour 与 start-tour 命令都能从头开始，预览态不开始', async () => {
+  it('打印自己的几步排在通用步骤之后：插入菜单、页眉页脚、页面菜单、页面模板、字段物料与打印；startTour 与 start-tour 命令都能从头开始，预览态不开始', async () => {
     const element = await mount(el => (el.autoTour = false))
-    expect(tour(element).steps!.map(step => step.id)).toEqual(['print.bands', 'print.pages', 'print.fields', 'print.print'])
-    expect(tour(element).steps!.map(step => step.title)).toEqual(['Header and footer', 'Page templates', 'Field elements', 'Printing'])
+    expect(tour(element).steps!.map(step => [step.id, step.target, step.order])).toEqual([
+      ['print.insert', { menubar: 'insert' }, 100],
+      ['print.bands', { selector: '[data-part="band-menu"][data-region="header"]' }, 110],
+      ['print.page', { menubar: 'page' }, 120],
+      ['print.pages', { panel: 'pages' }, 130],
+      ['print.fields', { panel: 'palette' }, 140],
+      ['print.print', { command: 'print' }, 150],
+    ])
+    expect(tour(element).steps!.map(step => step.title)).toEqual(['Insert menu', 'Header and footer', 'Page menu', 'Page templates', 'Field elements', 'Printing'])
     expect(element.startTour()).toBe(true)
     tour(element).stop()
     element.commandLayout = { toolbar: [['start-tour']] }
@@ -106,6 +114,34 @@ describe('新手引导', () => {
     element.mode = 'preview'
     await element.updateComplete
     expect(element.startTour()).toBe(false)
+  })
+
+  it('欢迎之后是菜单栏一步，插入、页面两步落在菜单栏的菜单上，设置一步落在「文件」菜单；关掉菜单栏时这三步没有，设置一步落在工具栏的设置钮上', async () => {
+    const element = await mount(el => (el.autoTour = false))
+    await element.querySelector<HTMLElement & { updateComplete: Promise<unknown> }>('xh-designer-frame')!.updateComplete
+    const planned = (): [string, unknown][] => tour(element).plannedSteps().map(step => [step.id, step.target])
+    const ids = (): string[] => planned().map(([id]) => id)
+    expect(ids().slice(0, 2)).toEqual(['shell.welcome', 'shell.menubar'])
+    expect(ids().filter(id => id.startsWith('print.'))).toEqual(['print.insert', 'print.bands', 'print.page', 'print.pages', 'print.fields', 'print.print'])
+    expect(planned().find(([id]) => id === 'shell.settings')![1]).toEqual({ menubar: 'file' })
+    element.settings = { [DESIGNER_SETTING_KEYS.toolbarMenubar]: false }
+    await element.updateComplete
+    await element.querySelector<HTMLElement & { updateComplete: Promise<unknown> }>('xh-designer-frame')!.updateComplete
+    expect(ids().filter(id => ['shell.menubar', 'print.insert', 'print.page'].includes(id))).toEqual([])
+    expect(planned().find(([id]) => id === 'shell.settings')![1]).toEqual({ command: 'settings' })
+  })
+
+  it('菜单栏开着时，字段物料与打印两步的说明带上它们也在「文件」菜单里；设置里关掉菜单栏时不提菜单', async () => {
+    const element = await mount(el => (el.autoTour = false))
+    const steps = DEFAULT_PRINT_DESIGNER_TRANSLATIONS.tourSteps
+    const description = (id: string): string => tour(element).steps!.find(step => step.id === id)!.description
+    expect([description('print.fields'), description('print.print')]).toEqual([steps.fields.menubarDescription, steps.print.menubarDescription])
+    expect([steps.fields.menubarDescription, steps.print.menubarDescription]).toEqual([expect.stringContaining('File menu'), expect.stringContaining('File menu')])
+    expect([description('print.bands'), description('print.pages')]).toEqual([steps.bands.description, steps.pages.description])
+    element.settings = { [DESIGNER_SETTING_KEYS.toolbarMenubar]: false }
+    await element.updateComplete
+    expect([description('print.fields'), description('print.print')]).toEqual([steps.fields.description, steps.print.description])
+    expect(['print.bands', 'print.pages', 'print.fields', 'print.print'].some(id => /menu/i.test(description(id)))).toBe(false)
   })
 
   it('同一页只开一个引导：别的设计器的引导开着时不自动开始；startTour() 先收起开着的那个', async () => {
