@@ -376,7 +376,7 @@ describe('<xh-print-designer>', () => {
     expect(palette.groups![0]!.items.map(item => [item.id, item.label])).toEqual([['text', 'Text'], ['longText', 'Long text'], ['richText', 'Rich text'], ['pageNumber', 'Page number']])
     expect(palette.groups!.flatMap(group => group.items.map(item => item.icon?.name))).toEqual(['type', 'text-wrap', 'text-rich', 'page-number', 'image', 'table', 'minus', 'shape-rectangle', 'shape-ellipse', 'barcode', 'qr-code'])
     expect(palette.querySelector('xh-accordion')).toBeNull()
-    const sections = Array.from(palette.querySelectorAll<HTMLElement>(':scope > [data-part="body"] > [data-part="group"]'))
+    const sections = Array.from(palette.querySelectorAll<HTMLElement>(':scope > [data-part="body"] [data-part="group"]'))
     expect(sections.map(section => section.querySelector(':scope > [data-part="group-label"]')!.textContent)).toEqual(['Text', 'Media', 'Data', 'Shapes', 'Codes'])
     expect(Array.from(sections[0]!.querySelectorAll(':scope > [data-part="group-items"] > [data-part="item"]'), item => item.getAttribute('data-id'))).toEqual(['text', 'longText', 'richText', 'pageNumber'])
     expect(sections.filter(section => section.closest('[hidden]') !== null)).toEqual([])
