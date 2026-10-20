@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import type { PaginationDiagnostic, TableLayoutBox, TableRowLayout } from '../src'
+import type { PaginationDiagnostic, PaginationStep, TableLayoutBox, TableRowLayout } from '../src'
 import type { MeasureCall } from './layout-helpers'
 import { formatValue } from '@xihan-ui/expression'
 import { describe, expect, it } from 'vitest'
@@ -790,6 +790,7 @@ describe('错误与上限', () => {
     expectOption({ measurer: createFakeMeasurer(), maxSheets: 0 }, 'maxSheets')
     expectOption({ measurer: createFakeMeasurer(), maxSheets: 1.5 }, 'maxSheets')
     expectOption({ measurer: createFakeMeasurer(), formatter: 'number' }, 'formatter')
+    expectOption({ measurer: createFakeMeasurer(), trace: 'log' }, 'trace')
   })
 
   it('测量结果不合法时抛错', () => {
@@ -806,6 +807,30 @@ describe('错误与上限', () => {
       { code: 'layout.sheetLimit', severity: 'error', ...at('t', 0), params: { limit: 2 } },
       { code: 'layout.sheetLimit', severity: 'error', path: ['pages', 1], target: { kind: 'page', id: 'b' }, params: { limit: 2 } },
     ])
+  })
+})
+
+describe('分页步骤', () => {
+  it('给了 trace 时按先后报出每一步：开始一个页面模板、按假定页数选的页眉页脚不对时重排、跨页元素续排、被推过底边的元素挪页、排完几页', () => {
+    const steps: PaginationStep[] = []
+    const signature = registry.createElement('text', { id: 'sig1', x: 0, y: 35 })
+    const doc = documentOf(squarePage('p', [simpleTable('t', 10), signature]), squarePage('q'))
+    const result = run(doc, { items: itemsOf(16) }, { trace: step => void steps.push(step) })
+    expect(result.sheets).toHaveLength(4)
+    expect(steps).toEqual([
+      { kind: 'page', pageId: 'p', pageIndex: 0, firstNumber: 1 },
+      { kind: 'reflow', pageId: 'p', assumed: 1, sheets: 3 },
+      { kind: 'split', pageId: 'p', elementId: 't', from: 0, to: 1 },
+      { kind: 'move', pageId: 'p', elementId: 'sig1', from: 1, to: 2 },
+      { kind: 'done', pageId: 'p', sheets: 3 },
+      { kind: 'page', pageId: 'q', pageIndex: 1, firstNumber: 4 },
+      { kind: 'done', pageId: 'q', sheets: 1 },
+    ])
+  })
+
+  it('不给 trace 时结果与给了一样', () => {
+    const doc = documentOf(squarePage('p', [simpleTable('t', 10)]))
+    expect(run(doc, { items: itemsOf(16) }, { trace: () => {} })).toEqual(run(doc, { items: itemsOf(16) }))
   })
 })
 

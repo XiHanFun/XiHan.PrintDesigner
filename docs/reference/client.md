@@ -301,6 +301,7 @@ declare function buildClientDocument(result: PaginationResult, options?: ClientD
 | `document?` | `Document` | 发起打印的文档：从它的样式表里找模板用到的字体，相对地址也按它解析；缺省为全局 document。 |
 | `fetch?` | `typeof fetch` | 取资源用的 fetch，缺省为全局 fetch。 |
 | `extensions?` | `readonly PrintRuntimeExtension[]` | 扩展：扩展元素按它们给的渲染画出，与分页用同一份。 |
+| `trace?` | `PrintTrace` | 各环节的回调：报生成 DOM、取资源与合成文档三个环节的起止，见 PrintTrace。 |
 
 ### ClientDocument {#clientdocument}
 

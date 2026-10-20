@@ -51,6 +51,16 @@ export interface LayoutContext {
   measurer: TextMeasurer
   /** 当前扩展合出的元素登记表：扩展元素按它的原型排版。 */
   elements: ElementRegistry
+  /** 正文元素续排到后续输出页、或整块挪到下一页时调一次，分页调试日志用；没人听时没有它。 */
+  trace?: (step: BodyStep) => void
+}
+
+/** 正文排版中的一步：元素续排（split）或整块挪页（move），页序号在这个页面模板里从 0 起。 */
+export interface BodyStep {
+  readonly kind: 'split' | 'move'
+  readonly elementId: string
+  readonly from: number
+  readonly to: number
 }
 
 function isValidSize(result: unknown): result is TextSize {

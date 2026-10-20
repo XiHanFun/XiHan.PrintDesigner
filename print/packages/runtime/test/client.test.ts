@@ -399,6 +399,19 @@ describe('buildClientDocument', () => {
     return registry.createElement('image', { id, x: 0, y: 0, overrides: { source: { kind: 'static', url } } })
   }
 
+  it('给了 trace 时报生成 DOM、取资源与合成文档三个环节的起止，结束时带上输出页数、资源个数与字节数', async () => {
+    const log: string[] = []
+    const trace = {
+      phase: (phase: string) => {
+        log.push(`start:${phase}`)
+        return (details?: Readonly<Record<string, unknown>>) => void log.push(`end:${phase} ${Object.keys(details ?? {}).join(',')}`)
+      },
+    }
+    const result = layout(['a', [imageElement('i', 'https://cdn.example.com/logo.png')]])
+    await buildClientDocument(result, { fetch: fetcher({ 'https://cdn.example.com/logo.png': { bytes: PNG, type: 'image/png' } }), trace })
+    expect(log).toEqual(['start:render', 'end:render sheets', 'start:resources', 'end:resources resources', 'start:document', 'end:document bytes'])
+  })
+
   it('图片同一地址只取一次，改写成任务资源地址，data: 地址原样保留', async () => {
     const fetch = fetcher({ 'https://cdn.example.com/logo.png': { bytes: PNG, type: 'image/png' } })
     const result = layout(['a', [imageElement('i', 'https://cdn.example.com/logo.png'), imageElement('j', 'https://cdn.example.com/logo.png'), imageElement('k', 'data:image/png;base64,iVBO')]])

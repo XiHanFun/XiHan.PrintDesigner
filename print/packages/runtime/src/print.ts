@@ -5,12 +5,12 @@
 
 import type { PaginationDiagnostic, PaginationResult, PrintDocument } from '@xihan-print/core'
 import type { PrintRuntimeExtension } from './extensions'
-import type { PrintRenderOptions } from './options'
+import type { PrintRenderOptions, PrintTrace } from './options'
 import { paginate } from '@xihan-print/core'
 import { createExpressionEngine } from '@xihan-ui/expression'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { createPrintRuntimeModel } from './extensions'
-import { resolvePaginateOptions } from './options'
+import { resolvePaginateOptions, startPhase } from './options'
 import { pageRules, PRINT_CSS } from './render/page'
 import { renderSheets } from './render/sheets'
 
@@ -29,6 +29,8 @@ export interface PrintSheetsOptions {
   readonly title?: string
   /** 扩展：扩展元素按它们给的渲染画出，与分页用同一份。 */
   readonly extensions?: readonly PrintRuntimeExtension[]
+  /** 打印各环节的回调：报生成 DOM、等资源与送打印三个环节的起止，见 PrintTrace。 */
+  readonly trace?: PrintTrace
 }
 
 /** paginateDocument 的选项：分页注入项，外加缺省度量器所在的文档。 */
@@ -156,9 +158,15 @@ export async function printSheets(result: PaginationResult, options: PrintSheets
     const style = doc.createElement('style')
     style.textContent = `${pageRules(result)}\n${PRINT_CSS}`
     doc.head.append(style)
+    const rendered = startPhase(options.trace, 'render')
     renderSheets(result, doc.body, { previewOnly: false, renderers: createPrintRuntimeModel(options.extensions).renderers })
+    rendered({ sheets: result.sheets.length })
+    const ready = startPhase(options.trace, 'resources')
     await resourcesReady(doc, pending)
+    ready()
+    const printed = startPhase(options.trace, 'print')
     await printWindow(win)
+    printed()
   }
   finally {
     iframe.remove()
@@ -173,10 +181,14 @@ export async function printSheets(result: PaginationResult, options: PrintSheets
  */
 export function paginateDocument(schema: PrintDocument, data: unknown, options: PaginateDocumentOptions = {}): PaginationResult {
   const source = options.document ?? globalThis.document
-  return paginate(schema, data, resolvePaginateOptions(options, {
+  const resolved = resolvePaginateOptions(options, {
     measurer: () => createCanvasMeasurer(source),
     expressionEngine: () => createExpressionEngine(),
-  }))
+  })
+  const done = startPhase(options.trace, 'paginate')
+  const result = paginate(schema, data, resolved)
+  done({ sheets: result.sheets.length })
+  return result
 }
 
 /**

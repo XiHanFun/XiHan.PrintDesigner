@@ -22,6 +22,7 @@
 | `timeZone` | `time-zone` | `string \| undefined` | 交给格式化器的时区。 |
 | `zoom` | `zoom` | `number \| undefined` | 显示缩放倍数，缺省 1；写在宿主的 --xh-print-zoom 上，由 style.css 作用到输出页，只影响预览、不影响打印。 |
 | `printClient` | — | `PrintClient \| undefined` | 本地打印客户端（@xihan-print/runtime/client 的 createPrintClient）：给了时 print() 先交给它静默打印，连不上客户端才退回浏览器打印。 |
+| `trace` | — | `PrintTrace \| undefined` | 分页与打印各环节的回调，给调试日志用：重新分页时报分页的每一步与分页、生成 DOM 两个环节，print() 另报后面的环节。换它不重新分页。 |
 
 ### 存取器
 
@@ -95,6 +96,7 @@ declare function renderSheets(result: PaginationResult, container: Element, opti
 | `timeZone?` | `string` | 交给格式化器的时区：`UTC`、`±HH:mm` 或 IANA 名称。 |
 | `maxSheets?` | `number` | 输出页总数上限，缺省同 @xihan-print/core 的 paginate。 |
 | `extensions?` | `readonly PrintRuntimeExtension[]` | 扩展：元素种类、渲染、编辑方式与规则，内置扩展自动排在最前。 |
+| `trace?` | `PrintTrace` | 分页与打印各环节的回调，给调试日志用，见 PrintTrace。 |
 
 ### PrintOptions {#printoptions}
 
@@ -111,6 +113,7 @@ printSheets 的选项。
 | `document?` | `Document` | 发起打印的文档，缺省为全局 document；隐藏 iframe 挂在它的 body 上。 |
 | `title?` | `string` | 打印文档的标题，即打印对话框与另存 PDF 时的缺省文件名；缺省沿用发起打印的文档标题。 |
 | `extensions?` | `readonly PrintRuntimeExtension[]` | 扩展：扩展元素按它们给的渲染画出，与分页用同一份。 |
+| `trace?` | `PrintTrace` | 打印各环节的回调：报生成 DOM、等资源与送打印三个环节的起止，见 PrintTrace。 |
 
 ### PrintOutcome {#printoutcome}
 
@@ -181,9 +184,11 @@ print() 的选项：浏览器打印时的标题，以及交给本地打印客户
 
 | 名称 | 种类 | 说明 |
 | --- | --- | --- |
+| `PrintPhase` | 类型 | 打印的环节：paginate 分页，render 把输出页画成 DOM，resources 等图片与字体就绪（交给本地客户端时是把它们取来随任务带去），document 把输出页、资源与样式合成交给本地客户端的一份文档，print 交给浏览器的打印对话框。 |
 | `PrintRenderOptions` | 接口 | 分页用到的注入项：预览元素的属性与 printDocument 的选项共用这一组。 |
 | `PrintRuntimeError` | 类 | 运行时无法完成分页或打印时抛出的错误，`code` 与 `params` 供调用方判断与生成文案。 |
 | `PrintRuntimeErrorCode` | 类型 | 运行时无法完成分页或打印的原因：拿不到文字度量器、没有给模板。 |
+| `PrintTrace` | 接口 | 分页与打印各环节的回调，给调试日志用；不给就不报，结果照旧。 |
 
 ### print
 

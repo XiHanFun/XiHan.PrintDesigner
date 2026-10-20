@@ -58,7 +58,24 @@ export interface PaginateOptions {
   maxSheets?: number
   /** 扩展：元素种类、编辑方式与规则，内置扩展自动排在最前；交给校验，与设计器、预览用同一份。 */
   extensions?: readonly PrintCoreExtension[]
+  /** 分页每走一步调一次，给调试日志用，见 PaginationStep；不给就不记，排出的结果与给了一样。 */
+  trace?: (step: PaginationStep) => void
 }
+
+/**
+ * 分页的一步，按发生的先后交给 PaginateOptions.trace。from、to 与 assumed、sheets 是这个页面模板里的输出页序号或页数，序号从 0 起。
+ * - page：开始排一个页面模板，firstNumber 是它第一页的页码。
+ * - reflow：按假定的 assumed 页选的页眉页脚变体（首页、末页、奇偶页）排出来是 sheets 页，变体选得不对，按 sheets 页重排。
+ * - split：长文本、富文本、表格或跨页的扩展元素在第 from 页放不下，续排到第 to 页。
+ * - move：元素在第 from 页放不下（不跨页的元素被推过正文区底边，或跨页元素的起点已到底边），整块挪到第 to 页正文顶部。
+ * - done：这个页面模板排完，共 sheets 页。
+ * 重排时只报最后采用的那一次的 split 与 move。
+ */
+export type PaginationStep
+  = | { readonly kind: 'page', readonly pageId: string, readonly pageIndex: number, readonly firstNumber: number }
+    | { readonly kind: 'reflow', readonly pageId: string, readonly assumed: number, readonly sheets: number }
+    | { readonly kind: 'split' | 'move', readonly pageId: string, readonly elementId: string, readonly from: number, readonly to: number }
+    | { readonly kind: 'done', readonly pageId: string, readonly sheets: number }
 
 /** 跨页续排元素的分段位置。 */
 export interface LayoutFragment {

@@ -5,7 +5,7 @@
 
 // @vitest-environment jsdom
 
-import type { XhPrintPreview } from '../src'
+import type { PrintTrace, XhPrintPreview } from '../src'
 import type { JobStatus, PrintClient, PrintClientDocumentOptions } from '../src/client'
 import { paginate, PRINT_CORE_EXTENSION_ID } from '@xihan-print/core'
 import { DesignerExtensionError } from '@xihan-ui/designer-kit'
@@ -280,6 +280,49 @@ describe('paginateDocument', () => {
     expect(merged.parts).toEqual([{ start: 0, count: 1 }, { start: 1, count: 1 }])
     await printSheets(merged)
     expect(printed[0]!.sheets).toBe(2)
+  })
+})
+
+/** 记下分页的每一步与各环节的起止：step:<种类>、start:<环节>、end:<环节> <结束时带的数据>。 */
+function recorder(): { readonly log: string[], readonly trace: PrintTrace } {
+  const log: string[] = []
+  return {
+    log,
+    trace: {
+      step: step => void log.push(`step:${step.kind}`),
+      phase: (phase) => {
+        log.push(`start:${phase}`)
+        return details => void log.push(`end:${phase}${details === undefined ? '' : ` ${JSON.stringify(details)}`}`)
+      },
+    },
+  }
+}
+
+describe('分页与打印环节的回调', () => {
+  const PRINTED = ['start:paginate', 'step:page', 'step:done', 'end:paginate {"sheets":1}', 'start:render', 'end:render {"sheets":1}', 'start:resources', 'end:resources', 'start:print', 'end:print']
+
+  it('printDocument 按先后报分页的每一步，以及分页、生成 DOM、等资源与送打印四个环节的起止', async () => {
+    const { log, trace } = recorder()
+    await printDocument(documentOf(pageOf('p', [textElement('t', '正文')])), {}, { measurer: createFakeMeasurer(), trace })
+    expect(log).toEqual(PRINTED)
+  })
+
+  it('预览元素给了 trace：重新分页报每一步与分页、生成 DOM 两个环节；print() 报全部四个环节；不给时什么都不报', async () => {
+    const { log, trace } = recorder()
+    const preview = await mount((element) => {
+      element.measurer = createFakeMeasurer()
+      element.trace = trace
+      element.schema = documentOf(pageOf('p', [textElement('t', '正文')]))
+    })
+    expect(log).toEqual(PRINTED.slice(0, 6))
+    log.length = 0
+    await preview.print()
+    expect(log).toEqual(PRINTED)
+    log.length = 0
+    preview.trace = undefined
+    preview.data = { x: 1 }
+    await preview.updateComplete
+    expect(log).toEqual([])
   })
 })
 
