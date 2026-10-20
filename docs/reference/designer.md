@@ -357,6 +357,7 @@ declare function createPrintEditor(options: PrintEditorOptions): PrintEditor
 | `PrintPaletteEntry` | 接口 | 物料面板里的一项：扩展元素的名称与图标。 |
 | `printSelectionLayout` | 函数 | 选中工具条（命令落点 selection:&lt;主体&gt;）的缺省排列：文字类元素多出字号、粗体、斜体、下划线、删除线与左中右对齐；多选多出对齐与分布；都有层级、创建副本、复制与删除。 |
 | `PrintSelectionSubject` | 类型 | 选中工具条落在哪类选中上：都是文字类元素（文本、长文本、富文本、页码）、单个别的元素，或几个元素里有别的种类。 |
+| `printToolbarLayout` | 函数 | 工具栏此刻的缺省排列：PRINT_TOOLBAR_LAYOUT；菜单栏关掉（menubar 为假）时末组在面板后面放回设置与帮助，它们才有入口。 |
 
 ### print-designer
 

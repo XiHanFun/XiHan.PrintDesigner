@@ -34,7 +34,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 部分 | 位置 | 面板 id | 作用 |
 | --- | --- | --- | --- |
 | 菜单栏 | 最上面 | — | 文件、编辑、视图、帮助几张菜单，见下文「菜单栏」；右边一段放宿主的内容，如模板标题与保存状态。设置里可以关掉 |
-| 工具栏 | 菜单栏下面 | — | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐（左、水平居中、右、顶端、垂直居中、底端）、分布（水平、垂直）与层级（置顶、上移一层、下移一层、置底），每条一颗图标钮；拖动工具、缩放、网格与吸附开关；设计与预览、页面设置、打印；末组是面板、设置与帮助 |
+| 工具栏 | 菜单栏下面 | — | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐（左、水平居中、右、顶端、垂直居中、底端）、分布（水平、垂直）与层级（置顶、上移一层、下移一层、置底），每条一颗图标钮；拖动工具、缩放、网格与吸附开关；设计与预览、页面设置、打印；末组是面板。设置与帮助在菜单栏里，设置里关掉菜单栏时回到末组 |
 | 物料 | 左栏 | `palette` | 按分组列出元素：每组是组名一行，下面是元素的方形小卡片，种类的图标在上、名称在下，按面板宽度自动排成几列；悬停或用键盘走到一张卡片时提示它的名称。点一下把元素加到视口中央，拖到画布上放在落点。「字段」一组按字段树一行一个地显示，见下文「字段物料」。扩展的物料来源另加的几组排在后面，见下文「扩展」 |
 | 页面结构 | 左栏，物料下面 | `outline` | 按页面模板列出页眉、正文与页脚里的元素，同一处最上层的排最前；点一项选中它，在同一处里调层级，见下文「页面结构」 |
 | 画布 | 中间 | — | 按纸张显示当前页面模板的页眉、正文与页脚，区的标签上切换页眉页脚的变体 |
@@ -335,7 +335,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - `placement` 是命令缺省出现的位置：工具栏 `toolbar`（工具栏只显示图标时，没有图标的命令写它的 `shortLabel`），右键菜单 `menu:blank`（画布空白处）、`menu:element`（元素上）、`menu:table`（表格编辑态里），选中工具条 `selection:text`（选中的全是文字类元素）、`selection:element`（单个别的元素）、`selection:multiple`（几个元素里有别的种类），或菜单栏的一张菜单 `menubar:<菜单 id>`（见上文「菜单栏」）。扩展命令按登记顺序排在内置命令之后，自成一组。
 - `shortLabel` 是按钮上看得见的短文字，名字与提示仍取 `label`，所以短文字要出现在 `label` 里（不分大小写），比如 `label` 写「插入条码」、`shortLabel` 写「条码」；开发期不在时，控制台警告一次。
 - `shortcut` 写成键数组，`Mod` 在 macOS 上是 ⌘、其余平台是 Ctrl。焦点在画布上、命令此刻可用时生效。
-- 设计器的 `commandLayout` 改写排列：位置 → 若干组命令 id，内置命令与扩展命令可以混排；写了某个位置就只显示列出的命令，写了没登记的命令 id 时抛 `TypeError`。缺省排列是导出的 `PRINT_TOOLBAR_LAYOUT`、`printMenuLayout(subject, tableSelected)` 与 `printSelectionLayout(subject)`，菜单栏的是 `@xihan-ui/designer-shell` 的 `designerMenubarLayout(commands)`，可以在它们的基础上改：
+- 设计器的 `commandLayout` 改写排列：位置 → 若干组命令 id，内置命令与扩展命令可以混排；写了某个位置就只显示列出的命令，写了没登记的命令 id 时抛 `TypeError`。缺省排列是导出的 `PRINT_TOOLBAR_LAYOUT`（菜单栏关掉时是 `printToolbarLayout(false)`）、`printMenuLayout(subject, tableSelected)` 与 `printSelectionLayout(subject)`，菜单栏的是 `@xihan-ui/designer-shell` 的 `designerMenubarLayout(commands)`，可以在它们的基础上改：
 
 <<< @/examples/snippets/designer-commands.ts#layout
 
@@ -348,7 +348,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 视图 | `pan-tool`（designer-shell 内置，拖动工具，按下状态跟外框的 `canvasTool`） `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `page-setup` `print` |
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
 | 文字格式 | `font-size` `text-bold` `text-italic` `text-underline` `text-line-through` `text-align-left` `text-align-center` `text-align-right`：缺省排在 `selection:text` 的选中工具条上 |
-| 保存、面板、设置与帮助 | `save` `panels` `settings` `help`：designer-shell 内置。「保存」（Ctrl / ⌘ + S）派发 `save`，在文件菜单；其余三条排在工具栏末组，也在菜单栏里（面板在视图菜单，设置在文件菜单，帮助在帮助菜单）。「面板」点开菜单开关各块面板，「设置」打开设置对话框（Ctrl / ⌘ + ,），「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`）。`panels-toggle-all` `panels-restore` `layout-reset` 排在「面板」菜单末尾。`start-tour` 开始新手引导，`shortcuts`、`about` 打开设置的快捷键页与关于页，都在帮助菜单；`edit-json` 打开编辑 JSON 的对话框（Ctrl / ⌘ + Shift + J），在编辑菜单与画布空白处右键菜单的末组；`show-toolbar` `show-status-bar` `show-menubar` 是视图菜单里的显示开关 |
+| 保存、面板、设置与帮助 | `save` `panels` `settings` `help`：designer-shell 内置。「保存」（Ctrl / ⌘ + S）派发 `save`，在文件菜单；其余三条在菜单栏里（面板在视图菜单，设置在文件菜单，帮助在帮助菜单），「面板」也排在工具栏末组，设置里关掉菜单栏时「设置」「帮助」回到工具栏末组。「面板」点开菜单开关各块面板，「设置」打开设置对话框（Ctrl / ⌘ + ,），「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`）。`panels-toggle-all` `panels-restore` `layout-reset` 排在「面板」菜单末尾。`start-tour` 开始新手引导，`shortcuts`、`about` 打开设置的快捷键页与关于页，都在帮助菜单；`edit-json` 打开编辑 JSON 的对话框（Ctrl / ⌘ + Shift + J），在编辑菜单与画布空白处右键菜单的末组；`show-toolbar` `show-status-bar` `show-menubar` 是视图菜单里的显示开关 |
 | 面板开关 | `panel:<面板 id>`：每块面板一条，含扩展登记的面板（`panel:<区名>`），文字是面板标题、勾选的是看得见的，宿主锁定的面板不可用；不排在任何位置，可以经 `commandLayout` 放上工具栏 |
 | 页面模板 | `previous-page` `page-menu` `next-page` `add-page` `duplicate-page` `remove-page`：固定排在翻页条上（`PRINT_PAGE_STRIP_LAYOUT`），不经 `commandLayout`；`move-page-up` `move-page-down` 在页码菜单里 |
 
