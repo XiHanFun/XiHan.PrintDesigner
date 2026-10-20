@@ -38,7 +38,7 @@ import type { IconRecord, Tone } from '@xihan-ui/core'
 import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { AlignMode, DataField, DataFieldContent, DesignerFieldSource, DesignerImportSource, DistributeAxis, ExecuteOptions, ExtensionHost, HistoryLabel, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
-import type { PropertyEditorTable, PropertySwatchOption } from '@xihan-ui/designer-kit/properties'
+import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
 import type {
   CommandMenubar,
   CommandToolbar,
@@ -52,6 +52,7 @@ import type {
   DesignerIssueItem,
   DesignerIssuesEventMap,
   DesignerJsonEditorEventMap,
+  DesignerLanguage,
   DesignerLayout,
   DesignerLayoutPolicy,
   DesignerMinimapEventMap,
@@ -84,6 +85,7 @@ import type {
 import type { ExpressionEngine, NumeralStyle, ValueFormatter } from '@xihan-ui/expression'
 import type { PointerSession } from '@xihan-ui/pointer'
 import type { CanvasMeasurer, TextMeasurer } from '@xihan-ui/viz'
+import type { XhConfig } from '@xihan-ui/web-components'
 import type { PropertyValues } from '@xihan-ui/web-components/authoring'
 import type { DialogService } from '@xihan-ui/web-components/services'
 import type { PrintClipboard, PrintSelection, PrintTablePart } from './editor'
@@ -170,7 +172,6 @@ import {
   designerShellCommands,
   forwardFrameSlots,
   importSources,
-  menubarVisibleOf,
   registerDropTarget,
   renderCommandMenu,
   resolvePaletteSources,
@@ -195,16 +196,18 @@ import {
   XhDesignerTourElement,
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
+import { loadDesignerLocale } from '@xihan-ui/designer-shell/language'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
 import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileCodeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HandIcon, HistoryIcon, InfoIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MapIcon, MaximizeIcon, MenuIcon, PanelLeftIcon, PencilIcon, PrinterIcon, RedoIcon, SaveIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TrashIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
+import { mergeXhConfig } from '@xihan-ui/web-components'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
 import { defineXhElement, XhButtonElement, XhColorFieldElement, XhContextMenuElement, XhExpressionInputElement, XhFieldArrayElement, XhFieldElement, XhFormatInputElement, XhMenuElement, XhNumberFieldElement, XhSelectElement, XhSwitchElement, XhTabsElement, XhTextFieldElement, XhToggleGroupElement, XhToolbarElement } from '@xihan-ui/web-components/define'
 import { createDialogService } from '@xihan-ui/web-components/services'
 import { createPrintClientStatus } from './client-status'
 import { createPrintEditor, elementRect } from './editor'
-import { createPrintDesignerModel, elementIcon, elementName, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_MENUBAR_MENUS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOUR_STEPS, printMenubarLayout, printMenuLayout, printSelectionLayout, printToolbarLayout } from './extensions'
+import { createPrintDesignerModel, elementIcon, elementName, PRINT_DESIGNER_EXTENSION_ID, PRINT_DESIGNER_HELP_URL, PRINT_DESIGNER_PANELS, PRINT_MENUBAR_MENUS, PRINT_PAGE_STRIP_LAYOUT, PRINT_TOOLBAR_LAYOUT, PRINT_TOUR_STEPS, printMenubarLayout, printMenuLayout, printSelectionLayout } from './extensions'
 import { FIELD_ITEM_PREFIX, fieldPaletteNodes } from './field-palette'
 import { describePrintOperations, elementsLabel, identitiesIn } from './history-labels'
 import { printOutline } from './outline'
@@ -265,6 +268,16 @@ export interface PrintDesignerEventMap {
   'fields-change': CustomEvent<{ fields: readonly DataField[] }>
   /** 导入字段时勾了「同时作为示例数据」：设计器已换成新的 sampleData。宿主存起来，下次赋回 sampleData。 */
   'sample-data-change': CustomEvent<{ sampleData: JsonValue }>
+}
+
+/** 跟随页面时设计器这棵子树的配置。 */
+const FOLLOW_PAGE: XhConfig = Object.freeze({})
+
+/** 设置里选了语言时这台设计器用的配置：UI 与 designer-shell 的同语言包，再并上打印自己的同语言包（按需加载）。 */
+async function loadPrintLocale(language: DesignerLanguage): Promise<XhConfig> {
+  const [shared, print] = await Promise.all([loadDesignerLocale(language), import('@xihan-print/runtime/locale')])
+  const pack = print[`print${language[0]!.toUpperCase()}${language.slice(1).replace('-', '')}` as keyof typeof print] as XhConfig
+  return mergeXhConfig(shared, pack)
 }
 
 /** 剪贴板载荷的结构版本。 */
@@ -608,8 +621,6 @@ export class XhPrintDesigner extends XhReactiveElement {
     settings: { attribute: false },
     settingsPolicy: { attribute: false },
     settingsStorageKey: { attribute: 'settings-storage-key', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
-    brands: { attribute: false },
-    registerBrand: { attribute: false },
     autoTour: { converter: BOOLEAN_CONVERTER, attribute: 'auto-tour' },
   }
 
@@ -666,10 +677,6 @@ export class XhPrintDesigner extends XhReactiveElement {
    * 标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。
    */
   declare settingsStorageKey: string | undefined
-  /** 设置里主题色的预设：value 是品牌 id（写成设计器根上的 data-brand），color 是色板格子的颜色。不给且没给 registerBrand 时没有主题色这一项。 */
-  declare brands: readonly PropertySwatchOption[] | undefined
-  /** 注册自定义主题色，形状与 @xihan-ui/tokens 的 registerBrand 相同；给了才许在设置里自定义主题色。 */
-  declare registerBrand: ((id: string, color: string) => () => void) | undefined
   /**
    * 第一次在设计态显示出来（画布有了尺寸）后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。
    * 写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。
@@ -758,6 +765,14 @@ export class XhPrintDesigner extends XhReactiveElement {
     client: () => this.printClient,
     translations: () => this.#translations(),
   })
+
+  /**
+   * 设计器这棵子树的配置：设置里选了语言时是这一语言的 UI、designer-shell 与打印语言包，跟随页面时是空对象。
+   * 设计器自己、里面的元素与它弹出的浮层都按它取 locale 与文案，页面别处不受影响。
+   */
+  get xhConfig(): XhConfig {
+    return this.#settingsHost?.localeConfig ?? FOLLOW_PAGE
+  }
 
   /** 是否只读：readonly 移除 attribute 后为 undefined，按不只读处理。 */
   get #readOnly(): boolean {
@@ -1733,7 +1748,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   /**
    * 外框的区：工具栏与画布带上区名（分隔条的无障碍名称）；物料、属性与问题画成卡片，面板头写标题与帮助，
-   * 属性面板的副标题是当前编辑的对象。设置里关了菜单栏、工具栏或状态栏时不登记它们。扩展面板的区按扩展顺序排在后面。
+   * 属性面板的副标题是当前编辑的对象。设置里关了工具栏或状态栏时不登记它们。扩展面板的区按扩展顺序排在后面。
    */
   #syncFrameRegions(layers: Layers, t: PrintDesignerTranslations): void {
     const heading = layers.properties.heading
@@ -1746,8 +1761,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     }
     const preview = this.mode === 'preview'
     const toolbar = toolbarVisibleOf(this.#resolvedSettings)
-    const menubar = menubarVisibleOf(this.#resolvedSettings)
-    const kept = (region: DesignerFrameRegion): boolean => (region.name !== 'toolbar' || toolbar) && (region.name !== 'menubar' || menubar) && (preview
+    const kept = (region: DesignerFrameRegion): boolean => (region.name !== 'toolbar' || toolbar) && (preview
       ? PREVIEW_REGIONS.has(region.name)
       : region.name !== 'status' || !this.#statusBarOff())
     const regions = preview
@@ -1766,22 +1780,22 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   /**
-   * 设置：建好设置宿主（主题色预设、注册函数或存储键变了就重建），给了存储键又没赋 settings 时从存储读；settings 变了
-   * 把主题与主题色落到设计器上；算出此刻生效的设置，交给设置对话框。
+   * 设置：建好设置宿主（存储键变了就重建），给了存储键又没赋 settings 时从存储读；settings 变了把主题、主题色与语言
+   * 落到设计器上；算出此刻生效的设置，交给设置对话框。
    */
   #syncSettings(layers: Layers, t: PrintDesignerTranslations, changed: PropertyValues): void {
-    const options = [this.brands, this.registerBrand, this.settingsStorageKey]
+    const options = [this.settingsStorageKey]
     let fresh = false
     if (!this.#settingsHost || options.some((value, index) => value !== this.#settingsHostOptions[index])) {
       this.#settingsHost?.dispose()
       this.#settingsHostOptions = options
       const storageKey = this.settingsStorageKey
+      const locale = { locale: loadPrintLocale, onLocaleChange: () => this.requestUpdate() }
       this.#settingsHost = storageKey === undefined
-        ? createDesignerSettingsHost({ root: this, brands: this.brands, registerBrand: this.registerBrand })
+        ? createDesignerSettingsHost({ root: this, ...locale })
         : createDesignerSettingsHost({
             root: this,
-            brands: this.brands,
-            registerBrand: this.registerBrand,
+            ...locale,
             storageKey,
             onStorageError: detail => emitEvent(this, 'settings-storage-error', detail),
           })
@@ -1800,12 +1814,10 @@ export class XhPrintDesigner extends XhReactiveElement {
     }
     this.#resolvedSettings = resolveSettings(this.#settingsSectionList, this.settings)
     const dialog = layers.settings
-    const general = { brands: this.brands, customBrand: this.registerBrand !== undefined }
     const policy: DesignerSettingsPolicy = { ...this.settingsPolicy }
-    const dialogKey = JSON.stringify([general.brands, general.customBrand, policy])
+    const dialogKey = JSON.stringify(policy)
     if (dialogKey !== this.#settingsDialogKey) {
       this.#settingsDialogKey = dialogKey
-      dialog.general = general
       dialog.policy = policy
     }
     if (dialog.sections !== this.#settingsSectionList)
@@ -2360,7 +2372,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const context = this.#context()
     // 按钮的显示方式只取设置的 toolbar.display：换方式不重铺按钮，放不下的按新宽度收进「更多」
     layers.commandBar.setDisplay(toolbarDisplayOf(this.#resolvedSettings))
-    const arranged = arrangeCommands('toolbar', commands, printToolbarLayout(menubarVisibleOf(this.#resolvedSettings)), this.commandLayout)
+    const arranged = arrangeCommands('toolbar', commands, PRINT_TOOLBAR_LAYOUT, this.commandLayout)
     layers.commandBar.update(applyToolbarCustomization(arranged, toolbarCustomizationOf(this.#resolvedSettings)), commands, context, context.commands.toolbar)
     // 设置对话框的「工具栏」页按宿主排好的这一份列出按钮表，用户的定制压在它上面
     const source = toolbarSettingsSource(arranged, commands, context)

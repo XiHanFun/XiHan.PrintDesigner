@@ -33,8 +33,8 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 | 部分 | 位置 | 面板 id | 作用 |
 | --- | --- | --- | --- |
-| 菜单栏 | 最上面 | — | 文件、编辑、视图、插入、页面、帮助几张菜单，见下文「菜单栏」；右边一段放宿主的内容，如模板标题与保存状态。设置里可以关掉 |
-| 工具栏 | 菜单栏下面 | — | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐（左、水平居中、右、顶端、垂直居中、底端）、分布（水平、垂直）与层级（置顶、上移一层、下移一层、置底），每条一颗图标钮；拖动工具、缩放、网格与吸附开关；设计与预览、页面设置、打印；末组是面板。设置与帮助在菜单栏里，设置里关掉菜单栏时回到末组 |
+| 菜单栏 | 最上面 | — | 文件、编辑、视图、插入、页面、帮助几张菜单，见下文「菜单栏」；右边一段放宿主的内容，如模板标题与保存状态。常开 |
+| 工具栏 | 菜单栏下面 | — | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐（左、水平居中、右、顶端、垂直居中、底端）、分布（水平、垂直）与层级（置顶、上移一层、下移一层、置底），每条一颗图标钮；拖动工具、缩放、网格与吸附开关；设计与预览、页面设置、打印；末组是面板，设置与帮助在菜单栏里 |
 | 物料 | 左栏 | `palette` | 按分组列出元素：每组是组名一行，下面是元素的方形小卡片，种类的图标在上、名称在下，按面板宽度自动排成几列；悬停或用键盘走到一张卡片时提示它的名称。点一下把元素加到视口中央，拖到画布上放在落点。「字段」一组按字段树一行一个地显示，见下文「字段物料」。扩展的物料来源另加的几组排在后面，见下文「扩展」 |
 | 页面结构 | 左栏，物料下面 | `outline` | 按页面模板列出页眉、正文与页脚里的元素，同一处最上层的排最前；点一项选中它，在同一处里调层级，见下文「页面结构」 |
 | 画布 | 中间 | — | 按纸张显示当前页面模板的页眉、正文与页脚，区的标签上切换页眉页脚的变体 |
@@ -78,7 +78,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | --- | --- |
 | 文件 | 保存；导入字段；打印；设置 |
 | 编辑 | 撤销、重做；剪切、复制、粘贴、删除、创建副本；全选；编辑 JSON |
-| 视图 | 设计、预览；放大、缩小、适合窗口、实际大小；拖动；网格、吸附；面板（子菜单，就是工具栏上「面板」那一张）、外观（子菜单：显示工具栏、状态栏与菜单栏） |
+| 视图 | 设计、预览；放大、缩小、适合窗口、实际大小；拖动；网格、吸附；面板（子菜单，就是工具栏上「面板」那一张）、外观（子菜单：显示工具栏与状态栏） |
 | 插入 | 各种元素，按物料分组各成一组，扩展的元素排在它的分组里；页眉、页脚（子菜单，见下） |
 | 页面 | 纸张、方向（子菜单，单选）、页面设置；上一页、下一页；新增、复制、删除页面；上移、下移页面 |
 | 帮助 | 开始引导、帮助、快捷键；关于 |
@@ -86,10 +86,10 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - 条目写图标、名称与快捷键，开关式的命令（设计与预览、拖动、显示开关）带勾，此刻不可用的灰掉；没有条目的菜单不出现。预览态照样有菜单栏，从「视图」切回设计。
 - 插入菜单里选一种元素，与点物料一样放在视口中央并选中。页眉、页脚的子菜单与画布上区标签的变体菜单做同一件事：上半是已有的变体，单选，当前显示的打勾；下半是还没有的变体，写「新增变体 · 首页」这样，选了新增并切过去；显示的不是常规时，末尾是「删除变体」。
 - 页面菜单的纸张列出各种纸张预设，方向是纵向与横向，当前页面模板的打勾，选中写进当前页面模板、记一步撤销；自定义纸张与页边距在「页面设置」里改：它取消选择，在属性面板里编辑当前页面模板，属性面板藏着时把它显示出来。只读与预览态时插入菜单与纸张、方向不可用，只读时「页面设置」照样能看。
-- 「快捷键」「关于」打开设置对话框的那一页。「视图 → 外观」的三条显示开关改的是设置（`toolbar.visible`、`general.statusBar`、`toolbar.menubar`），和在对话框里改一样派发 `settings-change`；`settingsPolicy` 藏起或锁定了那一条时它不可用。
+- 「快捷键」「关于」打开设置对话框的那一页。「视图 → 外观」的两条显示开关改的是设置（`toolbar.visible`、`general.statusBar`），和在对话框里改一样派发 `settings-change`；`settingsPolicy` 藏起或锁定了那一条时它不可用。
 - 键盘：焦点在设计器里时按 F10 进菜单栏，焦点落到第一张菜单上；左右键换菜单，下、Enter、Space 展开，Esc 收起；再按 F10 或 Esc 回到进来前的地方。不用 Alt 与 Alt + 字母，它们留给浏览器。
 - 窗口窄时整条收成一颗「菜单」钮，点开后每张菜单是一个子菜单。
-- 设置的「工具栏」页里关掉「显示菜单栏」（`toolbar.menubar`，缺省开）后，外框不登记菜单栏，菜单里的命令照常能用快捷键。
+- 菜单栏常开，设置里没有关掉它的开关。
 - 宿主的内容写成设计器元素的子元素、带 `slot="menubar-end"`，设计器把它放到菜单栏右边一段，后来加的也一样；放不下时截断。上面的示例把保存状态放在那里，见下文「保存与事件」。
 
 宿主的命令写成一个扩展的命令，`placement` 写 `menubar:<菜单 id>` 落进那张菜单（`file`、`edit`、`view`、`insert`、`page`、`help`；打印的两张菜单的 id 是导出的 `PRINT_MENUBAR_MENUS`），不在缺省排列里的自成一组，排在那张菜单收尾的一组之前，只有一组的菜单接在后面。要定位置时用 `commandLayout['menubar:<菜单 id>']` 写整份排列，给空数组就不要这张菜单：
@@ -160,23 +160,24 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 设置是用户偏好，每人每机一份，不随模板保存。`openSettings(section?)` 打开设置对话框，左边一个分区一页：
 
-- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色与状态栏开关。
+- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色（跟随页面、八种预设与自定义颜色）与状态栏开关。
+- 「语言」（`language`）：设计器的界面语言，缺省跟随页面；也可以跟随系统，或选 XiHan.UI 的十种语言之一。只作用于这台设计器：设计器自己、外壳零件与里面的元素（含弹出的菜单、对话框这些浮层）一起换，页面别处不变；跟随系统按浏览器的语言偏好挑最接近的一种，挑不到用英文。语言包选了才按需加载。键是 `language.locale`（`DESIGNER_SETTING_KEYS.language`）。
 - 「布局」（`layout`）：逐块面板一行，改显示、停在哪一栏、先后与收起，表下「恢复默认布局」；改的就是上文「面板布局」那一份。
-- 「工具栏」（`toolbar`）：按钮的显示方式（图标、文字、图标和文字，缺省只显示图标）、显示工具栏、显示菜单栏，以及按钮表：藏起不用的按钮、换先后与分组，「恢复默认」回到宿主排好的样子。显示方式、显示工具栏与显示菜单栏只走设置，没有单独的属性；画布上的翻页条总是只显示图标。按钮表从宿主用 `commandLayout` 排好的工具栏起步，只管顶部工具栏，菜单栏、选中工具条与右键菜单不在里面。
+- 「工具栏」（`toolbar`）：按钮的显示方式（图标、文字、图标和文字，缺省只显示图标）、显示工具栏，以及按钮表：藏起不用的按钮、换先后与分组，「恢复默认」回到宿主排好的样子。显示方式与显示工具栏只走设置，没有单独的属性；画布上的翻页条总是只显示图标。按钮表从宿主用 `commandLayout` 排好的工具栏起步，只管顶部工具栏，菜单栏、选中工具条与右键菜单不在里面。
 - 「打印」（`print`）：打印方式、显示网格、网格间距、吸附对齐、显示边距线、标尺。打印方式只在给了 `printClient` 时才有，选本地客户端（缺省）还是浏览器：本地客户端直接交给打印机，连不上时退回浏览器的打印对话框；选浏览器时 `print()` 总是弹出浏览器的打印对话框。网格缺省不显示，间距缺省 1 mm，按当前缩放挤得太密时改按间距的整数倍画；边距线与标尺缺省显示。
 - 「本地客户端」（`printClient`）：给了 `printClient` 才有这一页，写连接状态：已连接、未连接或未安装。「测试连接」调宿主给的 `printClient` 的 `connect()` 连一次；没找到客户端（`CLIENT_UNAVAILABLE`）时写未安装，这时也可能是装了没有运行。没连上时下面有「下载客户端」链接，缺省指向本站的[本地打印客户端](./client)一页（`PRINT_CLIENT_DOWNLOAD_URL`），宿主用 `clientDownloadUrl`（attribute `client-download-url`）换成自己的地址。端口与来源授权仍由宿主建连接时与客户端管，设计器不自己建连接。
-- 扩展登记的分区，排在后面。分区 id 与 `general`、`layout`、`toolbar`、`help`、`shortcuts`、`about`、`print`、`printClient` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
+- 扩展登记的分区，排在后面。分区 id 与 `general`、`language`、`layout`、`toolbar`、`help`、`shortcuts`、`about`、`print`、`printClient` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
 - 「帮助」（`help`）：几段操作说明，下面是「开始引导」与「帮助」两颗钮，按了先关上对话框再开始引导或打开本站的设计器一页。
 - 「快捷键」（`shortcuts`）：按命令表列出全部快捷键，分通用、编辑、打印设计器与扩展几组，第二快捷键写在同一行；打印设计器那组末尾补上不是命令的 Ctrl / ⌘ + C、X、V 复制剪切粘贴，Backspace 删除与 Enter 编辑表格；保存是外壳的命令，列在「通用」里；「通用」里方向键一行写明没有选中时平移画布，Esc 一行写明取消拖动、退出表格编辑或取消选择，其余照 designer-shell 的通用行（含 F10 进菜单栏）。
 - 「关于」（`about`）：打印设计器的版本（包入口导出的 `PRINT_VERSION`，与包版本一致）与许可证，后面接扩展给的几行。
 
 <<< @/examples/snippets/settings.ts#open
 
-值是扁平的键值，键是「分区 id.条目 id」，如 `general.theme`、`print.showGrid`，没写的键取缺省值。宿主给缺省、锁定条目或读值时用常量，不手写键：「打印」分区的 id 与各条目的键是包入口导出的 `PRINT_SETTINGS_SECTION` 与 `PRINT_SETTING_KEYS`，「本地客户端」分区的 id 是 `PRINT_CLIENT_SETTINGS_SECTION`，「基础」「布局」「工具栏」三页的键是 `@xihan-ui/designer-shell` 的 `DESIGNER_SETTING_KEYS`（如工具栏的显示方式 `toolbar.display`、显示工具栏 `toolbar.visible`、显示菜单栏 `toolbar.menubar`、按钮表 `toolbar.layout`）。`settings` 赋值即生效；用户在对话框里、用「视图 → 外观」的显示开关或工具栏的网格、吸附开关改了一条，设计器换成新的一份并派发 `settings-change`，宿主存起来、下次赋回。`settingsPolicy` 隐藏或锁定条目，键是条目键或分区 id：`hidden` 不显示，一个分区的条目全藏了就没有这一页；`locked` 只读，说明换成「由所在系统管理」。
+值是扁平的键值，键是「分区 id.条目 id」，如 `general.theme`、`print.showGrid`，没写的键取缺省值。宿主给缺省、锁定条目或读值时用常量，不手写键：「打印」分区的 id 与各条目的键是包入口导出的 `PRINT_SETTINGS_SECTION` 与 `PRINT_SETTING_KEYS`，「本地客户端」分区的 id 是 `PRINT_CLIENT_SETTINGS_SECTION`，「基础」「布局」「工具栏」三页的键是 `@xihan-ui/designer-shell` 的 `DESIGNER_SETTING_KEYS`（如工具栏的显示方式 `toolbar.display`、显示工具栏 `toolbar.visible`、按钮表 `toolbar.layout`）。`settings` 赋值即生效；用户在对话框里、用「视图 → 外观」的显示开关或工具栏的网格、吸附开关改了一条，设计器换成新的一份并派发 `settings-change`，宿主存起来、下次赋回。`settingsPolicy` 隐藏或锁定条目，键是条目键或分区 id：`hidden` 不显示，一个分区的条目全藏了就没有这一页；`locked` 只读，说明换成「由所在系统管理」。
 
 <<< @/examples/snippets/settings.ts#host
 
-- **主题只作用于设计器**：主题与主题色写在 `<xh-print-designer>` 自己的 `data-theme`、`data-brand` 上，页面其余部分不变；设置对话框、菜单这些浮层跟着设计器变。主题色的预设由宿主给 `brands`（品牌 id 与色板格子的颜色，品牌 id 可以用 `@xihan-ui/tokens` 的 `BRAND_PRESETS`）；给了 `registerBrand`（形状同 `@xihan-ui/tokens` 的 `registerBrand`）才许自定义颜色。两样都不给时没有主题色这一项。
+- **主题只作用于设计器**：主题与主题色写在 `<xh-print-designer>` 自己的 `data-theme`、`data-brand` 上，页面其余部分不变；设置对话框、菜单这些浮层跟着设计器变。主题色内置：跟随页面（缺省，不写 `data-brand`）、XiHan.UI 的八种预设，或自定义一种颜色，宿主不用传预设；自定义的颜色注册成这台设计器自己的品牌，取不出色阶的颜色不生效。
 - **扩展读设置**：命令、面板与扩展从上下文的 `settings` 读值，各分区没写的条目已经取了缺省值，如 `context.settings['print.gridSize']`。
 
 独立使用、没有宿主替你存时，给 `settingsStorageKey`：连上文档时若没赋 `settings` 就从根所在窗口的 localStorage 读，用户改了设置就写回去；标了 `secret` 的文本条目（如密钥）不存。读写失败派发 `settings-storage-error`，设置留在内存里。不给就不读写存储。
@@ -185,17 +186,16 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ## 新手引导
 
-设计器第一次在设计态显示出来（画布有了尺寸，放在没打开的页签里时等它打开）后，自动开始新手引导：先是各款共用的几步（欢迎、菜单栏、工具栏、物料、画布、属性、问题与状态栏），再是打印自己的几步——「插入」菜单、页眉与页脚、「页面」菜单、页面模板、字段物料与打印，最后一步是设置。一步高亮一块面板、一个区、菜单栏上的一张菜单或工具栏上的一颗钮，目标看不见（面板隐藏、按钮不在工具栏上、菜单栏关着）的那步自动跳过。
+设计器第一次在设计态显示出来（画布有了尺寸，放在没打开的页签里时等它打开）后，自动开始新手引导：先是各款共用的几步（欢迎、菜单栏、工具栏、物料、画布、属性、问题与状态栏），再是打印自己的几步——「插入」菜单、页眉与页脚、「页面」菜单、页面模板、字段物料与打印，最后一步是设置。一步高亮一块面板、一个区、菜单栏上的一张菜单或工具栏上的一颗钮，目标看不见（面板隐藏、按钮不在工具栏上）的那步自动跳过。
 
-- 菜单栏一步高亮整条菜单栏，讲各张菜单里有什么、按 F10 进出菜单栏；「插入」「页面」两步高亮菜单栏上那张菜单的入口；设置一步高亮「文件」菜单的入口，说设置在里面、引导能从「帮助」重新开始。菜单栏显示着时，字段物料与打印两步的说明多一句它们也在「文件」菜单里。
-- 设置里关掉菜单栏时，没有菜单栏一步与「插入」「页面」两步，说明不提菜单；设置一步落在工具栏的设置钮上（钮收进「更多」时落在「更多」钮上），说设置与帮助回到了工具栏、菜单栏能在设置里重新打开。
+- 菜单栏一步高亮整条菜单栏，讲各张菜单里有什么、按 F10 进出菜单栏；「插入」「页面」两步高亮菜单栏上那张菜单的入口；设置一步高亮「文件」菜单的入口，说设置在里面、引导能从「帮助」重新开始。字段物料与打印两步的说明带一句它们也在「文件」菜单里。
 - 窗口窄、菜单栏收成一颗「菜单」钮时，菜单栏一步高亮这一条，「插入」「页面」与设置几步都落在「菜单」钮上。
 
 - 走完、跳过或关上之后，设计器把设置的 `help.tourDone`（`DESIGNER_TOUR_DONE_KEY`）写成 `true` 并派发 `settings-change`，宿主存起来，下次就不再自动开始。
 - 引导限在设计器的外框里：遮罩只盖外框，高亮框裁在外框里，页面别处照常可读可点。同一页同时只有一个引导：别的设计器的引导开着时不自动开始。
 - `autoTour`（attribute `auto-tour`）写 `false` 关掉自动开始。
 - `startTour()` 从头开始，同一页里别的引导开着时先收起它，预览态或没有能走的步骤时返回 `false`；命令 `start-tour` 与设置「帮助」页的「开始引导」做同一件事，缺省在帮助菜单里、不上工具栏，宿主可以经 `commandLayout` 放上去。
-- 扩展的 `tourSteps` 往后面加步骤，`order` 从 200 起；目标写 `{ panel }`、`{ region }`、`{ command }`、`{ selector }`，或 `{ menubar: '<菜单 id>' }`（菜单栏上那张菜单的入口，窄屏时是「菜单」钮，菜单栏关着或没有这张菜单时跳过）。步骤 id 写扩展 id 加点，与别的扩展重名或用了 `shell.` 前缀时赋值即抛 `DesignerExtensionError`。
+- 扩展的 `tourSteps` 往后面加步骤，`order` 从 200 起；目标写 `{ panel }`、`{ region }`、`{ command }`、`{ selector }`，或 `{ menubar: '<菜单 id>' }`（菜单栏上那张菜单的入口，窄屏时是「菜单」钮，菜单栏上没有这张菜单时跳过）。步骤 id 写扩展 id 加点，与别的扩展重名或用了 `shell.` 前缀时赋值即抛 `DesignerExtensionError`。
 
 ## 快捷键
 
@@ -262,7 +262,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 ## 语言包
 
-界面文字缺省是英文。把 XiHan.UI 与打印同一语言的语言包合并后全局设置，设计器、它内部的零件与预览都换成这种语言，见[快速开始](../quickstart#界面语言)。
+界面文字缺省是英文。把 XiHan.UI 与打印同一语言的语言包合并后全局设置，设计器、它内部的零件与预览都换成这种语言，见[快速开始](../quickstart#界面语言)。用户也可以在设置的「语言」页里只给这台设计器换语言，见上文「设置」。
 
 只改一个实例的几处文案时，给它的 `translations` 属性，压在全局语言包之上：
 
@@ -343,7 +343,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - `placement` 是命令缺省出现的位置：工具栏 `toolbar`（工具栏只显示图标时，没有图标的命令写它的 `shortLabel`），右键菜单 `menu:blank`（画布空白处）、`menu:element`（元素上）、`menu:table`（表格编辑态里），选中工具条 `selection:text`（选中的全是文字类元素）、`selection:element`（单个别的元素）、`selection:multiple`（几个元素里有别的种类），或菜单栏的一张菜单 `menubar:<菜单 id>`（见上文「菜单栏」）。扩展命令按登记顺序排在内置命令之后，自成一组。
 - `shortLabel` 是按钮上看得见的短文字，名字与提示仍取 `label`，所以短文字要出现在 `label` 里（不分大小写），比如 `label` 写「插入条码」、`shortLabel` 写「条码」；开发期不在时，控制台警告一次。
 - `shortcut` 写成键数组，`Mod` 在 macOS 上是 ⌘、其余平台是 Ctrl。焦点在画布上、命令此刻可用时生效。
-- 设计器的 `commandLayout` 改写排列：位置 → 若干组命令 id，内置命令与扩展命令可以混排；写了某个位置就只显示列出的命令，写了没登记的命令 id 时抛 `TypeError`。缺省排列是导出的 `PRINT_TOOLBAR_LAYOUT`（菜单栏关掉时是 `printToolbarLayout(false)`）、`printMenuLayout(subject, tableSelected)` 与 `printSelectionLayout(subject)`，菜单栏的是 `printMenubarLayout(commands, elements)`（在 `@xihan-ui/designer-shell` 的 `designerMenubarLayout(commands)` 上加了打印的几处，`elements` 是元素登记表，插入菜单按它的物料分组排），可以在它们的基础上改：
+- 设计器的 `commandLayout` 改写排列：位置 → 若干组命令 id，内置命令与扩展命令可以混排；写了某个位置就只显示列出的命令，写了没登记的命令 id 时抛 `TypeError`。缺省排列是导出的 `PRINT_TOOLBAR_LAYOUT`、`printMenuLayout(subject, tableSelected)` 与 `printSelectionLayout(subject)`，菜单栏的是 `printMenubarLayout(commands, elements)`（在 `@xihan-ui/designer-shell` 的 `designerMenubarLayout(commands)` 上加了打印的几处，`elements` 是元素登记表，插入菜单按它的物料分组排），可以在它们的基础上改：
 
 <<< @/examples/snippets/designer-commands.ts#layout
 
@@ -356,7 +356,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 视图 | `pan-tool`（designer-shell 内置，拖动工具，按下状态跟外框的 `canvasTool`） `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `page-setup` `print`：`grid` `snap` 也在视图菜单，`print` 也在文件菜单 |
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
 | 文字格式 | `font-size` `text-bold` `text-italic` `text-underline` `text-line-through` `text-align-left` `text-align-center` `text-align-right`：缺省排在 `selection:text` 的选中工具条上 |
-| 保存、面板、设置与帮助 | `save` `panels` `settings` `help`：designer-shell 内置。「保存」（Ctrl / ⌘ + S）派发 `save`，在文件菜单；其余三条在菜单栏里（面板在视图菜单，设置在文件菜单，帮助在帮助菜单），「面板」也排在工具栏末组，设置里关掉菜单栏时「设置」「帮助」回到工具栏末组。「面板」点开菜单开关各块面板，「设置」打开设置对话框（Ctrl / ⌘ + ,），「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`）。`panels-toggle-all` `panels-restore` `layout-reset` 排在「面板」菜单末尾。`start-tour` 开始新手引导，`shortcuts`、`about` 打开设置的快捷键页与关于页，都在帮助菜单；`edit-json` 打开编辑 JSON 的对话框（Ctrl / ⌘ + Shift + J），在编辑菜单与画布空白处右键菜单的末组；`show-toolbar` `show-status-bar` `show-menubar` 是显示开关，收在视图菜单的「外观」（`appearance`）子菜单里 |
+| 保存、面板、设置与帮助 | `save` `panels` `settings` `help`：designer-shell 内置。「保存」（Ctrl / ⌘ + S）派发 `save`，在文件菜单；其余三条在菜单栏里（面板在视图菜单，设置在文件菜单，帮助在帮助菜单），「面板」也排在工具栏末组。「面板」点开菜单开关各块面板，「设置」打开设置对话框（Ctrl / ⌘ + ,），「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`）。`panels-toggle-all` `panels-restore` `layout-reset` 排在「面板」菜单末尾。`start-tour` 开始新手引导，`shortcuts`、`about` 打开设置的快捷键页与关于页，都在帮助菜单；`edit-json` 打开编辑 JSON 的对话框（Ctrl / ⌘ + Shift + J），在编辑菜单与画布空白处右键菜单的末组；`show-toolbar` `show-status-bar` 是显示开关，收在视图菜单的「外观」（`appearance`）子菜单里 |
 | 面板开关 | `panel:<面板 id>`：每块面板一条，含扩展登记的面板（`panel:<区名>`），文字是面板标题、勾选的是看得见的，宿主锁定的面板不可用；不排在任何位置，可以经 `commandLayout` 放上工具栏 |
 | 页面模板 | `previous-page` `page-menu` `next-page` `add-page` `duplicate-page` `remove-page`：翻页条上的排列固定（`PRINT_PAGE_STRIP_LAYOUT`），不经 `commandLayout`；`move-page-up` `move-page-down` 在页码菜单里。除了页码，这几条也在页面菜单里 |
 | 页面菜单 | `page-paper` `page-orientation`：纸张与方向的子菜单；`page-properties`：在属性面板里编辑当前页面模板 |
