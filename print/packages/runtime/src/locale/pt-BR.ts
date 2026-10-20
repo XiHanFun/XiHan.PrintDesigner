@@ -172,8 +172,6 @@ const designer: PrintDesignerLocale = {
   statusZoom: 'Zoom',
   statusClient: 'Cliente de impressão',
   statusClientStates: { idle: 'Não conectado', connecting: 'Conectando', open: 'Conectado', reconnecting: 'Reconectando', closed: 'Desconectado' },
-  insertToolbar: 'Inserir elementos',
-  insertElement: label => `Adicionar "${label}"`,
   selectionToolbar: 'Seleção',
   alignTextLeft: 'Alinhar texto à esquerda',
   alignTextCenter: 'Centralizar texto',

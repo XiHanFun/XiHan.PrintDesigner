@@ -214,7 +214,7 @@ describe('设置', () => {
     expect(regions()).not.toContain('toolbar')
     designer.mode = 'preview'
     await settle(designer)
-    expect(regions()).toEqual(['header', 'canvas'])
+    expect(regions()).toEqual(['canvas'])
     designer.mode = 'design'
     designer.settings = {}
     await settle(designer)

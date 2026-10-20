@@ -169,8 +169,6 @@ const designer: PrintDesignerLocale = {
   statusZoom: '縮放',
   statusClient: '列印用戶端',
   statusClientStates: { idle: '未連線', connecting: '連線中', open: '已連線', reconnecting: '重新連線中', closed: '已中斷' },
-  insertToolbar: '插入元件',
-  insertElement: label => `新增「${label}」`,
   selectionToolbar: '選取的元素',
   alignTextLeft: '文字靠左對齊',
   alignTextCenter: '文字置中',
