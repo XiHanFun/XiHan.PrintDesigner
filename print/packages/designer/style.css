@@ -74,6 +74,15 @@ xh-print-designer[data-space-pan] [data-part='viewport'] {
   cursor: grab;
 }
 
+/* 拖动工具：画布、元素、控制柄与表格把手一律手形；平移拖动中握拳 */
+xh-print-designer [data-canvas-tool='pan'] :is([data-part='viewport'], [data-part='elements'] *, [data-part='band-handle'], [data-part='column-handle'], xh-designer-transform [data-part='handle']) {
+  cursor: grab;
+}
+
+xh-print-designer[data-panning] :is([data-part='viewport'], [data-part='elements'] *, [data-part='band-handle'], [data-part='column-handle'], xh-designer-transform [data-part='handle']) {
+  cursor: grabbing;
+}
+
 xh-print-designer [data-part='viewport']:focus-visible {
   box-shadow: inset 0 0 0 var(--xh-stroke-thick) var(--xh-border-control-focus);
 }

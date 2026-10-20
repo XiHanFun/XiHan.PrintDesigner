@@ -33,7 +33,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 
 | 部分 | 位置 | 面板 id | 作用 |
 | --- | --- | --- | --- |
-| 工具栏 | 最上面 | — | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐（左、水平居中、右、顶端、垂直居中、底端）、分布（水平、垂直）与层级（置顶、上移一层、下移一层、置底），每条一颗图标钮；缩放、网格与吸附开关；设计与预览、页面设置、打印；末组是面板、设置与帮助 |
+| 工具栏 | 最上面 | — | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐（左、水平居中、右、顶端、垂直居中、底端）、分布（水平、垂直）与层级（置顶、上移一层、下移一层、置底），每条一颗图标钮；拖动工具、缩放、网格与吸附开关；设计与预览、页面设置、打印；末组是面板、设置与帮助 |
 | 物料 | 左栏 | `palette` | 按分组列出元素，条目前是种类的图标；点一下把元素加到视口中央，拖到画布上放在落点。扩展的物料来源另加的几组排在后面，见下文「扩展」 |
 | 页面结构 | 左栏，物料下面 | `outline` | 按页面模板列出页眉、正文与页脚里的元素，同一处最上层的排最前；点一项选中它，在同一处里调层级，见下文「页面结构」 |
 | 画布 | 中间 | — | 按纸张显示当前页面模板的页眉、正文与页脚，区的标签上切换页眉页脚的变体 |
@@ -124,7 +124,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - **尺寸徽标**：选中元素时，选中框下方常驻宽 × 高（mm）。单选、元素能缩放时是两个数字框：点加减钮或按上下方向键改 1 mm，Shift 加上下方向键改 10 mm，连续改并成一步撤销；输入数字后按 Enter 或离开数字框才改，单独一步撤销，按 Esc 放弃。改的时候左上角不动，不小于这种元素的最小尺寸，二维码改一边另一边跟着变。锁定的元素、多选与只读时只显示尺寸。在选中工具条里按 Tab 进到徽标。
 - **换区**：元素中心拖进页眉、正文或页脚，就放进那个区；表格、长文本与富文本只能留在正文区。
 - **页眉页脚**：在区的标签上切换当前编辑的变体（缺省、首页、末页、奇数页、偶数页），可以新增或删除变体；拖动区的边界改高度。
-- **平移与缩放**：设计器打开、换页面模板或重新装载模板时按实际大小显示（缩放 100%），纸的左上角落在画布左上角，上边与左边留出边距，左边让出页眉页脚标签；画布改尺寸时不重排。工具栏的「适合窗口」（`zoom-to-fit`，键 0）把整张纸缩放到画布里，此后画布改尺寸时跟着重新适配，直到平移、缩放或在画布上操作。滚轮平移，Ctrl / ⌘ + 滚轮以指针为中心缩放；按住空格或鼠标中键拖动平移。
+- **平移与缩放**：设计器打开、换页面模板或重新装载模板时按实际大小显示（缩放 100%），纸的左上角落在画布左上角，上边与左边留出边距，左边让出页眉页脚标签；画布改尺寸时不重排。工具栏的「适合窗口」（`zoom-to-fit`，键 0）把整张纸缩放到画布里，此后画布改尺寸时跟着重新适配，直到平移、缩放或在画布上操作。滚轮平移，Ctrl / ⌘ + 滚轮以指针为中心缩放；按住空格或鼠标中键拖动平移。工具栏的「拖动」（手形，键 H）开着时，在画布上哪里按住拖动都是平移，按在元素、控制柄与表格把手上也一样：不选中、不挪元素，只点一下不取消选择，双击不进表格编辑；选中工具条、尺寸徽标与页眉页脚变体菜单照常能点。拖动途中按 Esc 只取消这次拖动，视口回到原处；不在拖动时按 Esc 关上拖动工具。
 - **吸附**：拖动、新建与缩放元素时吸附到网格间距（设置「打印」一页，缺省 1 mm，写 0 不吸附网格）；「吸附对齐」打开时还吸附其它元素、页边距、区边界与参考线，并显示对齐线。工具栏上的「网格」开关显示或收起网格线，「吸附」开关就是「吸附对齐」，两者改的都是设置。
 - **表格编辑态**：双击表格或选中后按 Enter 进入。可以分别选中列、表头、表体、表尾行与表尾单元格，在属性面板里编辑；拖列边界改列宽；右键菜单里插入、删除、左右移动列，插入、删除表尾行，合并与拆分表尾单元格。按 Esc 退出。
 - **右键菜单**：在空白处、元素上与表格编辑态里各有一套，带快捷键的条目在行尾显示快捷键。设计器先派发可取消的 `blank-contextmenu`、`element-contextmenu` 或 `table-contextmenu`（表格编辑态里，右键处的部位先被选中），宿主取消后不弹自带的菜单，可以换成自己的。
@@ -185,6 +185,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | 方向键 | 选中的元素移动一格（网格间距，写 0 时 1 mm）；没有选中时平移视口 |
 | Shift + 方向键 | 选中的元素移动 10 mm |
 | 按住空格拖动 | 平移画布；按住鼠标中键拖动同样 |
+| H | 打开或关上拖动工具 |
 | +、- | 放大、缩小 |
 | 0 | 适合窗口 |
 | Enter | 选中表格时进入表格编辑态 |
@@ -318,7 +319,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 | --- | --- |
 | 编辑 | `undo` `redo` `clear-history` `cut` `copy` `paste` `duplicate` `delete` `select-all` |
 | 对齐与层级 | `align-left` `align-center` `align-right` `align-top` `align-middle` `align-bottom` `distribute-horizontal` `distribute-vertical` `bring-to-front` `bring-forward` `send-backward` `send-to-back`：工具栏上缺省每条一颗钮，对齐、分布与层级各成一组 |
-| 视图 | `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `page-setup` `print` |
+| 视图 | `pan-tool`（designer-shell 内置，拖动工具，按下状态跟外框的 `canvasTool`） `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `page-setup` `print` |
 | 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
 | 文字格式 | `font-size` `text-bold` `text-italic` `text-underline` `text-line-through` `text-align-left` `text-align-center` `text-align-right`：缺省排在 `selection:text` 的选中工具条上 |
 | 面板、设置与帮助 | `panels` `settings` `help`：designer-shell 内置，排在工具栏末组。`start-tour` 开始新手引导，不排位置；`edit-json` 打开编辑 JSON 的对话框（Ctrl / ⌘ + Shift + J），缺省排在画布空白处右键菜单的末组。「面板」点开菜单开关各块面板，「设置」打开设置对话框，「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`）。`panels-toggle-all` `panels-restore` `layout-reset` 排在「面板」菜单末尾 |

@@ -212,7 +212,7 @@ describe('工具栏末组', () => {
 
   it('末组是 designer-shell 内置的面板、设置与帮助：设置打开设置对话框，帮助在新窗口打开文档站的设计器一页', async () => {
     const groups = Array.from(designer.querySelectorAll('[data-part="command-bar"] [data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), button => button.value))
-    expect(groups.filter(group => !group.includes('pan-tool')).at(-1)).toEqual(['panels', 'settings', 'help'])
+    expect(groups.at(-1)).toEqual(['panels', 'settings', 'help'])
     expect(['panels', 'settings', 'help'].map(value => [toolbarItem(value).disabled, toolbarItem(value).hasAttribute('data-icon')])).toEqual([[false, true], [false, true], [false, true]])
     toolbarItem('settings').click()
     await designer.updateComplete

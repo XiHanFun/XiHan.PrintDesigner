@@ -9,7 +9,7 @@ import type { ExtensionElementPrototype, PrintDocument, PrintElement } from '@xi
 import type { PrintDesignerTranslations } from '@xihan-print/runtime'
 import type { IconRecord } from '@xihan-ui/core'
 import type { Rect } from '@xihan-ui/designer-kit'
-import type { DesignerGesturePhase, DesignerTransformKind, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
+import type { DesignerGesturePhase, DesignerTransformKind, XhDesignerFrameElement, XhDesignerTransformElement } from '@xihan-ui/designer-shell'
 import type { TextMeasurer } from '@xihan-ui/viz'
 import type { PrintDesignerExtension, XhPrintDesigner } from '../src'
 import { behaviorProperties, createBuiltinElementPrototypes, createDocument, createElementRegistry, createPage, getPaperSize, layoutProperties, property } from '@xihan-print/core'
@@ -162,6 +162,68 @@ describe('<xh-print-designer>', () => {
     expect(designer.dirty).toBe(true)
     key('s', { ctrlKey: true })
     expect(events.at(-1)).toBe('save')
+  })
+
+  /** 在纸张坐标（mm）处派发指针事件，pointerId 固定为 1。 */
+  function pointerAt(target: EventTarget, type: string, x: number, y: number): void {
+    target.dispatchEvent(new PointerEvent(type, { pointerId: 1, isPrimary: true, pointerType: 'mouse', button: 0, clientX: x * PX_PER_MM, clientY: y * PX_PER_MM, bubbles: true, cancelable: true }))
+  }
+
+  it('拖动工具：缩放那组最前是「拖动」钮，按下状态跟外框的 canvasTool；开着时在元素与控制柄上按下拖动都是平移，不选中、不挪元素，点一下不清空选中，双击不进表格编辑', async () => {
+    const frame = designer.querySelector<XhDesignerFrameElement>('xh-designer-frame')!
+    const groups = Array.from(designer.querySelectorAll('[data-part="command-bar"] [data-xh-part="group"]'), group => Array.from(group.querySelectorAll('button'), item => item.value))
+    expect(groups.find(group => group.includes('zoom-in'))).toEqual(['pan-tool', 'zoom-out', 'zoom-in', 'zoom-to-fit', 'zoom-to-actual', 'grid', 'snap'])
+    const tool = (): HTMLButtonElement => designer.querySelector<HTMLButtonElement>('[data-part="command-bar"] button[value="pan-tool"]')!
+    expect([tool().hasAttribute('data-icon'), tool().getAttribute('aria-pressed')]).toEqual([true, 'false'])
+    tool().click()
+    await designer.updateComplete
+    expect([frame.canvasTool, tool().getAttribute('aria-pressed')]).toEqual(['pan', 'true'])
+
+    designer.select({ elements: ['a'] })
+    await designer.updateComplete
+    const before = designer.getViewport()
+    pointerAt(viewport(), 'pointerdown', 20, 35)
+    pointerAt(document, 'pointermove', 30, 45)
+    expect(designer.hasAttribute('data-panning')).toBe(true)
+    pointerAt(document, 'pointerup', 30, 45)
+    await designer.updateComplete
+    const after = designer.getViewport()
+    expect(after.x - before.x).toBeCloseTo(10 * PX_PER_MM, 6)
+    expect(after.y - before.y).toBeCloseTo(10 * PX_PER_MM, 6)
+    expect(designer.hasAttribute('data-panning')).toBe(false)
+    expect([designer.getSelection().elements, designer.schema.pages[0]!.elements[0]!.x]).toEqual([['a'], 10])
+
+    const handle = overlay().querySelector<HTMLElement>('[data-part="handle"]:not([hidden])')!
+    const moved = designer.getViewport()
+    handle.dispatchEvent(new PointerEvent('pointerdown', { pointerId: 1, isPrimary: true, pointerType: 'mouse', button: 0, clientX: 100, clientY: 100, bubbles: true, cancelable: true }))
+    pointerAt(document, 'pointermove', 100 / PX_PER_MM + 5, 100 / PX_PER_MM)
+    pointerAt(document, 'pointerup', 100 / PX_PER_MM + 5, 100 / PX_PER_MM)
+    expect(designer.getViewport().x).toBeGreaterThan(moved.x)
+    expect(designer.schema.pages[0]!.elements[0]).toMatchObject({ x: 10, y: 30, width: 40, height: 10 })
+
+    pointerAt(viewport(), 'pointerdown', 150, 150)
+    pointerAt(document, 'pointerup', 150, 150)
+    expect(designer.getSelection().elements).toEqual(['a'])
+    viewport().dispatchEvent(new MouseEvent('dblclick', { bubbles: true, clientX: 15 * PX_PER_MM, clientY: 62 * PX_PER_MM }))
+    expect(designer.getSelection()).toEqual({ elements: ['a'] })
+  })
+
+  it('拖动工具的 Esc：拖动途中只取消这次拖动，视口回到原处，仍开着拖动工具；不在拖动时退出拖动工具，选中不变', async () => {
+    const frame = designer.querySelector<XhDesignerFrameElement>('xh-designer-frame')!
+    frame.canvasTool = 'pan'
+    designer.select({ elements: ['a'] })
+    await designer.updateComplete
+    const before = designer.getViewport()
+    pointerAt(viewport(), 'pointerdown', 20, 35)
+    pointerAt(document, 'pointermove', 30, 45)
+    expect(designer.getViewport().x - before.x).toBeCloseTo(10 * PX_PER_MM, 6)
+    const during = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    viewport().dispatchEvent(during)
+    pointerAt(document, 'pointerup', 30, 45)
+    expect([during.defaultPrevented, frame.canvasTool, designer.getViewport()]).toEqual([true, 'pan', before])
+    const idle = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    viewport().dispatchEvent(idle)
+    expect([frame.canvasTool, designer.getSelection().elements]).toEqual(['select', ['a']])
   })
 
   it('快捷键：+ 放大（美式键盘上按着 Shift 也算），Ctrl + Shift + ] 按出来是 } 也置于顶层', () => {
@@ -994,7 +1056,7 @@ describe('<xh-print-designer>', () => {
     }]
     await designer.updateComplete
     const toolbarItems = (): string[] => Array.from(designer.querySelectorAll<HTMLButtonElement>('[data-part="command-bar"] button[data-xh-part="item"]'), item => item.value)
-    expect(toolbarItems().filter(value => value !== 'pan-tool').slice(-8)).toEqual(['design', 'preview', 'page-setup', 'print', 'panels', 'settings', 'help', '@acme/hello.run'])
+    expect(toolbarItems().slice(-8)).toEqual(['design', 'preview', 'page-setup', 'print', 'panels', 'settings', 'help', '@acme/hello.run'])
     expect(designer.querySelector('[data-part="command-bar"] button[value="@acme/hello.run"]')!.textContent).toBe('Hello 2')
     expect(['grid', 'snap'].map(value => designer.querySelector(`[data-part="command-bar"] button[value="${value}"]`)!.getAttribute('aria-pressed'))).toEqual(['false', 'true'])
 

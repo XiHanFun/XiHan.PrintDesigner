@@ -188,7 +188,7 @@ import {
   XhDesignerTransformElement,
 } from '@xihan-ui/designer-shell'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
-import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileCodeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HistoryIcon, ImageIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MapIcon, MaximizeIcon, MinusIcon, PageNumberIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, ShapeEllipseIcon, ShapeRectangleIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TextRichIcon, TextWrapIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
+import { AlignCenterIcon, AlignLeftIcon, AlignObjectsBottomIcon, AlignObjectsCenterIcon, AlignObjectsLeftIcon, AlignObjectsMiddleIcon, AlignObjectsRightIcon, AlignObjectsTopIcon, AlignRightIcon, ArrowDownIcon, ArrowLeftIcon, ArrowRightIcon, ArrowUpIcon, BarcodeIcon, BoldIcon, BringForwardIcon, BringToFrontIcon, ChevronDownIcon, ChevronUpIcon, CircleAlertIcon, CircleHelpIcon, ClipboardIcon, CopyIcon, CopyPlusIcon, DatabaseIcon, DistributeHorizontalIcon, DistributeVerticalIcon, EraserIcon, EyeIcon, FileCodeIcon, FileIcon, FileMinusIcon, FilePlusIcon, GridIcon, HandIcon, HistoryIcon, ImageIcon, ItalicIcon, LayoutGridIcon, ListTreeIcon, MagnetIcon, MapIcon, MaximizeIcon, MinusIcon, PageNumberIcon, PanelLeftIcon, PencilIcon, PrinterIcon, QrCodeIcon, RedoIcon, ScissorsIcon, SendBackwardIcon, SendToBackIcon, SettingsIcon, ShapeEllipseIcon, ShapeRectangleIcon, SlidersHorizontalIcon, SquareDashedIcon, StrikethroughIcon, TableCellsMergeIcon, TableCellsSplitIcon, TableColumnInsertLeftIcon, TableColumnInsertRightIcon, TableColumnRemoveIcon, TableIcon, TableRowInsertAboveIcon, TableRowInsertBelowIcon, TableRowRemoveIcon, TextRichIcon, TextWrapIcon, TrashIcon, TypeIcon, UnderlineIcon, UndoIcon, XIcon, ZoomInIcon, ZoomOutIcon, ZoomResetIcon } from '@xihan-ui/icons'
 import { createPointerSession, resolveSessionDoc, shouldActivate, wheelPixels } from '@xihan-ui/pointer'
 import { createCanvasMeasurer } from '@xihan-ui/viz'
 import { BOOLEAN_CONVERTER, createAuthoredElement, createGeneratedElement, emitEvent, registerElement, XhConfigController, XhReactiveElement } from '@xihan-ui/web-components/authoring'
@@ -1366,7 +1366,7 @@ export class XhPrintDesigner extends XhReactiveElement {
       startTour: ({ designer }) => designer.startTour(),
       openJsonEditor: ({ designer }) => designer.openJsonEditor(),
       fieldImportDisabled: () => !this.#fieldImportAllowed(),
-      icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon },
+      icons: { panels: PanelLeftIcon, settings: SettingsIcon, help: CircleHelpIcon, importFields: DatabaseIcon, editJson: FileCodeIcon, panTool: HandIcon },
     })
     const panels = designerPanelCommands<PrintDesignerContext>({ panels: Object.values(PRINT_DESIGNER_PANELS), frame: context => context.frame })
     return [...history, ...builtin, ...this.#formatCommands(), this.#pageSetup(), this.#pageMenu(), ...shell, ...panels]
@@ -2019,6 +2019,8 @@ export class XhPrintDesigner extends XhReactiveElement {
     issueSummary.slot = 'issues-actions'
     const frame = createGeneratedElement(doc, 'xh-designer-frame', { 'data-part': 'frame' }, [toolbar, palette, workspace, pageStrip.element, properties, issues, issueSummary]) as XhDesignerFrameElement
     frame.addEventListener('layout-change', this.#onLayoutChange)
+    // 拖动工具开关了：工具栏「拖动」钮的按下状态跟着重画
+    frame.addEventListener('canvas-tool-change', () => this.requestUpdate())
     const selectionStatus = createStatusItem(doc, { value: '' })
     selectionStatus.element.slot = 'status-start'
     const clientStatus = createStatusItem(doc, { value: '' })
@@ -2048,6 +2050,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.append(frame, settings, fieldImport, jsonEditor, tour)
     const panelHost = createPanelHost<PrintDesignerContext>(frame, { commands: () => this.#model().commands })
 
+    viewport.addEventListener('pointerdown', this.#onPanToolPointerDown, true)
     viewport.addEventListener('pointerdown', this.#onPointerDown)
     viewport.addEventListener('dblclick', this.#onDoubleClick)
     viewport.addEventListener('contextmenu', this.#onContextMenu)
@@ -2056,6 +2059,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     viewport.addEventListener('wheel', this.#onWheel, { passive: false })
     viewport.addEventListener('pointermove', this.#onHover)
     viewport.addEventListener('pointerleave', this.#onHoverEnd)
+    this.addEventListener('keydown', this.#onPanToolEscape, true)
     this.addEventListener('keydown', this.#onKeyDown)
     this.addEventListener('keyup', this.#onKeyUp)
     this.addEventListener('focusout', this.#onFocusOut)
@@ -3293,14 +3297,48 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.requestUpdate()
   }
 
+  /** 按住拖动平移视口：只点一下（没拖起来）什么都不做；拖动中宿主带 data-panning。 */
   #pan(event: PointerEvent): void {
     const origin = this.#viewport
     this.#stopAutoFit()
+    this.toggleAttribute('data-panning', true)
     this.#track(event, {
       onMove: (dx, dy) => this.#moveTo(panBy(origin, dx, dy)),
-      onEnd: () => undefined,
-      onCancel: () => this.#moveTo(origin),
+      onEnd: () => this.toggleAttribute('data-panning', false),
+      onCancel: () => {
+        this.toggleAttribute('data-panning', false)
+        this.#moveTo(origin)
+      },
     })
+  }
+
+  /** 外框此刻是拖动工具，且在设计态。 */
+  #panTool(): boolean {
+    return this.mode === 'design' && this.#layers?.frame.canvasTool === 'pan'
+  }
+
+  /**
+   * 拖动工具开着时，画布上按下（捕获阶段，先于元素、控制柄与表格把手）一律走平移：不选中、不挪元素，只点一下不取消选择。
+   * 选中工具条、尺寸徽标与页眉页脚变体菜单这些控件照常可用。
+   */
+  readonly #onPanToolPointerDown = (event: PointerEvent): void => {
+    if (!this.#panTool() || this.#gesture || event.button !== 0)
+      return
+    const target = event.target instanceof Element ? event.target : undefined
+    if (target?.closest('[data-part="band-menu"], xh-designer-transform > [data-part="toolbar"], xh-designer-transform > [data-part="measure"]'))
+      return
+    event.preventDefault()
+    event.stopPropagation()
+    this.#layers!.viewport.focus({ preventScroll: true })
+    this.#pan(event)
+  }
+
+  /** 拖动工具开着、正在拖动时按 Esc：只取消这次拖动并接走按键，外框就不会同时退出拖动工具。 */
+  readonly #onPanToolEscape = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape' || !this.#panTool() || !this.#gesture)
+      return
+    this.#cancelGesture()
+    event.preventDefault()
   }
 
   #dragBand(event: PointerEvent, region: 'header' | 'footer'): void {
@@ -3402,7 +3440,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   readonly #onDoubleClick = (event: MouseEvent): void => {
-    if (this.mode !== 'design')
+    if (this.mode !== 'design' || this.#panTool())
       return
     const point = this.clientToWorld(event.clientX, event.clientY)
     const tableBox = this.#tableBox()
