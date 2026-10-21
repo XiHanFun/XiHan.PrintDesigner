@@ -57,17 +57,15 @@ XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components
 | 单测 | `pnpm test` |
 | Lint | `pnpm lint` |
 | 产物契约（publint + attw，先 build） | `pnpm gate:publish` |
-| 冒烟（在临时空项目里装包、类型检查与打包） | `pnpm smoke --pack`（UI 未发版时加 `--ui ../../XiHan.UI/ui`） |
+| 冒烟（在临时空项目里装包、类型检查与打包） | `pnpm smoke --pack`（要连同级 XiHan.UI 还没发版的改动一起试时加 `--ui ../../XiHan.UI/ui`） |
 | 写变更集 | `pnpm changeset` |
 
 `pnpm build` 按依赖拓扑依次构建 core、runtime、designer。runtime 与 designer 经包的 `exports` 读取上游 dist，改了上游先重建再验证下游。
 
 开发预览页在 `print/playground`，用 Vite 起在 5191 端口（strictPort），分「分页预览」「设计器」两个页签。分页预览用 `<xh-print-preview>` 显示三份示例模板的分页结果——送货单（表格跨页、重复表头、本页小计与合计、补空行、人民币大写、中文页码）、商品标签（EAN-13 条码与二维码）、内部通知（奇偶页眉、罗马数字页码、平铺水印、长文本跨页、字段里的 HTML 排成富文本跨页），可切换模板、缩放、调起浏览器打印、切换中文语言包 `printZhCN`；度量器用缺省的 Canvas 度量器。设计器页签用 `<xh-print-designer>` 打开同一份示例模板，可切换画布按示例数据显示，下方滚动显示设计器派发的事件。
-它直接引用 core、runtime 与 designer 的源码，改了源码即时生效，不必先 `pnpm build`；`@xihan-ui/*` 经 overrides 读同级 XiHan.UI 的产物，启动前先在 `XiHan.UI/ui` 构建依赖的包：
+它直接引用 core、runtime 与 designer 的源码，改了源码即时生效，不必先 `pnpm build`；`@xihan-ui/*` 用 npm 上的正式包（版本见 `print/pnpm-workspace.yaml` 的 catalog）：
 
 ```bash
-# XiHan.UI/ui
-pnpm --filter "@xihan-ui/web-components..." --filter "@xihan-ui/designer-kit..." --filter "@xihan-ui/designer-shell..." --filter "@xihan-ui/expression..." --filter "@xihan-ui/styles..." build
 # XiHan.PrintDesigner/print
 pnpm dev
 ```
@@ -88,13 +86,13 @@ pnpm dev
 | 示例模板校验并试排 | `pnpm check:examples` |
 | Lint | `pnpm lint` |
 
-- 打印三个包经 `link:` 读 `print/packages/*` 的产物，先在 `print/` 构建；`@xihan-ui/*` 与 `print/` 工作区一样经 overrides 读同级 XiHan.UI 的产物，UI 5.0.0 正式发布后删掉那一段。
+- 打印三个包经 `link:` 读 `print/packages/*` 的产物，先在 `print/` 构建。`@xihan-ui/*` 用 npm 上的正式包：打印三个包要的那几个由 `docs/package.json` 一并装上，并在 `.vitepress/config.ts` 里 `resolve.dedupe` 成同一份；不去重时文档站与设计器各用一份 UI，全站设的界面语言到不了设计器。
 - `docs/reference/` 由 `scripts/gen-reference.mjs` 从源码生成（元素原型、`printZhCN`、TypeScript 源码注释、客户端错误码的 C# 注释），不手改。改了元素、属性、问题码、公开 API 或这些注释，在 `docs/` 跑 `pnpm gen` 并随改动一起提交；参考页的说明不对，就改源码注释。
 - 正文里的 TypeScript 与 Vue 示例都放在 `examples/`，用 `<<< @/examples/…#片段` 引入，不在 Markdown 里另写一份：`templates/` 下导出 `schema` 与 `data` 的模板由 `check:examples` 校验并试排，`demos/` 下的 `.ts` 导出 `mount(host)`、`.vue` 是一个组件，页面上写 `<PrintDemo name="…" />` 真实运行，`snippets/` 只做类型检查。
 - 正文里含 `{{` 的行内代码写成 `<code v-pre>…</code>`，否则会被 Vue 当成插值吃掉，构建也不报错。
 - 站点自己的导航、侧栏与示例组件放在 `docs/.vitepress/`，不复制或改写主题已提供的样式。
 - 文档只写已经做完的能力；不写组件数、元素数与依赖的具体版本号，不写预发布阶段的铺垫。
-- 站点地址是 https://print.docs.xihanfun.com：`docs/public/CNAME`、`docs/public/.nojekyll` 与 `.github/workflows/deploy-docs.yml`（main 上 `docs/` 或 `print/` 有变更时先装好并构建 `print/`，再构建文档站，部署到 gh-pages）属于站点契约，不因清理构建配置而删除；主题配置的 `llms.site` 与 `docs/package.json` 的 `homepage` 写同一个地址。`print/` 的 overrides 生效期间这条流水线跑不通，与不推送远端的约定一致。
+- 站点地址是 https://print.docs.xihanfun.com：`docs/public/CNAME`、`docs/public/.nojekyll` 与 `.github/workflows/deploy-docs.yml`（main 上 `docs/` 或 `print/` 有变更时先装好并构建 `print/`，再构建文档站，部署到 gh-pages）属于站点契约，不因清理构建配置而删除；主题配置的 `llms.site` 与 `docs/package.json` 的 `homepage` 写同一个地址。
 
 ## 分层与依赖
 
@@ -102,7 +100,7 @@ pnpm dev
 - core 只做模型：schema 类型、校验、编辑命令与算法。tsconfig 不含 DOM 类型库，不得触碰 DOM。
 - runtime 是业务页面使用的元素，体积敏感；设计器专用的代码不进 runtime。
 - 所有包源码不得 import 任何前端框架（ESLint 已拦截）。
-- 运行时依赖只允许 `@xihan-print/*` 与 `@xihan-ui/*`；引入任何其他依赖之前先征得维护者同意。
+- 运行时依赖只允许 `@xihan-print/*` 与 `@xihan-ui/*`；引入任何其他依赖之前先征得维护者同意。`@xihan-ui/*` 写成 peerDependencies `^5.0.0`（由宿主装唯一的一份），开发时另写 devDependencies（`catalog:`），升级 UI 时两处一起改。
 
 ## 硬性约定
 

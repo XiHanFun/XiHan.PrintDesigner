@@ -18,6 +18,36 @@ catalogs:
     '@types/node':
       specifier: ^24.10.0
       version: 24.19.2
+    '@xihan-ui/core':
+      specifier: ^5.0.0
+      version: 5.0.0
+    '@xihan-ui/designer-kit':
+      specifier: ^5.0.0
+      version: 5.0.0
+    '@xihan-ui/designer-shell':
+      specifier: ^5.0.0
+      version: 5.0.0
+    '@xihan-ui/expression':
+      specifier: ^5.0.0
+      version: 5.0.0
+    '@xihan-ui/headless':
+      specifier: ^5.0.0
+      version: 5.0.0
+    '@xihan-ui/icons':
+      specifier: ^5.0.0
+      version: 5.0.0
+    '@xihan-ui/pointer':
+      specifier: ^5.0.0
+      version: 5.0.0
+    '@xihan-ui/styles':
+      specifier: ^5.0.0
+      version: 5.0.0
+    '@xihan-ui/viz':
+      specifier: ^5.0.0
+      version: 5.0.0
+    '@xihan-ui/web-components':
+      specifier: ^5.0.0
+      version: 5.0.0
     eslint:
       specifier: ^10.12.0
       version: 10.12.0
@@ -42,18 +72,6 @@ catalogs:
     vitest:
       specifier: ^4.1.11
       version: 4.1.11
-
-overrides:
-  '@xihan-ui/core': link:../../XiHan.UI/ui/packages/engine/core
-  '@xihan-ui/designer-kit': link:../../XiHan.UI/ui/packages/features/designer-kit
-  '@xihan-ui/designer-shell': link:../../XiHan.UI/ui/packages/features/designer-shell
-  '@xihan-ui/expression': link:../../XiHan.UI/ui/packages/engine/expression
-  '@xihan-ui/headless': link:../../XiHan.UI/ui/packages/engine/headless
-  '@xihan-ui/icons': link:../../XiHan.UI/ui/packages/design/icons
-  '@xihan-ui/pointer': link:../../XiHan.UI/ui/packages/engine/pointer
-  '@xihan-ui/styles': link:../../XiHan.UI/ui/packages/design/styles
-  '@xihan-ui/viz': link:../../XiHan.UI/ui/packages/engine/viz
-  '@xihan-ui/web-components': link:../../XiHan.UI/ui/packages/adapters/web-components
 
 importers:
 
@@ -91,22 +109,22 @@ importers:
         version: 4.1.11(@types/node@24.19.2)(jsdom@27.4.0)(vite@8.3.4(@types/node@24.19.2)(yaml@2.9.1))
 
   packages/core:
-    dependencies:
+    devDependencies:
       '@xihan-ui/core':
-        specifier: link:../../../../XiHan.UI/ui/packages/engine/core
-        version: link:../../../../XiHan.UI/ui/packages/engine/core
+        specifier: 'catalog:'
+        version: 5.0.0
       '@xihan-ui/designer-kit':
-        specifier: link:../../../../XiHan.UI/ui/packages/features/designer-kit
-        version: link:../../../../XiHan.UI/ui/packages/features/designer-kit
+        specifier: 'catalog:'
+        version: 5.0.0
       '@xihan-ui/expression':
-        specifier: link:../../../../XiHan.UI/ui/packages/engine/expression
-        version: link:../../../../XiHan.UI/ui/packages/engine/expression
+        specifier: 'catalog:'
+        version: 5.0.0
       '@xihan-ui/headless':
-        specifier: link:../../../../XiHan.UI/ui/packages/engine/headless
-        version: link:../../../../XiHan.UI/ui/packages/engine/headless
+        specifier: 'catalog:'
+        version: 5.0.0
       '@xihan-ui/viz':
-        specifier: link:../../../../XiHan.UI/ui/packages/engine/viz
-        version: link:../../../../XiHan.UI/ui/packages/engine/viz
+        specifier: 'catalog:'
+        version: 5.0.0
 
   packages/designer:
     dependencies:
@@ -116,34 +134,34 @@ importers:
       '@xihan-print/runtime':
         specifier: workspace:^
         version: link:../runtime
-      '@xihan-ui/core':
-        specifier: link:../../../../XiHan.UI/ui/packages/engine/core
-        version: link:../../../../XiHan.UI/ui/packages/engine/core
-      '@xihan-ui/designer-kit':
-        specifier: link:../../../../XiHan.UI/ui/packages/features/designer-kit
-        version: link:../../../../XiHan.UI/ui/packages/features/designer-kit
-      '@xihan-ui/designer-shell':
-        specifier: link:../../../../XiHan.UI/ui/packages/features/designer-shell
-        version: link:../../../../XiHan.UI/ui/packages/features/designer-shell
-      '@xihan-ui/expression':
-        specifier: link:../../../../XiHan.UI/ui/packages/engine/expression
-        version: link:../../../../XiHan.UI/ui/packages/engine/expression
-      '@xihan-ui/headless':
-        specifier: link:../../../../XiHan.UI/ui/packages/engine/headless
-        version: link:../../../../XiHan.UI/ui/packages/engine/headless
-      '@xihan-ui/icons':
-        specifier: link:../../../../XiHan.UI/ui/packages/design/icons
-        version: link:../../../../XiHan.UI/ui/packages/design/icons
-      '@xihan-ui/pointer':
-        specifier: link:../../../../XiHan.UI/ui/packages/engine/pointer
-        version: link:../../../../XiHan.UI/ui/packages/engine/pointer
-      '@xihan-ui/viz':
-        specifier: link:../../../../XiHan.UI/ui/packages/engine/viz
-        version: link:../../../../XiHan.UI/ui/packages/engine/viz
-      '@xihan-ui/web-components':
-        specifier: link:../../../../XiHan.UI/ui/packages/adapters/web-components
-        version: link:../../../../XiHan.UI/ui/packages/adapters/web-components
     devDependencies:
+      '@xihan-ui/core':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/designer-kit':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/designer-shell':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/expression':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/headless':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/icons':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/pointer':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/viz':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/web-components':
+        specifier: 'catalog:'
+        version: 5.0.0
       jsdom:
         specifier: 'catalog:'
         version: 27.4.0
@@ -153,28 +171,28 @@ importers:
       '@xihan-print/core':
         specifier: workspace:^
         version: link:../core
-      '@xihan-ui/core':
-        specifier: link:../../../../XiHan.UI/ui/packages/engine/core
-        version: link:../../../../XiHan.UI/ui/packages/engine/core
-      '@xihan-ui/designer-kit':
-        specifier: link:../../../../XiHan.UI/ui/packages/features/designer-kit
-        version: link:../../../../XiHan.UI/ui/packages/features/designer-kit
-      '@xihan-ui/designer-shell':
-        specifier: link:../../../../XiHan.UI/ui/packages/features/designer-shell
-        version: link:../../../../XiHan.UI/ui/packages/features/designer-shell
-      '@xihan-ui/expression':
-        specifier: link:../../../../XiHan.UI/ui/packages/engine/expression
-        version: link:../../../../XiHan.UI/ui/packages/engine/expression
-      '@xihan-ui/headless':
-        specifier: link:../../../../XiHan.UI/ui/packages/engine/headless
-        version: link:../../../../XiHan.UI/ui/packages/engine/headless
-      '@xihan-ui/viz':
-        specifier: link:../../../../XiHan.UI/ui/packages/engine/viz
-        version: link:../../../../XiHan.UI/ui/packages/engine/viz
-      '@xihan-ui/web-components':
-        specifier: link:../../../../XiHan.UI/ui/packages/adapters/web-components
-        version: link:../../../../XiHan.UI/ui/packages/adapters/web-components
     devDependencies:
+      '@xihan-ui/core':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/designer-kit':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/designer-shell':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/expression':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/headless':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/viz':
+        specifier: 'catalog:'
+        version: 5.0.0
+      '@xihan-ui/web-components':
+        specifier: 'catalog:'
+        version: 5.0.0
       jsdom:
         specifier: 'catalog:'
         version: 27.4.0
@@ -191,14 +209,14 @@ importers:
         specifier: workspace:^
         version: link:../packages/runtime
       '@xihan-ui/designer-shell':
-        specifier: link:../../../XiHan.UI/ui/packages/features/designer-shell
-        version: link:../../../XiHan.UI/ui/packages/features/designer-shell
+        specifier: 'catalog:'
+        version: 5.0.0
       '@xihan-ui/styles':
-        specifier: link:../../../XiHan.UI/ui/packages/design/styles
-        version: link:../../../XiHan.UI/ui/packages/design/styles
+        specifier: 'catalog:'
+        version: 5.0.0
       '@xihan-ui/web-components':
-        specifier: link:../../../XiHan.UI/ui/packages/adapters/web-components
-        version: link:../../../XiHan.UI/ui/packages/adapters/web-components
+        specifier: 'catalog:'
+        version: 5.0.0
     devDependencies:
       vite:
         specifier: 'catalog:'
@@ -1000,6 +1018,67 @@ packages:
 
   '@vue/shared@3.5.44':
     resolution: {integrity: sha512-H82XLH0DjmSOdbEwO15x3QTo1f5PWEtv237eLpYKc0mqLu+B8hnq16lFWmuBmNurkeiG3wr+oM1FhOll/YVFRg==}
+
+  '@xihan-ui/core@5.0.0':
+    resolution: {integrity: sha512-KmhdppLYi2SL2Mq3aTLaNI5+pV4ENBfjYHBy2kbLTYwBBGNlzhmmVtS6+demwByamCl0RksHwZ31xfImPxFpiA==}
+    engines: {node: '>=18'}
+
+  '@xihan-ui/designer-kit@5.0.0':
+    resolution: {integrity: sha512-5IUeH7PFhV0g+UfzM8A6fJGPo9+uMfCGbcGla71dns+fiLFk9EAQw64JtH4YXNGWMuTJUbNTq1A9QxMb8T0LBQ==, tarball: https://registry.npmjs.org/@xihan-ui/designer-kit/-/designer-kit-5.0.0.tgz}
+    engines: {node: '>=18'}
+
+  '@xihan-ui/designer-shell@5.0.0':
+    resolution: {integrity: sha512-/NytHbdZ16ZCZ/GtUyt7SMtPy+hdP1n5dYTxgWAPPmhrC1JHHuiWIVrBWEQgbXVd7Z1piO90Dxsy5MnAkJErVg==, tarball: https://registry.npmjs.org/@xihan-ui/designer-shell/-/designer-shell-5.0.0.tgz}
+    engines: {node: '>=18'}
+
+  '@xihan-ui/expression@5.0.0':
+    resolution: {integrity: sha512-xgw0XuH0bOQyanbntHTc2yNyONqK++Yn5djTITdtYfm2qe/A1THfVsri/VdeWUq7p6ElED5HOfYfoFkHGd3KTw==}
+    engines: {node: '>=18'}
+
+  '@xihan-ui/headless@5.0.0':
+    resolution: {integrity: sha512-IAkt/BWbhiXuk7EIPrbZ0HhwV2bRUtSfUY1mgJozveQemETPGGxJKnMmjb3KGXWd8xJeDGLKUwex1/gQrxfJKQ==}
+    engines: {node: '>=18'}
+
+  '@xihan-ui/icons@5.0.0':
+    resolution: {integrity: sha512-0iaPdhTTic+qrZfGFbCtgBzHuM+eS8KX2EjMBJKzRgWMM7+vh1bKIQ+i1PPyI18nx4AKvHcJqpgJWAjwMOvU7A==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  '@xihan-ui/motion@5.0.0':
+    resolution: {integrity: sha512-mqchcgvbCU4DPnqlQWbu72Vhi4r2aD0Kk7iz0Zpxu7OuzrPQ5s72QM3Yk6tGiH1Qn/jApQf63QUGX3n9D3Vz6w==}
+    engines: {node: '>=18'}
+
+  '@xihan-ui/pointer@5.0.0':
+    resolution: {integrity: sha512-JgDV3YLQNh8qDt6F0YFIUxu5nQrAqAqvUD9+uCrU6Dm6xfj8bzY5bI6R1u/LirUHxM8bV7xqKT3p4SVmfjq3kQ==}
+    engines: {node: '>=18'}
+
+  '@xihan-ui/position@5.0.0':
+    resolution: {integrity: sha512-XMLc3AJbAmqtPJ+tBzARSMlykLXMuzJ7CEBnxZVcxCK9jp0J0CrXkX/QzMSahrMy8544FAczafjI25yCKK5DwA==}
+    engines: {node: '>=18'}
+
+  '@xihan-ui/styles@5.0.0':
+    resolution: {integrity: sha512-YVE5gJJDBeaYgdEfk6OK8q6jWdmKdVGzj2Je+ERBNLOJ4XJmuY6Rwr+eU7hVPdpKExP1s6J5v+C5xNbT4ETIfw==}
+    engines: {node: '>=18'}
+
+  '@xihan-ui/tokens@5.0.0':
+    resolution: {integrity: sha512-gVYWgoUlsu5YyumUKMm/HUxlWdvWqXaZCuZZOIMybOq6BKI7AZugSWuv9LQosip65TAyQUTm/ZKM/SqFDUBi0g==}
+    engines: {node: '>=18'}
+
+  '@xihan-ui/viz@5.0.0':
+    resolution: {integrity: sha512-VDQQmFrGLgRQo5Q5mpOJt6GKUE8HE80/FZl9O/2tXMZ+BlSOYi2BmV31pNlOH9ctdoXjSbtVt6kT9iRRooZ06Q==}
+    engines: {node: '>=18'}
+
+  '@xihan-ui/web-components@5.0.0':
+    resolution: {integrity: sha512-3dxdAMEgSRWsEnVfX27D0PZElInaQUGO7yixUADrplN/7BZI8Vt65FyjH0BVgvlUAO3Ak/1OdCUlLdTT/okeDA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@xihan-ui/backgrounds': ^5.0.0
+      '@xihan-ui/code-highlight': ^5.0.0
+    peerDependenciesMeta:
+      '@xihan-ui/backgrounds':
+        optional: true
+      '@xihan-ui/code-highlight':
+        optional: true
 
   '@yuku-codegen/binding-android-arm64@0.8.7':
     resolution: {integrity: sha512-C/0zV5IhgVdYhGJTwrY0v8dknxlhiKwtVJkMUaexu9/QvRmzlV4vfU3hZlUSgqc2BxQHntL1mCVbDq8j0FRFDw==}
@@ -3815,6 +3894,69 @@ snapshots:
       '@vue/shared': 3.5.44
 
   '@vue/shared@3.5.44': {}
+
+  '@xihan-ui/core@5.0.0':
+    dependencies:
+      '@xihan-ui/motion': 5.0.0
+
+  '@xihan-ui/designer-kit@5.0.0':
+    dependencies:
+      '@xihan-ui/core': 5.0.0
+      '@xihan-ui/expression': 5.0.0
+      '@xihan-ui/pointer': 5.0.0
+      '@xihan-ui/viz': 5.0.0
+
+  '@xihan-ui/designer-shell@5.0.0':
+    dependencies:
+      '@xihan-ui/core': 5.0.0
+      '@xihan-ui/designer-kit': 5.0.0
+      '@xihan-ui/pointer': 5.0.0
+      '@xihan-ui/tokens': 5.0.0
+      '@xihan-ui/viz': 5.0.0
+      '@xihan-ui/web-components': 5.0.0
+    transitivePeerDependencies:
+      - '@xihan-ui/backgrounds'
+      - '@xihan-ui/code-highlight'
+
+  '@xihan-ui/expression@5.0.0': {}
+
+  '@xihan-ui/headless@5.0.0':
+    dependencies:
+      '@xihan-ui/core': 5.0.0
+      '@xihan-ui/expression': 5.0.0
+      '@xihan-ui/motion': 5.0.0
+      '@xihan-ui/pointer': 5.0.0
+      '@xihan-ui/viz': 5.0.0
+
+  '@xihan-ui/icons@5.0.0': {}
+
+  '@xihan-ui/motion@5.0.0': {}
+
+  '@xihan-ui/pointer@5.0.0': {}
+
+  '@xihan-ui/position@5.0.0':
+    dependencies:
+      '@xihan-ui/core': 5.0.0
+
+  '@xihan-ui/styles@5.0.0':
+    dependencies:
+      '@xihan-ui/tokens': 5.0.0
+
+  '@xihan-ui/tokens@5.0.0':
+    dependencies:
+      '@xihan-ui/core': 5.0.0
+
+  '@xihan-ui/viz@5.0.0': {}
+
+  '@xihan-ui/web-components@5.0.0':
+    dependencies:
+      '@xihan-ui/core': 5.0.0
+      '@xihan-ui/expression': 5.0.0
+      '@xihan-ui/headless': 5.0.0
+      '@xihan-ui/motion': 5.0.0
+      '@xihan-ui/pointer': 5.0.0
+      '@xihan-ui/position': 5.0.0
+      '@xihan-ui/viz': 5.0.0
 
   '@yuku-codegen/binding-android-arm64@0.8.7':
     optional: true
