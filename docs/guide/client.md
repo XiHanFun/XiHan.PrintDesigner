@@ -18,7 +18,7 @@
 
 ## 安装
 
-安装包在仓库的 [Release 页面](https://github.com/XiHanFun/XiHan.PrintDesigner/releases)发布，x64 与 arm64 各一个，文件名形如 `XiHanPrint-<版本>-x64-setup.exe`。
+安装包在仓库的 [Release 页面](https://github.com/XiHanFun/XiHan.PrintDesigner/releases)发布，x64 与 arm64 各一个，文件名形如 `XiHanPrint-<版本>-x64-setup.exe`。客户端与 `@xihan-print/*` 版本相同，每次发版一起发布；两边靠连接时商定的协议版本保持兼容。
 
 - 按当前用户安装到 `%LocalAppData%\Programs\XiHanFun\PrintClient`，不需要管理员权限。
 - 需要系统的 WebView2 运行时：Windows 11 自带；没有时安装包调起微软的 WebView2 安装程序（要能联网）。
