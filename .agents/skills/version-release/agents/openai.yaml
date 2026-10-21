@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.PrintDesigner 版本发布"
+  short_description: "定版本、进出 rc 预发布、打标签发 npm 并核对结果"
+  default_prompt: "使用 $xihan-print-version-release 准备下一个版本。"
+
+policy:
+  allow_implicit_invocation: true

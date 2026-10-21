@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.PrintDesigner 打印客户端"
+  short_description: "开发与测试本地打印客户端：协议、静默打印与安装包"
+  default_prompt: "使用 $xihan-print-client 修改打印客户端。"
+
+policy:
+  allow_implicit_invocation: true

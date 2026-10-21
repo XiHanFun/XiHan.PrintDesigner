@@ -1,0 +1,3 @@
+# Claude Code 的本机文件（worktrees、settings.local.json、launch.json 等）不入库；.claude/skills 是指向 ../.agents/skills 的链接，入库
+.claude/*
+!.claude/skills
