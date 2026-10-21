@@ -2,7 +2,7 @@
 
 # 更新日志
 
-本页记录 `@xihan-print/core`、`@xihan-print/runtime`、`@xihan-print/designer` 各版本使用者能感知的变更，每条标注 **新增 / 修复 / 调整 / 移除**。这几个包总是同一个版本号一起发布；逐包的完整记录见仓库里各包的 `CHANGELOG.md`。
+本页记录 `@xihan-print/core`、`@xihan-print/runtime`、`@xihan-print/designer` 各版本使用者能感知的变更，每条标注 **新增 / 修复 / 调整 / 移除**。这几个包总是同一个版本号一起发布；逐包的完整记录见仓库里各包的 `CHANGELOG.md`。打印客户端与它们同号，它的改动写在同一版里，条目开头标明「打印客户端」。
 
 ## v1.0.0-rc.1（2026-10-21）
 
