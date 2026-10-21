@@ -42,7 +42,7 @@
     "@xihan-ui/styles": "^5.0.0",
     "@xihan-ui/viz": "^5.0.0",
     "@xihan-ui/web-components": "^5.0.0",
-    "@xihanfun/vitepress-theme": "^1.2.0",
+    "@xihanfun/vitepress-theme": "^1.2.1",
     "vitepress": "2.0.0-alpha.20",
     "vue": "^3.5.44"
   },
