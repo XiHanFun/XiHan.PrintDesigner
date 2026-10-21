@@ -1,0 +1,2026 @@
+# 曦寒打印设计器 · 指南
+
+共 7 页。索引见 https://print.docs.xihanfun.com/llms.txt
+
+---
+
+来源：https://print.docs.xihanfun.com/guide/binding
+
+# 数据绑定与格式化
+
+模板只描述「哪里显示什么数据、显示成什么样」，数据在打印时才交给预览或打印函数。数据是任意 JSON，通常就是业务接口返回的对象。
+
+## 字段路径
+
+字段路径按点与下标读数据：
+
+| 写法 | 读到 |
+| --- | --- |
+| `customer.name` | `data.customer.name` |
+| `items[0].qty` | 数组第一项的 `qty` |
+| `["unit price"]` | 不是标识符的键，用方括号加引号 |
+
+- 只读普通对象的自有属性与数组下标，读不到时得到空值，不报错。
+- 字符串原样显示，数字、布尔转成文字，`null` 与 `undefined` 为空；对象与数组不能直接显示，显示为空并给出诊断 `data.notScalar`。
+- 路径写法不对时校验报错 `field.invalidPath`。
+
+## 文本内容
+
+文本、长文本、条码与二维码的内容都是一个「文本内容」，有四种来源：
+
+| 来源 | 写法 | 说明 |
+| --- | --- | --- |
+| 固定文字 | `{ kind: 'static', text }` | 原样显示 |
+| 字段 | `{ kind: 'field', field, format?, emptyText? }` | 读一个字段，可按格式显示；结果为空时显示 `emptyText` |
+| 占位模板 | `{ kind: 'template', template }` | 文字里用 `{{path}}` 嵌入字段，占位里只能写路径 |
+| 表达式 | `{ kind: 'expression', expression, format? }` | 受限表达式，变量是数据对象的顶层字段 |
+
+占位模板适合「文字里嵌几个数据」，如 `客户：{{customer.name}}`；需要计算时用表达式，如 `qty * price`。表达式的结果是单个值，可以再按格式显示。
+
+富文本的内容不是文本内容，另有三种来源，见[富文本](./rich-text#内容来源)。
+
+下面这张模板的每一行，右边都是同一份数据按不同来源与格式显示的结果：
+
+```ts
+const rows: [label: string, content: TextContent][] = [
+  ['数字', { kind: 'field', field: 'amount', format: { kind: 'number', decimals: 2, grouping: true } }],
+  ['百分比', { kind: 'field', field: 'rate', format: { kind: 'percent', decimals: 1 } }],
+  ['日期', { kind: 'field', field: 'signedAt', format: { kind: 'date', pattern: 'yyyy年M月d日 HH:mm' } }],
+  ['人民币大写', { kind: 'field', field: 'paid', format: { kind: 'rmb-upper' } }],
+  ['中文数字', { kind: 'field', field: 'qty', format: { kind: 'numeral', style: 'cn-upper' } }],
+  ['值映射', {
+    kind: 'field',
+    field: 'status',
+    format: { kind: 'map', entries: [{ value: 'pending', label: '待发货' }, { value: 'shipped', label: '已发货' }], fallback: '未知' },
+  }],
+  ['表达式格式', { kind: 'field', field: 'qty', format: { kind: 'expression', expression: 'IF(value >= 3, \'多件\', \'单件\')' } }],
+  ['空值', { kind: 'field', field: 'remark', emptyText: '无' }],
+  ['占位模板', { kind: 'template', template: '{{customer.name}}（{{customer.city}}）' }],
+  ['表达式', { kind: 'expression', expression: 'qty * price', format: { kind: 'number', decimals: 2 } }],
+]
+```
+
+```ts
+export const data = {
+  amount: 1234567.891,
+  rate: 0.1234,
+  signedAt: '2026-10-17 08:30:00',
+  paid: 1001.5,
+  qty: 3,
+  price: 19.9,
+  status: 'shipped',
+  remark: '',
+  customer: { name: '曦寒商贸', city: '杭州' },
+}
+```
+
+
+## 值格式
+
+字段与表达式的结果可以带 `format`：
+
+| 格式 | 写法 | 说明 |
+| --- | --- | --- |
+| 数字 | `{ kind: 'number', decimals?, minDecimals?, maxDecimals?, grouping?, rounding? }` | `decimals` 固定小数位；或舍入到 `maxDecimals` 位再去掉末尾的 0、至少留 `minDecimals` 位；`grouping` 加千分位 |
+| 百分比 | `{ kind: 'percent', … }` | 乘 100 后按数字格式输出并接 `%` |
+| 日期 | `{ kind: 'date', pattern }` | 占位符 `yyyy yy MM M dd d HH H mm m ss s SSS`，单引号里的内容原样输出 |
+| 人民币大写 | `{ kind: 'rmb-upper', rounding? }` | 舍入到分，整数金额以「整」结尾 |
+| 数字字形 | `{ kind: 'numeral', style }` | 整数写成罗马数字（`roman-upper`、`roman-lower`）或中文数字（`cn-lower`、`cn-upper`） |
+| 值映射 | `{ kind: 'map', entries, fallback? }` | `entries` 每项是 `{ value, label? }`，与选择类组件的选项同一形状、不带 `disabled`。按数据值查表显示 `label`，对上的一项没写 `label` 时显示为空；没对上时显示 `fallback`，没有 `fallback` 时显示原值 |
+| 表达式格式 | `{ kind: 'expression', expression }` | 用受限表达式把值转成文字，表达式里用 `value` 引用这个值 |
+
+- 数字类格式按十进制精确舍入，`1.005` 保留两位得 `1.01`。舍入方式 `rounding` 取 `half-up`（缺省）、`half-even`、`floor`、`ceil`、`down`。
+- 值映射按显示文字比较，数字 `1` 与字符串 `'1'` 都能对上 `value: '1'`。同一个数据值写了几项时用第一项，校验报 `format.duplicateMapValue` 提醒。设计器里值映射是一张选项表，两列是数据值与显示文本，可以新增、删除与上移下移。
+- 空值不经格式化，直接显示为空（再按 `emptyText` 补上）；表达式格式例外，空值也交给表达式。
+- 数字、百分比、日期、人民币大写与数字字形由 XiHan.UI 的 `formatValue` 完成，完整规则见 [XiHan.UI 的格式化](https://ui.docs.xihanfun.com/runtime/expression#格式化)。值格式不合法时校验报错，数据不合格式时显示原值并给出诊断 `format.failed`。
+
+### 区域与时区
+
+预览元素与设计器的 `locale`、`time-zone` 两个 attribute（`printDocument` 的同名选项）交给格式化器：
+
+- `locale` 只决定小数点与千分位符号，数字始终是 ASCII 数字，缺省用 `.` 与 `,`。
+- `timeZone` 取 `UTC`、`±HH:mm` 或 IANA 名称（如 `Asia/Shanghai`）。不带偏移的日期文本按原样的墙钟时间显示；带偏移的文本、毫秒时间戳在给了时区时换算到该时区。
+
+## 受限表达式
+
+表达式由 XiHan.UI 的 `@xihan-ui/expression` 求值：只有运算符与白名单函数，不能访问全局对象，也不执行任何字符串代码，模板里存的只是源码文本。
+
+- 文本与表达式格式里，变量是数据对象的顶层字段；表格单元格里，变量是这一行的顶层字段；表达式格式里只有 `value`。
+- 常用函数：`IF`、`COALESCE`、`ROUND`、`SUM`、`AVG`、`CONCAT`、`LEFT`、`FORMAT_NUMBER`、`FORMAT_DATE`、`DATE_DIFF` 等，函数名不分大小写。文法与全部函数见 [XiHan.UI 的受限表达式](https://ui.docs.xihanfun.com/runtime/expression)。
+- 表达式写错时校验报错 `expression.invalid`；求值失败（类型不对、除以零等）时显示为空，并给出错误级诊断 `expression.failed`。
+
+### 换一个表达式引擎
+
+预览、设计器与 `printDocument` 缺省用 `createExpressionEngine()`，不提供当前时间，`TODAY()`、`NOW()` 会求值失败。要用当前时间或登记自己的函数，创建一个引擎交给 `expressionEngine` 属性：
+
+```ts
+import type { XhPrintPreview } from '@xihan-print/runtime'
+import { createExpressionEngine, ExprDate } from '@xihan-ui/expression'
+
+export function useEngine(preview: XhPrintPreview): void {
+  preview.expressionEngine = createExpressionEngine({
+    now: () => {
+      const date = new Date()
+      return ExprDate.fromParts(date.getFullYear(), date.getMonth() + 1, date.getDate(), date.getHours(), date.getMinutes(), date.getSeconds())
+    },
+    functions: [
+      {
+        name: 'MASK_PHONE',
+        minArgs: 1,
+        maxArgs: 1,
+        call: ([phone], context) => {
+          if (phone === null)
+            return null
+          if (typeof phone !== 'string')
+            return context.typeMismatch(0)
+          return phone.length === 11 ? `${phone.slice(0, 3)}****${phone.slice(7)}` : phone
+        },
+      },
+    ],
+  })
+}
+```
+
+宿主函数必须是纯函数，只依赖实参与当前时间。表格表尾的求和、平均、最小、最大也经表达式引擎计算，只启用部分内置函数时要留下 `SUM`、`AVG`、`MIN`、`MAX`。
+
+## 表格的数据
+
+表格的 `dataField` 指向一个数组，每个元素一行。表体单元格的字段、占位与表达式都以行对象为根：
+
+- `field: 'qty'` 读这一行的 `qty`；
+- `{{name}}（{{spec}}）` 按行对象替换；
+- `qty * price` 的变量是这一行的顶层字段；
+- `rowNumber` 是从 1 开始、跨页连续的行序号。
+
+表尾单元格的固定文字、字段与占位以整份数据为根，汇总则按 `scope` 取本页、截至本页或全部数据行，见[模板结构](./template#表尾行)。`dataField` 读到的不是数组时，表格按没有数据处理，并给出诊断 `data.notArray`。
+
+## 图片、条码与页码
+
+- **图片**：来源是固定地址 `{ kind: 'static', url }` 或字段 `{ kind: 'field', field }`。地址只认 http、https、`blob:`、以 `data:image/` 开头的内联图片与相对地址，`javascript:` 等其它地址不显示，并给出 `image.unsafeSource`。
+- **条码与二维码**：内容是文本内容，可以绑定字段。内容不能按所选码制编码时（如 EAN-13 位数不对）不画，并给出 `barCode.invalidValue` 或 `matrixCode.invalidValue`。
+- **页码**：格式是占位模板，只能用 `{{$page}}` 与 `{{$pages}}`；`numeral` 把两者都写成罗马数字或中文数字。
+- **水印**：文字里可以用 `{{path}}` 取数据。
+
+## 诊断
+
+取值与格式化出问题时，分页照常进行，问题以诊断的形式随分页结果给出：没提供格式化器或表达式引擎、格式化失败、表达式求值失败、取到的不是单个值等。预览元素在 `paginated` 事件里带上诊断，全部问题码见[问题码与诊断](../reference/issues)。
+
+---
+
+来源：https://print.docs.xihanfun.com/guide/client
+
+# 打印客户端
+
+浏览器出于安全考虑，打印都要经过打印对话框，网页不能自己选打印机、也不能把原始指令发给小票机或标签机。本地打印客户端补上这一块：它是一个 Windows 托盘程序，业务页面经 `@xihan-print/runtime/client` 连上它，就能不弹对话框直接打到指定的打印机、写原始指令、导出 PDF。浏览器 SDK 的完整接口见[打印客户端 SDK](../reference/client)。
+
+| 能力 | 说明 |
+| --- | --- |
+| 静默打印 | 打到指定的打印机，可设份数、逐份、单双面、彩色或灰度、页码范围；也可以弹出系统的打印对话框 |
+| 原始指令 | 把 ESC/POS、ZPL、TSPL 等指令原样写给打印机 |
+| 导出 PDF | 纸张尺寸不同的输出页导出成一份 PDF，每页保持自己的尺寸 |
+| 打印机列表 | 名称、是否默认、状态（就绪、暂停、脱机、缺纸、卡纸等），单台打印机可查纸张、双面、彩色与最大份数 |
+
+## 安全模型
+
+- 只监听本机的 `127.0.0.1`，不接受其它电脑的连接。端口缺省为 17620，被占用时依次试 17621 到 17623。
+- 按网站授权：每个网站（协议、主机与端口都相同才算同一个）第一次连接时，客户端询问用户一次。只接受 http 与 https 的网站。
+- 打印任务在一个不跑页面脚本、不联网的 WebView2 里渲染。文档用到的图片与字体由浏览器取好后随任务带去，渲染时访问任何别的地址都会被拦下。
+- 原始指令只能发给装在 Windows 里的打印机，不能直连局域网里的 IP 与端口。
+
+## 安装
+
+安装包在仓库的 [Release 页面](https://github.com/XiHanFun/XiHan.PrintDesigner/releases)发布，x64 与 arm64 各一个，文件名形如 `XiHanPrint-<版本>-x64-setup.exe`。
+
+- 按当前用户安装到 `%LocalAppData%\Programs\XiHanFun\PrintClient`，不需要管理员权限。
+- 需要系统的 WebView2 运行时：Windows 11 自带；没有时安装包调起微软的 WebView2 安装程序（要能联网）。
+- 安装向导按系统界面语言显示简体中文或英文。附加任务里可以选开机时自动启动；装好后在开始菜单里有「曦寒打印客户端」。
+- 装新版本时直接运行新的安装包：旧进程先退出，开机自启的设置与授权过的网站都保留。
+- 在 Windows 的「应用」里卸载。卸载时询问是否一起删除设置、来源名单与日志；管理员下发的策略文件不删。
+
+客户端运行后在托盘显示图标，右键菜单里有：
+
+| 菜单 | 作用 |
+| --- | --- |
+| 首行 | 版本与监听的端口 |
+| 设置… | 开机自启、检查新版本、日志级别，允许与拒绝的网站名单（可删除） |
+| 诊断信息… | 版本、WebView2 版本、端口、策略、来源名单与最近的任务 |
+| 打开日志目录 | 日志在 `%LocalAppData%\XiHanFun\PrintClient\logs`，按天滚动，保留 14 天；只记任务的来源、打印机、页数、耗时与错误，不记文档内容与原始指令 |
+| 导出诊断包… | 把诊断信息、日志、设置与策略文件打成 zip，形如令牌的值会打码 |
+| 测试打印 | 给选中的打印机打一页自检页 |
+| 检查更新… | 立即检查新版本；策略关闭检查更新时不显示 |
+| 开机自启 | 开关 |
+| 退出 | 退出客户端 |
+
+## 首次授权
+
+网站第一次连接时，客户端在桌面上弹出授权窗口，写明是哪个网站、它将能不弹对话框直接打印：
+
+- **允许**：记进允许名单，以后不再询问。
+- **仅这次**：只放行这一次连接。
+- **拒绝**：这次不放行；勾上「拒绝时不再询问这个网站」则记进拒绝名单。
+- 60 秒内没人处理，当作这次不允许。
+
+页面这边会收到 `consentpending` 事件，可以提示用户去点「允许」；被拒绝或超时时，连接以 `CONSENT_DENIED` 或 `CONSENT_TIMEOUT` 失败。名单在托盘的「设置」里查看和删除。
+
+## 在页面里连接
+
+整个页面创建一个连接即可，创建时不连，第一次用到时才连：
+
+```ts
+import type { XhPrintPreview } from '@xihan-print/runtime'
+import type { PrintClientJob, PrinterInfo } from '@xihan-print/runtime/client'
+import { createPrintClient, PrintClientError, printWithFallback } from '@xihan-print/runtime/client'
+import { data, schema } from '../templates/delivery'
+
+// 整个页面共用一个连接；创建时不连，第一次用到时才连
+export const client = createPrintClient()
+
+export function watchConsent(notify: (message: string) => void): () => void {
+  // 网站第一次连接时，客户端在桌面上弹出授权窗口
+  return client.on('consentpending', ({ origin }) => notify(`请在打印客户端弹出的窗口里允许 ${origin}`))
+}
+```
+
+最常用的写法是 `printWithFallback`：交给客户端静默打印，等它交给系统的打印队列；只有连不上客户端（没装、没运行，或协议版本不对）时退回浏览器的打印对话框。打印机出错、网站没被允许这类错误照常抛出，不退回，免得用户以为已经静默打出来了：
+
+```ts
+export async function printDelivery(notify: (message: string) => void): Promise<void> {
+  try {
+    const outcome = await printWithFallback(client, schema, data, { printer: '仓库打印机', copies: 2, title: '送货单' })
+    notify(outcome.via === 'client' ? `已交给打印机，共 ${outcome.sheets} 页` : '没有连上打印客户端，已改用浏览器打印')
+  }
+  catch (error) {
+    if (!(error instanceof PrintClientError))
+      throw error
+    switch (error.code) {
+      case 'LOCAL_NETWORK_DENIED':
+        notify('浏览器拦下了到本机打印客户端的连接，请在网站设置里允许访问本机应用')
+        break
+      case 'CONSENT_DENIED':
+      case 'CONSENT_TIMEOUT':
+        notify('打印客户端没有允许这个网站打印')
+        break
+      case 'PRINTER_NOT_FOUND':
+        notify(`找不到打印机 ${String(error.details.printer)}`)
+        break
+      default:
+        notify(`打印失败：${error.code}`)
+    }
+  }
+}
+```
+
+打印选项：
+
+| 选项 | 说明 |
+| --- | --- |
+| `printer` | 打印机名称，缺省为默认打印机 |
+| `copies`、`collate` | 份数（1 到 999）与是否逐份打印 |
+| `duplex` | `simplex` 单面、`long-edge` 长边翻页、`short-edge` 短边翻页 |
+| `color` | `color` 彩色、`grayscale` 灰度 |
+| `pageRanges` | 页码范围，如 `1-3,5` |
+| `dialog` | 为 `true` 时弹出系统的打印对话框，用户选定后再打 |
+| `timeoutMs` | 交给打印队列的期限 |
+| `fitToNearestPaper` | 为 `true` 时，打印机没有某组纸张就改用最接近的纸张，见下文；缺省 `false` |
+
+### 纸张怎么定
+
+打印选项里没有纸张，纸张取自模板：
+
+- 每张页面模板的纸张就是它排出的输出页的尺寸。客户端把输出页按纸张尺寸分组，每组一个打印作业，按输出页的顺序依次送出。模板里换了纸张，打印跟着换；一份模板里混用几种纸张，也是一次交给客户端。
+- 输出页的内容是按模板纸张排好的，所以不另设纸张选项去换成别的纸。
+- 弹出系统打印对话框（`dialog: true`）时，采用对话框里选的打印机、份数、逐份、单双面、彩色与页码范围；纸张仍按模板，在打印机首选项里改纸张不起作用。
+- 送出之前，客户端按打印机的纸张能力逐组核对：驱动报的纸张里有这组的尺寸（宽高各差 1 mm 以内，横放竖放都算），或者驱动接受这个尺寸，才照这组的纸张送出；横向的输出页可以用竖放的同尺寸纸张横过来打。核对时照送出时的设置问驱动会留下哪种纸，驱动会悄悄换成别的纸的，按对不上处理。
+- 有一组对不上，整个任务以 `PAPER_UNSUPPORTED` 失败，一张都不打。`details` 带打印机名（`printer`）、第一个对不上的分组序号（`group`，从 0 起）与它的宽高（`widthMm`、`heightMm`），以及打印机报的全部纸张（`papers`，形状同 `PaperInfo`）。
+- 宿主愿意放宽时，打印选项给 `fitToNearestPaper: true`：对不上的组改用最接近的纸张。横竖两种放法都算，放得下原大内容的纸取面积最小的一种，都放不下时取缩得最少的一种；内容比纸大的等比缩小到放得下，比纸小的原大居中。任务照常完成，`status.warnings` 里每个换了纸的组带一条 `PAPER_FITTED`，`details` 写着换成的纸张（`paper`）、是否横放（`landscape`）与缩放倍数（`scale`）。
+- 驱动不报纸张能力，或者读不出驱动会留下哪种纸时，不拦，照模板的尺寸送出，`status.warnings` 里带 `PAPER_UNCHECKED`。
+- 需要提前提示时，用 `client.printer(name)` 查这台打印机的纸张列表（`capabilities.papers`）。
+- 原始指令的纸张由指令自己决定（如 ZPL 的 `^PW`、`^LL`，TSPL 的 `SIZE`），客户端原样下发，不涉及纸张。
+
+要看任务进度或取消任务时，直接用 `printDocument`，它立即返回一个任务：
+
+```ts
+export async function printToDefault(onStatus: (text: string) => void): Promise<PrinterInfo | undefined> {
+  const printers = await client.printers()
+  const target = printers.find(item => item.isDefault)
+  const job: PrintClientJob = client.printDocument(schema, data, { printer: target?.name, duplex: 'long-edge', pageRanges: '1' })
+  job.onStatus((status) => {
+    onStatus(status.position === undefined ? status.state : `${status.state}，前面还有 ${status.position} 个任务`)
+  })
+  // completed 时兑现，表示已交给系统的打印队列；failed 与 cancelled 时以错误拒绝
+  await job.done
+  return target
+}
+```
+
+任务状态依次是 `queued`、`started`，最后是 `completed`、`failed` 或 `cancelled`。`completed` 表示已经交给系统的打印队列，不等于纸已经打出来；照常完成、但有宿主应当知道的情况（如换了纸、没能核对纸张）时，状态里带 `warnings`。断线后 SDK 自动重连并认回自己的任务，客户端里的任务不受影响。
+
+预览元素与设计器有一个 `printClient` 属性，给了以后它们的打印也先交给客户端：
+
+```ts
+export function usePrintClient(preview: XhPrintPreview): void {
+  // preview.print() 先交给客户端，连不上时才调起浏览器的打印对话框
+  preview.printClient = client
+}
+```
+
+给了 `printClient` 的设计器，设置对话框里多出打印方式一项与「本地客户端」一页：用户可以改用浏览器打印，也可以测试连接，见[设计器的设置](./designer#设置)。
+
+## 原始指令
+
+`printRaw` 把字节原样写给打印机，适合小票机、标签机这类有自己指令集的打印机。指令由业务方自己拼，客户端不做任何解释：
+
+```ts
+export function printReceipt(): PrintClientJob {
+  const bytes = new Uint8Array([
+    0x1B,
+    0x40, // ESC @ 初始化
+    ...new TextEncoder().encode('ORDER 20261017-001\n\n\n'),
+    0x1D,
+    0x56,
+    0x00, // GS V 0 切纸
+  ])
+  return client.printRaw('小票打印机', bytes, { docName: '小票' })
+}
+```
+
+- 打印机要装在 Windows 里，用「Generic / Text Only」或厂商驱动都可以，端口可以是 USB、并口或网络端口。
+- 传字符串时按 UTF-8 编码；打印机要 GBK 等编码时，先自己转成字节。
+
+## 导出 PDF
+
+`exportPdf` 在客户端里把模板排成一份 PDF，纸张尺寸不同的输出页各自保持尺寸，结果是一个 Blob：
+
+```ts
+export async function downloadPdf(): Promise<void> {
+  const pdf = await client.exportPdf(schema, data)
+  const url = URL.createObjectURL(pdf)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = '送货单.pdf'
+  link.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+```
+
+## 打印是怎么完成的
+
+1. 浏览器里照常分页，把输出页渲染成一份独立的 HTML。
+2. 取来输出页用到的图片、背景图与模板字体族的 `@font-face`，地址改写成任务里的资源，随任务一起交给客户端。跨源的图片与字体文件要服务器允许 CORS，取不到时任务以 `RESOURCE_BLOCKED` 失败，不会悄悄少画。资源合计不超过 64 MiB。
+3. 客户端在不跑页面脚本、不联网的 WebView2 里载入这份文档，等字体与图片就绪。
+4. 按纸张尺寸分组，先逐组核对打印机的纸张，再每组一个打印作业，依次交给系统的打印队列；页码范围按全文页码换算到各组，没有选中页的组不核对。
+
+几点限制：
+
+- 纸张尺寸不同的模板打多份时，是第一组打完全部份数再打第二组。
+- 页面里读不到内容的跨源样式表会按 CORS 再取一次，仍取不到就跳过，里面声明的字体不会随任务带去。
+- 浏览器与 WebView2 同为 Chromium，同一台电脑上排出来的折行一致；在 Firefox 里分页、交给客户端打印时，个别元素框里的折行可能不同。
+
+## 企业部署
+
+### 网站要用 HTTPS
+
+Chrome 与 Edge 从 147 版起，公网或局域网里的网页连接本机的 `127.0.0.1` 之前，要先过浏览器自己的「本机应用」权限（`loopback-network`），每个网站询问一次。这个权限只有安全上下文能请求，所以：
+
+- 业务系统要用 HTTPS 提供，`http://localhost` 除外。用 http 提供的局域网系统连不上本机客户端，浏览器也不会弹出询问。
+- 连接被浏览器拦下时，SDK 报 `LOCAL_NETWORK_DENIED`，与「没装客户端」的 `CLIENT_UNAVAILABLE` 分开，宿主可以据此提示用户去网站设置里允许，而不是去安装客户端。
+- 只有能确认连接是被浏览器拦下时才报 `LOCAL_NETWORK_DENIED`：页面不在本机回环地址上（`localhost` 及其子域、`127.0.0.0/8`、`[::1]`），所有端口都在建连期限（`connectTimeoutMs`）内失败，并且这个权限被拒或页面不是安全上下文。页面本身在本机回环地址上时这个权限不起作用；被拦下的连接会立即失败，有端口到期限还没有结果就说明连接没被拦。这两种情形连不上都报 `CLIENT_UNAVAILABLE`。
+- `CLIENT_UNAVAILABLE` 的 `details` 带探测过的端口（`ports`）与浏览器报的这个权限的状态（`permission`：`granted`、`prompt` 或 `denied`，浏览器不认识这个权限时不带），宿主可以按它补一句提示。
+- 企业环境可以用 Chrome 的策略 `LocalNetworkAccessAllowedForUrls` 预先放行业务系统的地址，免得每台电脑第一次使用时各弹一次。
+
+页面嵌在 iframe 里时，每一层 iframe 的 `allow` 都要写上 `loopback-network`：
+
+```html
+<iframe src="https://erp.example.com/print" allow="loopback-network"></iframe>
+```
+
+### 客户端策略
+
+管理员可以在 `%ProgramData%\XiHanFun\PrintClient\policy.json` 放一份策略，优先于用户的设置。文件允许注释与末尾逗号：
+
+```jsonc
+{
+  // 预先放行的网站，不弹授权窗口
+  "allowedOrigins": ["https://erp.example.com"],
+  // 为 false 时不认识的网站一律不放行，只认上面的名单与用户允许过的网站
+  "promptForUnknownOrigins": false,
+  // 固定监听的端口；SDK 的 ports 选项要与它一致
+  "ports": [17620],
+  "updates": {
+    // 是否检查新版本
+    "check": true,
+    // 自建的更新清单地址，只认 https，按顺序尝试
+    "manifestUrls": ["https://intranet.example.com/print-client/update.json"]
+  }
+}
+```
+
+- 不合法的来源、端口与地址记一条警告日志后跳过；整个文件读不出时按没有策略处理，并记错误日志。
+- 策略里的网站在设置窗口里标「（策略）」，用户不能删除。托盘的「诊断信息」显示当前生效的策略。
+
+### 批量安装
+
+安装包支持 Inno Setup 的命令行参数，按当前用户静默安装与卸载：
+
+```cmd
+XiHanPrint-<版本>-x64-setup.exe /VERYSILENT
+"%LocalAppData%\Programs\XiHanFun\PrintClient\unins000.exe" /VERYSILENT
+```
+
+`/LANG=en` 强制用英文向导。安装不需要管理员权限，所以要在每个使用打印的 Windows 用户下各装一次。
+
+### 新版本
+
+客户端启动 2 分钟后检查一次新版本，之后每天一次，先查 Gitee、再查 GitHub 上的更新清单；发现新版本时弹出提示，写明版本与发布说明。用户可以在设置里关掉检查，管理员可以用策略关掉，或换成内网的清单地址。
+
+---
+
+来源：https://print.docs.xihanfun.com/guide/designer
+
+# 设计器
+
+`<xh-print-designer>` 是可视化的模板设计器：画布按纸张显示一张页面模板的页眉、正文与页脚，旁边是物料、属性与问题列表。它只吃模板与数据、吐模板与事件，模板存在哪里、谁能改，都由宿主决定。属性、方法与事件的完整列表见[设计器参考](../reference/designer)。
+
+## 接入
+
+```bash
+pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/designer-shell
+```
+
+设计器用到 XiHan.UI 的设计器零件，样式要四份一起引入。`definePrintDesigner()` 注册设计器、它内部用到的预览与 UI 元素，重复调用不报错：
+
+```ts
+import type { PrintDesignerEventMap } from '@xihan-print/designer'
+import type { DataField } from '@xihan-ui/designer-kit'
+import { definePrintDesigner } from '@xihan-print/designer'
+import { data, schema } from '../templates/delivery'
+import '@xihan-ui/styles/index.css'
+import '@xihan-ui/designer-shell/style.css'
+import '@xihan-print/runtime/style.css'
+import '@xihan-print/designer/style.css'
+
+definePrintDesigner()
+```
+
+把模板交给 `schema`，可绑定的字段树交给 `fields`：属性面板里选字段时从这棵树里选，物料面板也多出「字段」一组，字段可以直接拖上画布（见下文「字段物料」）：
+
+```ts
+const fields: DataField[] = [
+  { name: 'customer', label: '客户', kind: 'object', children: [{ name: 'name', label: '名称', kind: 'value' }] },
+  { name: 'date', label: '日期', kind: 'value' },
+  {
+    name: 'items',
+    label: '明细',
+    kind: 'list',
+    children: [
+      { name: 'name', label: '品名', kind: 'value' },
+      { name: 'qty', label: '数量', kind: 'value' },
+      { name: 'price', label: '单价', kind: 'value' },
+      { name: 'amount', label: '金额', kind: 'value' },
+    ],
+  },
+]
+```
+
+```ts
+const designer = document.createElement('xh-print-designer')
+designer.schema = schema
+designer.fields = fields
+designer.sampleData = data
+designer.data = data
+```
+
+- `sampleData` 是画布上显示用的示例数据，给了就按它显示实际值，不给时字段显示成 `{path}` 占位。
+- `data` 是切到预览态与打印时用的数据。
+
+
+## 界面
+
+外框从上到下是菜单栏、工具栏、中间三栏（左边物料与页面结构、中间画布、右边属性）、下方的问题列表与最底下的状态栏。各块面板停在哪一栏、显不显示、收没收起、浮没浮出，记在一份面板布局里，见下文「面板布局」；预览态只留菜单栏、工具栏与画布。
+
+| 部分 | 位置 | 面板 id | 作用 |
+| --- | --- | --- | --- |
+| 菜单栏 | 最上面 | — | 文件、编辑、视图、插入、页面、帮助几张菜单，见下文「菜单栏」；正中放宿主的模板标题，右边一段放宿主别的常显内容。常开 |
+| 工具栏 | 菜单栏下面 | — | 撤销重做；剪切、复制、粘贴、创建副本、删除；对齐（左、水平居中、右、顶端、垂直居中、底端）、分布（水平、垂直）与层级（置顶、上移一层、下移一层、置底），每条一颗图标钮；拖动工具、缩放、网格与吸附开关；设计与预览、页面设置、打印；末组是面板，设置与帮助在菜单栏里 |
+| 物料 | 左栏 | `palette` | 按分组列出元素：每组是组名一行，下面是元素的方形小卡片，种类的图标在上、名称在下，按面板宽度自动排成几列；悬停或用键盘走到一张卡片时提示它的名称。点一下把元素加到视口中央，拖到画布上放在落点。「字段」一组按字段树一行一个地显示，见下文「字段物料」。扩展的物料来源另加的几组排在后面，见下文「扩展」 |
+| 页面结构 | 左栏，物料下面 | `outline` | 按页面模板列出页眉、正文与页脚里的元素，同一处最上层的排最前；点一项选中它，在同一处里调层级，见下文「页面结构」 |
+| 画布 | 中间 | — | 按纸张显示当前页面模板的页眉、正文与页脚，区的标签上切换页眉页脚的变体 |
+| 标尺 | 画布上边与左边 | — | 毫米标尺；从标尺拖出参考线，参考线存进页面模板，只用于对位、不打印。设置里可以关掉 |
+| 翻页条 | 画布右侧中间 | `pages` | 画布上的浮动件，只能显示或隐藏。上一页、页码、下一页，新增、复制、删除页面模板。页码钮上写「第几个 / 共几个」，点它列出全部页面模板，点一项切过去，下面是上移、下移页面 |
+| 小地图 | 画布左下角 | `minimap` | 画布上的浮动件，只能显示或隐藏。按页显示：当前页面模板的纸一块淡色，当前显示的页眉页脚变体与正文里的元素各一块，框出画布此刻看到的范围；在上面按下或拖动，视口中心移到那里。键盘上，画布没有选中元素时按方向键平移视口 |
+| 选中工具条 | 选中框上方 | — | 选中元素时浮出：层级四颗钮、创建副本、复制与删除；文字类元素多出字号（钮上写当前字号）、文字样式与左中右对齐，多选多出对齐六颗与分布两颗，见「画布操作」 |
+| 尺寸徽标 | 选中框下方 | — | 选中元素时常驻宽 × 高（mm），单选时可以直接改，见「画布操作」 |
+| 属性 | 右栏 | `properties` | 编辑选中的元素，多选时只显示共同的属性；没有选中时编辑页面设置；表格编辑态里编辑选中的表格部位 |
+| 历史记录 | 右栏，属性下面 | `history` | 缺省隐藏，从「面板」菜单打开。按先后列出撤销历史的每一步，当前位置那一行选中，选一行就跳到那一步；已撤销的一步字色减淡。面板头是「清空历史」，先确认再清空。只读与预览态时只能看 |
+| 问题 | 下方 | `issues` | 校验问题列表，点一下切到问题所在的页面模板并定位到元素；错误、警告数在面板头上，点一下只看或不看这一级 |
+| 状态栏 | 最下面 | — | 左边写选中的对象：没有选中时是当前页面模板与上面的元素个数，选中一个是种类与位置尺寸（mm），选中多个是个数；右边写打印客户端的连接状态（给了 `printClient` 时）与缩放，点缩放回到实际尺寸。设置里可以关掉 |
+
+物料、页面结构、属性、历史记录与问题是外框里的卡片：面板头写图标与标题，属性面板的标题下面写正在编辑的对象，「?」里是这块面板的用法。
+
+### 面板布局
+
+- 面板头上的「×」隐藏这块面板，收起钮（或双击面板头）收成只剩标题条，「更多」菜单里换到别的栏、调先后、浮出成小窗或停靠回去。按住面板头拖：拖到外框边上换栏，拖到两块面板之间调先后，拖到画布上浮出成小窗；小窗不出外框。
+- 工具栏的「面板」菜单列出物料、属性、问题、翻页条、小地图、页面结构与历史记录，勾选的显示；末尾是「显示 / 隐藏所有面板」（Ctrl / ⌘ + \）、「还原面板显隐」（Ctrl / ⌘ + Shift + \，位置与大小不动）与「恢复默认布局」。
+- 布局一改，设计器就把整份布局写进设置的 `layout.panels`（`DESIGNER_SETTING_KEYS.layout`），派发 `settings-change`，宿主存起来、下次随 `settings` 赋回即可；给了 `settingsStorageKey` 时设计器自己存。拖分隔条只在松手时写一次。
+- 宿主用 `defaultLayout` 给缺省布局：用户没存过布局时用它，「恢复默认布局」也回到它。用 `settingsPolicy` 管控：`layout.panels` 锁定整份布局，`layout.panels.<面板 id>` 写 `hidden` 就没有这块面板、写 `locked` 就固定这块面板。面板 id 见包入口导出的 `PRINT_DESIGNER_PANELS`。
+
+```ts
+export function wireLayout(designer: XhPrintDesigner): void {
+  // 缺省收起问题列表；宿主的业务里用不到翻页条，也不许用户把它开出来
+  designer.defaultLayout = { version: 1, hidden: [PRINT_DESIGNER_PANELS.issues] }
+  designer.settingsPolicy = { [`${DESIGNER_SETTING_KEYS.layout}.${PRINT_DESIGNER_PANELS.pages}`]: 'hidden' }
+}
+```
+
+窗口窄时左右两栏收起，从「面板」菜单打开时以抽屉盖在画布上；浮出的面板在窄屏时按停靠位置收进抽屉。
+
+工具栏缺省只显示图标，设置里可以换成文字或图标加文字；翻页条与选中工具条只显示图标。没有图标的按钮写一段短文字，比如页码钮写「1 / 3」、字号钮写当前字号，按钮的名字里含着这段字。按钮的名字与快捷键报给读屏，悬停或键盘聚焦到按钮时提示命令的文字与快捷键；会删掉内容的命令按危险色显示。工具栏放不下时，末尾的按钮收进「更多」。
+
+有几条命令点开的不是一个动作，而是锚在按钮上的弹层或菜单：
+
+- 「页面设置」是弹层，改当前页面模板的纸张、方向与页边距，与属性面板里「纸张」一组是同一批属性，改动同样记撤销。
+- 对齐、分布与层级每条一颗钮，一字排开，工具栏或选中工具条放不下时多的收进它们各自的「更多」。翻页条上的页码与选中工具条上的字号是菜单。
+
+扩展登记的面板也放进外框，同样记在面板布局里，见下文「面板」。各区的属性见[元素](../reference/elements)，属性面板的分组与中文名与它一致。
+
+### 菜单栏
+
+菜单栏在外框最上面，菜单按命令表排：
+
+| 菜单 | 条目 |
+| --- | --- |
+| 文件 | 保存；导入字段；打印；设置 |
+| 编辑 | 撤销、重做；剪切、复制、粘贴、删除、创建副本；全选；编辑 JSON（开发者模式开着时） |
+| 视图 | 设计、预览；放大、缩小、适合窗口、实际大小；拖动；网格、吸附；面板（子菜单，就是工具栏上「面板」那一张）、外观（子菜单：显示工具栏与状态栏） |
+| 插入 | 各种元素，按物料分组各成一组，扩展的元素排在它的分组里；页眉、页脚（子菜单，见下） |
+| 页面 | 纸张、方向（子菜单，单选）、页面设置；上一页、下一页；新增、复制、删除页面；上移、下移页面 |
+| 帮助 | 开始引导、帮助、快捷键；关于 |
+
+- 条目写图标、名称与快捷键，开关式的命令（设计与预览、拖动、显示开关）带勾，此刻不可用的灰掉；没有条目的菜单不出现。预览态照样有菜单栏，从「视图」切回设计。
+- 插入菜单里选一种元素，与点物料一样放在视口中央并选中。页眉、页脚的子菜单与画布上区标签的变体菜单做同一件事：上半是已有的变体，单选，当前显示的打勾；下半是还没有的变体，写「新增变体 · 首页」这样，选了新增并切过去；显示的不是常规时，末尾是「删除变体」。
+- 页面菜单的纸张列出各种纸张预设，方向是纵向与横向，当前页面模板的打勾，选中写进当前页面模板、记一步撤销；自定义纸张与页边距在「页面设置」里改：它取消选择，在属性面板里编辑当前页面模板，属性面板藏着时把它显示出来。只读与预览态时插入菜单与纸张、方向不可用，只读时「页面设置」照样能看。
+- 「快捷键」「关于」打开设置对话框的那一页。「视图 → 外观」的两条显示开关改的是设置（`toolbar.visible`、`general.statusBar`），和在对话框里改一样派发 `settings-change`；`settingsPolicy` 藏起或锁定了那一条时它不可用。
+- 键盘：焦点在设计器里时按 F10 进菜单栏，焦点落到第一张菜单上；左右键换菜单，下、Enter、Space 展开，Esc 收起；再按 F10 或 Esc 回到进来前的地方。不用 Alt 与 Alt + 字母，它们留给浏览器。
+- 窗口窄时整条收成一颗「菜单」钮，点开后每张菜单是一个子菜单。
+- 菜单栏常开，设置里没有关掉它的开关。
+- 宿主的内容写成设计器元素的子元素，按 `slot` 放进外框，后来加的也一样：
+  - 模板标题写 `slot="menubar-center"`，按整条菜单栏居中，放不下截断、再窄就藏起，窄屏收成「菜单」钮时同样居中。
+  - 保存状态写 `slot="status-end"`，在状态栏右端、打印自己的状态项（打印客户端连接状态、缩放比例）前面；设置里关掉状态栏时跟着不显示。
+  - 别的要常显的写 `slot="menubar-end"`，在菜单栏右边一段。
+  - 上面的示例把标题与保存状态放在这两处，见下文「保存与事件」。
+
+宿主的命令写成一个扩展的命令，`placement` 写 `menubar:<菜单 id>` 落进那张菜单（`file`、`edit`、`view`、`insert`、`page`、`help`；打印的两张菜单的 id 是导出的 `PRINT_MENUBAR_MENUS`），不在缺省排列里的自成一组，排在那张菜单收尾的一组之前，只有一组的菜单接在后面。要定位置时用 `commandLayout['menubar:<菜单 id>']` 写整份排列，给空数组就不要这张菜单：
+
+```ts
+// 宿主自己的「新建」「返回列表」挂进文件菜单，新建同时上工具栏；再把文件菜单排成新建与保存、返回列表、设置三组
+export function hostCommands(designer: XhPrintDesigner, actions: { readonly create: () => void, readonly back: () => void }): void {
+  designer.extensions = [{
+    id: '@acme/host',
+    commands: [
+      { id: '@acme/host.new', label: '新建', placement: ['menubar:file', 'toolbar'], run: actions.create },
+      { id: '@acme/host.back', label: '返回列表', placement: ['menubar:file'], run: actions.back },
+    ],
+  }]
+  designer.commandLayout = { 'menubar:file': [['@acme/host.new', 'save'], ['@acme/host.back'], ['settings']] }
+}
+```
+
+### 页面结构
+
+页面结构按页面模板分组，每个页面模板下分页眉、正文与页脚；页眉页脚加了首页、末页、奇偶页这些变体时，再按变体分。页眉、页脚里一个元素都没有时不列。同一处的元素按层级排，最上层的排最前；元素有名称时写名称、副文本是种类，没有名称时写「种类 · id」，行首是种类的图标。
+
+- 点一项选中元素：它不在当前页面模板或当前显示的页眉页脚变体上时，先切过去再选中，并滚进可见区。悬停或用方向键走到一项时，画布上标出它。
+- 能多选，与画布上的选择是同一份：按住 Ctrl（macOS 为 ⌘）点一项或按 Ctrl / ⌘ + Space 加选、取消，按住 Shift 点一项从上一次点的那项选到这一项，分组行不算。新选上的第一个滚进可见区，只取消几项时画布不动。选择只留当前页面模板与当前页眉页脚变体里的元素：加选别处的元素时切过去，原来的选择随之换掉。
+- 拖动一项，或按 Alt 加上下键，在同一处里调层级，记一步撤销；要把元素从页眉挪到正文、或挪到别的页面模板，仍在画布上拖。锁定的元素不能挪、也不能从这里删。
+- Delete 删除焦点所在的一项，焦点在选中的项上时删全部选中的，记一步撤销。
+- 搜索框按名称与种类过滤。只读与预览态时只能选、不能删与挪。
+
+## 字段物料
+
+给了 `fields` 时，物料面板最后多出「字段」一组，按字段树显示：带子字段的可以展开、收起，键盘与读屏按树的约定，搜索也能按字段名称与路径找。点一下把绑好字段的元素加到视口中央，拖到画布上放在落点：
+
+| 字段 | 生成 |
+| --- | --- |
+| `value`，`content` 不写或为 `text` | 文本，内容绑定这个字段 |
+| `value`，`content` 为 `image` | 图片，地址取这个字段 |
+| `value`，`content` 为 `barcode` | 条码（缺省码制），内容绑定这个字段 |
+| `value`，`content` 为 `qrcode` | 二维码，内容绑定这个字段 |
+| `list` | 表格：`dataField` 指向它，各列取它的 `value` 子字段（进入对象、不进入嵌套的列表），列标题取字段名称，列宽均分表格宽度；`content` 为图片、条码、二维码的子字段对应同类单元格 |
+| `object` | 不生成元素，只作分组 |
+
+- 字段写了 `label` 时，新元素的名称就是它；条目上同时显示字段路径。
+- 列表的子字段相对数组的一行，只作浏览、不能拖出：要放行里的字段，先放表格，再在属性面板里改列。
+- `content` 是 XiHan.UI 字段树 `DataField` 的可选项，说明这个值代表什么；`type` 是数据类型，与生成哪种元素无关。
+
+### 导入字段
+
+物料面板头的「导入字段」（也在文件菜单里）打开导入对话框，从一份 JSON 样例或一份 JSON Schema 生成字段树，不用宿主手写 `fields`：
+
+- 「JSON 样例」「JSON Schema」两页各有一个输入框，粘贴进来，或把 `.json` 文件拖到输入框下面、点它选一个，文件在本机读，不发请求。解析失败时写出第几行第几列。
+- 预览表一个字段一行，可以勾掉不要的、改显示名与类型；值字段的「内容」选文本、图片、条码或二维码，决定拖上画布生成哪种元素（见上表）。从样例推断时，图片地址（`data:image/…` 或以图片扩展名结尾的链接）预先标成图片。
+- 已有字段时可选「合并到现有字段」（缺省）或「替换现有字段」：合并时同名字段保留现有的显示名，种类不同的保留现有的并在表下列出；替换可能让模板里已有的绑定找不到字段，问题列表会报出来。
+- 来自样例时可以勾上「同时作为示例数据」（缺省勾上），画布马上按这份样例显示实际值。
+- 按「导入」后设计器换上新的 `fields` 并派发 `fields-change { fields }`；带了示例数据的同样换上 `sampleData` 并派发 `sample-data-change { sampleData }`。字段与示例数据仍由宿主持有，不写进模板：宿主存起来，下次赋回。不记撤销。
+- 字段来自后端元数据、不许用户改时写 `fields-readonly`：面板头没有这颗钮，命令 `import-fields` 不可用。只读与预览态时同样没有。
+- `openFieldImport(source?)` 从别处打开对话框，`source` 是 `sample`、`json-schema` 或扩展字段来源的 id。
+
+```ts
+export function wireFields(designer: XhPrintDesigner, store: FieldStore, fromBackend: boolean): void {
+  designer.fields = store.fields
+  designer.sampleData = store.sample
+  // 字段来自后端元数据时不许在设计器里改
+  designer.fieldsReadonly = fromBackend
+  designer.addEventListener('fields-change', (event) => {
+    store.save({ fields: (event as CustomEvent<{ fields: readonly DataField[] }>).detail.fields })
+  })
+  designer.addEventListener('sample-data-change', (event) => {
+    store.save({ sample: (event as CustomEvent<{ sampleData: JsonValue }>).detail.sampleData })
+  })
+}
+```
+
+页码的格式是一行文本，行尾的「插入」菜单把当前页码 `{{$page}}` 或总页数 `{{$pages}}` 插到光标处，下面按第 1 页、共 3 页显示示例，数字写法跟着「数字写法」一栏。
+
+边框分上、右、下、左四个页签，每边一个开关：打开时这一边照已有的边画线，还没有边时是 0.2 毫米黑色实线，下面可以改线宽、线型与颜色；四边都关掉就是没有边框。多选的元素边框不同时，从四边都不画开始改，改动对每个元素整体写入。
+
+值格式先选种类：常用格式（数字、百分比、日期、人民币大写、数字字形）在下面填参数并显示示例；值映射是 XiHan.UI 设计器零件内建的选项表（`options`，不带禁用列），「数据值、显示文本」两列，可以新增、删除与上移下移，下面填没有命中时显示的文本；表达式以 `value` 引用待格式化的值，边输入边检查。换种类时整体换成这一种的缺省值，选「不设格式」即去掉格式。
+
+## 画布操作
+
+- **选择**：点选元素；按住 Shift、Ctrl 或 ⌘ 点击切换某个元素的选中；在空白处拖动框选。
+- **移动与变换**：拖动元素移动，拖控制柄缩放；文本、图片、矩形、椭圆、条码与二维码还能旋转。锁定的元素不能拖动与缩放。
+- **选中工具条**：选中元素时，选中框上方浮着一条工具条：都有层级（置顶、上移一层、下移一层、置底）、创建副本、复制与删除；选中的全是文本、长文本、富文本或页码这类带文字样式的元素时，前面多出字号、粗体、斜体、下划线、删除线与左中右对齐，对选中的每个元素写同一个值，记一步撤销；选了几个元素、里面有别的种类时，多出对齐与分布。放不下的钮收进工具条自己的「更多」。贴顶放不下时翻到下方，拖动中与只读时收起。在画布上按 Alt+F10 把焦点交给它，在工具条里按 Esc 回到画布。排列怎么改见下文「命令」。
+- **尺寸徽标**：选中元素时，选中框下方常驻宽 × 高（mm）。单选、元素能缩放时是两个数字框：点加减钮或按上下方向键改 1 mm，Shift 加上下方向键改 10 mm，连续改并成一步撤销；输入数字后按 Enter 或离开数字框才改，单独一步撤销，按 Esc 放弃。改的时候左上角不动，不小于这种元素的最小尺寸，二维码改一边另一边跟着变。锁定的元素、多选与只读时只显示尺寸。在选中工具条里按 Tab 进到徽标。
+- **换区**：元素中心拖进页眉、正文或页脚，就放进那个区；表格、长文本与富文本只能留在正文区。
+- **页眉页脚**：在区的标签上切换当前编辑的变体（缺省、首页、末页、奇数页、偶数页），可以新增或删除变体；拖动区的边界改高度。
+- **平移与缩放**：设计器打开、换页面模板或重新装载模板时按实际大小显示（缩放 100%），纸的左上角落在画布左上角，上边与左边留出边距，左边让出页眉页脚标签；画布改尺寸时不重排。工具栏的「适合窗口」（`zoom-to-fit`，键 0）把整张纸缩放到画布里，此后画布改尺寸时跟着重新适配，直到平移、缩放或在画布上操作。滚轮平移，Ctrl / ⌘ + 滚轮以指针为中心缩放；按住空格或鼠标中键拖动平移。工具栏的「拖动」（手形，键 H）开着时，在画布上哪里按住拖动都是平移，按在元素、控制柄与表格把手上也一样：不选中、不挪元素，只点一下不取消选择，双击不进表格编辑；选中工具条、尺寸徽标与页眉页脚变体菜单照常能点。拖动途中按 Esc 只取消这次拖动，视口回到原处；不在拖动时按 Esc 关上拖动工具。
+- **吸附**：拖动、新建与缩放元素时吸附到网格间距（设置「打印」一页，缺省 1 mm，写 0 不吸附网格）；「吸附对齐」打开时还吸附其它元素、页边距、区边界与参考线，并显示对齐线。工具栏上的「网格」开关显示或收起网格线，「吸附」开关就是「吸附对齐」，两者改的都是设置。
+- **表格编辑态**：双击表格或选中后按 Enter 进入。可以分别选中列、表头、表体、表尾行与表尾单元格，在属性面板里编辑；拖列边界改列宽；右键菜单里插入、删除、左右移动列，插入、删除表尾行，合并与拆分表尾单元格。按 Esc 退出。
+- **右键菜单**：在空白处、元素上与表格编辑态里各有一套，带快捷键的条目在行尾显示快捷键。设计器先派发可取消的 `blank-contextmenu`、`element-contextmenu` 或 `table-contextmenu`（表格编辑态里，右键处的部位先被选中），宿主取消后不弹自带的菜单，可以换成自己的。
+
+## 设置
+
+设置是用户偏好，每人每机一份，不随模板保存。`openSettings(section?)` 打开设置对话框，左边一个分区一页：
+
+- 「基础」（`general`）：主题（跟随页面、跟随系统、亮色、暗色）、主题色（跟随页面、八种预设与自定义颜色）、状态栏开关、自动保存、开发者模式与分页、渲染两条调试日志。开发者模式缺省关，关着时编辑 JSON 这类调试查看的入口都不出现，两条调试日志也不能开，见下文「调试日志」。
+- 「语言」（`language`）：设计器的界面语言，缺省跟随页面；也可以跟随系统，或选 XiHan.UI 的十种语言之一。只作用于这台设计器：设计器自己、外壳零件与里面的元素（含弹出的菜单、对话框这些浮层）一起换，页面别处不变；跟随系统按浏览器的语言偏好挑最接近的一种，挑不到用英文。语言包选了才按需加载。键是 `language.locale`（`DESIGNER_SETTING_KEYS.language`）。
+- 「布局」（`layout`）：逐块面板一行，改显示、停在哪一栏、先后与收起，表下「恢复默认布局」；改的就是上文「面板布局」那一份。
+- 「工具栏」（`toolbar`）：按钮的显示方式（图标、文字、图标和文字，缺省只显示图标）、显示工具栏，以及按钮表：藏起不用的按钮、换先后与分组，「恢复默认」回到宿主排好的样子。显示方式与显示工具栏只走设置，没有单独的属性；画布上的翻页条总是只显示图标。按钮表从宿主用 `commandLayout` 排好的工具栏起步，只管顶部工具栏，菜单栏、选中工具条与右键菜单不在里面。
+- 「打印」（`print`）：打印方式、显示网格、网格间距、吸附对齐、显示边距线、标尺。打印方式只在给了 `printClient` 时才有，选本地客户端（缺省）还是浏览器：本地客户端直接交给打印机，连不上时退回浏览器的打印对话框；选浏览器时 `print()` 总是弹出浏览器的打印对话框。网格缺省不显示，间距缺省 1 mm，按当前缩放挤得太密时改按间距的整数倍画；边距线与标尺缺省显示。
+- 「本地客户端」（`printClient`）：给了 `printClient` 才有这一页，写连接状态：已连接、未连接或未安装。「测试连接」调宿主给的 `printClient` 的 `connect()` 连一次；没找到客户端（`CLIENT_UNAVAILABLE`）时写未安装，这时也可能是装了没有运行。没连上时下面有「下载客户端」链接，缺省指向本站的[本地打印客户端](./client)一页（`PRINT_CLIENT_DOWNLOAD_URL`），宿主用 `clientDownloadUrl`（attribute `client-download-url`）换成自己的地址。端口与来源授权仍由宿主建连接时与客户端管，设计器不自己建连接。
+- 扩展登记的分区，排在后面。分区 id 与 `general`、`language`、`layout`、`toolbar`、`help`、`shortcuts`、`about`、`print`、`printClient` 或别的扩展重名时，给 `extensions` 赋值就抛 `DesignerExtensionError`。
+- 「帮助」（`help`）：几段操作说明，下面是「开始引导」与「帮助」两颗钮，按了先关上对话框再开始引导或打开本站的设计器一页。
+- 「快捷键」（`shortcuts`）：按命令表列出全部快捷键，分通用、编辑、打印设计器与扩展几组，第二快捷键写在同一行；打印设计器那组末尾补上不是命令的 Ctrl / ⌘ + C、X、V 复制剪切粘贴，Backspace 删除与 Enter 编辑表格；保存是外壳的命令，列在「通用」里；「通用」里方向键一行写明没有选中时平移画布，Esc 一行写明取消拖动、退出表格编辑或取消选择，其余照 designer-shell 的通用行（含 F10 进菜单栏）。
+- 「关于」（`about`）：打印设计器的版本（包入口导出的 `PRINT_VERSION`，与包版本一致）与许可证，后面接扩展给的几行。
+
+```ts
+export function openCanvasSettings(designer: XhPrintDesigner): void {
+  designer.openSettings(PRINT_SETTINGS_SECTION)
+}
+```
+
+值是扁平的键值，键是「分区 id.条目 id」，如 `general.theme`、`print.showGrid`，没写的键取缺省值。宿主给缺省、锁定条目或读值时用常量，不手写键：「打印」分区的 id 与各条目的键是包入口导出的 `PRINT_SETTINGS_SECTION` 与 `PRINT_SETTING_KEYS`，「本地客户端」分区的 id 是 `PRINT_CLIENT_SETTINGS_SECTION`，「基础」「布局」「工具栏」三页的键是 `@xihan-ui/designer-shell` 的 `DESIGNER_SETTING_KEYS`（如工具栏的显示方式 `toolbar.display`、显示工具栏 `toolbar.visible`、按钮表 `toolbar.layout`）。`settings` 赋值即生效；用户在对话框里、用「视图 → 外观」的显示开关或工具栏的网格、吸附开关改了一条，设计器换成新的一份并派发 `settings-change`，宿主存起来、下次赋回。`settingsPolicy` 隐藏或锁定条目，键是条目键或分区 id：`hidden` 不显示，一个分区的条目全藏了就没有这一页；`locked` 只读，说明换成「由所在系统管理」。
+
+```ts
+export function wireSettings(designer: XhPrintDesigner, saved: PrintSettings, store: (settings: PrintSettings) => void): void {
+  // 宿主自己的缺省压在下面，用户存过的值盖在上面
+  designer.settings = { [PRINT_SETTING_KEYS.gridSize]: 5, [PRINT_SETTING_KEYS.showGrid]: true, ...saved }
+  designer.settingsPolicy = { [DESIGNER_SETTING_KEYS.theme]: 'hidden', [DESIGNER_SETTING_KEYS.brand]: 'hidden', [PRINT_SETTING_KEYS.snap]: 'locked' }
+  designer.addEventListener('settings-change', (event) => {
+    store((event as CustomEvent<{ settings: PrintSettings }>).detail.settings)
+  })
+}
+```
+
+- **主题只作用于设计器**：主题与主题色写在 `<xh-print-designer>` 自己的 `data-theme`、`data-brand` 上，页面其余部分不变；设置对话框、菜单这些浮层跟着设计器变。主题色内置：跟随页面（缺省，不写 `data-brand`）、XiHan.UI 的八种预设，或自定义一种颜色，宿主不用传预设；自定义的颜色注册成这台设计器自己的品牌，取不出色阶的颜色不生效。
+- **扩展读设置**：命令、面板与扩展从上下文的 `settings` 读值，各分区没写的条目已经取了缺省值，如 `context.settings['print.gridSize']`。
+
+独立使用、没有宿主替你存时，给 `settingsStorageKey`：连上文档时若没赋 `settings` 就从根所在窗口的 localStorage 读，用户改了设置就写回去；标了 `secret` 的文本条目（如密钥）不存。读写失败派发 `settings-storage-error`，设置留在内存里。不给就不读写存储。
+
+```ts
+export function standalone(designer: XhPrintDesigner): void {
+  designer.settingsStorageKey = 'print-designer:settings'
+  designer.addEventListener('settings-storage-error', (event) => {
+    console.warn('设置没能读写本机存储，这次改的只在内存里', (event as CustomEvent<{ error: unknown }>).detail.error)
+  })
+}
+```
+
+### 调试日志
+
+开发者模式开着时，「基础」里能打开分页调试日志（`general.debugPagination`）与渲染调试日志（`general.debugRender`），缺省都关。打开后设计器把记录写到浏览器的控制台，每条折叠成一组，标题以 `[xh-print-designer] pagination` 或 `render` 开头；只写控制台，不上报。关掉开发者模式，两条日志随即停。
+
+- 分页：切到预览或打印时，每个页面模板开始排、按假定的页数选的页眉页脚变体不对而重排、表格这类跨页元素在哪页放不下续排到哪页、元素在哪页放不下整块挪到哪页、排完共几页，组里是这一步的数据。
+- 渲染：设计器每次重画（改了哪些属性）与设计态排版的耗时；预览与打印的各环节——分页、生成输出页的 DOM、等图片与字体就绪、合成交给本地客户端的文档、送打印——各记一组耗时，组里写输出页数、资源个数或字节数；一次打印另记一组总耗时与结果。
+
+分页步骤与打印环节来自运行时的 `trace` 回调，宿主自己用预览元素或 `printDocument` 时也能接，见[运行时](./runtime#调试回调)。
+
+## 新手引导
+
+设计器第一次在设计态显示出来（画布有了尺寸，放在没打开的页签里时等它打开）后，自动开始新手引导：先是各款共用的几步（欢迎、菜单栏、工具栏、物料、画布、属性、问题与状态栏），再是打印自己的几步——「插入」菜单、页眉与页脚、「页面」菜单、页面模板、字段物料与打印，最后一步是设置。一步高亮一块面板、一个区、菜单栏上的一张菜单或工具栏上的一颗钮，目标看不见（面板隐藏、按钮不在工具栏上）的那步自动跳过。
+
+- 菜单栏一步高亮整条菜单栏，讲各张菜单里有什么、按 F10 进出菜单栏；「插入」「页面」两步高亮菜单栏上那张菜单的入口；设置一步高亮「文件」菜单的入口，说设置在里面、引导能从「帮助」重新开始。字段物料与打印两步的说明带一句它们也在「文件」菜单里。
+- 窗口窄、菜单栏收成一颗「菜单」钮时，菜单栏一步高亮这一条，「插入」「页面」与设置几步都落在「菜单」钮上。
+
+- 走完、跳过或关上之后，设计器把设置的 `help.tourDone`（`DESIGNER_TOUR_DONE_KEY`）写成 `true` 并派发 `settings-change`，宿主存起来，下次就不再自动开始。
+- 引导限在设计器的外框里：遮罩只盖外框，高亮框裁在外框里，页面别处照常可读可点。同一页同时只有一个引导：别的设计器的引导开着时不自动开始。
+- `autoTour`（attribute `auto-tour`）写 `false` 关掉自动开始。
+- `startTour()` 从头开始，同一页里别的引导开着时先收起它，预览态或没有能走的步骤时返回 `false`；命令 `start-tour` 与设置「帮助」页的「开始引导」做同一件事，缺省在帮助菜单里、不上工具栏，宿主可以经 `commandLayout` 放上去。
+- 扩展的 `tourSteps` 往后面加步骤，`order` 从 200 起；目标写 `{ panel }`、`{ region }`、`{ command }`、`{ selector }`，或 `{ menubar: '<菜单 id>' }`（菜单栏上那张菜单的入口，窄屏时是「菜单」钮，菜单栏上没有这张菜单时跳过）。步骤 id 写扩展 id 加点，与别的扩展重名或用了 `shell.` 前缀时赋值即抛 `DesignerExtensionError`。
+
+## 快捷键
+
+焦点在设计器里、且不在输入框与面板里时生效，只在设计态。
+
+| 按键 | 作用 |
+| --- | --- |
+| Ctrl / ⌘ + Z | 撤销 |
+| Ctrl / ⌘ + Shift + Z，Ctrl + Y | 重做 |
+| Ctrl / ⌘ + C、X、V | 复制、剪切、粘贴，走系统剪贴板 |
+| Ctrl / ⌘ + D | 创建副本 |
+| Ctrl / ⌘ + A | 全选当前页面模板里看得见的元素 |
+| Ctrl / ⌘ + S | 保存：执行外壳的 `save` 命令，派发 `save` |
+| Ctrl / ⌘ + Shift + J | 打开编辑 JSON 的对话框（开发者模式开着时；关着时交给浏览器） |
+| Ctrl / ⌘ + , | 打开设置对话框 |
+| Ctrl / ⌘ + ]、[ | 上移一层、下移一层 |
+| Ctrl / ⌘ + Shift + ]、[ | 置于顶层、置于底层 |
+| Delete、Backspace | 删除选中的元素 |
+| 方向键 | 选中的元素移动一格（网格间距，写 0 时 1 mm）；没有选中时平移视口 |
+| Shift + 方向键 | 选中的元素移动 10 mm |
+| 按住空格拖动 | 平移画布；按住鼠标中键拖动同样 |
+| H | 打开或关上拖动工具 |
+| +、- | 放大、缩小 |
+| 0 | 适合窗口 |
+| Enter | 选中表格时进入表格编辑态 |
+| Esc | 取消正在进行的拖动；在表格编辑态里退出；否则取消选择 |
+| F10 | 焦点交给菜单栏；再按 F10 或 Esc 回到原处 |
+| Alt + F10 | 焦点交给选中框上方的选中工具条（工具条没有按钮时交给尺寸徽标）；在里面按 Esc 回到画布 |
+
+复制的元素以 JSON 放进系统剪贴板，可以在两个设计器之间粘贴；粘贴时先按当前的元素登记表校验，有错误的内容不粘贴。别的内容（图片、旧模板等）粘贴或拖到画布上时交给扩展的导入器，见下文「导入」。
+
+## 保存与事件
+
+设计器不保存模板。每次修改派发 `schema-change`，`detail.schema` 是改完的模板；一次拖动、一次属性编辑合成一次。选「文件 → 保存」或在画布上按 Ctrl / ⌘ + S 时（都是外壳的 `save` 命令，预览态只能从菜单保存）派发 `save`，宿主保存成功后调用 `markSaved()`：
+
+```ts
+// 写成设计器的子元素：slot="menubar-center" 的标题在菜单栏正中，slot="status-end" 的保存状态在状态栏右端
+const title = document.createElement('span')
+title.slot = 'menubar-center'
+title.textContent = '送货单'
+const status = document.createElement('span')
+status.slot = 'status-end'
+status.textContent = '没有修改'
+designer.append(title, status)
+designer.addEventListener('dirty-change', (event) => {
+  const { dirty } = (event as PrintDesignerEventMap['dirty-change']).detail
+  status.textContent = dirty ? '有未保存的修改，选「文件 → 保存」或按 Ctrl / ⌘ + S' : '已保存'
+})
+designer.addEventListener('save', () => {
+  // 把 designer.schema 交给后端保存，成功后标记为已保存
+  designer.markSaved()
+})
+```
+
+- 给 `schema` 赋值即装载新模板：清空撤销历史与选择，按实际大小显示、纸的左上角落在画布左上角，并派发 `kind` 为 `load` 的 `schema-change`。读取 `schema` 得到当前模板。
+- `dirty` 表示有没有未保存的修改，变化时派发 `dirty-change`；撤销回到保存时的状态，`dirty` 也回到 `false`。
+- 撤销历史的每一步带一句说明，如「删除文本 title」「修改「字号」」「移动 3 个元素」，随界面语言变；工具栏上撤销、重做的名字带上下一步的说明（「撤销：删除文本 title」）。拖动、缩放、旋转按下到松开是一步；属性面板里连续输入同一项是一步；方向键微移连续按、选中不变、相隔不超过 1 秒的并成一步，换了选中就另起一步。
+- 「清空历史」（命令 `clear-history`）先弹确认框，按确定才清空撤销与重做，模板与 `dirty` 不变；它不在工具栏上，在历史记录面板的面板头上，宿主也可以经 `commandLayout` 放置。只读与预览态时撤销、重做与清空历史都不可用。
+- `issues-change` 在模板改动后带上全部校验问题，宿主可以据此拦住有错误的模板，不让保存。
+- 导入字段派发 `fields-change` 与 `sample-data-change`，见上文「导入字段」。
+- 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`。
+
+也可以用方法操作：`execute(operations)` 执行一组编辑操作并记为一步撤销（操作见 `@xihan-print/core` 的 `PrintOperation`），`addElement`、`select`、`copy`、`paste`、`align`、`reorder`、`zoomToFit`、`scrollToElement` 等与界面上的命令一致。`print()` 按当前模板与 `data` 打印，给了 `printClient` 时交给本地打印客户端。
+
+### 自动保存本机草稿
+
+设置「基础」里打开自动保存（`general.autoSave`，缺省关）后，有未保存的修改时停手约一秒，设计器把整份模板存成这台浏览器里的草稿，连着改只存最后一次；保存了（宿主调 `markSaved()`）草稿就删掉。下次宿主装进同一个草稿键的模板、和草稿不一样时，弹框问恢复还是丢弃：恢复把草稿整份换上，记一步撤销（草稿有错误级校验问题时不换，如扩展换了）；丢弃即删；一样就悄悄删掉。只读时不问。
+
+- 草稿键：设计器的 `draftKey`（attribute `draft-key`）写模板 id，区分同一页、同一种设计器里的不同模板；不写时按页面地址（路径、查询与锚点）区分。
+- 草稿只存在本机，宿主不用存，也不用接新事件。要关掉这一项，用 `settingsPolicy` 把 `general.autoSave` 藏起或锁住，或在 `settings` 里预先写开或关。
+
+## 编辑 JSON
+
+设置「基础」里开着开发者模式（`general.developer`，`DESIGNER_SETTING_KEYS.developer`）时，按 Ctrl / ⌘ + Shift + J，或在「编辑」菜单、画布空白处的右键菜单里选「编辑 JSON」，打开编辑整份模板 JSON 的对话框。开发者模式关着时这几处都没有它，快捷键交给浏览器；`openJsonEditor()` 照样能调。宿主要让用户用它，就在 `settings` 里预先写 `'general.developer': true`，或用 `settingsPolicy` 锁住这一条。
+
+- 框里写出当前模板，缩进两格。边改边解析、按打印的校验报问题（与 `validate()` 同一套：结构、元素登记表与表达式），问题列在框下，点一条光标跳到那个路径在文字里的位置。
+- 解析失败或有错误级的问题时「应用」不可用；没有错误时按「应用」整份换上，记一步撤销「编辑 JSON」，派发 `kind` 为 `execute` 的 `schema-change`。撤销就回到改之前的那份。
+- 框下还有「格式化」与「复制」。只读时只能看，不能应用。
+- 整份换上走 `@xihan-print/core` 的编辑操作 `{ type: 'replaceDocument', document }`，逆操作换回原来那份；新模板由调用方先校验。
+
+## 只读与预览
+
+- `readonly`：可以选择、浏览、预览与打印，不能修改；物料不能拖出，属性面板只读。
+  - 写成 attribute 时按三态读，与 XiHan.UI 元素的布尔 attribute 同一读法：不写或移除时不只读；写 `readonly="false"` 也不只读；其余写法（`readonly`、`readonly=""`、`readonly="true"`）只读。
+  - 这是行为变化：以前按原生布尔 attribute 读，只要写了就只读，`readonly="false"` 也算只读。
+  - 经 property 赋值（`designer.readonly = false`）不受影响。
+- `mode`：`design` 设计态，`preview` 预览态。预览态按 `data` 分页，用 `<xh-print-preview>` 显示全部输出页。
+
+## 语言包
+
+界面文字缺省是英文。把 XiHan.UI 与打印同一语言的语言包合并后全局设置，设计器、它内部的零件与预览都换成这种语言，见[快速开始](../quickstart#界面语言)。用户也可以在设置的「语言」页里只给这台设计器换语言，见上文「设置」。
+
+只改一个实例的几处文案时，给它的 `translations` 属性，压在全局语言包之上：
+
+```ts
+import type { XhPrintDesigner } from '@xihan-print/designer'
+
+export function renamePanels(designer: XhPrintDesigner): void {
+  designer.translations = {
+    palette: '控件',
+    issues: '检查结果',
+  }
+}
+```
+
+全部文案键见[设计器参考](../reference/designer#printdesignertranslations)。属性面板里的属性名、选项名与单位也在里面，键是属性路径，如 `style.fontSize`。
+
+## 扩展
+
+`extensions` 收一组扩展对象：元素种类、编辑方式、校验规则、属性编辑器、命令、面板、设置分区、导入器、字段来源、物料来源、菜单栏的菜单、引导步骤与「关于」页的几行都经它登记。内置元素、设计器自带的编辑器与命令也是扩展，自动排在最前。同一页面上的几个设计器各给各的，互不影响。
+
+- 扩展对象的 `id` 全局唯一，用包名加功能名，如 `@acme/print-fonts`。它也是模板里扩展数据的键：文档、页面与元素都可以带 `extensions: { [扩展 id]: { ... } }`，校验只查它是对象，编辑与复制粘贴原样带着走。
+- 赋值时当场合并查重：扩展 id、元素类型、编辑方式、命令 id 与快捷键、字段来源 id、物料来源 id、菜单栏的菜单 id 与内置的或别的扩展重名时，抛 `DesignerExtensionError`（`code` 为 `designer.extension-conflict`），设计器保持赋值前的状态。
+- `setup(context)` 在设计器连上文档时调用，它返回的函数在断开、或这个扩展被去掉时调用。同一个扩展对象换了引用，当作卸下再装上，宿主要保持引用稳定。
+- `rules` 是校验规则，收到文档与 `{ elements }`（合并后的元素登记表），返回问题。问题码以扩展 id 的末段加点开头，结构没有 error 时才跑。
+- `controls` 是新的编辑方式：属性描述里用到这个 `kind` 时，按它的 `check` 校验取值；没登记的编辑方式报 `unknown-control`。
+- `settings` 是扩展的设置分区，放进设置对话框，排在设计器自己的分区之后（`order` 从 200 起），值同样在 `settings` 里、键是「分区 id.条目 id」。要地址和密钥的收费附加包（如云打印）登记自己的分区：密钥写成 `{ kind: 'text', secret: true }` 的条目，画成密码框，`settingsStorageKey` 存设置时也不存它。本地客户端没有地址与密钥，「本地客户端」一页只写连接状态。
+- `tourSteps` 是新手引导的步骤，见上文「新手引导」；`about` 是设置「关于」页里接在后面的几行 `{ label, value }`，收费附加包写自己的版本与授权。
+- `fieldSources` 是导入字段对话框里的来源页，排在「JSON 样例」「JSON Schema」之后，如从接口请求取一份样例；页拿到内容后交回对话框，推断、预览与确认走对话框自己的。形状见 XiHan.UI designer-kit 的「字段来源」。
+- `paletteSources` 是物料来源：往物料面板加几组条目，如收费附加包的「我的物料」、行业模板，排在内置分组与「字段」之后，几个来源之间按 `order`。物料面板每次刷新都按上下文现取它的分组；条目被点一下时交给来源的 `insert(item, context)`，拖到画布上放下时多给一个落点 `{ x, y, region }`：纸张坐标（mm），以及这一点落在页眉、正文还是页脚。插入什么、插在哪里由来源定；只读或不在设计态时不交给来源。分组或条目的 id 与物料面板里已有的重名时，刷新物料面板时抛 `TypeError`。形状见 XiHan.UI designer-shell 的「物料来源」。
+- `menubarMenus` 往菜单栏加菜单 `{ id, label, order? }`：`label` 可以是收到上下文的函数，随语言变；`order` 定先后，内置的文件 0、编辑 10、视图 20、帮助 90，打印的插入 30、页面 40，扩展写在 30–80 之间，不写按 50。命令写 `placement: ['menubar:<菜单 id>']` 落进来，没有命令的菜单不出现，见上文「菜单栏」。
+- 预览元素 `<xh-print-preview>` 与 `paginate`、`validateDocument` 这些函数也收 `extensions`，与设计器给同一份。
+
+### 扩展元素
+
+扩展的 `elements` 登记新的元素类型，`renderers` 给它们的渲染。原型与内置元素的一样，给出缺省值、尺寸下限、物料分组与属性描述；不跨页的元素（`flow` 为 `false`）另外必须给 `layout`：排版时按元素与数据算出画在元素框里的数据（只能是 JSON），元素框的位置与尺寸由排版填好。渲染收到排版盒与输出页所在的文档，返回要放进元素框的节点：
+
+```ts
+import type { ExtensionElementPrototype } from '@xihan-print/core'
+import type { PrintDesignerExtension } from '@xihan-print/designer'
+import { behaviorProperties, layoutProperties, property } from '@xihan-print/core'
+
+const SVG = 'http://www.w3.org/2000/svg'
+
+const seal: ExtensionElementPrototype = {
+  type: 'seal',
+  category: 'media',
+  order: 9,
+  flow: false,
+  minSize: { width: 10, height: 10 },
+  defaults: { type: 'seal', width: 40, height: 40, field: '', color: '#d40000' },
+  properties: [
+    ...layoutProperties({ rotation: false }),
+    property(['field'], 'data', { kind: 'dataField', kinds: ['value'] }),
+    property(['color'], 'appearance', { kind: 'color' }),
+    ...behaviorProperties(),
+  ],
+  // 排版只给 JSON：从数据里取单位名，元素框由 core 填好
+  layout: (element, context) => ({
+    name: String(context.field(String(element.field)) ?? ''),
+    color: String(element.color),
+  }),
+  // 报出引用的字段：collectDocumentFields 汇总模板字段时不会漏掉印章
+  fields: (element, context) => context.field(String(element.field)),
+}
+
+export const sealExtension: PrintDesignerExtension = {
+  id: '@acme/print-seal',
+  elements: [seal],
+  palette: { seal: { label: '印章' } },
+  renderers: {
+    seal: (box, { document }) => {
+      const { name, color } = box.data as { name: string, color: string }
+      const svg = document.createElementNS(SVG, 'svg')
+      svg.setAttribute('viewBox', '0 0 100 100')
+      svg.setAttribute('width', '100%')
+      svg.setAttribute('height', '100%')
+      const ring = document.createElementNS(SVG, 'circle')
+      ring.setAttribute('cx', '50')
+      ring.setAttribute('cy', '50')
+      ring.setAttribute('r', '46')
+      ring.setAttribute('fill', 'none')
+      ring.setAttribute('stroke', color)
+      ring.setAttribute('stroke-width', '4')
+      const text = document.createElementNS(SVG, 'text')
+      text.setAttribute('x', '50')
+      text.setAttribute('y', '56')
+      text.setAttribute('text-anchor', 'middle')
+      text.setAttribute('fill', color)
+      text.textContent = name
+      svg.append(ring, text)
+      return svg
+    },
+  },
+}
+```
+
+- 属性描述可以用 `layoutProperties`、`behaviorProperties` 与 `property` 拼，和内置元素用的是同一套。
+- 引用了数据字段的元素给 `fields`：返回它引用的字段，`collectDocumentFields` 汇总模板字段时才不会漏掉它。上下文带 `field`、`template`、`expression` 与 `text` 四个帮手，分别把字段路径、`{{path}}` 模板串、表达式与文本内容来源换成引用，与内置元素同一套解析；引用的是列表时给 `rows`，里面是相对列表一行的引用。字段的值在元素里当图片地址、条码或二维码的内容用时，在引用上写 `content`（`image`、`barcode`、`qrcode`），汇总时一并记进字段树。
+- 不跨页的元素没给 `layout`、跨页的元素没给 `prepare`（见下文）时，赋值时抛 `TypeError`。
+- `palette` 给自己元素的物料项：名称与图标（`@xihan-ui/core` 的 `IconRecord`）。名称也用在画布与属性面板的可访问名和问题列表里，不给时显示类型名。`palette` 里写了不是本扩展登记的元素类型时，赋值时抛 `TypeError`。
+- 原型的 `category` 可以是内置分组（`text`、`media`、`data`、`shape`、`code`），也可以是新的分组。新分组排在内置分组之后，按首次登记的顺序；名称写在扩展的 `categories` 里，没写时显示分组名。分组名与内置分组或别的扩展写的重名时，抛 `DesignerExtensionError`。
+- 名称随扩展给出，不在设计器的语言包里。扩展包要支持多种语言，就按语言给出不同的扩展对象，例如导出一个收文案的工厂函数。
+- 渲染只能用标准 HTML 与 SVG：浏览器打印与本地打印客户端用的是另一份文档，自定义元素在那里不会升级。
+- 扩展去掉后，文档里已有的这类元素照样保留：设计器把它画成写着类型的虚线占位，校验报 `element.unknownType`，再装上就恢复。
+
+跨页的元素（`flow` 为 `true`）给 `prepare` 而不是 `layout`：按元素与数据给出按顺序的若干块，每块是高度（mm）与交给渲染的数据，另可给一块 `repeat`，排在每页那一段的开头（如表头）。`prepare` 收到的上下文比 `layout` 多一个 `measureText(text, style, width)`，按文字样式与可用宽度折行量出各行与总高度：
+
+```ts
+import type { ExtensionElementPrototype, TextStyle } from '@xihan-print/core'
+import type { PrintDesignerExtension } from '@xihan-print/designer'
+import { behaviorProperties, layoutProperties, property } from '@xihan-print/core'
+
+const style: TextStyle = {
+  fontFamily: 'sans-serif',
+  fontSize: 10,
+  bold: false,
+  italic: false,
+  underline: false,
+  lineThrough: false,
+  color: '#000000',
+  align: 'left',
+  verticalAlign: 'top',
+  lineHeight: 1.4,
+  letterSpacing: 0,
+}
+
+interface Approval {
+  name: string
+  comment: string
+}
+
+const approvals: ExtensionElementPrototype = {
+  type: 'approvals',
+  category: 'data',
+  order: 9,
+  flow: true,
+  minSize: { width: 40, height: 10 },
+  defaults: { type: 'approvals', width: 180, height: 20, field: 'approvals' },
+  properties: [
+    ...layoutProperties({ rotation: false }),
+    property(['field'], 'data', { kind: 'dataField', kinds: ['list'] }),
+    ...behaviorProperties(),
+  ],
+  // 每条记录一块：意见折行后的高度加上下各 2 mm；块不拆开，放不下就整块挪到下一页
+  prepare: (element, context) => {
+    const list = context.field(String(element.field))
+    const items = (Array.isArray(list) ? list : []) as Approval[]
+    return {
+      repeat: { height: 8, data: ['审批人', '意见'] },
+      blocks: items.map(item => ({
+        height: context.measureText(item.comment, style, element.width - 40).height + 4,
+        data: [item.name, item.comment],
+      })),
+    }
+  },
+}
+
+export const approvalsExtension: PrintDesignerExtension = {
+  id: '@acme/print-approvals',
+  elements: [approvals],
+  palette: { approvals: { label: '审批记录' } },
+  renderers: {
+    // 每页一段：data 是 { blocks, repeat }，blocks 是这一页的那几块
+    approvals: (box, { document }) => {
+      const { blocks, repeat } = box.data as { blocks: string[][], repeat: string[] }
+      const table = document.createElement('table')
+      table.style.width = '100%'
+      for (const cells of [repeat, ...blocks]) {
+        const row = table.insertRow()
+        for (const text of cells)
+          row.insertCell().textContent = text
+      }
+      return table
+    },
+  },
+}
+```
+
+- 块依次排进正文区，放不下的整块挪到下一页，与长文本、表格一样把下方的元素往下推；只有一段时高度不小于设计高度。
+- 每页一段，渲染每段调一次：排版盒的 `data` 是 `{ blocks, repeat }`，`blocks` 是这一段的那几块的数据，`repeat` 是重复块的数据（没给时为 `null`）；`fragment` 给出段序号与是不是最后一段。
+- 一块比整页正文区还高时照样放下，分页诊断报 `element.overflow`；块高度不是不小于 0 的有限数时，排版抛 `TypeError`。
+- 跨页的元素只能放在正文区，放进页眉页脚时校验报 `element.flowInBand`；设计态排成一段、按内容撑高。
+
+### 属性编辑器
+
+扩展的 `editors` 给属性面板换编辑器，按扩展的顺序压在设计器自带的编辑器之上。查找顺序是对象种类加属性路径、属性路径、编辑方式，都没有时用面板内建的编辑器：
+
+| 表 | 键 | 适用 |
+| --- | --- | --- |
+| `byTarget` | 对象种类 → 属性路径 | 只对这种对象生效 |
+| `byPath` | 属性路径，如 `style.fontFamily` | 所有带这个属性的对象 |
+| `byControl` | 编辑方式，如 `color`、`stroke` | 所有这种编辑方式的属性 |
+
+对象种类是 `page`（页面设置）、元素类型（如 `text`、`table`）与表格部位（`table-column`、`table-header`、`table-body`、`table-footer-row`、`table-footer-cell`）；编辑方式见[元素](../reference/elements)的「取值」一栏。给了编辑器的复合属性不再拆开，整个值交给编辑器。
+
+编辑器是一个函数：收到当前值与 `setValue`、`commit`，返回一个元素；值或只读状态变化时设计器调用 `update`，移除前调用 `destroy`。元素标了 `data-xh-part="control"` 时放进字段里，标签自动接上。下面的编辑器让字体只能从几种里选：
+
+```ts
+import type { DesignerPropertyEditor } from '@xihan-ui/designer-shell'
+import { definePrintDesigner, PRINT_DESIGNER_PANELS } from '@xihan-print/designer'
+import { schema } from '../templates/minimal'
+
+const FONTS = ['宋体', '黑体', '楷体', '仿宋']
+
+const fontEditor: DesignerPropertyEditor = (initial) => {
+  let context = initial
+  const select = document.createElement('select')
+  select.dataset.xhPart = 'control'
+  select.append(new Option('缺省字体', ''), ...FONTS.map(font => new Option(font, font)))
+  const sync = (): void => {
+    select.value = typeof context.value === 'string' ? context.value : ''
+    select.disabled = context.readonly
+  }
+  select.addEventListener('change', () => {
+    context.setValue(select.value === '' ? undefined : select.value)
+    context.commit()
+  })
+  sync()
+  return {
+    element: select,
+    update: (next) => {
+      context = next
+      sync()
+    },
+  }
+}
+```
+
+```ts
+const designer = document.createElement('xh-print-designer')
+designer.defaultLayout = { version: 1, hidden: [PRINT_DESIGNER_PANELS.palette, PRINT_DESIGNER_PANELS.issues, PRINT_DESIGNER_PANELS.pages] }
+designer.extensions = [{ id: '@acme/print-fonts', editors: { byPath: { 'style.fontFamily': fontEditor } } }]
+designer.schema = schema
+```
+
+
+- `setValue(undefined)` 清除这个属性；连续的 `setValue` 合成一步撤销，`commit()` 之后的修改另起一步。
+- `context.target` 是当前全部被编辑的对象，多选时有多个。
+- `context.issues` 是落在这个属性里层的校验问题，路径相对这个属性（如值映射第 2 项的数据值是 `["entries", 1, "value"]`），没有时是空数组。复合编辑器据此把问题标到对应的子项上：子项旁边写出问题文字，子项的控件标无效（`aria-invalid="true"`），并经 `aria-describedby` 接上这段文字；读屏名仍是子项自己的名字。编辑器返回的实例写 `nestedIssues: true` 时，属性行下面不再重复这些问题；不写时，行下显示第一条。设计器自带的值格式（值映射由内建选项表标到那一格，未命中文本、常用格式与表达式标到各自下面）与表格列、表尾行的条目都这样标；四边边框按页签分边，里层问题仍显示在属性行下面。
+
+### 命令
+
+扩展的 `commands` 登记命令，工具栏按钮、右键菜单项与快捷键共用一条。命令 id 用扩展 id 加点加名字；`label`、`enabled` 与 `run` 收到 `{ designer, translations, commands, settings, frame }`（`commands` 是四款设计器共用的命令文案，如 `commands.undo`；`settings` 是生效的设置；`frame` 是设计器的外框），`label` 也可以直接写成文字；给了 `checked` 的是开关式命令，工具栏按钮显示按下状态：
+
+```ts
+import type { PrintDesignerExtension, XhPrintDesigner } from '@xihan-print/designer'
+import { PRINT_TOOLBAR_LAYOUT } from '@xihan-print/designer'
+
+export const lockExtension: PrintDesignerExtension = {
+  id: '@acme/print-lock',
+  commands: [{
+    id: '@acme/print-lock.lock',
+    label: '锁定',
+    placement: ['toolbar', 'menu:element'],
+    shortcut: ['Mod', 'Shift', 'L'],
+    enabled: ({ designer }) => !designer.readonly && designer.getSelection().elements.length > 0,
+    run: ({ designer }) => {
+      designer.execute(designer.getSelection().elements.map(id => ({ type: 'updateElement', id, changes: [{ path: ['locked'], value: true }] })))
+    },
+  }],
+}
+```
+
+- `placement` 是命令缺省出现的位置：工具栏 `toolbar`（工具栏只显示图标时，没有图标的命令写它的 `shortLabel`），右键菜单 `menu:blank`（画布空白处）、`menu:element`（元素上）、`menu:table`（表格编辑态里），选中工具条 `selection:text`（选中的全是文字类元素）、`selection:element`（单个别的元素）、`selection:multiple`（几个元素里有别的种类），或菜单栏的一张菜单 `menubar:<菜单 id>`（见上文「菜单栏」）。扩展命令按登记顺序排在内置命令之后，自成一组。
+- `shortLabel` 是按钮上看得见的短文字，名字与提示仍取 `label`，所以短文字要出现在 `label` 里（不分大小写），比如 `label` 写「插入条码」、`shortLabel` 写「条码」；开发期不在时，控制台警告一次。
+- `shortcut` 写成键数组，`Mod` 在 macOS 上是 ⌘、其余平台是 Ctrl。焦点在画布上、命令此刻可用时生效。
+- 设计器的 `commandLayout` 改写排列：位置 → 若干组命令 id，内置命令与扩展命令可以混排；写了某个位置就只显示列出的命令，写了没登记的命令 id 时抛 `TypeError`。缺省排列是导出的 `PRINT_TOOLBAR_LAYOUT`、`printMenuLayout(subject, tableSelected)` 与 `printSelectionLayout(subject)`，菜单栏的是 `printMenubarLayout(commands, elements)`（在 `@xihan-ui/designer-shell` 的 `designerMenubarLayout(commands)` 上加了打印的几处，`elements` 是元素登记表，插入菜单按它的物料分组排），可以在它们的基础上改：
+
+```ts
+export function lockFirst(designer: XhPrintDesigner): void {
+  designer.extensions = [lockExtension]
+  designer.commandLayout = { toolbar: [['@acme/print-lock.lock'], ...PRINT_TOOLBAR_LAYOUT] }
+}
+```
+
+内置命令的 id：
+
+| 用途 | 命令 id |
+| --- | --- |
+| 编辑 | `undo` `redo` `clear-history` `cut` `copy` `paste` `duplicate` `delete` `select-all` |
+| 对齐与层级 | `align-left` `align-center` `align-right` `align-top` `align-middle` `align-bottom` `distribute-horizontal` `distribute-vertical` `bring-to-front` `bring-forward` `send-backward` `send-to-back`：工具栏上缺省每条一颗钮，对齐、分布与层级各成一组 |
+| 视图 | `pan-tool`（designer-shell 内置，拖动工具，按下状态跟外框的 `canvasTool`） `zoom-out` `zoom-in` `zoom-to-fit` `zoom-to-actual` `grid` `snap` `design` `preview` `page-setup` `print`：`grid` `snap` 也在视图菜单，`print` 也在文件菜单 |
+| 表格 | `edit-table` `exit-table-edit` `insert-column-left` `insert-column-right` `remove-column` `move-column-left` `move-column-right` `insert-footer-row-above` `insert-footer-row-below` `remove-footer-row` `merge-cell-right` `split-cell` |
+| 文字格式 | `font-size` `text-bold` `text-italic` `text-underline` `text-line-through` `text-align-left` `text-align-center` `text-align-right`：缺省排在 `selection:text` 的选中工具条上 |
+| 保存、面板、设置与帮助 | `save` `panels` `settings` `help`：designer-shell 内置。「保存」（Ctrl / ⌘ + S）派发 `save`，在文件菜单；其余三条在菜单栏里（面板在视图菜单，设置在文件菜单，帮助在帮助菜单），「面板」也排在工具栏末组。「面板」点开菜单开关各块面板，「设置」打开设置对话框（Ctrl / ⌘ + ,），「帮助」在新窗口打开本站的设计器一页（`PRINT_DESIGNER_HELP_URL`）。`panels-toggle-all` `panels-restore` `layout-reset` 排在「面板」菜单末尾。`start-tour` 开始新手引导，`shortcuts`、`about` 打开设置的快捷键页与关于页，都在帮助菜单；`edit-json` 打开编辑 JSON 的对话框（Ctrl / ⌘ + Shift + J），在编辑菜单与画布空白处右键菜单的末组，只在开发者模式开着时存在；`show-toolbar` `show-status-bar` 是显示开关，收在视图菜单的「外观」（`appearance`）子菜单里 |
+| 面板开关 | `panel:<面板 id>`：每块面板一条，含扩展登记的面板（`panel:<区名>`），文字是面板标题、勾选的是看得见的，宿主锁定的面板不可用；不排在任何位置，可以经 `commandLayout` 放上工具栏 |
+| 页面模板 | `previous-page` `page-menu` `next-page` `add-page` `duplicate-page` `remove-page`：翻页条上的排列固定（`PRINT_PAGE_STRIP_LAYOUT`），不经 `commandLayout`；`move-page-up` `move-page-down` 在页码菜单里。除了页码，这几条也在页面菜单里 |
+| 页面菜单 | `page-paper` `page-orientation`：纸张与方向的子菜单；`page-properties`：在属性面板里编辑当前页面模板 |
+| 插入 | `insert:<元素类型>`：每种元素一条，扩展登记的元素也有（`printInsertCommandId(type)`），放在视口中央并选中；`header-variants` `footer-variants`：页眉、页脚变体的子菜单。都在插入菜单里，不上工具栏，宿主可以经 `commandLayout` 放上去；扩展的命令不能用 `insert:` 开头的这些 id |
+
+### 面板
+
+扩展的 `panels` 往外框里加区，放印章库、套打对位这类面板。区是 `{ name, position, size?, minSize?, label?, title?, icon?, anchor?, defaultHidden?, closable?, movable?, floatable?, minimizable? }`：`position` 取 `top`、`start`、`end`、`bottom`，或 `overlay`（画布上的浮动件，`anchor` 定落在哪个角或右侧中间，只能显示或隐藏），同一位置的区按扩展顺序上下排；`label` 是分隔条可访问名里的区名，给了 `title` 就画成带面板头的卡片；`defaultHidden` 的缺省不显示，`closable`、`movable`、`floatable`、`minimizable` 写 `false` 就不能隐藏、换栏、浮出或收起。`create(context)` 返回放进区里的元素；设计器状态变化时调用 `update(context)`，扩展去掉时先调用 `destroy()` 再移除：
+
+```ts
+import type { PrintDesignerExtension } from '@xihan-print/designer'
+
+export const selectionPanel: PrintDesignerExtension = {
+  id: '@acme/print-selection',
+  panels: [{
+    region: { name: 'acme-selection', position: 'end', label: '选中' },
+    create: ({ designer }) => {
+      const element = designer.ownerDocument.createElement('section')
+      const render = (ids: readonly string[]): void => {
+        element.textContent = ids.length === 0 ? '没有选中' : ids.join('、')
+      }
+      render(designer.getSelection().elements)
+      return { element, update: context => render(context.designer.getSelection().elements) }
+    },
+  }],
+}
+```
+
+- 区名与内置区（`menubar`、`toolbar`、`pages`、`minimap`、`palette`、`outline`、`canvas`、`properties`、`history`、`issues`、`status`）或别的扩展的重名时，赋值时抛 `DesignerExtensionError`，设计器保持赋值前的状态。
+- 扩展的区同样记在面板布局里，用户能隐藏、挪动与浮出，也各有一条开关命令 `panel:<区名>`；扩展自己登记了同名命令时同样抛 `DesignerExtensionError`。预览态只保留菜单栏、工具栏与画布。
+
+### 导入
+
+扩展的 `importers` 把粘贴与拖到画布上的外部内容换成元素。来源是 `{ kind, mime?, name?, text?, file? }`：`kind` 为 `clipboard` 或 `drop`，文件带 `file`，文本按链接（`text/uri-list`）、HTML、纯文本依次给出。设计器按文件、链接、HTML、纯文本的顺序逐个问各导入器的 `accepts`，扩展靠前的先问，第一个接下的导入：
+
+```ts
+import type { PrintDesignerExtension } from '@xihan-print/designer'
+import { createElementRegistry } from '@xihan-print/core'
+
+const registry = createElementRegistry()
+
+function readAsDataUrl(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(file)
+  })
+}
+
+export const imageImporter: PrintDesignerExtension = {
+  id: '@acme/print-images',
+  importers: [{
+    id: '@acme/print-images.file',
+    accepts: source => source.file !== undefined && source.mime?.startsWith('image/') === true,
+    import: async (source) => {
+      const url = await readAsDataUrl(source.file!)
+      const image = registry.createElement('image', { id: 'image', x: 0, y: 0, overrides: { source: { kind: 'static', url } } })
+      return { elements: [image] }
+    },
+  }],
+}
+```
+
+- `import` 可以是异步的，返回 `{ elements, region? }`，返回 `undefined` 即什么都不放。元素整体挪到落点（粘贴时是视口中央），左上角吸附网格，再按粘贴的规则换新 id 放进当前页面模板并选中，记一步撤销。`region` 缺省按落点所在的区。
+- 放下前按当前的元素登记表校验；`import` 抛错或元素没有通过校验时，设计器派发 `import-error`，带导入器的 id、来源与错误，不放任何元素。
+- 设计器自己的剪贴板内容不经导入器。
+- 导入器只把外部内容换成元素，放进当前页面模板，例如把拖进来的图片传到宿主的存储、换成图片元素。纸张、页眉页脚这类整份模板的设置不经导入器；整份存量模板的迁移见[与宿主集成](./host#存量模板迁移)。
+
+---
+
+来源：https://print.docs.xihanfun.com/guide/host
+
+# 与宿主集成
+
+组件只管设计、排版与打印，不发网络请求，也不碰存储与权限。把它嵌进业务系统时，下面这些由宿主来做：
+
+| 事情 | 宿主做什么 | 组件给什么 |
+| --- | --- | --- |
+| 模板的保存 | 存模板 JSON，管名称、分类、版本与审核 | `schema`、`schema-change`、`save`、`dirty`、`markSaved()` |
+| 取数 | 调接口取业务数据，整理成模板要的结构 | `data`、`sampleData`、`fields` |
+| 权限 | 决定谁能看、谁能改、谁能打印，服务端再复核 | `readonly`、`defaultLayout`、`settingsPolicy`、`extensions` |
+| 校验 | 保存前拦住有错误的模板，服务端复核 | `validate()`、`issues-change`、`validateDocument` |
+| 打印记录 | 记下谁在什么时候打了什么 | `print()` 的结果、客户端任务的状态 |
+
+## 模板的保存
+
+模板是一份完整的 JSON，原样存、原样取，不要拆成字段存。`schemaVersion` 记录模板格式的版本；`meta`（文档、页面与元素上都有）放宿主自己的数据，组件不读、原样保留。
+
+打开时把取回的模板赋给 `schema`，保存时取 `schema` 交给后端，成功后 `markSaved()`：
+
+```ts
+import type { PrintDocument, ValidationIssue } from '@xihan-print/core'
+import type { XhPrintDesigner } from '@xihan-print/designer'
+import type { JsonValue } from '@xihan-ui/core/json'
+import type { DataField } from '@xihan-ui/designer-kit'
+import { collectDocumentFields, validateDocument } from '@xihan-print/core'
+import { inferDataFields } from '@xihan-ui/designer-kit/field-inference'
+
+export async function openTemplate(designer: XhPrintDesigner, id: string): Promise<void> {
+  const response = await fetch(`/api/print-templates/${encodeURIComponent(id)}`)
+  designer.schema = await response.json() as PrintDocument
+
+  designer.addEventListener('save', async () => {
+    const issues = designer.validate().filter(issue => issue.severity === 'error')
+    if (issues.length > 0)
+      return
+    const saved = await fetch(`/api/print-templates/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(designer.schema),
+    })
+    if (saved.ok)
+      designer.markSaved()
+  })
+}
+```
+
+设计器在内存里改模板，页面关掉修改就没了。有未保存的修改时提醒用户：
+
+```ts
+export function guardUnsaved(designer: XhPrintDesigner): () => void {
+  const onBeforeUnload = (event: BeforeUnloadEvent): void => {
+    if (designer.dirty)
+      event.preventDefault()
+  }
+  window.addEventListener('beforeunload', onBeforeUnload)
+  return () => window.removeEventListener('beforeunload', onBeforeUnload)
+}
+```
+
+用户在设置里打开自动保存时，未保存的修改另存一份这台浏览器里的草稿，下次打开同一个模板时问要不要恢复；宿主给设计器写 `draftKey`（模板 id）区分不同模板，存完照旧调 `markSaved()`，草稿随之删掉，见[自动保存本机草稿](./designer#自动保存本机草稿)。
+
+## 取数
+
+- **打印时**：宿主调接口取业务数据，交给预览的 `data` 或 `printDocument`。字段路径对的是这份数据的结构，接口返回的结构与模板不一致时，在宿主这边转换好再交给组件。
+- **设计时**：`fields` 告诉设计器有哪些字段可以绑定，物料面板的「字段」一组也按它列出，字段写了 `content`（`image`、`barcode`、`qrcode`）时拖上画布生成对应的元素，见[字段物料](./designer#字段物料)；`sampleData` 让画布显示实际的值。用户可以在设计器里从 JSON 样例或 JSON Schema 导入字段（见[导入字段](./designer#导入字段)），宿主收 `fields-change` 与 `sample-data-change` 存起来；字段由后端定、不许用户改时写 `fields-readonly`。宿主也可以自己按一份示例数据生成字段树，用的是同一个推断函数：
+
+```ts
+/** 按一份示例数据生成字段树：对象是 object，对象数组是 list（子字段取各项键的并集），其余是带类型的 value。 */
+export function fieldsOf(sample: JsonValue): readonly DataField[] {
+  return inferDataFields(sample, { detectImages: true }).fields
+}
+```
+
+- 反过来，`collectDocumentFields(document)` 列出一份模板引用了哪些字段，形状同 `fields`：文本、长文本、条码与二维码的内容（字段、`{{path}}` 模板串与表达式里的路径），图片与富文本的字段来源，表格的 `dataField`（记成 `list`，各列与汇总里的行内字段挂在它下面），以及页面水印。以 `$` 开头的宿主变量（如 `$page`）不算；只知道路径，所以不带 `label` 与 `type`。值字段带上 `content`：被图片的字段来源引用记 `image`，被条码、二维码的内容直接取用记 `barcode`、`qrcode`，表格里单元格类型是图片、条码、二维码的列同样；模板串与表达式里的字段只是内容的一部分，不记。一个字段被几种元素引用时取文字以外的那一种，文字以外的种类有冲突时取模板里先出现的那一种。没有数据源的模板可以按它生成示例数据的表单，有数据源的可以拿它核对模板里有没有数据源没有的字段。用了扩展元素时把 `extensions` 一并传进去：
+
+```ts
+/** 列出模板引用的字段，与宿主给的字段树比对，找出数据源里没有的那些路径。 */
+export function missingFields(document: PrintDocument, known: readonly DataField[]): string[] {
+  const missing: string[] = []
+  const walk = (used: readonly DataField[], offered: readonly DataField[] | undefined, prefix: string): void => {
+    for (const field of used) {
+      const path = prefix === '' ? field.name : `${prefix}.${field.name}`
+      const match = offered?.find(item => item.name === field.name)
+      if (match === undefined)
+        missing.push(path)
+      else if (field.children)
+        walk(field.children, match.children, path)
+    }
+  }
+  walk(collectDocumentFields(document), known, '')
+  return missing
+}
+```
+
+- 图片地址由宿主提供：放在宿主的文件服务里，模板里写地址或绑定数据里的地址字段。要经打印客户端打印的图片，文件服务要允许跨源读取（CORS）。
+
+## 存量模板迁移
+
+整份存量模板（别的打印组件存的模板）的迁移由宿主写转换函数：把旧模板读成 `PrintDocument`，过 `validateDocument`，没有错误级问题时再赋给设计器的 `schema`。纸张、方向、页边距、页眉页脚变体与多页模板都在转换函数里一并换好：
+
+```ts
+/** 打开一份存量模板：转换函数由宿主写，产出的模板先校验，没有错误级问题才交给设计器。 */
+export function openLegacyTemplate(designer: XhPrintDesigner, legacy: unknown, convert: (legacy: unknown) => PrintDocument): ValidationIssue[] {
+  const document = convert(legacy)
+  const errors = validateDocument(document).issues.filter(issue => issue.severity === 'error')
+  if (errors.length === 0)
+    designer.schema = document
+  return errors
+}
+```
+
+- 转换在宿主里跑，可以在前端打开旧模板时转，也可以在服务端批量转好再存；`@xihan-print/core` 不依赖 DOM，两边都能校验。
+- 设计器的导入器只把粘贴、拖进来的外部内容换成元素，不负责整份模板。
+- 旧模板里的 HTML 元素怎么换成富文本，见[富文本](./rich-text#从存量-html-元素迁移)。
+
+## 权限
+
+- 只能看的用户把设计器设成 `readonly`：能选择、浏览、预览与打印，不能修改。
+- 只让调整局部的场景，用 `settingsPolicy` 的 `layout.panels.<面板 id>` 去掉物料等面板（面板 id 见 `PRINT_DESIGNER_PANELS`），用自定义属性编辑器限定可选的值。
+- 这些都只在前端生效。模板保存、删除与打印的权限要在服务端判断；保存时服务端也应复核模板本身。
+
+## 服务端复核
+
+`@xihan-print/core` 不依赖 DOM，可以在 Node.js 后端直接校验收到的模板：
+
+```ts
+/** 服务端收到模板时复核：只有错误级问题才拒收，返回这些问题的问题码与路径。 */
+export function reviewTemplate(body: string): { valid: boolean, errors: string[] } {
+  const report = validateDocument(JSON.parse(body) as PrintDocument)
+  const errors = report.issues
+    .filter(issue => issue.severity === 'error')
+    .map(issue => `${issue.code} @ ${issue.path.join('.')}`)
+  return { valid: report.valid, errors }
+}
+```
+
+后端不是 JavaScript 时，前端在提交前用 `validate()` 拦住有错误的模板；服务端把模板当作不透明的 JSON 存取，需要时另起一个 Node.js 服务做复核。
+
+## 在前端框架里使用
+
+预览与设计器是原生 Web Components，任何框架都能用：在应用启动时调用一次 `definePrintPreview()` 或 `definePrintDesigner()`，之后像普通元素一样放进模板。模板、数据这类对象要交给元素的属性，不要写成 attribute。
+
+在 Vue 里，先告诉编译器 `xh-` 开头的标签是自定义元素，免得被当成组件去解析：
+
+```ts
+// vite.config.ts 里 @vitejs/plugin-vue 的选项
+vue({
+  template: {
+    compilerOptions: {
+      isCustomElement: tag => tag.startsWith('xh-'),
+    },
+  },
+})
+```
+
+对象用 `.prop` 修饰交给属性，事件用 `@` 监听：
+
+```vue
+<script setup lang="ts">
+/*
+ * Copyright (c) 2021-Present XiHanFun and contributors.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+// 在 Vue 里使用预览元素：对象经 .prop 交给元素的属性，事件用 @ 监听。
+
+import type { PrintPreviewEventMap } from '@xihan-print/runtime'
+import { definePrintPreview } from '@xihan-print/runtime'
+import { ref } from 'vue'
+import { data, schema } from '../templates/delivery'
+
+definePrintPreview()
+
+const status = ref('')
+
+function onPaginated(event: Event): void {
+  const { sheets } = (event as PrintPreviewEventMap['paginated']).detail
+  status.value = `共 ${sheets} 张输出页`
+}
+</script>
+
+<template>
+  <p>{{ status }}</p>
+  <xh-print-preview :schema.prop="schema" :data.prop="data" @paginated="onPaginated" />
+</template>
+```
+
+
+React 19 起会把对象直接赋给自定义元素的同名属性；事件可以用 `ref` 拿到元素后 `addEventListener` 监听。
+
+## 一个页面里放多个实例
+
+组件不往 `window` 上挂对象，也不读写固定键名的本地存储，同一页面里的多个预览、多个设计器互不影响。只有语言包是全局的：`setXhConfig` 对页面上所有元素生效，单个实例的文案用它的 `translations` 属性覆写。
+
+---
+
+来源：https://print.docs.xihanfun.com/guide/rich-text
+
+# 富文本
+
+富文本元素 `richText` 排一段带格式的文字：标题、段落、列表与分隔线，文字可以加粗、换颜色、改字号、加链接，还能嵌入行内字段。它和长文本一样随内容延展、跨页续排，只能放在正文区。
+
+内容是 XiHan.UI 的富文本模型 `@xihan-ui/core/rich-text`，整份是 JSON，不存 HTML。模型的完整定义、HTML 白名单与问题码见 [XiHan.UI 的富文本模型](https://ui.docs.xihanfun.com/runtime/rich-text)，本页只讲打印怎么用它。
+
+
+## 内容来源
+
+| 来源 | 写法 | 说明 |
+| --- | --- | --- |
+| 写死的文档 | `{ kind: 'static', document }` | 模板里存一份富文本文档 |
+| 字段里的 HTML | `{ kind: 'field', field, source: 'html' }` | 字段值是 HTML 串，打印时按白名单换成文档 |
+| 字段里的文档 | `{ kind: 'field', field, source: 'document' }` | 字段值已是富文本文档对象 |
+
+### 写死的文档
+
+上面的停电检修通知，正文就是写死的文档：
+
+```ts
+const notice: RichTextContent = {
+  kind: 'static',
+  document: {
+    blocks: [
+      { type: 'heading', level: 1, align: 'center', runs: [{ type: 'text', text: '停电检修通知' }] },
+      {
+        type: 'paragraph',
+        runs: [
+          { type: 'text', text: '因供电线路检修，' },
+          { type: 'field', field: 'building', marks: { bold: true } },
+          { type: 'text', text: '将于 ' },
+          { type: 'field', field: 'start', format: { kind: 'date', pattern: 'M 月 d 日 HH:mm' }, marks: { color: '#c0392b' } },
+          { type: 'text', text: ' 起停电，预计持续 ' },
+          { type: 'field', field: 'hours' },
+          { type: 'text', text: ' 小时。请提前做好以下准备：' },
+        ],
+      },
+      {
+        type: 'list',
+        ordered: true,
+        items: [
+          { blocks: [{ type: 'paragraph', runs: [{ type: 'text', text: '保存正在编辑的文件，关闭电脑与显示器。' }] }] },
+          { blocks: [{ type: 'paragraph', runs: [{ type: 'text', text: '冰箱里的易腐物品', marks: { bold: true } }, { type: 'text', text: '请当天带走。' }] }] },
+          { blocks: [{ type: 'paragraph', runs: [{ type: 'text', text: '电梯暂停运行，请走楼梯。' }] }] },
+        ],
+      },
+      { type: 'divider' },
+      { type: 'paragraph', align: 'right', runs: [{ type: 'text', text: '物业服务中心', marks: { italic: true } }] },
+    ],
+  },
+}
+```
+
+- 行内字段 `{ type: 'field', field, format?, marks? }` 按字段路径从数据的根取值，`format` 是[值格式](./binding#值格式)，`marks` 是这截文字的样式；取到空值时什么都不显示。
+- 文档里的链接只能是 `http`、`https`、`mailto`、`tel` 与相对地址，颜色写十六进制，字号单位 pt。
+
+### 字段里的 HTML
+
+业务系统里用富文本编辑器写的内容，通常以 HTML 存着，直接绑定字段即可：
+
+```ts
+page.elements = [
+  registry.createElement('richText', {
+    id: 'body',
+    x: 12,
+    y: 12,
+    overrides: { width: 124, height: 40, content: notice, style: { ...baseStyle, fontSize: 11 } },
+  }),
+  registry.createElement('richText', {
+    id: 'remark',
+    x: 12,
+    y: 58,
+    overrides: { width: 124, height: 20, content: { kind: 'field', field: 'remark', source: 'html' }, style: { ...baseStyle, fontSize: 10, color: '#444444' } },
+  }),
+]
+```
+
+```ts
+export const data = {
+  building: '3 号楼',
+  start: '2026-10-24 08:30:00',
+  hours: 4,
+  remark: '<h3>补充说明</h3><p>如有<strong>医疗设备</strong>等不能断电的情况，请在 <u>10 月 22 日前</u>联系物业登记。</p><script>track()</script>',
+}
+```
+
+- 打印时按白名单把 HTML 换成文档：认识的标签与 `style` 属性换成块与样式，`script`、`img`、`iframe` 这类连同内容去掉，表格这类去掉标签、留下文字。规则见 [XiHan.UI 的解析 HTML](https://ui.docs.xihanfun.com/runtime/rich-text#解析-html)。
+- 连同内容去掉或降级了标签时，给出警告诊断 `richText.droppedContent`，`params.field` 是字段路径，`params.names` 是去掉的标签名；`style` 属性与链接地址的取舍不报。上面的数据带了一段 `script`，所以会有这条警告。
+- HTML 里的 `<span data-field="路径">` 也是行内字段，按同一份数据取值。
+
+### 字段里的文档
+
+字段值是富文本文档对象时用 `source: 'document'`。值先按模板里同样的规则检查，不合规时整段不画，给出错误级诊断 `richText.invalidData`：`params.field` 是字段路径，`params.code` 是问题码，`params.path` 是出问题的位置（如 `blocks[0].type`）。字段值是 JSON 串时也不合规，先在宿主这边解析成对象。
+
+字段为空（`null`、`undefined` 或空串）时没有内容，不报诊断。
+
+## 基准样式
+
+元素的 `style` 是基准样式：字体、字号、颜色、行高倍数、字间距、对齐与垂直对齐。块的 `align` 与文字的 `marks` 在它之上覆写，没写的取基准样式。
+
+## 排版规则
+
+- 按元素内宽（扣掉左右内边距）逐块排。段落与标题的折行与普通文本是同一套规则：中日韩文字逐字可断，拉丁文按词断，一个单词跨两种样式时不拆开。
+- 行高是这一行里最大的字号乘以行高倍数。上标与下标的字号缩到 0.7 倍，行高仍按原字号算。
+- 一、二、三级标题的字号是基准字号的 1.6、1.35、1.15 倍，并且加粗；文字上写 `bold: false` 可以取消加粗。
+- 顶层的块与块之间空半个基准字号；列表项之间、列表项里的块之间不空。
+- 列表每层缩进两个基准字号。无序列表三层依次用 `•`、`◦`、`▪`，有序列表从 `start` 编号（缺省 1）；符号或序号的右边离文字半个基准字号。
+- 分隔线单独占一行基准行高，用基准颜色画 0.2 mm 的横线。
+- 两端对齐的块里，最后一行与换行之前的那一行不拉伸。
+- 链接写成带地址的链接，外观只取这截文字自己的样式。
+
+这些倍数都是 `@xihan-print/core` 导出的常量，见[模型层 core](../reference/core#layout-rich-text)。
+
+## 跨页
+
+跨页与长文本相同：按整行切到后续输出页，段落可以从中间切开；每段都带上下内边距，续排那一段的第一行不留段距；只有一段时高度不小于设计高度。富文本下面的元素随它下推，规则见[运行时](./runtime#正文元素的位置)。
+
+不做孤行与寡行控制：标题可能单独留在一页的最后一行。
+
+## 在设计器里
+
+- 属性面板的「内容」先选来源；选「字段」时再选绑定的字段与内容格式（HTML 或富文本文档）。
+- 写死的文档在属性面板上不能编辑，用代码写进模板（如上面的例子），或从存量模板迁移过来。
+- 画布按设计态排版显示；不给示例数据时，字段显示为 `{路径}` 占位。
+
+## 校验
+
+| 问题码 | 级别 | 说明 |
+| --- | --- | --- |
+| `richText.invalidDocument` | 错误 | 文档结构不对，`params.code` 是 XiHan.UI 的[检查](https://ui.docs.xihanfun.com/runtime/rich-text#检查)给出的问题码 |
+| `field.invalidPath` | 错误 | 行内字段的路径写法不对 |
+| `format.*`、`invalid-option` 等 | 错误 | 行内字段的值格式不对，与文本内容的值格式同一套规则 |
+| `richText.empty` | 警告 | 写死的文档没有任何文字、行内字段、分隔线或列表项 |
+| `element.flowInBand` | 错误 | 放进了页眉或页脚 |
+
+## 从存量 HTML 元素迁移
+
+存量模板里的 HTML 元素，有的在模板里存一段 HTML，有的存一个返回 HTML 的函数。迁移到富文本由宿主完成：解析器是 `@xihan-ui/core/rich-text` 的 `parseRichTextHtml`，不依赖 DOM，Node.js 里也能跑，可以写成一次性的迁移脚本或放在服务端。
+
+| 旧写法 | 迁移成 |
+| --- | --- |
+| 写死的 HTML | 解析成 `{ kind: 'static', document }` |
+| 绑定字段，字段值是 HTML | `{ kind: 'field', field, source: 'html' }`，打印时再解析 |
+| 函数只返回一个字符串字面量 | 静态取出这段字面量（不执行函数），再按写死的 HTML 处理 |
+| 函数里有拼接、条件、取数等逻辑 | 不能自动迁移，记进报告人工改写成富文本加行内字段、带表达式的文本或其它元素 |
+| HTML 里的表格、图片 | 解析时去掉并记进丢弃清单；表格改用表格元素，图片另起图片元素 |
+
+迁移时不执行模板里的任何代码。
+
+### 迁移报告
+
+每个元素迁移后留一条记录，汇总起来就是迁移报告。报告的形状由宿主自定，打印的包里没有发布这些类型与函数；下面的 `migrateHtmlContent`、`RichTextMigrationEntry` 与 `needsReview` 只是一种写法，可以照着改成自己的：
+
+```ts
+import type { RichTextContent } from '@xihan-print/core'
+import type { RichTextDrop } from '@xihan-ui/core/rich-text'
+import { parseRichTextHtml } from '@xihan-ui/core/rich-text'
+
+/** 旧元素里与迁移有关的三种写法。 */
+export type LegacyHtmlContent
+  = | { kind: 'html', html: string } // 写死的 HTML，或从只返回一个字符串字面量的函数里静态取出的 HTML
+    | { kind: 'field', field: string } // 绑定字段，字段值是 HTML
+    | { kind: 'code', source: string } // 其余的函数源码
+
+/** 迁移报告里的一条：一个元素一条。 */
+export interface RichTextMigrationEntry {
+  /** 原元素的标识。 */
+  elementId: string
+  /** static：已换成写死的文档；field：改成绑定字段，打印时再解析；manual：要人工改写。 */
+  outcome: 'static' | 'field' | 'manual'
+  /** 解析时丢掉的东西，即 parseRichTextHtml 的 dropped；绑定字段与人工改写的为空。 */
+  dropped: readonly RichTextDrop[]
+  /** 人工改写时参考的原始内容。 */
+  source?: string
+}
+
+export function migrateHtmlContent(elementId: string, legacy: LegacyHtmlContent): { content?: RichTextContent, entry: RichTextMigrationEntry } {
+  switch (legacy.kind) {
+    case 'html': {
+      const { document, dropped } = parseRichTextHtml(legacy.html)
+      return { content: { kind: 'static', document }, entry: { elementId, outcome: 'static', dropped } }
+    }
+    case 'field':
+      return { content: { kind: 'field', field: legacy.field, source: 'html' }, entry: { elementId, outcome: 'field', dropped: [] } }
+    case 'code':
+      return { entry: { elementId, outcome: 'manual', dropped: [], source: legacy.source } }
+  }
+}
+
+/** 要人工复核的条目：要人工改写的，以及丢了标签或连同内容去掉了东西（表格、图片、脚本等）的。 */
+export function needsReview(entry: RichTextMigrationEntry): boolean {
+  return entry.outcome === 'manual' || entry.dropped.some(drop => drop.kind === 'element' || drop.kind === 'content')
+}
+```
+
+- `outcome` 是迁移结果：`static` 已换成写死的文档，`field` 改成绑定字段，`manual` 要人工改写，`source` 留着原来的内容供参考。
+- `dropped` 直接取 `parseRichTextHtml` 的丢弃清单，每项是 `{ kind, name, count }`：`element` 去掉或降级了标签、文字保留，`content` 连同内容去掉，`style` 是不认识或取值不合法的 `style` 属性，`link` 是没通过判定的链接地址。同类同名合成一条并计数，详见 [XiHan.UI 的丢弃清单](https://ui.docs.xihanfun.com/runtime/rich-text#丢弃清单)。
+- `dropped` 里有 `element` 或 `content` 的要人工复核，表格与图片要另外补上；只有 `style` 与 `link` 的通常可以忽略。
+- 绑定字段的元素在迁移时还不知道数据里的 HTML 会丢什么，打印时由 `richText.droppedContent` 诊断报出。
+
+---
+
+来源：https://print.docs.xihanfun.com/guide/runtime
+
+# 运行时
+
+`@xihan-print/runtime` 是业务页面用的部分：`<xh-print-preview>` 把模板按数据排成输出页逐页显示，`print()` 与 `printDocument` 调起浏览器的打印对话框。分页算法本身在 `@xihan-print/core`，不依赖 DOM。属性、方法与事件的完整列表见[预览与打印](../reference/runtime)。
+
+## 预览元素
+
+调用 `definePrintPreview()` 注册后，把模板与数据交给 `schema` 与 `data`。下面的设备巡检记录排成多页，状态行显示每次分页的结果：
+
+```ts
+const preview = document.createElement('xh-print-preview')
+const status = document.createElement('p')
+
+preview.addEventListener('paginated', (event) => {
+  const { sheets, diagnostics } = (event as PrintPreviewEventMap['paginated']).detail
+  const notes = diagnostics.map(item => `${item.code}（${item.severity}）`).join('、')
+  status.textContent = `共 ${sheets} 张输出页${notes === '' ? '，没有诊断' : `，诊断：${notes}`}`
+})
+preview.addEventListener('pagination-error', (event) => {
+  const { code, issues } = (event as PrintPreviewEventMap['pagination-error']).detail
+  status.textContent = `分页失败：${code}，校验问题 ${issues.length} 个`
+})
+
+preview.schema = schema
+preview.data = data
+```
+
+
+- `schema`、`data`、`extensions` 与各注入项（`expressionEngine`、`formatter`、`measurer`、`locale`、`timeZone`）任一变化都重新分页。`extensions` 与设计器给同一份，见[设计器的扩展](./designer#扩展)。
+- 分页成功派发 `paginated`，带输出页数与诊断；失败派发 `pagination-error` 并清空预览，带错误码与校验问题。
+- `result` 是最近一次的分页结果，`paginate()` 立即按当前属性重新分页并返回结果。
+- 元素是带滚动的块，在页面上给它一个高度，输出页多时在里面滚动。纸张比预览区宽时从左边开始排，可以横向滚动。
+
+`zoom` 是显示缩放倍数，缺省 1，只影响预览、不影响打印：
+
+```ts
+const zoomOut = document.createElement('button')
+const zoomIn = document.createElement('button')
+zoomOut.type = 'button'
+zoomIn.type = 'button'
+zoomOut.textContent = '缩小'
+zoomIn.textContent = '放大'
+const zoomBy = (factor: number): void => {
+  preview.zoom = Math.min(2, Math.max(0.5, (preview.zoom ?? 1) * factor))
+}
+zoomOut.addEventListener('click', () => zoomBy(1 / 1.25))
+zoomIn.addEventListener('click', () => zoomBy(1.25))
+```
+
+## 分页规则
+
+### 页面模板与输出页
+
+模板里的页面模板依次排，每张排出一张或多张输出页。每张输出页先选页眉与页脚的带区（首页、末页、奇偶页的选取见[模板结构](./template#首页、末页与奇偶页)），再按选中的带区高度算出这一页的正文区，所以首页页眉高一些时，首页的正文区就短一些。
+
+### 正文元素的位置
+
+正文元素按设计时的上边缘从上到下依次排：
+
+1. 一个元素的设计位置整个在另一个元素下方时（不论左右是否重叠），它排在那个元素实际结束的位置之后，并保持设计时两者之间的间距；同时在几个元素下方时，取最靠后的那个。
+2. 不在任何元素下方的元素，留在第一张输出页的设计位置。
+3. 固定尺寸的元素被推到正文区底边之外时，整个移到下一页正文区的顶部，不拆开。
+4. 长文本、富文本与表格从起点开始续排，排满一页接着排到下一页。
+
+所以表格下面的落款、长文本下面的表格，都会随上面内容的长短上下移动。巡检记录里，表格排在说明文字下面，落款排在表格之后。
+
+### 长文本
+
+长文本按元素宽度换行，按整行切到后续输出页，每段都带上下内边距；只有一段时高度不小于设计高度。文字里的换行符照样换行。
+
+### 富文本
+
+富文本按块排版，行高随这一行的字号变化，跨页的切法与长文本相同，续排那一段的第一行不留段距。排版规则见[富文本](./rich-text#排版规则)。
+
+### 表格
+
+- 数据行不拆开跨页：一行放不下时整行移到下一页；在一页的正文区里也放不下时照样放上去，并给出警告 `table.rowOverflow`。
+- 表头在第一段显示；`header.repeat` 为 `true` 时每一段都重复表头。
+- `everyPage` 的表尾行在每一段末尾都出现，`lastPage` 的表尾行只在最后一段出现，并且与最后一行数据排在同一页：放不下时最后一行数据一起移到下一页。
+- 行高方式为 `fixed` 时每行固定为行高；`minimum` 时以行高为下限，按单元格内容撑高。
+- `maxRowsPerPage` 限制每段的数据行数；`fillEmptyRows` 用空行补齐到每页最大行数，没有设最大行数时补满可用高度。
+- 只有一段时，表格高度不小于设计高度。
+
+### 页码
+
+页码元素在全部输出页排完后才填入。`{{$page}}` 是这张输出页的页码，`{{$pages}}` 是所在编号段的总页数；`numbering.continuous` 为 `true` 的页面模板与上一张同属一个编号段。
+
+### 只在预览中显示
+
+`previewOnly` 的元素在预览与设计器里显示，打印时不画，适合放套打用的底图或说明。
+
+### 输出页上限
+
+整份模板最多排出 1000 张输出页（`printDocument` 的 `maxSheets` 可以改）。超出时停止排版，给出错误级诊断 `layout.sheetLimit`，已排的输出页照常显示与打印。
+
+## 诊断与错误
+
+分页有两类结果：
+
+- **诊断**：分页照常完成，问题随结果给出。错误级表示按模板该画的内容没有画出或输出页被截断（如表达式求值失败、条码内容编不了、超出页数上限），警告表示内容画出了但与设计有出入（如文字超出元素框、表格一行跨不下一页）。
+- **错误**：分页无法进行。模板有错误级校验问题时抛出 `PrintLayoutError`，码为 `document.invalid`，`issues` 里是全部错误级问题；没有给模板、拿不到文字度量器时抛出 `PrintRuntimeError`。
+
+预览元素把错误转成 `pagination-error` 事件；`print()` 与 `printDocument` 直接抛出，不打开打印对话框。问题码见[问题码与诊断](../reference/issues)。
+
+## 调试回调
+
+预览元素的 `trace` 属性与 `printDocument`、`paginateDocument`、打印客户端各方法的 `trace` 选项收一组回调，给调试日志用，不给就不报，结果照旧：
+
+- `step(step)`：分页的每一步，形状是 `@xihan-print/core` 的 `PaginationStep`——`page` 开始排一个页面模板，`reflow` 按假定页数选的页眉页脚变体不对而重排，`split` 跨页元素续排到后续输出页，`move` 元素放不下整块挪到下一页，`done` 这个页面模板排完。重排时只报最后采用的那一次的 `split` 与 `move`。底层的 `paginate` 也收同样的 `trace` 选项。
+- `phase(phase)`：一个环节开始时调，返回在它结束时调的函数，结束时带上这一环节的数据。环节有 `paginate`（分页，带输出页数）、`render`（生成输出页的 DOM，带输出页数）、`resources`（等图片与字体就绪；交给本地客户端时是把它们取来随任务带去，带资源个数）、`document`（合成交给本地客户端的文档，带字节数）与 `print`（交给浏览器的打印对话框）。预览元素重新分页时报 `paginate` 与 `render`，`print()` 另报后面的环节。
+
+设计器的「调试日志」就是接在这里，见[设计器](./designer#调试日志)。
+
+## 浏览器打印
+
+`print()`、`printDocument` 与 `printSheets` 都这样打印：
+
+1. 在页面上挂一个看不见的 iframe，把输出页渲染进去，`previewOnly` 的元素不画。
+2. 每种纸张尺寸写一条具名的 `@page`，边距为 0，背景色照样打印。
+3. 把页面里的 `@font-face` 带进 iframe：读得到的规则把地址换成绝对地址抄过去，读不到的跨源样式表整张链接过去。
+4. 等图片解码、字体就绪，最多等 10 秒，然后调起打印对话框。
+5. 对话框关闭后移除 iframe；有的浏览器不派发 `afterprint`，最多等 60 秒。
+
+`title` 选项是打印对话框与另存 PDF 时的缺省文件名，缺省沿用当前页面的标题。浏览器打印由用户在对话框里选打印机；要不弹对话框直接打到指定的打印机，或者纸张尺寸不同的输出页要分别按各自的纸张送去打印，用[打印客户端](./client)。
+
+### 一次打多份
+
+一份数据打一份单据；要一次打出多份，每份数据各用 `paginateDocument(schema, data, options?)` 排一次，`mergePaginationResults(results)` 按顺序接成一份，再交给 `printSheets`：
+
+```ts
+import type { MergedPaginationResult } from '@xihan-print/runtime'
+import type { PrintClient } from '@xihan-print/runtime/client'
+import { mergePaginationResults, paginateDocument, printSheets } from '@xihan-print/runtime'
+import { schema } from '../templates/delivery'
+
+/** 每份数据各排一次再合并：页码与总页数各自从第 1 页算起；分页的缺省注入项与 printDocument 相同。 */
+export function paginateAll(records: readonly unknown[]): MergedPaginationResult {
+  return mergePaginationResults(records.map(record => paginateDocument(schema, record)))
+}
+
+export async function printAll(records: readonly unknown[]): Promise<void> {
+  await printSheets(paginateAll(records), { title: '送货单' })
+}
+```
+
+- `paginateDocument` 只分页、不打印，缺省注入项与 `printDocument` 同一份：度量器用 `options.document`（缺省为当前页面）里的 Canvas 度量器，表达式引擎与格式化器同预览元素，`measurer`、`expressionEngine`、`formatter`、`locale`、`timeZone`、`maxSheets` 与 `extensions` 照样可以给。出错的情形也与 `printDocument` 相同。
+- 每份的页码与总页数各自从第 1 页算起，合并后不变。合并结果的 `parts` 给出每份占的输出页（起点与张数）；诊断各带 `part`，是来自第几份（从 0 开始），`path` 与 `target` 相对那一份的文档。
+- `printDocument` 只收一份数据，不收数组：模板的数据根本身就可能是数组（比如整份数据就是一张明细表），收数组会分不清是一份还是多份。
+- 合并结果同样可以交给 `renderSheets` 显示，或交给[打印客户端](./client)的 `printSheets`：
+
+```ts
+export async function printAllViaClient(client: PrintClient, records: readonly unknown[]): Promise<void> {
+  await client.printSheets(paginateAll(records), { printer: 'Delivery Printer' }).done
+}
+```
+
+## 字体与文字度量
+
+分页时要量每段文字的宽度来换行，缺省用页面里的 Canvas 度量器，字体就是模板里写的字体族，没写时用 `sans-serif`。
+
+- 预览元素在页面的字体加载完成后自动重新分页，网页字体晚到也能排对。
+- `printDocument` 只排一次。模板用了网页字体时，先用 `document.fonts.load()` 把要用的字体加载好再调用，否则会按替代字体换行。
+- 输出页里每个元素都按 mm 绝对定位、尺寸固定，只有元素框内部的折行受字形宽度影响。换一台字体不同的电脑，折行位置可能不同。
+- 需要在没有 Canvas 的环境里分页时，用 `@xihan-print/core` 的 `paginate` 并传入自己的度量器（`measure(text, font)` 返回宽度与上下高度，单位 CSS 像素）。
+
+---
+
+来源：https://print.docs.xihanfun.com/guide/template
+
+# 模板结构
+
+模板是一份纯 JSON：不含函数、不含脚本，可以原样存进数据库、放进文件或经接口传输。这一章讲模板由哪些部分组成，每个字段的类型见[模板类型](../reference/schema)，每种元素的属性见[元素](../reference/elements)。
+
+## 单位与坐标
+
+| 量 | 单位 |
+| --- | --- |
+| 坐标、宽高、边距、带区高度、线宽、间距 | mm |
+| 字号、字间距 | pt |
+| 旋转角度 | 度，元素绕中心顺时针旋转；水印逆时针 |
+| 文本行高 | 字号的倍数；表格单元格的行高是 mm |
+| 颜色 | `#RGB`、`#RGBA`、`#RRGGBB`、`#RRGGBBAA` 或 `transparent` |
+
+所有元素的坐标都相对纸张左上角，页眉、正文与页脚里的元素都一样。纸张横放时，坐标按横放后的纸张算。
+
+## 一份最小的模板
+
+一张 A6 纵向页面，正文里一行绑定数据的文字。这就是完整的模板：
+
+```ts
+export const schema: PrintDocument = {
+  schemaVersion: 1,
+  name: '取件凭条',
+  pages: [
+    {
+      id: 'page-1',
+      paper: { preset: 'A6', width: 105, height: 148 },
+      orientation: 'portrait',
+      margins: { top: 8, right: 8, bottom: 8, left: 8 },
+      header: { default: { height: 0, elements: [] }, singleSheet: 'first' },
+      footer: { default: { height: 0, elements: [] }, singleSheet: 'last' },
+      numbering: { continuous: true, start: 1 },
+      elements: [
+        {
+          id: 'pickup-code',
+          type: 'text',
+          x: 8,
+          y: 12,
+          width: 89,
+          height: 12,
+          content: { kind: 'template', template: '取件码 {{code}}' },
+          style: {
+            fontSize: 18,
+            bold: true,
+            italic: false,
+            underline: false,
+            lineThrough: false,
+            color: '#000000',
+            align: 'center',
+            verticalAlign: 'middle',
+            lineHeight: 1.2,
+            letterSpacing: 0,
+          },
+          wrap: false,
+          overflow: 'shrink',
+          rotation: 0,
+        },
+      ],
+    },
+  ],
+}
+```
+
+## 文档
+
+`PrintDocument` 是模板的根：
+
+| 字段 | 说明 |
+| --- | --- |
+| `schemaVersion` | 模板 schema 版本，当前为 1。不认识的版本校验报错 |
+| `name` | 模板名称，可省 |
+| `pages` | 页面模板，至少一张 |
+| `meta` | 宿主附加数据，组件不读，原样保留 |
+
+一张页面模板按数据排出一张或多张输出页。有多张页面模板时依次排：比如第一张是封面、第二张是明细，明细多了就排出多张输出页，接在封面后面。
+
+## 页面模板
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 页面标识，整份模板内唯一，与元素标识也不能重复 |
+| `paper` | 纸张：`width`、`height` 写纵向尺寸；`preset` 记来源预设，自定义纸张不填。预设见[纸张预设](../reference/elements#page) |
+| `orientation` | `portrait` 纵向、`landscape` 横向；横向时宽高互换 |
+| `margins` | 四边页边距 |
+| `header`、`footer` | 页眉与页脚，见下一节 |
+| `elements` | 正文元素 |
+| `numbering` | 页码编号：`continuous` 是否接续上一张页面模板的页码，`start` 是不接续时的起始页码 |
+| `watermark` | 平铺文字水印，可省 |
+| `guides` | 设计器里的参考线，只用于对位，不参与分页也不打印 |
+| `meta` | 宿主附加数据 |
+
+用 `createPage` 生成时，缺省是 A4 纵向、四边 10 mm，页码接续上一张页面模板。
+
+### 页码编号
+
+页码元素的格式里，`{{$page}}` 是当前页码，`{{$pages}}` 是所在编号段的总页数。`numbering.continuous` 为 `true` 的页面模板接着上一张的页码往下编，并与它算作同一个编号段；为 `false` 时从 `start` 重新开始一个编号段。
+
+比如封面 `continuous: false, start: 1`、正文 `continuous: false, start: 1`：封面自己是「第 1 页 / 共 1 页」，正文从第 1 页重新编。
+
+### 水印
+
+水印在输出页上平铺文字，文字里可以用 `{{path}}` 占位取数据。`fontSize` 单位 pt，`opacity` 为 0 到 1，`rotation` 逆时针旋转，`gapX`、`gapY` 是相邻水印的间距（mm）。
+
+## 页眉、正文与页脚
+
+```text
+┌──────────────── 纸张 ────────────────┐
+│                上边距                │
+│  ┌──────── 页眉 header ──────────┐  │
+│  ├──────── 正文 elements ────────┤  │
+│  │                               │  │
+│  ├──────── 页脚 footer ──────────┤  │
+│                下边距                │
+└──────────────────────────────────────┘
+```
+
+- 页眉在上边距之下，页脚在下边距之上，高度由带区的 `height` 决定；两者之间是正文区。
+- 页眉、页脚里的元素每张输出页都画一遍；正文元素按数据排，长文本、富文本与表格可以续排到后面的输出页。
+- 长文本、富文本与表格只能放在正文区，放进页眉页脚校验报错。
+
+### 首页、末页与奇偶页
+
+页眉与页脚各有一个缺省带区 `default`，还可以有四个变体：`first` 首页、`last` 末页、`odd` 奇数页、`even` 偶数页。每张输出页按下面的顺序选带区：
+
+1. 是首页且有 `first`，或是末页且有 `last`：用对应的变体；既是首页又是末页、两个变体都有时，按 `singleSheet` 选 `first` 或 `last`。
+2. 否则按页码奇偶，有 `odd` 或 `even` 就用。
+3. 都没有时用 `default`。
+
+首页、末页按这张页面模板排出的输出页算，奇偶按页码算。带区高度不同时，每张输出页的正文区跟着变：首页页眉高一些，首页的正文区就短一些。
+
+## 元素
+
+每个元素都有这些字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 元素标识，整份模板内唯一 |
+| `type` | 元素类型，如 `text`、`table` |
+| `name` | 设计器里显示的名称，可省 |
+| `x`、`y`、`width`、`height` | 元素框，相对纸张左上角 |
+| `locked` | 锁定后在设计器里不能拖动与缩放 |
+| `previewOnly` | 只在设计器与预览里显示，不打印，适合画套打底图 |
+| `meta` | 宿主附加数据 |
+
+其余字段随元素类型不同，见[元素](../reference/elements)。
+
+- 同一区里的元素按数组顺序叠放，越靠后的画在越上面。
+- 元素框超出纸张或超出所在的页眉、页脚，校验给出警告，照样分页。
+- 固定尺寸的文本放不下时按 `overflow` 处理：`clip` 裁掉，`shrink` 缩小字号直到放下（最小 4 pt），`visible` 照常显示超出的部分。
+
+### 用代码生成元素
+
+元素登记表登记了全部内置元素的缺省值。`createElement` 按缺省值生成元素，`overrides` 只覆盖顶层属性；要改样式里的一项，先展开缺省的样式：
+
+```ts
+import type { PrintDocument, TableColumn } from '@xihan-print/core'
+import { createDocument, createElementRegistry, createPage } from '@xihan-print/core'
+
+const registry = createElementRegistry()
+const textStyle = registry.get('text')!.defaults.style
+```
+
+快速开始里的送货单就是这样写的：标题用缺省文本样式，只改字号、粗体与对齐。
+
+## 表格
+
+表格绑定数据里的一个数组，每个元素一行，行数多了续排到后面的输出页。
+
+| 部分 | 说明 |
+| --- | --- |
+| `dataField` | 数组的字段路径，如 `items`、`order.lines` |
+| `columns` | 列：标题、列宽、对齐、单元格内容与单元格类型 |
+| `header` | 表头：是否显示、跨页时是否每页重复、行高、样式 |
+| `body` | 表体：行高与行高方式（`fixed` 固定，`minimum` 以行高为下限按内容撑高）、样式 |
+| `footerRows` | 表尾行：每页都出现（`everyPage`）或只在表格结束的那一页出现（`lastPage`） |
+| `maxRowsPerPage` | 每页最多几行数据，缺省按可用高度排满 |
+| `fillEmptyRows` | 数据行不足时用空行补齐到每页最多行数或可用高度 |
+| `border` | 网格线：线型，以及外框、横线、竖线各画不画 |
+
+列的宽度合计应等于表格宽度，不一致时校验给出警告；在设计器里拖动表格宽度时列宽按比例缩放。
+
+### 单元格
+
+表体单元格的内容取自行对象：
+
+| 内容 | 说明 |
+| --- | --- |
+| `field` | 行内字段，可带格式与空值时显示的文字 |
+| `template` | 按行对象替换 `{{path}}` 占位 |
+| `rowNumber` | 从 1 开始、跨页连续的行序号 |
+| `expression` | 受限表达式，变量是行对象的顶层字段 |
+
+单元格类型 `cellType` 决定怎么画：`text` 文字，`image` 把内容当图片地址，`barCode` 按列的 `barCodeFormat` 画一维条码，`matrixCode` 画 QR 码。
+
+### 表尾行
+
+表尾单元格从起始列 `columnId` 开始向右跨 `colSpan` 列，内容可以是固定文字、根数据的字段或模板，也可以是汇总：
+
+| 汇总 | 说明 |
+| --- | --- |
+| `fn` | `sum` 求和、`avg` 平均、`count` 计数、`min` 最小、`max` 最大 |
+| `field` | 参与汇总的行内字段；`count` 不给字段时统计行数 |
+| `scope` | `page` 本页的数据行，`cumulative` 截至本页的累计，`all` 全部数据 |
+
+「本页小计」放在 `everyPage` 的表尾行里、用 `scope: 'page'`；「合计」放在 `lastPage` 的表尾行里、用 `scope: 'all'`。送货单的表格：
+
+```ts
+const money = { kind: 'number', decimals: 2, grouping: true } as const
+
+function column(id: string, title: string, width: number, field: string, align: TableColumn['align'] = 'left'): TableColumn {
+  return { id, title, width, align, content: { kind: 'field', field, format: money }, cellType: 'text' }
+}
+
+page.elements.push(
+  registry.createElement('text', {
+    id: 'customer',
+    x: 10,
+    y: 26,
+    overrides: { width: 120, content: { kind: 'template', template: '客户：{{customer.name}}' } },
+  }),
+  registry.createElement('text', {
+    id: 'date',
+    x: 140,
+    y: 26,
+    overrides: {
+      width: 60,
+      content: { kind: 'field', field: 'date', format: { kind: 'date', pattern: 'yyyy年M月d日' } },
+      style: { ...textStyle, align: 'right' },
+    },
+  }),
+  registry.createElement('table', {
+    id: 'items',
+    x: 10,
+    y: 36,
+    overrides: {
+      width: 190,
+      dataField: 'items',
+      columns: [
+        { id: 'no', title: '序号', width: 14, align: 'center', content: { kind: 'rowNumber' }, cellType: 'text' },
+        { id: 'name', title: '品名', width: 80, align: 'left', content: { kind: 'field', field: 'name' }, cellType: 'text' },
+        { id: 'qty', title: '数量', width: 28, align: 'right', content: { kind: 'field', field: 'qty' }, cellType: 'text' },
+        column('price', '单价', 34, 'price', 'right'),
+        column('amount', '金额', 34, 'amount', 'right'),
+      ],
+      footerRows: [
+        {
+          id: 'total',
+          placement: 'lastPage',
+          height: 7,
+          style: { ...registry.get('table')!.defaults.body.style, bold: true },
+          cells: [
+            { columnId: 'no', colSpan: 4, content: { kind: 'static', text: '合计' }, align: 'right' },
+            { columnId: 'amount', colSpan: 1, content: { kind: 'aggregate', fn: 'sum', field: 'amount', scope: 'all', format: money } },
+          ],
+        },
+      ],
+    },
+  }),
+)
+```
+
+表格跨页的规则见[运行时](./runtime#表格)。
+
+## 校验
+
+模板保存前、导入时都可以先校验。`validateDocument` 返回全部问题，每个问题有问题码、严重程度与路径；有错误级问题的模板不能分页。问题码见[问题码与诊断](../reference/issues)。
+
+```ts
+import type { PrintDocument, ValidationIssue } from '@xihan-print/core'
+import { validateDocument } from '@xihan-print/core'
+import { createExpressionEngine } from '@xihan-ui/expression'
+
+export function checkTemplate(schema: PrintDocument): ValidationIssue[] {
+  const report = validateDocument(schema, { expressionEngine: createExpressionEngine() })
+  // report.valid 为 false 时 issues 里至少有一个 severity 为 error 的问题
+  return report.issues
+}
+```

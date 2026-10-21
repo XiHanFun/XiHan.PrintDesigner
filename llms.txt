@@ -1,0 +1,39 @@
+# 曦寒打印设计器
+
+> 框架无关的打印设计器：以原生 Web Components 交付，模板是纯 JSON，在浏览器里按数据分页、预览与打印；配套的本地打印客户端负责静默打印、原始指令与导出 PDF。
+
+本文件由文档站构建期生成，内容与仓库文档同源。
+
+## 机读资产
+
+- [llms-full.txt](https://print.docs.xihanfun.com/llms-full.txt): 全部 18 页正文
+- [llms-guide.txt](https://print.docs.xihanfun.com/llms-guide.txt): 7 页指南
+- [llms-reference.txt](https://print.docs.xihanfun.com/llms-reference.txt): 7 页参考
+- 每页 Markdown：把站点地址后缀成 `.md`，如 https://print.docs.xihanfun.com/guide/binding.md
+
+## 开始
+
+- [更新日志](https://print.docs.xihanfun.com/changelog): 本页记录 `@xihan-print/core`、`@xihan-print/runtime`、`@xihan-print/designer` 各版本使用者能感知的变更，每条标注 新增 / 修复 / 调整 / 移除。
+- [曦寒打印设计器](https://print.docs.xihanfun.com/): 框架无关的打印模板设计、预览与打印
+- [介绍](https://print.docs.xihanfun.com/introduction): 曦寒打印设计器（XiHan.PrintDesigner）是一款框架无关的打印设计器：以原生 Web Components 交付，可视化设计打印模板，在浏览器里按数据分页、预览与打印；配合本地打印客户端，还能不弹对话框直接打到指定的打印机。
+- [快速开始](https://print.docs.xihanfun.com/quickstart): 这一页在任意前端项目里装上运行时，把一张送货单模板按数据排成输出页显示出来，再调起浏览器的打印对话框。
+
+## 指南
+
+- [数据绑定与格式化](https://print.docs.xihanfun.com/guide/binding): 模板只描述「哪里显示什么数据、显示成什么样」，数据在打印时才交给预览或打印函数。
+- [打印客户端](https://print.docs.xihanfun.com/guide/client): 浏览器出于安全考虑，打印都要经过打印对话框，网页不能自己选打印机、也不能把原始指令发给小票机或标签机。
+- [设计器](https://print.docs.xihanfun.com/guide/designer): `<xh-print-designer>` 是可视化的模板设计器：画布按纸张显示一张页面模板的页眉、正文与页脚，旁边是物料、属性与问题列表。
+- [与宿主集成](https://print.docs.xihanfun.com/guide/host): 组件只管设计、排版与打印，不发网络请求，也不碰存储与权限。
+- [富文本](https://print.docs.xihanfun.com/guide/rich-text): 富文本元素 `richText` 排一段带格式的文字：标题、段落、列表与分隔线，文字可以加粗、换颜色、改字号、加链接，还能嵌入行内字段。
+- [运行时](https://print.docs.xihanfun.com/guide/runtime): `@xihan-print/runtime` 是业务页面用的部分：`<xh-print-preview>` 把模板按数据排成输出页逐页显示，`print()` 与 `printDocument` 调起浏览器的打印对话框。
+- [模板结构](https://print.docs.xihanfun.com/guide/template): 模板是一份纯 JSON：不含函数、不含脚本，可以原样存进数据库、放进文件或经接口传输。
+
+## 参考
+
+- [打印客户端 SDK](https://print.docs.xihanfun.com/reference/client): `@xihan-print/runtime/client` 连接本地打印客户端：静默打印、写原始指令、导出 PDF、查打印机。
+- [模型层 core](https://print.docs.xihanfun.com/reference/core): `@xihan-print/core` 是纯 TypeScript 的模型层：模板类型、校验、编辑操作、元素登记表与分页算法，不依赖 DOM，浏览器、Node.js 与其它 JavaScript 运行环境里都能用。
+- [设计器](https://print.docs.xihanfun.com/reference/designer): `@xihan-print/designer` 的公开接口。
+- [元素](https://print.docs.xihanfun.com/reference/elements): 内置元素按物料面板的分组列出。
+- [问题码与诊断](https://print.docs.xihanfun.com/reference/issues): 校验问题由 `validateDocument` 与设计器的问题列表给出，分页诊断随分页结果一起给出。
+- [预览与打印](https://print.docs.xihanfun.com/reference/runtime): `@xihan-print/runtime` 的公开接口：预览元素、直接打印的函数与相关类型。
+- [模板类型](https://print.docs.xihanfun.com/reference/schema): 模板文档 `PrintDocument` 的全部类型，按 `@xihan-print/core` 的源码列出。
