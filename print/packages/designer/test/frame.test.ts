@@ -416,6 +416,57 @@ describe('选中工具条', () => {
     return (designer.schema.pages[0]!.elements.find(element => element.id === 'a') as unknown as { style: Record<string, unknown> }).style
   }
 
+  /** 像真实指针那样在目标上按下、松开，再派发 click；按下与松开都冒泡，按下前检查选中没被清掉。 */
+  function press(target: HTMLElement): void {
+    const init = { pointerId: 1, isPrimary: true, pointerType: 'mouse', button: 0, clientX: 2, clientY: 2, bubbles: true, cancelable: true, composed: true }
+    target.dispatchEvent(new PointerEvent('pointerdown', init))
+    target.dispatchEvent(new PointerEvent('pointerup', init))
+    if (target.isConnected)
+      target.click()
+  }
+
+  it('在工具条的钮上按下、松开：命令照常执行，选中不丢、不开框选，工具条留在原处', async () => {
+    const rect = designer.addElement('rect', { x: 120, y: 120 })
+    designer.select({ elements: ['a', rect.id] })
+    await settle()
+    press(button('align-left'))
+    await settle()
+    expect(designer.getSelection().elements).toEqual(['a', rect.id])
+    expect(designer.schema.pages[0]!.elements.find(element => element.id === rect.id)!.x).toBe(10)
+    expect(bar()).not.toBeNull()
+    expect(designer.hasAttribute('data-gesture')).toBe(false)
+
+    designer.select({ elements: ['a'] })
+    await settle()
+    press(button('text-bold'))
+    await settle()
+    expect([style().bold, designer.getSelection().elements]).toEqual([true, ['a']])
+
+    press(button('font-size'))
+    await settle()
+    const item = Array.from(document.querySelectorAll<HTMLElement>('[role="menu"] [role="menuitemradio"]')).find(entry => entry.textContent?.trim() === '14')!
+    press(item)
+    await settle()
+    expect([style().fontSize, designer.getSelection().elements]).toEqual([14, ['a']])
+  })
+
+  it('在尺寸徽标的输入框里按下不清掉选中；焦点在工具条的钮上时，工具条接走的方向键不挪元素', async () => {
+    designer.select({ elements: ['a'] })
+    await settle()
+    const input = designer.querySelector<HTMLElement>('xh-designer-transform [data-part="measure-field"][data-axis="width"] input')!
+    press(input)
+    await settle()
+    expect(designer.getSelection().elements).toEqual(['a'])
+
+    const viewport = designer.querySelector<HTMLElement>('[data-part="viewport"]')!
+    viewport.focus()
+    viewport.dispatchEvent(new KeyboardEvent('keydown', { key: 'F10', altKey: true, bubbles: true, cancelable: true }))
+    const focused = document.activeElement as HTMLElement
+    expect(bar()!.contains(focused)).toBe(true)
+    focused.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+    expect(designer.schema.pages[0]!.elements.find(element => element.id === 'a')).toMatchObject({ x: 10, y: 30 })
+  })
+
   it('按选中的主体排：文字类元素多出字号、文字样式与对齐，单个别的元素只有层级与编辑，多选多出对齐与分布；对齐、分布与层级每条一颗钮；没有选中时拿掉', async () => {
     expect(bar()).toBeNull()
     designer.select({ elements: ['a'] })

@@ -3620,7 +3620,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   readonly #onPointerDown = (event: PointerEvent): void => {
-    if (this.#gesture || this.mode !== 'design')
+    if (this.#gesture || this.mode !== 'design' || this.#inSelectionBar(event))
       return
     this.#layers?.viewport.focus({ preventScroll: true })
     if (event.button === 1 || (event.button === 0 && this.#spacePan)) {
@@ -3669,6 +3669,11 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (!additive)
       this.#editor.clearSelection()
     this.#ensureLayers().overlay.startMarquee(event, { additive })
+  }
+
+  /** 事件出自选中工具条（它在画布视口的变换覆盖层里）。 */
+  #inSelectionBar(event: Event): boolean {
+    return event.target instanceof Node && this.#layers?.selectionBar.element.contains(event.target) === true
   }
 
   readonly #onDoubleClick = (event: MouseEvent): void => {
