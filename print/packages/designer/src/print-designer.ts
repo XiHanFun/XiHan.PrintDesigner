@@ -767,7 +767,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   #gestureLabel: HistoryLabel | undefined
   #panelInputs: readonly unknown[] = []
   #unregisterDrop: (() => void) | undefined
-  /** 停止把宿主的 slot="menubar-end" 转交给外框。 */
+  /** 停止把宿主的 slot="menubar-center"、"menubar-end" 与 "status-end" 转交给外框。 */
   #releaseSlots: (() => void) | undefined
   /** 调试日志：开发者模式开着时，按设置记分页的每一步、重画与打印各环节的耗时。 */
   readonly #debug = createDesignerDebugLogger({ name: PRINT_DESIGNER_TAG, settings: () => this.#resolvedSettings })
@@ -912,9 +912,10 @@ export class XhPrintDesigner extends XhReactiveElement {
       drop: (point, payload) => this.#drop(point, payload),
       leave: () => this.#setOverlayHover(undefined),
     })
-    // 宿主写在设计器上的 slot="menubar-end"（如模板标题与保存状态）转交给外框，放在菜单栏右边
+    // 宿主写在设计器上的 slot="menubar-center"（模板标题）、slot="menubar-end" 与 slot="status-end"（保存状态）转交给外框：
+    // 标题在菜单栏正中，状态在状态栏右端、打印自己的状态项前面
     this.#releaseSlots?.()
-    this.#releaseSlots = forwardFrameSlots(this, layers.frame, ['menubar-end'])
+    this.#releaseSlots = forwardFrameSlots(this, layers.frame, ['menubar-center', 'menubar-end', 'status-end'])
     this.#host.assign(this.#extensions ?? NO_EXTENSIONS)
     this.requestUpdate()
     if (this.#draftCheckPending)
