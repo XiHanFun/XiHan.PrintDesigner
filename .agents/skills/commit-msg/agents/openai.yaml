@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.PrintDesigner 提交信息"
+  short_description: "根据打印设计器的暂存改动写规范的提交信息"
+  default_prompt: "使用 $xihan-print-commit-msg 为当前暂存区写提交信息。"
+
+policy:
+  allow_implicit_invocation: true

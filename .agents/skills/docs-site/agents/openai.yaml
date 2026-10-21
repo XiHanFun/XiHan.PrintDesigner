@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.PrintDesigner 文档站"
+  short_description: "改打印文档站的正文、示例、参考页、导航与 llms 资产"
+  default_prompt: "使用 $xihan-print-docs-site 修改文档站。"
+
+policy:
+  allow_implicit_invocation: true

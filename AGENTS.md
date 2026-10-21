@@ -20,12 +20,29 @@ XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components
 | Web Components | Light DOM | 对外交付形态 |
 | ESLint + oxlint | @antfu/eslint-config | Lint |
 
+## 开始前必须做
+
+1. 按任务读取对应技能（`.agents/skills/<技能>/SKILL.md`，Claude Code 经 `.claude/skills` 读到同一份）：
+
+   | 技能 | 什么时候读 |
+   | --- | --- |
+   | `designer-development` | 实现或重构 core、runtime、designer 三个包：模板结构、元素、扩展点、分页、设计器界面、语言包 |
+   | `docs-site` | 改文档站：正文、示例、参考页生成、导航与侧栏、更新日志页、llms 资产 |
+   | `client` | 改打印客户端：协议 `xihan-print.v1`、静默打印、更新检查、安装包 |
+   | `version-release` | 定版本、进出 rc 预发布、打标签发 npm、核对发布结果 |
+   | `changelog-collect` | 收集两版之间的变化，写文档站「更新日志」 |
+   | `commit-msg` · `create-pr` · `issue-reply` · `test-review` | 写提交信息、准备 PR、回复 Issue、审查测试 |
+
+2. 同时涉及几块时加载对应的几个技能，不一次读无关的资料。
+
 ## 目录结构
 
 ```text
 /
 ├─ AGENTS.md
 ├─ CLAUDE.md -> AGENTS.md         # Claude Code 仓库指令入口
+├─ .agents/skills/                # 按任务划分的仓库技能
+├─ .claude/skills -> ../.agents/skills   # Claude Code 技能入口
 ├─ .github/ .gitee/ .gitcode/     # 三平台 Issue / PR 模板，GitHub 另有 CI 与发版工作流
 ├─ client/                         # 打印客户端（.NET 解决方案 XiHan.PrintClient.slnx）
 │  ├─ src/XiHan.PrintClient.Core/      # net10.0，平台无关：协议、会话、来源授权、任务队列与各平台接口

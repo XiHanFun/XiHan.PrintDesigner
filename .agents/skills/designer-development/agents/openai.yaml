@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.PrintDesigner 包开发"
+  short_description: "按分层、模型约定与门禁开发 core、runtime、designer 三个包"
+  default_prompt: "使用 $xihan-print-designer-development 实现这项改动。"
+
+policy:
+  allow_implicit_invocation: true

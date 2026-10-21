@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.PrintDesigner 创建 PR"
+  short_description: "按打印设计器的 PR 模板准备或创建 Pull Request"
+  default_prompt: "使用 $xihan-print-create-pr 为当前分支准备 PR 标题与正文。"
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.PrintDesigner 更新日志整理"
+  short_description: "收集两版之间使用者能感知的变化，写文档站更新日志"
+  default_prompt: "使用 $xihan-print-changelog-collect 整理上一版以来的更新日志。"
+
+policy:
+  allow_implicit_invocation: true

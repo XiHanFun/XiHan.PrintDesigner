@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.PrintDesigner 测试审查"
+  short_description: "审查打印设计器与客户端的用例是否守住可观察的约定"
+  default_prompt: "使用 $xihan-print-test-review 审查这些测试。"
+
+policy:
+  allow_implicit_invocation: true

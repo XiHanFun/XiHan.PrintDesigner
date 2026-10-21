@@ -1,0 +1,7 @@
+interface:
+  display_name: "XiHan.PrintDesigner Issue 回复"
+  short_description: "调查打印设计器的 Issue 并起草有依据的回复"
+  default_prompt: "使用 $xihan-print-issue-reply 调查并起草这个 Issue 的回复。"
+
+policy:
+  allow_implicit_invocation: true
