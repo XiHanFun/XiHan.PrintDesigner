@@ -6,10 +6,10 @@
 
 ## 机读资产
 
-- [llms-full.txt](https://print.docs.xihanfun.com/llms-full.txt): 全部 18 页正文
+- [llms-full.txt](https://print.docs.xihanfun.com/llms-full.txt): 全部 20 页正文
 - [llms-guide.txt](https://print.docs.xihanfun.com/llms-guide.txt): 7 页指南
 - [llms-reference.txt](https://print.docs.xihanfun.com/llms-reference.txt): 7 页参考
-- 每页 Markdown：把站点地址后缀成 `.md`，如 https://print.docs.xihanfun.com/guide/binding.md
+- 每页 Markdown：把站点地址后缀成 `.md`，如 https://print.docs.xihanfun.com/ai/agents.md
 
 ## 开始
 
@@ -17,6 +17,11 @@
 - [曦寒打印设计器](https://print.docs.xihanfun.com/): 框架无关的打印模板设计、预览与打印
 - [介绍](https://print.docs.xihanfun.com/introduction): 曦寒打印设计器（XiHan.PrintDesigner）是一款框架无关的打印设计器：以原生 Web Components 交付，可视化设计打印模板，在浏览器里按数据分页、预览与打印；配合本地打印客户端，还能不弹对话框直接打到指定的打印机。
 - [快速开始](https://print.docs.xihanfun.com/quickstart): 这一页在任意前端项目里装上运行时，把一张送货单模板按数据排成输出页显示出来，再调起浏览器的打印对话框。
+
+## AI 辅助开发
+
+- [For Agents](https://print.docs.xihanfun.com/ai/agents): 给 Claude Code、Cursor、Codex、GitHub Copilot 这类 AI 编程工具的入口：在项目里用打印设计器时，怎样让 AI 写对接法；参与打印仓库开发时，AI 该读什么。
+- [LLMs.txt](https://print.docs.xihanfun.com/ai/llms): 文档站在构建时产出一组给大语言模型读的机读资产，内容与站点正文同源。
 
 ## 指南
 
