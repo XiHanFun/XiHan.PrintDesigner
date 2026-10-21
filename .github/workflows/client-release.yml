@@ -1,7 +1,7 @@
 name: Client Release
 
 # 推 client-v<版本> 标签时编译、签名安装包，建一个草稿 Release；发布草稿与更新 main 上的 client/update.json 由维护者手动完成
-# 只放行 main 历史里的标签；npm 包走另一条线（v<版本> 标签，release.yml），两边的版本号各自独立
+# 只放行 main 历史里的标签；npm 包走另一条线（v<版本> 标签，release.yml），设计器升版时客户端同号一起升
 on:
   push:
     tags: ['client-v*']

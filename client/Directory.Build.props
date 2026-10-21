@@ -12,7 +12,8 @@
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <IsPackable>false</IsPackable>
 
-    <Version>0.1.0</Version>
+    <!-- 设计器升版时由 print/scripts/release/VersionUpgrade 一起写成 @xihan-print/* 的版本 -->
+    <Version>1.0.0-rc.1</Version>
     <Company>XiHanFun</Company>
     <Product>曦寒打印客户端</Product>
     <Copyright>Copyright (c) 2021-Present XiHanFun and contributors.</Copyright>
