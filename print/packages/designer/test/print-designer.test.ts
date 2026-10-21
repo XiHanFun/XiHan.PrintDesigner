@@ -226,6 +226,25 @@ describe('<xh-print-designer>', () => {
     expect([frame.canvasTool, designer.getSelection().elements]).toEqual(['select', ['a']])
   })
 
+  it('悬停框跟着元素：拖动元素、松手后不动指针，不在原处留下悬停框；方向键挪动后悬停框跟到新位置', async () => {
+    const hover = (): Rect | undefined => overlay().hover
+    pointerAt(viewport(), 'pointermove', 20, 35)
+    expect(hover()).toEqual({ x: 10, y: 30, width: 40, height: 10 })
+    pointerAt(viewport(), 'pointerdown', 20, 35)
+    pointerAt(document, 'pointermove', 30, 45)
+    pointerAt(document, 'pointerup', 30, 45)
+    await designer.updateComplete
+    const moved = designer.schema.pages[0]!.elements[0]!
+    expect([moved.x, moved.y]).toEqual([20, 40])
+    expect([undefined, { x: 20, y: 40, width: 40, height: 10 }]).toContainEqual(hover())
+
+    pointerAt(viewport(), 'pointermove', 31, 46)
+    expect(hover()).toEqual({ x: 20, y: 40, width: 40, height: 10 })
+    key('ArrowRight')
+    await designer.updateComplete
+    expect(hover()).toEqual({ x: 21, y: 40, width: 40, height: 10 })
+  })
+
   it('快捷键：+ 放大（美式键盘上按着 Shift 也算），Ctrl + Shift + ] 按出来是 } 也置于顶层', () => {
     const press = (name: string, init: KeyboardEventInit): KeyboardEvent => {
       const event = new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true, ...init })
