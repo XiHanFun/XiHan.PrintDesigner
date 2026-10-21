@@ -147,6 +147,23 @@ export default defineXiHanConfig({
     ],
     transform: machineReadable,
   },
+  // 打印三个包经 link: 接进来，它们要的 @xihan-ui/* 由文档站装唯一的一份：解析成同一份，全局配置（界面语言）才对得上
+  vite: {
+    resolve: {
+      dedupe: [
+        '@xihan-ui/core',
+        '@xihan-ui/designer-kit',
+        '@xihan-ui/designer-shell',
+        '@xihan-ui/expression',
+        '@xihan-ui/headless',
+        '@xihan-ui/icons',
+        '@xihan-ui/pointer',
+        '@xihan-ui/styles',
+        '@xihan-ui/viz',
+        '@xihan-ui/web-components',
+      ],
+    },
+  },
   // Vue 示例里的 xh- 标签都是自定义元素，不当作 Vue 组件解析
   vue: {
     template: {

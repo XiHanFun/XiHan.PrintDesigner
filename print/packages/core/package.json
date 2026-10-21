@@ -49,7 +49,14 @@
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run"
   },
-  "dependencies": {
+  "peerDependencies": {
+    "@xihan-ui/core": "^5.0.0",
+    "@xihan-ui/designer-kit": "^5.0.0",
+    "@xihan-ui/expression": "^5.0.0",
+    "@xihan-ui/headless": "^5.0.0",
+    "@xihan-ui/viz": "^5.0.0"
+  },
+  "devDependencies": {
     "@xihan-ui/core": "catalog:",
     "@xihan-ui/designer-kit": "catalog:",
     "@xihan-ui/expression": "catalog:",
