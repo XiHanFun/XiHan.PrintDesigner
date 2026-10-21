@@ -1,0 +1,13 @@
+{
+  "mode": "pre",
+  "tag": "rc",
+  "initialVersions": {
+    "@xihan-print/core": "0.0.0",
+    "@xihan-print/designer": "0.0.0",
+    "@xihan-print/runtime": "0.0.0",
+    "@xihan-print/playground": "0.0.0"
+  },
+  "changesets": [
+    "first-release"
+  ]
+}
