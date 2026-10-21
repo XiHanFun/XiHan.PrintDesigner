@@ -84,7 +84,15 @@ const nav: DefaultTheme.NavItem[] = [
           { text: '开发框架', link: 'https://framework.docs.xihanfun.com' },
           { text: '视图组件', link: 'https://ui.docs.xihanfun.com' },
           { text: '基础应用', link: 'https://basicapp.docs.xihanfun.com' },
+        ],
+      },
+      {
+        text: '设计器',
+        items: [
           { text: '打印设计器', link: '/' },
+          { text: '流程设计器', link: 'https://flow.docs.xihanfun.com' },
+          { text: '表单设计器', link: 'https://form.docs.xihanfun.com' },
+          { text: '报表设计器', link: 'https://report.docs.xihanfun.com' },
         ],
       },
     ],
