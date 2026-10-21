@@ -26,7 +26,7 @@ pnpm changeset
 | 合并 main、打标签 | 人，手工 |
 | 发到 npm、发布后冒烟、部署文档站 | `.github/workflows/release.yml` |
 
-changesets 自己打标签的行为已用 `--no-git-tag` 关掉；一次发版对应一个自己打的 `v<版本>` 标签。npm 包的版本不建 GitHub Release，Release 页只放打印客户端的安装包（客户端走 `client-v<版本>` 标签，见 `client/` 与 `client-release.yml`）。
+changesets 自己打标签的行为已用 `--no-git-tag` 关掉；一次发版对应一个自己打的 `v<版本>` 标签。npm 包的版本不建 GitHub Release，Release 页只放打印客户端的安装包（客户端走 `client-v<版本>` 标签，见 `client/` 与 `client-release.yml`）。设计器升版时客户端同号一起升：`VersionUpgrade` 把 `client/Directory.Build.props` 的 `Version` 写成同一个号，不另加检查，兼容照旧靠子协议 `xihan-print.v1`。
 
 ## 发一个版本
 
