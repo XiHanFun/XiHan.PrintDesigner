@@ -70,7 +70,7 @@ xh-print-designer [data-part='viewport'] {
   touch-action: none;
 }
 
-xh-print-designer[data-space-pan] [data-part='viewport'] {
+xh-print-designer [data-part='viewport'][data-space-pan] {
   cursor: grab;
 }
 
@@ -79,7 +79,8 @@ xh-print-designer [data-canvas-tool='pan'] :is([data-part='viewport'], [data-par
   cursor: grab;
 }
 
-xh-print-designer[data-panning] :is([data-part='viewport'], [data-part='elements'] *, [data-part='band-handle'], [data-part='column-handle'], xh-designer-transform [data-part='handle']) {
+xh-print-designer [data-part='viewport'][data-panning]:is([data-part='viewport']),
+xh-print-designer [data-part='viewport'][data-panning] :is([data-part='elements'] *, [data-part='band-handle'], [data-part='column-handle'], xh-designer-transform [data-part='handle']) {
   cursor: grabbing;
 }
 
