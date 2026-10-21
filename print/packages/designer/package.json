@@ -1,7 +1,7 @@
 {
   "name": "@xihan-print/designer",
   "type": "module",
-  "version": "0.0.0",
+  "version": "1.0.0-rc.1",
   "description": "XiHan Print Designer — a visual print template designer delivered as Web Components.",
   "author": {
     "name": "XiHanFun",

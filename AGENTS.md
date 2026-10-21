@@ -145,8 +145,15 @@ pnpm dev
 做法照 XiHan.UI：changesets 记变更，main 上的 `v<版本>` 标签触发 `.github/workflows/release.yml` 发 npm。说明见 `print/.changeset/README.md`。
 
 - 三个公开包经 changesets 的 `fixed` 组锁步同版；`scripts/release/check-version-lock.mjs` 核对。
-- 使用者能感知的改动附一份变更集（`pnpm changeset`），中文、官方口径；CI、测试、文档站、脚本、README 不写。首发之前的改动由 `.changeset/first-release.md` 一并概括。
-- 定版本用 `print/scripts/release/VersionUpgrade.bat`（或 `pwsh scripts/release/VersionUpgrade.ps1`）：消费变更集、写各包 CHANGELOG，可进出预发布通道；不提交、不打标签、不推送，`-DryRun` 只打印计划。同一笔补文档站「更新日志」页（`docs/changelog.md`）这一版的一节；这一页在首发那一笔新建并加进导航，首发之前不建，也不写发布前的铺垫。
+- 使用者能感知的改动附一份变更集（`pnpm changeset`），中文、官方口径；CI、测试、文档站、脚本、README 不写。
+- 定版本用 `print/scripts/release/VersionUpgrade.bat`（或 `pwsh scripts/release/VersionUpgrade.ps1`）：消费变更集、写各包 CHANGELOG，可进出预发布通道；不提交、不打标签、不推送，`-DryRun` 只打印计划。同一笔在文档站「更新日志」页（`docs/changelog.md`）补这一版的一节，导航上的版本号取 core 的版本，不用改。
+- 发一个版本的步骤：
+  1. 在 `print/` 跑 VersionUpgrade，选发布通道与升级级别；看一遍三个包的 `package.json`、`CHANGELOG.md` 与 `.changeset/` 的改动。
+  2. 在 `docs/changelog.md` 补这一版的一节，日期写计划发布的那天；发布推迟了另起一笔改日期。
+  3. `print/` 跑 `pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test`、`pnpm gate:publish`、`pnpm smoke --pack`，`docs/` 跑文档站门禁，再跑 `git diff --check`；全过再提交 `build: v<版本>`。
+  4. 推 dev，等 dev 上的 CI 全绿。
+  5. main 从 dev 快进（`git fetch . dev:main`，不是快进就停下查），推 main，等 main 上的 CI 全绿。
+  6. 在版本提交上打 `v<版本>` 标签并推送，Release 发包、冒烟、部署文档站；发完用 `npm view @xihan-print/designer dist-tags` 核对。
 - release.yml 先核对标签（在 main 的历史里；标签号等于包版本且与 `.changeset/pre.json` 一致，`check-release-tag.mjs`），再构建、`gate:publish`、`changeset publish`（带 provenance），然后 `scripts/release/smoke.mjs --version` 冒烟，最后调 `deploy-docs.yml` 部署文档站。deploy-docs 只部署已经发布的版本：当前版本有标签、main 上的包与标签一致、这个版本已在 npm 上。
 - npm 包的版本不建 GitHub Release；Release 页只放打印客户端的安装包（`client-v<版本>`，`client-release.yml` 同样只放行 main 上的标签）。
 - main 只接收发版；两次发版之间挑进 main 的纯文档修正与客户端的 `client/update.json`，进了 main 以后立刻把 main 合回 dev。

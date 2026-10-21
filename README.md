@@ -16,18 +16,17 @@
 <p>
   <img alt="Web Components" src="https://img.shields.io/badge/Web_Components-29ABE2?style=flat-square&logo=webcomponentsdotorg&logoColor=white" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" />
+  <a href="https://www.npmjs.com/package/@xihan-print/designer"><img alt="npm" src="https://img.shields.io/npm/v/@xihan-print/designer?style=flat-square&logo=npm&logoColor=white" /></a>
   <a href="./LICENSE"><img alt="License" src="https://img.shields.io/github/license/XiHanFun/XiHan.PrintDesigner?style=flat-square&color=green" /></a>
 </p>
 
 <p>
-  <a href="https://docs.xihanfun.com"><img alt="Docs" src="https://img.shields.io/badge/Docs-docs.xihanfun.com-2496ED?style=flat-square&logo=readthedocs&logoColor=white" /></a>
+  <a href="https://print.docs.xihanfun.com"><img alt="Docs" src="https://img.shields.io/badge/Docs-print.docs.xihanfun.com-2496ED?style=flat-square&logo=readthedocs&logoColor=white" /></a>
+  <a href="https://deepwiki.com/XiHanFun/XiHan.PrintDesigner"><img alt="Ask DeepWiki" src="https://deepwiki.com/badge.svg" /></a>
   <a href="https://qm.qq.com/q/qYp1Urv3z2"><img alt="QQ Group" src="https://img.shields.io/badge/QQ_Group-462371834-EB1923?style=flat-square&logo=tencentqq&logoColor=white" /></a>
 </p>
 
 </div>
-
-> [!WARNING]
-> This project is in early development. No npm packages have been published yet, and the public API may change at any time.
 
 ## Introduction
 

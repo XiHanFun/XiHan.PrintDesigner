@@ -15,14 +15,14 @@ pnpm changeset
 - **头部**：列受影响的包与级别。锁步组里列一个包也会带着三个一起升，按实际影响列。级别：公开面被删除或改名、旧模板读不进来为 `major`；新增能力、模板结构升版本但带自动迁移为 `minor`；修复与不改公开面的修正为 `patch`。
 - **正文**：中文，官方口径，写「改了什么、影响谁、要做什么」，开头标 **新增 / 修复 / 调整 / 移除**；破坏性变更写清旧写法与新写法。正文原样进各包的 CHANGELOG。
 
-首发之前的改动由 `first-release.md` 一并概括，不另写变更集；首发以后每笔使用者能感知的改动都附一份。
+首发版的内容由 `first-release.md` 概括；之后每笔使用者能感知的改动都附一份变更集。预发布期间用过的变更集记进 `pre.json`、文件留着，转正式版时一并消费并删掉。
 
 ## 职责划分
 
 | 动作 | 由谁做 |
 | --- | --- |
 | 写变更集；`VersionUpgrade` 定版本、生成各包 CHANGELOG | 人，在本地 |
-| 文档站「更新日志」页（`docs/changelog.md`，首发那一笔新建并加进导航） | 人，与升版本同一笔 |
+| 文档站「更新日志」页（`docs/changelog.md`） | 人，与升版本同一笔 |
 | 合并 main、打标签 | 人，手工 |
 | 发到 npm、发布后冒烟、部署文档站 | `.github/workflows/release.yml` |
 
@@ -36,7 +36,7 @@ changesets 自己打标签的行为已用 `--no-git-tag` 关掉；一次发版�
 # 1) 定版本：按变更集推导或指定级别，选发布通道（正式 / rc 等），消费变更集、写各包 CHANGELOG
 scripts/release/VersionUpgrade.bat          # Windows；其它平台用 pwsh scripts/release/VersionUpgrade.ps1
 
-# 2) 补文档站 docs/changelog.md 这一版的一节（首发时新建这一页并加进导航），跑门禁，提交
+# 2) 在文档站 docs/changelog.md 补这一版的一节，跑门禁，提交
 git commit -m "build: v1.0.0"
 ```
 
