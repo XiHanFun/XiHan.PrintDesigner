@@ -184,13 +184,13 @@ describe('<xh-print-designer>', () => {
     const before = designer.getViewport()
     pointerAt(viewport(), 'pointerdown', 20, 35)
     pointerAt(document, 'pointermove', 30, 45)
-    expect(designer.hasAttribute('data-panning')).toBe(true)
+    expect(viewport().hasAttribute('data-panning')).toBe(true)
     pointerAt(document, 'pointerup', 30, 45)
     await designer.updateComplete
     const after = designer.getViewport()
     expect(after.x - before.x).toBeCloseTo(10 * PX_PER_MM, 6)
     expect(after.y - before.y).toBeCloseTo(10 * PX_PER_MM, 6)
-    expect(designer.hasAttribute('data-panning')).toBe(false)
+    expect(viewport().hasAttribute('data-panning')).toBe(false)
     expect([designer.getSelection().elements, designer.schema.pages[0]!.elements[0]!.x]).toEqual([['a'], 10])
 
     const handle = overlay().querySelector<HTMLElement>('[data-part="handle"]:not([hidden])')!
@@ -243,6 +243,33 @@ describe('<xh-print-designer>', () => {
     key('ArrowRight')
     await designer.updateComplete
     expect(hover()).toEqual({ x: 21, y: 40, width: 40, height: 10 })
+  })
+
+  it('移动途中只重画纸面与覆盖层：不重排校验、不重新同步属性面板；松手后整份更新，校验与 schema-change 各一次', async () => {
+    let issues = 0
+    designer.addEventListener('issues-change', () => issues++)
+    designer.select({ elements: ['a'] })
+    await designer.updateComplete
+    await Promise.resolve()
+    const properties = designer.querySelector<HTMLElement & { targets?: readonly { value: Record<string, unknown> }[] }>('xh-designer-properties')!
+    const before = properties.targets
+    issues = 0
+    events.length = 0
+    transform('start', 'move', { a: { x: 10, y: 30, width: 40, height: 10 } })
+    for (const step of [1, 2, 3]) {
+      transform('move', 'move', { a: { x: 10 + step, y: 30, width: 40, height: 10 } })
+      await designer.updateComplete
+      await Promise.resolve()
+    }
+    expect(designer.querySelector<HTMLElement>('[data-element-id="a"]')!.style.left).toBe('13mm')
+    expect([issues, properties.targets, events.filter(event => event.startsWith('schema-change'))]).toEqual([0, before, []])
+    transform('end', 'move', { a: { x: 14, y: 30, width: 40, height: 10 } })
+    await designer.updateComplete
+    await Promise.resolve()
+    await designer.updateComplete
+    expect(issues).toBe(1)
+    expect(properties.targets![0]!.value).toMatchObject({ x: 14 })
+    expect(events.filter(event => event.startsWith('schema-change'))).toEqual(['schema-change:execute'])
   })
 
   it('快捷键：+ 放大（美式键盘上按着 Shift 也算），Ctrl + Shift + ] 按出来是 } 也置于顶层', () => {

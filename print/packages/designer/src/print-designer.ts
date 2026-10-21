@@ -765,6 +765,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   #subjects: PropertySubject[] = []
   /** 进行中的手势这一步的说明，每帧重开事务时带同一个。 */
   #gestureLabel: HistoryLabel | undefined
+  /** 覆盖层的变换手势（移动、拉伸、旋转）进行中：途中只重画纸面与覆盖层，松手后整份更新。 */
+  #transforming = false
   #panelInputs: readonly unknown[] = []
   #unregisterDrop: (() => void) | undefined
   /** 停止把宿主的 slot="menubar-center"、"menubar-end" 与 "status-end" 转交给外框。 */
@@ -980,6 +982,10 @@ export class XhPrintDesigner extends XhReactiveElement {
     super.update(changed)
     const layers = this.#ensureLayers()
     const t = this.#translations()
+    if (this.#transforming && changed.size === 0 && this.mode === 'design') {
+      this.#updateDuringTransform(layers, t)
+      return
+    }
     this.#editor.setExtensions(this.#model().list)
     this.#syncSettings(layers, t, changed)
     this.#syncHelp(layers, t)
@@ -1024,6 +1030,16 @@ export class XhPrintDesigner extends XhReactiveElement {
     if (!this.#fitIfPending() && !this.#placeIfPending())
       this.#applyViewport(false)
     this.#checkTour()
+  }
+
+  /** 变换手势途中的一次重画：只重排、重画纸面与覆盖层；面板、菜单、工具栏、问题列表与状态栏等松手后整份更新时再同步。 */
+  #updateDuringTransform(layers: Layers, t: PrintDesignerTranslations): void {
+    if (this.#layoutStale) {
+      this.#layout = this.#debug.measure('render', 'layout: design', () => this.#computeLayout())
+      this.#layoutStale = false
+    }
+    this.#renderPaper(layers, t)
+    this.#syncOverlay(layers)
   }
 
   /** 第一次在设计态铺好、画布有了尺寸之后，看要不要自动开始新手引导；每个元素只看一次，画布没有尺寸（还藏着）时等下一次，同一页里别的引导开着时不开始。 */
@@ -1762,12 +1778,15 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   #onDocumentChange(cause: string, operations: readonly PrintOperation[]): void {
-    this.#scheduleIssues()
     this.#syncDirty()
-    if (cause === 'reset')
-      this.#checkDraft()
-    else
-      this.#autosave.changed(this.#editor.history.dirty)
+    // 变换手势途中每帧撤回重做，校验与自动保存等提交时再排
+    if (!this.#transforming) {
+      this.#scheduleIssues()
+      if (cause === 'reset')
+        this.#checkDraft()
+      else
+        this.#autosave.changed(this.#editor.history.dirty)
+    }
     if (cause === 'execute' && this.#editor.history.inTransaction) {
       this.#transactionOperations.push(...operations)
       return
@@ -2042,8 +2061,10 @@ export class XhPrintDesigner extends XhReactiveElement {
   }
 
   #fitIfPending(): boolean {
+    if (!this.#fitPending || this.mode === 'preview')
+      return false
     const size = this.#size()
-    if (!this.#fitPending || !size || this.mode === 'preview')
+    if (!size)
       return false
     this.#fitPending = false
     const paper = getPaperSize(this.#editor.page)
@@ -2060,8 +2081,10 @@ export class XhPrintDesigner extends XhReactiveElement {
    * 左边留 FIT_PADDING 与页眉页脚标签宽度中较大的那个。放了返回 true。
    */
   #placeIfPending(): boolean {
+    if (!this.#placePending || this.mode === 'preview')
+      return false
     const size = this.#size()
-    if (!this.#placePending || !size || this.mode === 'preview')
+    if (!size)
       return false
     this.#placePending = false
     const start = this.#layers === undefined ? 0 : this.#bandMenuGutter(this.#layers)
@@ -3389,6 +3412,7 @@ export class XhPrintDesigner extends XhReactiveElement {
   readonly #onTransform = (event: Event): void => {
     const { phase, kind, rects, copy } = (event as DesignerTransformEventMap['transform']).detail
     const history = this.#editor.history
+    this.#transforming = phase === 'start' || phase === 'move'
     if (phase === 'start') {
       this.#stopAutoFit()
       this.#onHoverEnd()
@@ -3541,16 +3565,17 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.requestUpdate()
   }
 
-  /** 按住拖动平移视口：只点一下（没拖起来）什么都不做；拖动中宿主带 data-panning。 */
+  /** 按住拖动平移视口：只点一下（没拖起来）什么都不做；拖动中视口带 data-panning。 */
   #pan(event: PointerEvent): void {
     const origin = this.#viewport
+    const viewport = this.#ensureLayers().viewport
     this.#stopAutoFit()
-    this.toggleAttribute('data-panning', true)
+    viewport.toggleAttribute('data-panning', true)
     this.#track(event, {
       onMove: (dx, dy) => this.#moveTo(panBy(origin, dx, dy)),
-      onEnd: () => this.toggleAttribute('data-panning', false),
+      onEnd: () => viewport.toggleAttribute('data-panning', false),
       onCancel: () => {
-        this.toggleAttribute('data-panning', false)
+        viewport.toggleAttribute('data-panning', false)
         this.#moveTo(origin)
       },
     })
@@ -3847,7 +3872,7 @@ export class XhPrintDesigner extends XhReactiveElement {
 
   #setSpacePan(value: boolean): void {
     this.#spacePan = value
-    this.toggleAttribute('data-space-pan', value)
+    this.#layers?.viewport.toggleAttribute('data-space-pan', value)
   }
 
   readonly #onKeyUp = (event: KeyboardEvent): void => {
