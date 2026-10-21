@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 设计器：打开送货单，给出可绑定的字段树与示例数据；保存状态放在菜单栏右边，选「文件 → 保存」或按 Ctrl / ⌘ + S 时由宿主保存并标记为已保存。
+// 设计器：打开送货单，给出可绑定的字段树与示例数据；模板标题放在菜单栏正中、保存状态放在状态栏右端，选「文件 → 保存」或按 Ctrl / ⌘ + S 时由宿主保存并标记为已保存。
 
 // #region setup
 import type { PrintDesignerEventMap } from '@xihan-print/designer'
@@ -50,11 +50,14 @@ export function mount(host: HTMLElement): () => void {
   designer.draftKey = 'docs-delivery'
 
   // #region save
-  // 写成设计器的子元素、带 slot="menubar-end"，放在菜单栏右边一段
+  // 写成设计器的子元素：slot="menubar-center" 的标题在菜单栏正中，slot="status-end" 的保存状态在状态栏右端
+  const title = document.createElement('span')
+  title.slot = 'menubar-center'
+  title.textContent = '送货单'
   const status = document.createElement('span')
-  status.slot = 'menubar-end'
+  status.slot = 'status-end'
   status.textContent = '没有修改'
-  designer.append(status)
+  designer.append(title, status)
   designer.addEventListener('dirty-change', (event) => {
     const { dirty } = (event as PrintDesignerEventMap['dirty-change']).detail
     status.textContent = dirty ? '有未保存的修改，选「文件 → 保存」或按 Ctrl / ⌘ + S' : '已保存'

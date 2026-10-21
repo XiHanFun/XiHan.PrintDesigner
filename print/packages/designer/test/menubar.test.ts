@@ -179,25 +179,30 @@ describe('菜单栏', () => {
     expect(menubar().collection!.map(node => node.value)).toEqual(['file', 'edit', 'view', 'insert', 'page'])
   })
 
-  it('宿主写在设计器上的 slot="menubar-end" 放到菜单栏右边一段，后来加的也一样', async () => {
+  it('宿主写在设计器上的 slot="menubar-center" 放到菜单栏正中、menubar-end 放到右边、status-end 放到状态栏右端打印自己的状态项前面，后来加的也一样；状态栏关掉时跟着不显示', async () => {
     designer.remove()
     designer = document.createElement('xh-print-designer')
     designer.measurer = measurer
     designer.autoTour = false
-    const title = document.createElement('span')
-    title.slot = 'menubar-end'
-    title.textContent = '送货单'
-    designer.append(title)
+    const host = (slot: string, text: string): HTMLSpanElement => Object.assign(document.createElement('span'), { slot, textContent: text })
+    const title = host('menubar-center', '送货单 · DO-01')
+    const draft = host('menubar-end', '草稿')
+    const saved = host('status-end', '已保存')
+    designer.append(title, draft, saved)
     document.body.append(designer)
     designer.schema = sample()
     await settle()
-    expect([title.parentElement!.getAttribute('data-zone'), title.closest('[data-region]')!.getAttribute('data-region')]).toEqual(['end', 'menubar'])
-    const state = document.createElement('span')
-    state.slot = 'menubar-end'
-    designer.append(state)
+    const place = (node: Element): (string | null | undefined)[] => [node.parentElement!.getAttribute('data-zone'), node.closest('[data-region]')?.getAttribute('data-region')]
+    expect([place(title), place(draft), place(saved)]).toEqual([['center', 'menubar'], ['end', 'menubar'], ['end', 'status']])
+    designer.append(host('status-end', '已连接'))
     await Promise.resolve()
     await settle()
-    expect(state.closest('[data-region]')!.getAttribute('data-region')).toBe('menubar')
+    const texts = [...saved.parentElement!.children].filter(node => !(node as HTMLElement).hidden).map(node => node.textContent!)
+    expect(texts.slice(0, 2)).toEqual(['已保存', '已连接'])
+    expect(texts.at(-1)).toMatch(/%$/)
+    designer.settings = { 'general.statusBar': false }
+    await settle()
+    expect([saved.closest('[data-region]'), title.closest('[data-region]')?.getAttribute('data-region')]).toEqual([null, 'menubar'])
   })
 
   it('画布有焦点时按 F10 把焦点交给菜单栏，再按 F10 回到画布', async () => {
