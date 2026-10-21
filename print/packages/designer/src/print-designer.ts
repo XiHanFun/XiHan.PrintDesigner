@@ -3283,6 +3283,17 @@ export class XhPrintDesigner extends XhReactiveElement {
   #syncOverlay(layers: Layers): void {
     layers.overlay.readonly = this.#readOnly
     layers.overlay.items = this.#overlayItems()
+    this.#syncHover(layers)
+  }
+
+  /** 悬停框按悬停元素当前的位置重画；元素不见了就拿掉。 */
+  #syncHover(layers: Layers): void {
+    if (this.#hoverId === undefined)
+      return
+    const element = this.#editor.visibleElements().find(item => item.element.id === this.#hoverId)?.element
+    if (element === undefined)
+      this.#hoverId = undefined
+    layers.overlay.hover = element === undefined ? undefined : elementRect(element)
   }
 
   /** 吸附选项：其它元素、页边距、各区边界与参考线；关掉吸附时只吸网格。 */
@@ -3380,6 +3391,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     const history = this.#editor.history
     if (phase === 'start') {
       this.#stopAutoFit()
+      this.#onHoverEnd()
       const phrase = kind === 'move' ? 'move' : kind === 'resize' ? 'resize' : 'rotate'
       this.#gestureLabel = elementsLabel(phrase, identitiesIn(this.#editor.document, [...rects.keys()]), this.#labelSource)
       history.begin(this.#gestureLabel)
