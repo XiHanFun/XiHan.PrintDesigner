@@ -41,6 +41,14 @@ const guideSidebar: DefaultTheme.SidebarItem[] = [
       { text: '与宿主集成', link: '/guide/host' },
     ],
   },
+  {
+    text: 'AI 辅助开发',
+    collapsed: false,
+    items: [
+      { text: 'For Agents', link: '/ai/agents' },
+      { text: 'LLMs.txt', link: '/ai/llms' },
+    ],
+  },
 ]
 
 // 参考页由 scripts/gen-reference.mjs 从源码生成
@@ -73,7 +81,38 @@ const sidebar: DefaultTheme.Sidebar = {
 }
 
 const nav: DefaultTheme.NavItem[] = [
-  { text: '指南', link: '/introduction', activeMatch: '^/(introduction|quickstart|guide/.*)$' },
+  {
+    text: '指南',
+    activeMatch: '^/(introduction|quickstart|(guide|ai)/.*)$',
+    items: [
+      {
+        text: '开始',
+        items: [
+          { text: '介绍', link: '/introduction' },
+          { text: '快速开始', link: '/quickstart' },
+        ],
+      },
+      {
+        text: '深入',
+        items: [
+          { text: '模板结构', link: '/guide/template' },
+          { text: '数据绑定与格式化', link: '/guide/binding' },
+          { text: '富文本', link: '/guide/rich-text' },
+          { text: '运行时', link: '/guide/runtime' },
+          { text: '设计器', link: '/guide/designer' },
+          { text: '打印客户端', link: '/guide/client' },
+          { text: '与宿主集成', link: '/guide/host' },
+        ],
+      },
+      {
+        text: 'AI 辅助开发',
+        items: [
+          { text: 'For Agents', link: '/ai/agents' },
+          { text: 'LLMs.txt', link: '/ai/llms' },
+        ],
+      },
+    ],
+  },
   { text: '参考', link: '/reference/elements', activeMatch: '^/reference/' },
   {
     text: '生态',
@@ -154,6 +193,7 @@ export default defineXiHanConfig({
     site: 'https://print.docs.xihanfun.com',
     sections: [
       { dir: '.', label: '开始' },
+      { dir: 'ai', label: 'AI 辅助开发' },
       { dir: 'guide', label: '指南' },
       { dir: 'reference', label: '参考' },
     ],
