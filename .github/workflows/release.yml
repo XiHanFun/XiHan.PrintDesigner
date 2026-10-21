@@ -1,7 +1,8 @@
 name: Release
 
-# 推 v<版本> 标签时：核对标签，构建并核对产物，把三个公开包发到 npm（带 provenance），在空项目里装刚发的版本冒烟，再部署文档站。
-# 版本号、各包 CHANGELOG、文档站的更新日志由人用 print/scripts/release/VersionUpgrade 定好并合进 main；这里不提交、不建 GitHub Release。
+# 推 v<版本> 标签时：核对标签，构建并核对产物，把三个公开包发到 npm（带 provenance），在空项目里装刚发的版本冒烟，再部署文档站；
+# 同时调 client-release.yml 出这一版打印客户端的安装包与草稿 Release（只依赖核对标签，两条线失败时各自重跑）。
+# 版本号、各包 CHANGELOG、文档站的更新日志由人用 print/scripts/release/VersionUpgrade 定好并合进 main；这里不提交，npm 包不建 GitHub Release。
 # 手动 Run workflow 时选中一个版本标签；选分支会被 guard 拦下。
 on:
   workflow_dispatch:
@@ -40,7 +41,7 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 24
-      - name: 标签号与包版本、预发布模式对账
+      - name: 标签号与包版本、客户端版本、预发布模式对账
         run: node scripts/release/check-release-tag.mjs
 
   publish:
@@ -94,3 +95,12 @@ jobs:
     permissions:
       contents: write
     uses: ./.github/workflows/deploy-docs.yml
+
+  # 打印客户端与 npm 包同号同发：只依赖核对标签，与发 npm 并行；「重跑失败的 job」只重跑失败的那一条
+  client:
+    name: 打印客户端
+    needs: guard
+    permissions:
+      contents: write
+    uses: ./.github/workflows/client-release.yml
+    secrets: inherit

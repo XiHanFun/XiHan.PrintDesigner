@@ -153,27 +153,28 @@ pnpm dev
 - 代码风格照 XiHan.Framework：文件头两行版权注释，文件级命名空间，公开成员写中文 XML 注释，注释只写做什么。
 - 原始通道的集成测试要一台端口指向文件的「Generic / Text Only」打印机，经环境变量 `XIHAN_PRINT_TEST_PRINTER`、`XIHAN_PRINT_TEST_OUTPUT` 告知；没配置时跳过。CI 里由 `client.yml` 自动装，本机要跑时以管理员身份照那一步装。
 - 本机编译安装包用按当前用户装的 Inno Setup 6.7.3（官方安装包，装在 `%LocalAppData%\Programs\Inno Setup 6`），`build.ps1` 会在那里和 PATH 里找 `ISCC.exe`；它只用于编译与试装，不进运行时依赖，也不进仓库。CI 自己装 Inno Setup，不依赖哪台机器。安装包按系统界面语言选简体中文或英文，不弹语言选择框；简体中文是自己写的 `installer/zh-CN.isl`，叠在 `compiler:Default.isl` 之上，只覆写这个安装包在安装、升级、卸载与出错时会出现的消息，其余沿用英文。给安装包加页面或提示时，在 `zh-CN.isl` 与 `[CustomMessages]` 的 `en.`、`zh.` 两份里一起补。
-- 安装包按当前用户装到 `%LocalAppData%\Programs\XiHanFun\PrintClient`，不要管理员权限；打进 WebView2 Evergreen 引导程序（内网可用 `-WebView2Installer` 换成离线安装包）。分支 CI 出未签名的安装包；推 `client-v<版本>` 标签时 `client-release.yml` 签名（仓库密钥 `CLIENT_SIGNING_CERT`、`CLIENT_SIGNING_PASSWORD`，没有就不签）并建草稿 Release，发布草稿后把附件里的 `update.json` 提交到 main 的 `client/update.json`，客户端的自动更新才看得到新版。
+- 安装包按当前用户装到 `%LocalAppData%\Programs\XiHanFun\PrintClient`，不要管理员权限；打进 WebView2 Evergreen 引导程序（内网可用 `-WebView2Installer` 换成离线安装包）。分支 CI 出未签名的安装包；推 `v<版本>` 标签时 `release.yml` 调 `client-release.yml` 签名（仓库密钥 `CLIENT_SIGNING_CERT`、`CLIENT_SIGNING_PASSWORD`，没有就不签）并建这个标签的草稿 Release，发布草稿后把附件里的 `update.json` 提交到 main 的 `client/update.json`，客户端的自动更新才看得到新版。
 - 自动更新只安装 `Directory.Build.props` 里 `XiHanUpdatePublisher` 这个发布者签名的安装包，为空时只提示新版、不自动安装。
-- 设计器升版时客户端同号一起升：`Directory.Build.props` 的 `Version` 由 VersionUpgrade 写成 `@xihan-print/*` 的版本，不另加检查；SDK 与客户端的兼容照旧靠子协议 `xihan-print.v1`，客户端不支持时 SDK 报 `PROTOCOL_UNSUPPORTED`。程序集与安装包的文件版本取它去掉预发布后缀的数字部分（如 `1.0.0-rc.1` 得 `1.0.0.0`），安装包文件名与界面上显示完整的版本号。
+- 客户端与 `@xihan-print/*` 版本相同、每版同发：`Directory.Build.props` 的 `Version` 由 VersionUpgrade 写成三个包的版本，不手改；日常门禁不核对，发版时 `release.yml` 的「核对标签」核标签号、三个包与客户端三方一致（`check-release-tag.mjs`）。SDK 与客户端的兼容照旧靠子协议 `xihan-print.v1`，客户端不支持时 SDK 报 `PROTOCOL_UNSUPPORTED`。程序集与安装包的文件版本取它去掉预发布后缀的数字部分（如 `1.0.0-rc.1` 得 `1.0.0.0`），安装包文件名与界面上显示完整的版本号。
 - 提交前跑构建、测试与 `git diff --check`。
 
 ## 发版
 
-做法照 XiHan.UI：changesets 记变更，main 上的 `v<版本>` 标签触发 `.github/workflows/release.yml` 发 npm。说明见 `print/.changeset/README.md`。
+做法照 XiHan.UI：changesets 记变更，main 上的 `v<版本>` 标签触发 `.github/workflows/release.yml` 发 npm，同时出这一版打印客户端的安装包。说明见 `print/.changeset/README.md`。
 
-- 三个公开包经 changesets 的 `fixed` 组锁步同版，`scripts/release/check-version-lock.mjs` 核对；打印客户端升版时跟着写成同一个号。
+- 三个公开包经 changesets 的 `fixed` 组锁步同版，`scripts/release/check-version-lock.mjs` 核对；打印客户端与它们同号，每版同发。
 - 使用者能感知的改动附一份变更集（`pnpm changeset`），中文、官方口径；CI、测试、文档站、脚本、README 不写。
-- 定版本用 `print/scripts/release/VersionUpgrade.bat`（或 `pwsh scripts/release/VersionUpgrade.ps1`）：消费变更集、写各包 CHANGELOG，把打印客户端的版本写成同一个号，可进出预发布通道；不提交、不打标签、不推送，`-DryRun` 只打印计划。同一笔在文档站「更新日志」页（`docs/changelog.md`）补这一版的一节，导航上的版本号取 core 的版本，不用改。
+- 定版本用 `print/scripts/release/VersionUpgrade.bat`（或 `pwsh scripts/release/VersionUpgrade.ps1`）：消费变更集、写各包 CHANGELOG，把打印客户端的版本写成同一个号，可进出预发布通道；不提交、不打标签、不推送，`-DryRun` 只打印计划。同一笔在文档站「更新日志」页（`docs/changelog.md`）补这一版的一节（客户端的改动并进同一节），导航上的版本号取 core 的版本，不用改。
 - 发一个版本的步骤：
   1. 在 `print/` 跑 VersionUpgrade，选发布通道与升级级别；看一遍三个包的 `package.json`、`CHANGELOG.md`、`.changeset/` 与 `client/Directory.Build.props` 的改动。
   2. 在 `docs/changelog.md` 补这一版的一节，日期写计划发布的那天；发布推迟了另起一笔改日期。
   3. `print/` 跑 `pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test`、`pnpm gate:publish`、`pnpm smoke --pack`，`docs/` 跑文档站门禁，再跑 `git diff --check`；全过再提交 `build: v<版本>`。
   4. 推 dev，等 dev 上的 CI 全绿。
   5. main 从 dev 快进（`git fetch . dev:main`，不是快进就停下查），推 main，等 main 上的 CI 全绿。
-  6. 在版本提交上打 `v<版本>` 标签并推送，Release 发包、冒烟、部署文档站；发完用 `npm view @xihan-print/designer dist-tags` 核对。
-- release.yml 先核对标签（在 main 的历史里；标签号等于包版本且与 `.changeset/pre.json` 一致，`check-release-tag.mjs`），再构建、`gate:publish`、`changeset publish`（带 provenance），然后 `scripts/release/smoke.mjs --version` 冒烟，最后调 `deploy-docs.yml` 部署文档站。deploy-docs 只部署已经发布的版本：当前版本有标签、main 上的包与标签一致、这个版本已在 npm 上。
-- npm 包的版本不建 GitHub Release；Release 页只放打印客户端的安装包（`client-v<版本>`；`client-release.yml` 同样只放行 main 上的标签，并核对标签号等于 `client/Directory.Build.props` 的版本）。
+  6. 在版本提交上打 `v<版本>` 标签并推送，Release 发包、冒烟、部署文档站，同时出打印客户端的草稿 Release；发完用 `npm view @xihan-print/designer dist-tags` 核对。
+  7. 发布客户端的草稿 Release，把附件里的 `update.json` 提交到 main 的 `client/update.json`，再把 main 合回 dev。
+- release.yml 先核对标签（在 main 的历史里；标签号等于三个包与客户端的版本、且与 `.changeset/pre.json` 一致，`check-release-tag.mjs`），之后分两条线：一条构建、`gate:publish`、`changeset publish`（带 provenance），然后 `scripts/release/smoke.mjs --version` 冒烟，最后调 `deploy-docs.yml` 部署文档站；另一条调 `client-release.yml` 编译、签名客户端并建草稿 Release，只依赖核对标签。一条失败时用「重跑失败的 job」（`gh run rerun <run-id> --failed`）单独重跑那一条，客户端那条重跑不会重发 npm，草稿已在就只覆盖附件。deploy-docs 只部署已经发布的版本：当前版本有标签、main 上的包与标签一致、这个版本已在 npm 上。
+- npm 包不另建 GitHub Release；每个 `v<版本>` 标签的 Release 放这一版打印客户端的安装包与 `update.json`，预发布版标成 Pre-release。
 - main 只接收发版；两次发版之间挑进 main 的纯文档修正与客户端的 `client/update.json`，进了 main 以后立刻把 main 合回 dev。
 - 合并 main、打标签、发布都只在用户明确要求时执行。
 

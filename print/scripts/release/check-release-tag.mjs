@@ -4,12 +4,13 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 门禁：核对两条。① 标签号等于每个公开包的版本；② 标签带不带预发布后缀、带的是哪个通道，与 .changeset/pre.json 一致。
+// 门禁：核对两条。① 标签号等于每个公开包的版本，仓库里有打印客户端时也等于客户端的版本；② 标签带不带预发布后缀、带的是哪个通道，与 .changeset/pre.json 一致。
 // 标签取 RELEASE_TAG，或 Actions 里的 GITHUB_REF_NAME（GITHUB_REF_TYPE 为 tag 时）；都没有就跳过。
 import { readFile } from 'node:fs/promises'
 import { publishablePackages } from './packages.mjs'
 
 const PRE_PATH = '.changeset/pre.json'
+const CLIENT_PROPS = '../client/Directory.Build.props'
 
 const tag = process.env.RELEASE_TAG ?? (process.env.GITHUB_REF_TYPE === 'tag' ? process.env.GITHUB_REF_NAME : undefined)
 
@@ -39,6 +40,20 @@ if (mismatched.length > 0) {
   problems.push(`标签 ${tag} 要发的是 ${version}，这些包的 package.json 不是这个号：${mismatched.map(pkg => `${pkg.name}@${pkg.version}`).join('、')}。`
     + '先跑 VersionUpgrade 把版本提到位并合进 main，再在那个提交上打标签。')
 }
+let clientProps
+try {
+  clientProps = await readFile(CLIENT_PROPS, 'utf8')
+}
+catch {
+  // 没有打印客户端的仓库只核对公开包
+}
+if (clientProps !== undefined) {
+  const clientVersion = /<Version>([^<]*)<\/Version>/.exec(clientProps)?.[1]?.trim()
+  if (clientVersion !== version) {
+    problems.push(`标签 ${tag} 要发的是 ${version}，打印客户端（${CLIENT_PROPS} 的 Version）是 ${clientVersion ?? '（没写）'}：客户端与公开包同号同发。`
+      + '用 VersionUpgrade 升版会一起写；手改过就改回同一个号再合进 main。')
+  }
+}
 if (prerelease === undefined && pre !== null) {
   problems.push(`标签 ${tag} 是正式版号，${PRE_PATH} 还在预发布模式（tag=${pre.tag}）：发出去的会是 ${version}-${pre.tag}.N。`
     + '先在 VersionUpgrade 里选正式版（changeset pre exit）再定版本、打标签。')
@@ -57,4 +72,4 @@ if (problems.length > 0) {
   process.exit(1)
 }
 
-console.log(`[check-release-tag] 通过：标签 ${tag} 与 ${packages.length} 个公开包的版本号、changesets 的${pre ? `预发布模式（tag=${pre.tag}）` : '正式模式'}一致`)
+console.log(`[check-release-tag] 通过：标签 ${tag} 与 ${packages.length} 个公开包${clientProps === undefined ? '' : '、打印客户端'}的版本号、changesets 的${pre ? `预发布模式（tag=${pre.tag}）` : '正式模式'}一致`)

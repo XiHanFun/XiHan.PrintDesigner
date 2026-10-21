@@ -1,45 +1,21 @@
 name: Client Release
 
-# 推 client-v<版本> 标签时编译、签名安装包，建一个草稿 Release；发布草稿与更新 main 上的 client/update.json 由维护者手动完成
-# 只放行 main 历史里的标签；npm 包走另一条线（v<版本> 标签，release.yml），设计器升版时客户端同号一起升
+# 由 release.yml 在 v<版本> 标签上调用，与发 npm 并行：编译、签名打印客户端的安装包，建这个标签的草稿 Release。
+# 标签核对在 release.yml 的「核对标签」里做（标签在 main 的历史里，标签号等于三个包与客户端的版本）；发布草稿、把 update.json 提交到 main 由维护者手动完成。
 on:
-  push:
-    tags: ['client-v*']
-
-permissions:
-  contents: write
+  workflow_call:
 
 defaults:
   run:
     working-directory: client
 
 jobs:
-  guard:
-    name: 核对标签
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    defaults:
-      run:
-        working-directory: .
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - name: 只放行 main 上的客户端标签
-        run: |
-          git fetch --no-tags origin main:refs/remotes/origin/main
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
-            echo "::error::标签 $GITHUB_REF_NAME 指向的提交 $GITHUB_SHA 不在 main 的历史里，拒绝发布。先把要发布的提交合进 main，再在 main 上打标签。"
-            exit 1
-          fi
-          echo "标签 $GITHUB_REF_NAME 在 main 上，放行"
-
   release:
     name: 发布安装包
-    needs: guard
     runs-on: windows-latest
     timeout-minutes: 40
+    permissions:
+      contents: write
     env:
       SIGNING_CERT: ${{ secrets.CLIENT_SIGNING_CERT }}
       SIGNING_PASSWORD: ${{ secrets.CLIENT_SIGNING_PASSWORD }}
@@ -52,7 +28,7 @@ jobs:
         shell: pwsh
         run: |
           $version = ([xml](Get-Content Directory.Build.props -Raw)).Project.PropertyGroup.Version | Where-Object { $_ } | Select-Object -First 1
-          if ("client-v$version" -ne $env:GITHUB_REF_NAME) { throw "标签 $env:GITHUB_REF_NAME 与 Directory.Build.props 的版本 $version 不一致" }
+          if ("v$version" -ne $env:GITHUB_REF_NAME) { throw "标签 $env:GITHUB_REF_NAME 与 Directory.Build.props 的版本 $version 不一致" }
           "CLIENT_VERSION=$version" >> $env:GITHUB_ENV
       - run: dotnet build XiHan.PrintClient.slnx -c Release
       - run: dotnet test --solution XiHan.PrintClient.slnx -c Release --no-build
@@ -71,11 +47,22 @@ jobs:
       - name: Package
         shell: pwsh
         run: ./installer/build.ps1 -SignCommand "$env:SIGN_COMMAND" -ReleaseBaseUrl "https://github.com/${{ github.repository }}/releases/download/$env:GITHUB_REF_NAME"
+      # 重跑时这个标签的草稿已经在：只把附件覆盖上去，不另建
       - name: Draft release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create $env:GITHUB_REF_NAME --draft --title "曦寒打印客户端 $env:CLIENT_VERSION" --notes "安装包与 update.json 见附件；发布后把 update.json 提交到 main 的 client/update.json。" (Get-ChildItem installer/output -File | ForEach-Object FullName)
+        run: |
+          $files = Get-ChildItem installer/output -File | ForEach-Object FullName
+          gh release view $env:GITHUB_REF_NAME *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:GITHUB_REF_NAME $files --clobber
+          }
+          else {
+            $prerelease = if ($env:CLIENT_VERSION.Contains('-')) { @('--prerelease') } else { @() }
+            gh release create $env:GITHUB_REF_NAME --draft @prerelease --title "曦寒打印客户端 $env:CLIENT_VERSION" --notes "安装包与 update.json 见附件；发布后把 update.json 提交到 main 的 client/update.json。" $files
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Remove signing certificate
         if: always() && env.SIGNING_CERT != ''
         shell: pwsh

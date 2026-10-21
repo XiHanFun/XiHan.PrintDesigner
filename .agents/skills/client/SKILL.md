@@ -36,9 +36,9 @@ description: 开发、修复或测试 XiHan.PrintDesigner 的本地打印客户�
 - 代码风格照 XiHan.Framework：文件头两行 `//` 版权注释，文件级命名空间，公开成员写中文 XML 注释（`GenerateDocumentationFile` 与 `TreatWarningsAsErrors` 都开着），注释只写做什么。
 - 原始通道的集成测试要一台端口指向文件的「Generic / Text Only」打印机，经 `XIHAN_PRINT_TEST_PRINTER`、`XIHAN_PRINT_TEST_OUTPUT` 告知；没配时跳过。CI 里由 `client.yml` 自动装，本机要跑时以管理员身份照那一步装。
 - 安装包按当前用户装到 `%LocalAppData%\Programs\XiHanFun\PrintClient`，不要管理员权限。本机编译用按当前用户装的 Inno Setup 6（`build.ps1` 会在 `%LocalAppData%\Programs\Inno Setup 6` 与 PATH 里找 `ISCC.exe`）。给安装包加页面或提示时，`zh-CN.isl` 与 `[CustomMessages]` 的 `en.`、`zh.` 两份一起补。
-- 版本是 `Directory.Build.props` 的 `Version`，设计器升版时由 `print/scripts/release/VersionUpgrade` 一起写成 `@xihan-print/*` 的版本，不手改。可以带预发布后缀：程序集与安装包的文件版本取数字部分（`1.0.0-rc.1` 得 `1.0.0.0`），安装包文件名、界面与更新比较用完整的号。
+- 版本是 `Directory.Build.props` 的 `Version`，与 `@xihan-print/*` 相同、每版同发：由 `print/scripts/release/VersionUpgrade` 一起写，不手改；发版时 `release.yml` 的「核对标签」核标签号、三个包与客户端一致。可以带预发布后缀：程序集与安装包的文件版本取数字部分（`1.0.0-rc.1` 得 `1.0.0.0`），安装包文件名、界面与更新比较用完整的号。
 - 自动更新先查 Gitee、再查 GitHub 上的清单，只安装 `XiHanUpdatePublisher` 这个发布者签名的安装包，为空时只提示新版。
-- 发布：推 `client-v<版本>` 标签，`client-release.yml` 核对标签号等于 `Directory.Build.props` 的版本，编译、签名（有证书密钥时）并建草稿 Release；维护者发布草稿后把附件里的 `update.json` 提交到 main 的 `client/update.json`，再把 main 合回 dev。推标签与发布只在用户明确要求时做。
+- 发布跟设计器同一个 `v<版本>` 标签：`release.yml` 核对标签后调 `client-release.yml`（与发 npm 并行），编译、测试、签名（有证书密钥时），建这个标签的草稿 Release，附件是两个架构的安装包、SHA-256 与 `update.json`；客户端这条失败时 `gh run rerun <run-id> --failed` 只重跑它，不会重发 npm，草稿已在时只覆盖附件。维护者发布草稿后把附件里的 `update.json` 提交到 main 的 `client/update.json`，再把 main 合回 dev。完整步骤见 version-release；推标签与发布只在用户明确要求时做。
 
 ## 门禁
 
