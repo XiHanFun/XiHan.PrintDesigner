@@ -74,6 +74,11 @@ jobs:
         env:
           NPM_CONFIG_PROVENANCE: 'true'
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # 正式版还没发出之前，预发布版也挂上 latest；npm 上已有正式版的包不动
+      - name: 预发布版跟上 latest
+        run: node scripts/release/promote-latest.mjs
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
   smoke:
     name: 发布后冒烟
