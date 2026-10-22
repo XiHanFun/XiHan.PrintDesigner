@@ -1,0 +1,18 @@
+{
+  "version": "1.0.0-rc.2",
+  "notes": "曦寒打印客户端 1.0.0-rc.2，与 @xihan-print/* 1.0.0-rc.2 同号；这一版客户端没有功能改动。本版安装包未签名，客户端的自动更新只提示新版、不会自动安装它。\n",
+  "assets": [
+    {
+      "arch": "x64",
+      "url": "https://github.com/XiHanFun/XiHan.PrintDesigner/releases/download/v1.0.0-rc.2/XiHanPrint-1.0.0-rc.2-x64-setup.exe",
+      "sha256": "ba3f8129ad7a4f5b73715d151160ca9005e001e3646ed941e77c129078258f9c",
+      "size": 39965289
+    },
+    {
+      "arch": "arm64",
+      "url": "https://github.com/XiHanFun/XiHan.PrintDesigner/releases/download/v1.0.0-rc.2/XiHanPrint-1.0.0-rc.2-arm64-setup.exe",
+      "sha256": "d467d92b1f8b430d74fa6b1b5e90c556215705274d6338373d44ad04451276d9",
+      "size": 36659025
+    }
+  ]
+}
