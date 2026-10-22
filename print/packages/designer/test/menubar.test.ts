@@ -214,6 +214,32 @@ describe('菜单栏', () => {
     f10()
     expect(document.activeElement).toBe(viewport)
   })
+
+  it('closable：缺省没有关闭钮；开了以后外框的 closable 为真、钮在菜单栏里，按下时设计器派发一次 close，外框那个 close 不再冒到宿主', async () => {
+    const button = (): HTMLButtonElement | null => frame().querySelector<HTMLButtonElement>('[data-part="menubar-close"]')
+    const shown = (): boolean => {
+      const close = button()
+      return close !== null && close.closest('[hidden]') === null
+    }
+    expect([frame().closable, shown()]).toEqual([false, false])
+    const received: Event[] = []
+    const record = (event: Event): void => void received.push(event)
+    document.body.addEventListener('close', record)
+    try {
+      designer.closable = true
+      await settle()
+      expect([frame().closable, shown()]).toEqual([true, true])
+      expect(button()!.closest('[data-region="menubar"]')).not.toBeNull()
+      button()!.click()
+      expect(received.map(event => [event.target, event instanceof CustomEvent ? event.detail : undefined])).toEqual([[designer, {}]])
+      designer.setAttribute('closable', 'false')
+      await settle()
+      expect([frame().closable, shown()]).toEqual([false, false])
+    }
+    finally {
+      document.body.removeEventListener('close', record)
+    }
+  })
 })
 
 describe('插入菜单', () => {
