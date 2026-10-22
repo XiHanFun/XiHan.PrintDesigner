@@ -273,6 +273,8 @@ export interface PrintDesignerEventMap {
   'fields-change': CustomEvent<{ fields: readonly DataField[] }>
   /** 导入字段时勾了「同时作为示例数据」：设计器已换成新的 sampleData。宿主存起来，下次赋回 sampleData。 */
   'sample-data-change': CustomEvent<{ sampleData: JsonValue }>
+  /** 按了菜单栏最右端的关闭钮（closable 开着时才有）：设计器自己不做别的，宿主去关掉或回到列表，有未保存的修改时先问。 */
+  'close': CustomEvent<Record<string, never>>
 }
 
 /** 跟随页面时设计器这棵子树的配置。 */
@@ -644,6 +646,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     settingsStorageKey: { attribute: 'settings-storage-key', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     draftKey: { attribute: 'draft-key', converter: { fromAttribute: (value: string | null) => value ?? undefined } },
     autoTour: { converter: BOOLEAN_CONVERTER, attribute: 'auto-tour' },
+    closable: { converter: BOOLEAN_CONVERTER },
   }
 
   /** 预览分页用的数据。 */
@@ -710,6 +713,8 @@ export class XhPrintDesigner extends XhReactiveElement {
    * 写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。
    */
   declare autoTour: boolean | undefined
+  /** 在菜单栏最右端显示关闭钮，按下派发 close；缺省不显示。同名 attribute，三态：不写或写 "false" 不显示，其余写法显示。 */
+  declare closable: boolean | undefined
   readonly #config = new XhConfigController(this)
   readonly #editor = createPrintEditor({
     document: createDocument(),
@@ -1005,6 +1010,7 @@ export class XhPrintDesigner extends XhReactiveElement {
     this.#syncIssues(layers, t)
     this.#syncProperties(layers, t)
     this.#syncFrameRegions(layers, t)
+    layers.frame.closable = this.closable === true
     this.#renderToolbar(layers)
     this.#renderMenubar(layers)
     this.#renderSelectionBar(layers, t)
@@ -2250,6 +2256,11 @@ export class XhPrintDesigner extends XhReactiveElement {
     frame.addEventListener('layout-change', this.#onLayoutChange)
     // 拖动工具开关了：工具栏「拖动」钮的按下状态跟着重画
     frame.addEventListener('canvas-tool-change', () => this.requestUpdate())
+    // 菜单栏的关闭钮：外框的 close 不再冒泡，由设计器元素自己派发
+    frame.addEventListener('close', (event) => {
+      event.stopPropagation()
+      emitEvent(this, 'close', {})
+    })
     const selectionStatus = createStatusItem(doc, { value: '' })
     selectionStatus.element.slot = 'status-start'
     const clientStatus = createStatusItem(doc, { value: '' })

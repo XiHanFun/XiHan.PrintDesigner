@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 与宿主集成：模板的读取与保存、按示例数据生成字段树、列出模板引用的字段、离开前提醒未保存、存量模板迁移、服务端复核模板。
+// 与宿主集成：模板的读取与保存、离开前提醒未保存、关闭编辑器回到列表、按示例数据生成字段树、列出模板引用的字段、存量模板迁移、服务端复核模板。
 
 // #region save
 import type { PrintDocument, ValidationIssue } from '@xihan-print/core'
@@ -42,6 +42,17 @@ export function guardUnsaved(designer: XhPrintDesigner): () => void {
   return () => window.removeEventListener('beforeunload', onBeforeUnload)
 }
 // #endregion leave
+
+// #region close
+export function closeToList(designer: XhPrintDesigner, host: { readonly confirmLeave: () => Promise<boolean>, readonly backToList: () => void }): void {
+  designer.closable = true
+  designer.addEventListener('close', async () => {
+    if (designer.dirty && !await host.confirmLeave())
+      return
+    host.backToList()
+  })
+}
+// #endregion close
 
 // #region fields
 /** 按一份示例数据生成字段树：对象是 object，对象数组是 list（子字段取各项键的并集），其余是带类型的 value。 */

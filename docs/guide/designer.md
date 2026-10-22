@@ -95,6 +95,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
   - 保存状态写 `slot="status-end"`，在状态栏右端、打印自己的状态项（打印客户端连接状态、缩放比例）前面；设置里关掉状态栏时跟着不显示。
   - 别的要常显的写 `slot="menubar-end"`，在菜单栏右边一段。
   - 上面的示例把标题与保存状态放在这两处，见下文「保存与事件」。
+- 写了 `closable`（同名 attribute）时，菜单栏最右端多一颗关闭钮，窄屏收成「菜单」钮时仍在右上角；按下时设计器派发 `close`，自己不做别的。宿主接它去关掉编辑器或回到列表，有未保存的修改时先问，见[与宿主集成](./host#关闭编辑器)；「返回列表」这类命令不必另放进文件菜单。缺省不显示。
 
 宿主的命令写成一个扩展的命令，`placement` 写 `menubar:<菜单 id>` 落进那张菜单（`file`、`edit`、`view`、`insert`、`page`、`help`；打印的两张菜单的 id 是导出的 `PRINT_MENUBAR_MENUS`），不在缺省排列里的自成一组，排在那张菜单收尾的一组之前，只有一组的菜单接在后面。要定位置时用 `commandLayout['menubar:<菜单 id>']` 写整份排列，给空数组就不要这张菜单：
 
@@ -252,7 +253,7 @@ pnpm add @xihan-print/designer @xihan-print/runtime @xihan-ui/styles @xihan-ui/d
 - 「清空历史」（命令 `clear-history`）先弹确认框，按确定才清空撤销与重做，模板与 `dirty` 不变；它不在工具栏上，在历史记录面板的面板头上，宿主也可以经 `commandLayout` 放置。只读与预览态时撤销、重做与清空历史都不可用。
 - `issues-change` 在模板改动后带上全部校验问题，宿主可以据此拦住有错误的模板，不让保存。
 - 导入字段派发 `fields-change` 与 `sample-data-change`，见上文「导入字段」。
-- 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`。
+- 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`，以及写了 `closable` 时按关闭钮派发的 `close`。
 
 也可以用方法操作：`execute(operations)` 执行一组编辑操作并记为一步撤销（操作见 `@xihan-print/core` 的 `PrintOperation`），`addElement`、`select`、`copy`、`paste`、`align`、`reorder`、`zoomToFit`、`scrollToElement` 等与界面上的命令一致。`print()` 按当前模板与 `data` 打印，给了 `printClient` 时交给本地打印客户端。
 
