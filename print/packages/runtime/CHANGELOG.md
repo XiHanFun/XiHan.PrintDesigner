@@ -1,5 +1,13 @@
 # @xihan-print/runtime
 
+## 1.0.0-rc.2
+
+### Patch Changes
+
+- 6ae013b: **调整** `@xihan-ui/*` 的 peer 依赖范围升到 `^5.1.0`，宿主要把 XiHan.UI 一起升到 5.1.0 及以上。
+- Updated dependencies [6ae013b]
+  - @xihan-print/core@1.0.0-rc.2
+
 ## 1.0.0-rc.1
 
 ### Major Changes

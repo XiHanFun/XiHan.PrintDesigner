@@ -1,7 +1,7 @@
 {
   "name": "@xihan-print/core",
   "type": "module",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "description": "XiHan Print Designer core — template schema, validation and edit commands; pure TypeScript, no DOM.",
   "author": {
     "name": "XiHanFun",

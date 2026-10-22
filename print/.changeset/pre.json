@@ -8,6 +8,11 @@
     "@xihan-print/playground": "0.0.0"
   },
   "changesets": [
-    "first-release"
+    "designer-closable",
+    "first-release",
+    "hover-follows-element",
+    "selection-toolbar-press",
+    "smoother-gestures",
+    "xihan-ui-5-1"
   ]
 }
