@@ -19,35 +19,35 @@ catalogs:
       specifier: ^24.10.0
       version: 24.19.2
     '@xihan-ui/core':
-      specifier: ^5.0.0
-      version: 5.0.0
+      specifier: ^5.1.0
+      version: 5.1.0
     '@xihan-ui/designer-kit':
-      specifier: ^5.0.0
-      version: 5.0.0
+      specifier: ^5.1.0
+      version: 5.1.0
     '@xihan-ui/designer-shell':
-      specifier: ^5.0.0
-      version: 5.0.0
+      specifier: ^5.1.0
+      version: 5.1.0
     '@xihan-ui/expression':
-      specifier: ^5.0.0
-      version: 5.0.0
+      specifier: ^5.1.0
+      version: 5.1.0
     '@xihan-ui/headless':
-      specifier: ^5.0.0
-      version: 5.0.0
+      specifier: ^5.1.0
+      version: 5.1.0
     '@xihan-ui/icons':
-      specifier: ^5.0.0
-      version: 5.0.0
+      specifier: ^5.1.0
+      version: 5.1.0
     '@xihan-ui/pointer':
-      specifier: ^5.0.0
-      version: 5.0.0
+      specifier: ^5.1.0
+      version: 5.1.0
     '@xihan-ui/styles':
-      specifier: ^5.0.0
-      version: 5.0.0
+      specifier: ^5.1.0
+      version: 5.1.0
     '@xihan-ui/viz':
-      specifier: ^5.0.0
-      version: 5.0.0
+      specifier: ^5.1.0
+      version: 5.1.0
     '@xihan-ui/web-components':
-      specifier: ^5.0.0
-      version: 5.0.0
+      specifier: ^5.1.0
+      version: 5.1.0
     eslint:
       specifier: ^10.12.0
       version: 10.12.0
@@ -112,19 +112,19 @@ importers:
     devDependencies:
       '@xihan-ui/core':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/designer-kit':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/expression':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/headless':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/viz':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
 
   packages/designer:
     dependencies:
@@ -137,31 +137,31 @@ importers:
     devDependencies:
       '@xihan-ui/core':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/designer-kit':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/designer-shell':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/expression':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/headless':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/icons':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/pointer':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/viz':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/web-components':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       jsdom:
         specifier: 'catalog:'
         version: 27.4.0
@@ -174,25 +174,25 @@ importers:
     devDependencies:
       '@xihan-ui/core':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/designer-kit':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/designer-shell':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/expression':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/headless':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/viz':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/web-components':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       jsdom:
         specifier: 'catalog:'
         version: 27.4.0
@@ -210,13 +210,13 @@ importers:
         version: link:../packages/runtime
       '@xihan-ui/designer-shell':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/styles':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
       '@xihan-ui/web-components':
         specifier: 'catalog:'
-        version: 5.0.0
+        version: 5.1.0
     devDependencies:
       vite:
         specifier: 'catalog:'
@@ -1019,61 +1019,61 @@ packages:
   '@vue/shared@3.5.44':
     resolution: {integrity: sha512-H82XLH0DjmSOdbEwO15x3QTo1f5PWEtv237eLpYKc0mqLu+B8hnq16lFWmuBmNurkeiG3wr+oM1FhOll/YVFRg==}
 
-  '@xihan-ui/core@5.0.0':
-    resolution: {integrity: sha512-KmhdppLYi2SL2Mq3aTLaNI5+pV4ENBfjYHBy2kbLTYwBBGNlzhmmVtS6+demwByamCl0RksHwZ31xfImPxFpiA==}
+  '@xihan-ui/core@5.1.0':
+    resolution: {integrity: sha512-l9dvp7De6zqFe2fjssMTbMmZvNYJxnQe95+kZK9QcStFk3VjW2DuiUBdppnEslTTFQYBBnrLbvvSrYHohgRA+A==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/designer-kit@5.0.0':
-    resolution: {integrity: sha512-5IUeH7PFhV0g+UfzM8A6fJGPo9+uMfCGbcGla71dns+fiLFk9EAQw64JtH4YXNGWMuTJUbNTq1A9QxMb8T0LBQ==, tarball: https://registry.npmjs.org/@xihan-ui/designer-kit/-/designer-kit-5.0.0.tgz}
+  '@xihan-ui/designer-kit@5.1.0':
+    resolution: {integrity: sha512-Zj5HUVac9wIukd1KzDJXuHg2cD8t9algm4ypQDJgP3HA9YAJM5CVZYzNwOg4O284X32vS0ueM2IJ2qgfqGvWPg==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/designer-shell@5.0.0':
-    resolution: {integrity: sha512-/NytHbdZ16ZCZ/GtUyt7SMtPy+hdP1n5dYTxgWAPPmhrC1JHHuiWIVrBWEQgbXVd7Z1piO90Dxsy5MnAkJErVg==, tarball: https://registry.npmjs.org/@xihan-ui/designer-shell/-/designer-shell-5.0.0.tgz}
+  '@xihan-ui/designer-shell@5.1.0':
+    resolution: {integrity: sha512-1Gd+zJmCx4VxTnuhoJWdvRnEdodWfHNs5QbRcwD0bT3mVsFASn/lV4JnWI8UBqPPtshOk1Y1mnF8OzoFYBEA7A==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/expression@5.0.0':
-    resolution: {integrity: sha512-xgw0XuH0bOQyanbntHTc2yNyONqK++Yn5djTITdtYfm2qe/A1THfVsri/VdeWUq7p6ElED5HOfYfoFkHGd3KTw==}
+  '@xihan-ui/expression@5.1.0':
+    resolution: {integrity: sha512-ziGQLFwicD75P+OhRnKyn3LZiYMb7U+1+5TBtUGDRwKYygwIxHF9WOSzB3gDYS3IzXnU/jhLAWCOPb5+1NNmnw==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/headless@5.0.0':
-    resolution: {integrity: sha512-IAkt/BWbhiXuk7EIPrbZ0HhwV2bRUtSfUY1mgJozveQemETPGGxJKnMmjb3KGXWd8xJeDGLKUwex1/gQrxfJKQ==}
+  '@xihan-ui/headless@5.1.0':
+    resolution: {integrity: sha512-P8HrmmH7kF7+xl/b/2opj+2mtTSaDCaoycamgj3lcVzQjK+vtSE/HJ6/g2Y7j5pfo24JMdUZE8X+LqaWiOP2XA==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/icons@5.0.0':
-    resolution: {integrity: sha512-0iaPdhTTic+qrZfGFbCtgBzHuM+eS8KX2EjMBJKzRgWMM7+vh1bKIQ+i1PPyI18nx4AKvHcJqpgJWAjwMOvU7A==}
+  '@xihan-ui/icons@5.1.0':
+    resolution: {integrity: sha512-05Nr6amkyaJdeVSpZBklWlUb+3VXgcs4qHXVLVCwS5QCARoPzCrQOSiB7te+AEe3ZDbsh3nB6PfxbLeJhOH6zQ==}
     engines: {node: '>=18'}
     hasBin: true
 
-  '@xihan-ui/motion@5.0.0':
-    resolution: {integrity: sha512-mqchcgvbCU4DPnqlQWbu72Vhi4r2aD0Kk7iz0Zpxu7OuzrPQ5s72QM3Yk6tGiH1Qn/jApQf63QUGX3n9D3Vz6w==}
+  '@xihan-ui/motion@5.1.0':
+    resolution: {integrity: sha512-IW28AgJmdjLDxCpf4vL2vsZmLXeYFwFQjgWpGwhIrWP9eMUlugwETTrVJaV2xG0ouP87p14+cYoIfgzZQ8TaSw==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/pointer@5.0.0':
-    resolution: {integrity: sha512-JgDV3YLQNh8qDt6F0YFIUxu5nQrAqAqvUD9+uCrU6Dm6xfj8bzY5bI6R1u/LirUHxM8bV7xqKT3p4SVmfjq3kQ==}
+  '@xihan-ui/pointer@5.1.0':
+    resolution: {integrity: sha512-Z+Gmy9vxC0BdZb1VCNiYb2gjJJJD6/kwt9E+aX/QPMV28l1oIeEhQ0P49MYVUFe1OO9TTGGeNovMc+t5hn6LRw==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/position@5.0.0':
-    resolution: {integrity: sha512-XMLc3AJbAmqtPJ+tBzARSMlykLXMuzJ7CEBnxZVcxCK9jp0J0CrXkX/QzMSahrMy8544FAczafjI25yCKK5DwA==}
+  '@xihan-ui/position@5.1.0':
+    resolution: {integrity: sha512-tuGT+P3GDF86rntBE3c1MFLYYb/bS4Qnc1DId3uNA2U7e8MtI3EswB9Aw/rERIco+z7NpSeJkJJT8dT32seKUA==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/styles@5.0.0':
-    resolution: {integrity: sha512-YVE5gJJDBeaYgdEfk6OK8q6jWdmKdVGzj2Je+ERBNLOJ4XJmuY6Rwr+eU7hVPdpKExP1s6J5v+C5xNbT4ETIfw==}
+  '@xihan-ui/styles@5.1.0':
+    resolution: {integrity: sha512-xGQ+KYBnM3dYusesvR0kJibi6pCKbRiJD4AeGI3Dsxh78GKoN3I9Afe+Dm1ehIkjHz+PnAKEfxEw8A+c8BPkQQ==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/tokens@5.0.0':
-    resolution: {integrity: sha512-gVYWgoUlsu5YyumUKMm/HUxlWdvWqXaZCuZZOIMybOq6BKI7AZugSWuv9LQosip65TAyQUTm/ZKM/SqFDUBi0g==}
+  '@xihan-ui/tokens@5.1.0':
+    resolution: {integrity: sha512-n7O9B7I67QV63J+24nBJXpfkfrdBnLZJfyP+V3taCjtrFrq4E+3wNA1BkWl+2vdmmrqbFYernaNmo2QcoZBs/Q==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/viz@5.0.0':
-    resolution: {integrity: sha512-VDQQmFrGLgRQo5Q5mpOJt6GKUE8HE80/FZl9O/2tXMZ+BlSOYi2BmV31pNlOH9ctdoXjSbtVt6kT9iRRooZ06Q==}
+  '@xihan-ui/viz@5.1.0':
+    resolution: {integrity: sha512-cjeoyhU+BCnY8nhAnInYxdzDSe3YZPtyPsLsNBT+QOMntj+ZoqG1mrwaQ0vX/NGpheidFte0U63UtwmBqIp0sw==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/web-components@5.0.0':
-    resolution: {integrity: sha512-3dxdAMEgSRWsEnVfX27D0PZElInaQUGO7yixUADrplN/7BZI8Vt65FyjH0BVgvlUAO3Ak/1OdCUlLdTT/okeDA==}
+  '@xihan-ui/web-components@5.1.0':
+    resolution: {integrity: sha512-6wM/gQEz/QH+k1DatRcXT0wq7B5QDmrsPBiTKRfzkkzhC6mg6kE5CEzFivGNRc/OZ3mGZYRm5pLP5nGnngBKpQ==}
     engines: {node: '>=18'}
     peerDependencies:
-      '@xihan-ui/backgrounds': ^5.0.0
-      '@xihan-ui/code-highlight': ^5.0.0
+      '@xihan-ui/backgrounds': ^5.1.0
+      '@xihan-ui/code-highlight': ^5.1.0
     peerDependenciesMeta:
       '@xihan-ui/backgrounds':
         optional: true
@@ -3895,68 +3895,68 @@ snapshots:
 
   '@vue/shared@3.5.44': {}
 
-  '@xihan-ui/core@5.0.0':
+  '@xihan-ui/core@5.1.0':
     dependencies:
-      '@xihan-ui/motion': 5.0.0
+      '@xihan-ui/motion': 5.1.0
 
-  '@xihan-ui/designer-kit@5.0.0':
+  '@xihan-ui/designer-kit@5.1.0':
     dependencies:
-      '@xihan-ui/core': 5.0.0
-      '@xihan-ui/expression': 5.0.0
-      '@xihan-ui/pointer': 5.0.0
-      '@xihan-ui/viz': 5.0.0
+      '@xihan-ui/core': 5.1.0
+      '@xihan-ui/expression': 5.1.0
+      '@xihan-ui/pointer': 5.1.0
+      '@xihan-ui/viz': 5.1.0
 
-  '@xihan-ui/designer-shell@5.0.0':
+  '@xihan-ui/designer-shell@5.1.0':
     dependencies:
-      '@xihan-ui/core': 5.0.0
-      '@xihan-ui/designer-kit': 5.0.0
-      '@xihan-ui/pointer': 5.0.0
-      '@xihan-ui/tokens': 5.0.0
-      '@xihan-ui/viz': 5.0.0
-      '@xihan-ui/web-components': 5.0.0
+      '@xihan-ui/core': 5.1.0
+      '@xihan-ui/designer-kit': 5.1.0
+      '@xihan-ui/pointer': 5.1.0
+      '@xihan-ui/tokens': 5.1.0
+      '@xihan-ui/viz': 5.1.0
+      '@xihan-ui/web-components': 5.1.0
     transitivePeerDependencies:
       - '@xihan-ui/backgrounds'
       - '@xihan-ui/code-highlight'
 
-  '@xihan-ui/expression@5.0.0': {}
+  '@xihan-ui/expression@5.1.0': {}
 
-  '@xihan-ui/headless@5.0.0':
+  '@xihan-ui/headless@5.1.0':
     dependencies:
-      '@xihan-ui/core': 5.0.0
-      '@xihan-ui/expression': 5.0.0
-      '@xihan-ui/motion': 5.0.0
-      '@xihan-ui/pointer': 5.0.0
-      '@xihan-ui/viz': 5.0.0
+      '@xihan-ui/core': 5.1.0
+      '@xihan-ui/expression': 5.1.0
+      '@xihan-ui/motion': 5.1.0
+      '@xihan-ui/pointer': 5.1.0
+      '@xihan-ui/viz': 5.1.0
 
-  '@xihan-ui/icons@5.0.0': {}
+  '@xihan-ui/icons@5.1.0': {}
 
-  '@xihan-ui/motion@5.0.0': {}
+  '@xihan-ui/motion@5.1.0': {}
 
-  '@xihan-ui/pointer@5.0.0': {}
+  '@xihan-ui/pointer@5.1.0': {}
 
-  '@xihan-ui/position@5.0.0':
+  '@xihan-ui/position@5.1.0':
     dependencies:
-      '@xihan-ui/core': 5.0.0
+      '@xihan-ui/core': 5.1.0
 
-  '@xihan-ui/styles@5.0.0':
+  '@xihan-ui/styles@5.1.0':
     dependencies:
-      '@xihan-ui/tokens': 5.0.0
+      '@xihan-ui/tokens': 5.1.0
 
-  '@xihan-ui/tokens@5.0.0':
+  '@xihan-ui/tokens@5.1.0':
     dependencies:
-      '@xihan-ui/core': 5.0.0
+      '@xihan-ui/core': 5.1.0
 
-  '@xihan-ui/viz@5.0.0': {}
+  '@xihan-ui/viz@5.1.0': {}
 
-  '@xihan-ui/web-components@5.0.0':
+  '@xihan-ui/web-components@5.1.0':
     dependencies:
-      '@xihan-ui/core': 5.0.0
-      '@xihan-ui/expression': 5.0.0
-      '@xihan-ui/headless': 5.0.0
-      '@xihan-ui/motion': 5.0.0
-      '@xihan-ui/pointer': 5.0.0
-      '@xihan-ui/position': 5.0.0
-      '@xihan-ui/viz': 5.0.0
+      '@xihan-ui/core': 5.1.0
+      '@xihan-ui/expression': 5.1.0
+      '@xihan-ui/headless': 5.1.0
+      '@xihan-ui/motion': 5.1.0
+      '@xihan-ui/pointer': 5.1.0
+      '@xihan-ui/position': 5.1.0
+      '@xihan-ui/viz': 5.1.0
 
   '@yuku-codegen/binding-android-arm64@0.8.7':
     optional: true
