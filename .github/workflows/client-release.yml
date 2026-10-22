@@ -59,7 +59,7 @@ jobs:
             gh release upload $env:GITHUB_REF_NAME $files --clobber
           }
           else {
-            $prerelease = if ($env:CLIENT_VERSION.Contains('-')) { @('--prerelease') } else { @() }
+            $prerelease = @(if ($env:CLIENT_VERSION.Contains('-')) { '--prerelease' })
             gh release create $env:GITHUB_REF_NAME --draft @prerelease --title "曦寒打印客户端 $env:CLIENT_VERSION" --notes "安装包与 update.json 见附件；发布后把 update.json 提交到 main 的 client/update.json。" $files
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
