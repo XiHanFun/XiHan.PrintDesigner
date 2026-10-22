@@ -35,6 +35,7 @@
 | `settingsStorageKey` | `settings-storage-key` | `string \| undefined` | 设置存在根所在窗口 localStorage 的哪个键下：给了，连上文档时若没赋 settings 就从这里读，用户改了设置就写回去，标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。 |
 | `draftKey` | `draft-key` | `string \| undefined` | 自动保存草稿的键：区分同一页、同一种设计器里的不同模板（宿主写模板 id）；不给时按页面地址区分。设置里开着自动保存时，未保存的修改停手约一秒存成这台浏览器里的草稿，保存（markSaved）后删掉；下次装进同一个键的模板、和草稿不一样时问恢复还是丢弃。同名 attribute draft-key。 |
 | `autoTour` | `auto-tour` | `boolean \| undefined` | 第一次在设计态显示出来（画布有了尺寸）后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。 |
+| `closable` | `closable` | `boolean \| undefined` | 在菜单栏最右端显示关闭钮，按下派发 close；缺省不显示。同名 attribute，三态：不写或写 "false" 不显示，其余写法显示。 |
 
 ### 存取器
 
@@ -106,6 +107,7 @@
 | `settings-storage-error` | `VisualEnvironmentStorageError` | 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 |
 | `fields-change` | `{ fields: readonly DataField[] }` | 在导入字段对话框里导入了字段：设计器已换成新的 fields。宿主存起来，下次赋回 fields。 |
 | `sample-data-change` | `{ sampleData: JsonValue }` | 导入字段时勾了「同时作为示例数据」：设计器已换成新的 sampleData。宿主存起来，下次赋回 sampleData。 |
+| `close` | `Record<string, never>` | 按了菜单栏最右端的关闭钮（closable 开着时才有）：设计器自己不做别的，宿主去关掉或回到列表，有未保存的修改时先问。 |
 
 ## 类型
 

@@ -10,6 +10,19 @@
 
 本页记录 `@xihan-print/core`、`@xihan-print/runtime`、`@xihan-print/designer` 各版本使用者能感知的变更，每条标注 **新增 / 修复 / 调整 / 移除**。这几个包总是同一个版本号一起发布；逐包的完整记录见仓库里各包的 `CHANGELOG.md`。打印客户端与它们同号，它的改动写在同一版里，条目开头标明「打印客户端」。
 
+## v1.0.0-rc.2（2026-10-22）
+
+本版设计器的菜单栏可以显示关闭钮，并修正了选中工具条按不动、拖动后留下悬停框两处问题；拖动、拉伸与平移更流畅。所依赖的 XiHan.UI 升到 5.1.0。
+
+::: warning 升级须知
+- `@xihan-ui/*` 的 peer 依赖范围改为 `^5.1.0`：宿主要把 XiHan.UI 一起升到 5.1.0 及以上。
+:::
+
+- **新增** `<xh-print-designer>` 的 `closable`：开着时菜单栏最右端多一颗关闭钮，按下派发 `close`，由宿主关掉编辑器或回到列表，见[与宿主集成](./guide/host#关闭编辑器)。
+- **修复** 选中工具条上的钮（字号、文字样式、对齐与分布、层级、副本、复制、删除）用指针按下时不再清掉选中，命令照常执行。
+- **修复** 拖动元素松手后，不再在元素原来的位置留下一个悬停框；悬停框跟着元素的当前位置画。
+- **调整** 拖动、拉伸、旋转元素与平移画布时，途中只重画纸面与覆盖层，属性面板、问题列表、工具栏与菜单栏在松手后更新。
+
 ## v1.0.0-rc.1（2026-10-21）
 
 首次发布，以原生 Web Components 交付，不绑定前端框架。模板是纯 JSON，按数据分页预览、在浏览器里打印，也可以经本地打印客户端静默打印。
@@ -1030,20 +1043,21 @@ export function wireLayout(designer: XhPrintDesigner): void {
   - 保存状态写 `slot="status-end"`，在状态栏右端、打印自己的状态项（打印客户端连接状态、缩放比例）前面；设置里关掉状态栏时跟着不显示。
   - 别的要常显的写 `slot="menubar-end"`，在菜单栏右边一段。
   - 上面的示例把标题与保存状态放在这两处，见下文「保存与事件」。
+- 写了 `closable`（同名 attribute）时，菜单栏最右端多一颗关闭钮，窄屏收成「菜单」钮时仍在右上角；按下时设计器派发 `close`，自己不做别的。宿主接它去关掉编辑器或回到列表，有未保存的修改时先问，见[与宿主集成](./host#关闭编辑器)；「返回列表」这类命令不必另放进文件菜单。缺省不显示。
 
 宿主的命令写成一个扩展的命令，`placement` 写 `menubar:<菜单 id>` 落进那张菜单（`file`、`edit`、`view`、`insert`、`page`、`help`；打印的两张菜单的 id 是导出的 `PRINT_MENUBAR_MENUS`），不在缺省排列里的自成一组，排在那张菜单收尾的一组之前，只有一组的菜单接在后面。要定位置时用 `commandLayout['menubar:<菜单 id>']` 写整份排列，给空数组就不要这张菜单：
 
 ```ts
-// 宿主自己的「新建」「返回列表」挂进文件菜单，新建同时上工具栏；再把文件菜单排成新建与保存、返回列表、设置三组
-export function hostCommands(designer: XhPrintDesigner, actions: { readonly create: () => void, readonly back: () => void }): void {
+// 宿主自己的「新建」「另存为」挂进文件菜单，新建同时上工具栏；再把文件菜单排成新建与保存、另存为、设置三组
+export function hostCommands(designer: XhPrintDesigner, actions: { readonly create: () => void, readonly saveAs: () => void }): void {
   designer.extensions = [{
     id: '@acme/host',
     commands: [
       { id: '@acme/host.new', label: '新建', placement: ['menubar:file', 'toolbar'], run: actions.create },
-      { id: '@acme/host.back', label: '返回列表', placement: ['menubar:file'], run: actions.back },
+      { id: '@acme/host.save-as', label: '另存为', placement: ['menubar:file'], run: actions.saveAs },
     ],
   }]
-  designer.commandLayout = { 'menubar:file': [['@acme/host.new', 'save'], ['@acme/host.back'], ['settings']] }
+  designer.commandLayout = { 'menubar:file': [['@acme/host.new', 'save'], ['@acme/host.save-as'], ['settings']] }
 }
 ```
 
@@ -1249,7 +1263,7 @@ designer.addEventListener('save', () => {
 - 「清空历史」（命令 `clear-history`）先弹确认框，按确定才清空撤销与重做，模板与 `dirty` 不变；它不在工具栏上，在历史记录面板的面板头上，宿主也可以经 `commandLayout` 放置。只读与预览态时撤销、重做与清空历史都不可用。
 - `issues-change` 在模板改动后带上全部校验问题，宿主可以据此拦住有错误的模板，不让保存。
 - 导入字段派发 `fields-change` 与 `sample-data-change`，见上文「导入字段」。
-- 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`。
+- 其余事件：`selection-change`、`page-change`、`mode-change`、`viewport-change`、`element-dblclick`，以及写了 `closable` 时按关闭钮派发的 `close`。
 
 也可以用方法操作：`execute(operations)` 执行一组编辑操作并记为一步撤销（操作见 `@xihan-print/core` 的 `PrintOperation`），`addElement`、`select`、`copy`、`paste`、`align`、`reorder`、`zoomToFit`、`scrollToElement` 等与界面上的命令一致。`print()` 按当前模板与 `data` 打印，给了 `printClient` 时交给本地打印客户端。
 
@@ -1697,6 +1711,21 @@ export function guardUnsaved(designer: XhPrintDesigner): () => void {
 ```
 
 用户在设置里打开自动保存时，未保存的修改另存一份这台浏览器里的草稿，下次打开同一个模板时问要不要恢复；宿主给设计器写 `draftKey`（模板 id）区分不同模板，存完照旧调 `markSaved()`，草稿随之删掉，见[自动保存本机草稿](./designer#自动保存本机草稿)。
+
+### 关闭编辑器
+
+设计器占满一整页、编辑完要回到模板列表时，给它写 `closable`：菜单栏最右端多一颗关闭钮，按下派发 `close`。设计器自己不关、不问，宿主接 `close`，有未保存的修改时先问，再离开：
+
+```ts
+export function closeToList(designer: XhPrintDesigner, host: { readonly confirmLeave: () => Promise<boolean>, readonly backToList: () => void }): void {
+  designer.closable = true
+  designer.addEventListener('close', async () => {
+    if (designer.dirty && !await host.confirmLeave())
+      return
+    host.backToList()
+  })
+}
+```
 
 ## 取数
 
@@ -3363,6 +3392,7 @@ declare function buildClientDocument(result: PaginationResult, options?: ClientD
 | `settingsStorageKey` | `settings-storage-key` | `string \| undefined` | 设置存在根所在窗口 localStorage 的哪个键下：给了，连上文档时若没赋 settings 就从这里读，用户改了设置就写回去，标了 secret 的条目不存；读写失败派发 settings-storage-error。不给就不读写。同名 attribute settings-storage-key。 |
 | `draftKey` | `draft-key` | `string \| undefined` | 自动保存草稿的键：区分同一页、同一种设计器里的不同模板（宿主写模板 id）；不给时按页面地址区分。设置里开着自动保存时，未保存的修改停手约一秒存成这台浏览器里的草稿，保存（markSaved）后删掉；下次装进同一个键的模板、和草稿不一样时问恢复还是丢弃。同名 attribute draft-key。 |
 | `autoTour` | `auto-tour` | `boolean \| undefined` | 第一次在设计态显示出来（画布有了尺寸）后自动开始新手引导，缺省开；设置里记过 help.tourDone（走完、跳过或关上过一次）时不再自动开始。写 false 关掉，start-tour 命令、帮助页的「开始引导」与 startTour() 照样能开始。同名 attribute auto-tour，写 "false" 是关。 |
+| `closable` | `closable` | `boolean \| undefined` | 在菜单栏最右端显示关闭钮，按下派发 close；缺省不显示。同名 attribute，三态：不写或写 "false" 不显示，其余写法显示。 |
 
 ### 存取器
 
@@ -3434,6 +3464,7 @@ declare function buildClientDocument(result: PaginationResult, options?: ClientD
 | `settings-storage-error` | `VisualEnvironmentStorageError` | 读写 settingsStorageKey 指的本机存储失败（内容不是对象、无痕窗口、配额满）；设置留在内存里。 |
 | `fields-change` | `{ fields: readonly DataField[] }` | 在导入字段对话框里导入了字段：设计器已换成新的 fields。宿主存起来，下次赋回 fields。 |
 | `sample-data-change` | `{ sampleData: JsonValue }` | 导入字段时勾了「同时作为示例数据」：设计器已换成新的 sampleData。宿主存起来，下次赋回 sampleData。 |
+| `close` | `Record<string, never>` | 按了菜单栏最右端的关闭钮（closable 开着时才有）：设计器自己不做别的，宿主去关掉或回到列表，有未保存的修改时先问。 |
 
 ## 类型
 
