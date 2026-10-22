@@ -26,9 +26,9 @@ description: 为 XiHan.PrintDesigner 定版本、消费变更集、进出 rc 预
 1. 推 dev，等 dev 上 CI 两个 job（Lint、构建、类型与测试；文档站）全绿。
 2. `git fetch . dev:main` 快进 main（不是快进就停下查），推 main，等 main 上 CI 全绿。
 3. 在版本提交上打附注标签 `git tag -a v<版本> -m "v<版本>"`，只推这个标签。Release 先「核对标签」，之后两条线并行：
-   - npm：发到 npm（`changeset publish`，凭组织级密钥 `NPM_TOKEN`）→ 发布后冒烟（空项目里装刚发的版本）→ 部署文档站（只部署已经发布的版本）；
+   - npm：发到 npm（`changeset publish`，凭组织级密钥 `NPM_TOKEN`）→ 预发布版跟上 `latest`（`scripts/release/promote-latest.mjs`：预发布模式、且 npm 上这个包还没有正式版时，等取得到这一版再 `npm dist-tag add <包>@<版本> latest`；有正式版后不动）→ 发布后冒烟（空项目里装刚发的版本）→ 部署文档站（只部署已经发布的版本）；
    - 打印客户端：调 `client-release.yml`，编译、测试、签名（有证书密钥时），建这个标签的草稿 Release（预发布版标成 Pre-release），附件是两个架构的安装包、SHA-256 与 `update.json`。
-4. 发完核对：`npm view @xihan-print/core dist-tags`（runtime、designer 同样），三个包都在、`rc` 或 `latest` 指向这一版；`gh release view v<版本>` 看草稿与附件齐全。
+4. 发完核对：`npm view @xihan-print/core dist-tags`（runtime、designer 同样），三个包都在；正式版发出前 `rc` 与 `latest` 都指向这一版，之后预发布只动 `rc`；`gh release view v<版本>` 看草稿与附件齐全。
 5. 人工两步：发布这个草稿 Release；把附件里的 `update.json` 提交到 main 的 `client/update.json`（只动这一个文件），推 main，再把 main 合回 dev 并推 dev。已装的客户端靠这份清单看到新版。
 
 ## 出错时
@@ -36,4 +36,4 @@ description: 为 XiHan.PrintDesigner 定版本、消费变更集、进出 rc 预
 - 不删标签、不移动标签、不重复发已有的版本；用 `gh run rerun <run-id> --failed` 重跑失败的 job。npm 与客户端两条线只共用「核对标签」，一条失败不拦另一条，重跑也只跑失败的那条：`changeset publish` 只发 npm 上还没有的版本，客户端那条草稿已在时只覆盖附件。只看工作流摘要与失败步骤的报错行。
 - 发 npm 报 `ERR_PNPM_OTP_NON_INTERACTIVE`、401/403/404：是令牌或权限问题，停下把原文交给用户，不自己改工作流绕过。
 - 冒烟报「npm 上找不到 …」：全新的包在 npm 上查得到比冒烟等的两分钟慢，过几分钟重跑失败的 job。
-- 从没发过正式版的包，预发布首发也会被挂上 `latest`，这是 changesets 的行为，照实报告，不自己改 dist-tag；npm 给新包自动建的 `0.0.0-stage` 占位不是我们发的。
+- 「预发布版跟上 latest」那一步失败（多半是 npm 还取不到这一版，它会等约 5 分钟）：重跑「发到 npm」这个 job，发包那步跳过已有的版本，接着补上 `latest`。不手工改 dist-tag，除非用户明确要。npm 给新包自动建的 `0.0.0-stage` 占位不是我们发的。

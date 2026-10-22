@@ -53,7 +53,7 @@ XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components
 ├─ docs/                            # 产品文档站（VitePress，独立的 pnpm 项目）
 └─ print/                           # pnpm monorepo 根
    ├─ .changeset/                 # changesets 配置与待发布的变更集
-   ├─ scripts/release/            # 发版脚本：VersionUpgrade、锁步与标签核对、产物契约、冒烟（smoke/ 是冒烟用的宿主项目模板）
+   ├─ scripts/release/            # 发版脚本：VersionUpgrade、锁步与标签核对、产物契约、预发布版跟上 latest、冒烟（smoke/ 是冒烟用的宿主项目模板）
    ├─ packages/
    │  ├─ core/                    # @xihan-print/core：模型层，纯 TS，不碰 DOM
    │  ├─ runtime/                 # @xihan-print/runtime：业务页面用的运行时元素
@@ -171,9 +171,9 @@ pnpm dev
   3. `print/` 跑 `pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test`、`pnpm gate:publish`、`pnpm smoke --pack`，`docs/` 跑文档站门禁，再跑 `git diff --check`；全过再提交 `build: v<版本>`。
   4. 推 dev，等 dev 上的 CI 全绿。
   5. main 从 dev 快进（`git fetch . dev:main`，不是快进就停下查），推 main，等 main 上的 CI 全绿。
-  6. 在版本提交上打 `v<版本>` 标签并推送，Release 发包、冒烟、部署文档站，同时出打印客户端的草稿 Release；发完用 `npm view @xihan-print/designer dist-tags` 核对。
+  6. 在版本提交上打 `v<版本>` 标签并推送，Release 发包、冒烟、部署文档站，同时出打印客户端的草稿 Release；发完用 `npm view @xihan-print/designer dist-tags` 核对（正式版发出前 `rc` 与 `latest` 都指这一版）。
   7. 发布客户端的草稿 Release，把附件里的 `update.json` 提交到 main 的 `client/update.json`，再把 main 合回 dev。
-- release.yml 先核对标签（在 main 的历史里；标签号等于三个包与客户端的版本、且与 `.changeset/pre.json` 一致，`check-release-tag.mjs`），之后分两条线：一条构建、`gate:publish`、`changeset publish`（带 provenance），然后 `scripts/release/smoke.mjs --version` 冒烟，最后调 `deploy-docs.yml` 部署文档站；另一条调 `client-release.yml` 编译、签名客户端并建草稿 Release，只依赖核对标签。一条失败时用「重跑失败的 job」（`gh run rerun <run-id> --failed`）单独重跑那一条，客户端那条重跑不会重发 npm，草稿已在就只覆盖附件。deploy-docs 只部署已经发布的版本：当前版本有标签、main 上的包与标签一致、这个版本已在 npm 上。
+- release.yml 先核对标签（在 main 的历史里；标签号等于三个包与客户端的版本、且与 `.changeset/pre.json` 一致，`check-release-tag.mjs`），之后分两条线：一条构建、`gate:publish`、`changeset publish`（带 provenance），接着 `scripts/release/promote-latest.mjs`：预发布模式、且 npm 上这个包还没有任何正式版时，等 npm 取得到这一版再把 `latest` 也指过来（正式版发出前每个候选版都让 `latest` 跟着走，有了正式版后自动不做，本地可 `--dry-run`），然后 `scripts/release/smoke.mjs --version` 冒烟，最后调 `deploy-docs.yml` 部署文档站；另一条调 `client-release.yml` 编译、签名客户端并建草稿 Release，只依赖核对标签。一条失败时用「重跑失败的 job」（`gh run rerun <run-id> --failed`）单独重跑那一条，客户端那条重跑不会重发 npm，草稿已在就只覆盖附件。deploy-docs 只部署已经发布的版本：当前版本有标签、main 上的包与标签一致、这个版本已在 npm 上。
 - npm 包不另建 GitHub Release；每个 `v<版本>` 标签的 Release 放这一版打印客户端的安装包与 `update.json`，预发布版标成 Pre-release。
 - main 只接收发版；两次发版之间挑进 main 的纯文档修正与客户端的 `client/update.json`，进了 main 以后立刻把 main 合回 dev。
 - 合并 main、打标签、发布都只在用户明确要求时执行。
