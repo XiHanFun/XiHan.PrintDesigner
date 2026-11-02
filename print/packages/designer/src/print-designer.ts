@@ -40,6 +40,7 @@ import type { JsonPath, JsonValue } from '@xihan-ui/core/json'
 import type { VisualEnvironmentStorageError } from '@xihan-ui/core/visual-environment'
 import type { AlignMode, DataField, DataFieldContent, DesignerFieldSource, DesignerImportSource, DistributeAxis, ExecuteOptions, ExtensionHost, HistoryLabel, Point, Rect, Viewport } from '@xihan-ui/designer-kit'
 import type { PropertyEditorTable } from '@xihan-ui/designer-kit/properties'
+import type { IssueSeverity } from '@xihan-ui/designer-kit/schema'
 import type {
   CommandMenubar,
   CommandToolbar,
@@ -148,6 +149,7 @@ import {
   zoomBy,
 } from '@xihan-ui/designer-kit'
 import { BUILTIN_CONTROL_KINDS, resolvePropertyEditor } from '@xihan-ui/designer-kit/properties'
+import { issueSeverity } from '@xihan-ui/designer-kit/schema'
 import {
   applyToolbarCustomization,
   arrangeCommands,
@@ -615,6 +617,12 @@ function categoryName(t: PrintDesignerTranslations, model: PrintDesignerModel, c
   return Object.hasOwn(t.categories, category) ? t.categories[category as ElementCategory] : model.categories.get(category) ?? category
 }
 
+/** 按对象种类分的 id → 落在它上面最严重的一级问题。 */
+interface IssueLevels {
+  readonly page: Map<string, IssueSeverity>
+  readonly element: Map<string, IssueSeverity>
+}
+
 function rectStyle(element: HTMLElement, rect: Rect): void {
   element.style.left = `${rect.x}mm`
   element.style.top = `${rect.y}mm`
@@ -749,6 +757,8 @@ export class XhPrintDesigner extends XhReactiveElement {
   #gesture: Gesture | undefined
   #dirty = false
   #issues: ValidationIssue[] = []
+  /** 页面、元素各自的 id → 落在它上面的问题里最严重的那一级。 */
+  #issueLevels: IssueLevels = { page: new Map(), element: new Map() }
   #issuesScheduled = false
   #transactionOperations: PrintOperation[] = []
   #resizeObserver: ResizeObserver | undefined
@@ -1853,6 +1863,13 @@ export class XhPrintDesigner extends XhReactiveElement {
     queueMicrotask(() => {
       this.#issuesScheduled = false
       this.#issues = this.validate()
+      const levels: IssueLevels = { page: new Map(), element: new Map() }
+      for (const issue of this.#issues) {
+        const target = issue.target
+        if ((target?.kind === 'page' || target?.kind === 'element') && levels[target.kind].get(target.id) !== 'error')
+          levels[target.kind].set(target.id, issueSeverity(issue))
+      }
+      this.#issueLevels = levels
       this.requestUpdate()
       emitEvent(this, 'issues-change', { issues: this.#issues })
     })
@@ -2572,6 +2589,11 @@ export class XhPrintDesigner extends XhReactiveElement {
     const paper = getPaperSize(page)
     layers.paper.style.width = `${paper.width}mm`
     layers.paper.style.height = `${paper.height}mm`
+    const pageIssue = this.#issueLevels.page.get(page.id)
+    if (pageIssue === undefined)
+      layers.paper.removeAttribute('data-issue')
+    else
+      layers.paper.setAttribute('data-issue', pageIssue)
     this.#paintGrid(layers)
     const header = page.header[bands.header] ?? page.header.default
     const footer = page.footer[bands.footer] ?? page.footer.default
@@ -2624,6 +2646,17 @@ export class XhPrintDesigner extends XhReactiveElement {
       }
     }
     decorations.push(...this.#tableDecorations(t))
+    if (pageIssue !== undefined)
+      decorations.push(createAuthoredElement(doc, 'div', { 'data-part': 'issue-mark', 'data-issue': pageIssue, 'data-page-id': page.id, 'data-xh-ink': 'dark' }))
+    for (const box of boxes) {
+      const level = this.#issueLevels.element.get(box.elementId)
+      if (level === undefined)
+        continue
+      const mark = createAuthoredElement(doc, 'div', { 'data-part': 'issue-mark', 'data-issue': level, 'data-element-id': box.elementId, 'data-xh-ink': 'dark' })
+      mark.style.left = `${box.x + box.width}mm`
+      mark.style.top = `${box.y}mm`
+      decorations.push(mark)
+    }
     layers.decorations.replaceChildren(...decorations)
     this.#renderBandMenus(layers, t, headerRect, footerRect)
   }

@@ -689,6 +689,44 @@ describe('<xh-print-designer>', () => {
     expect(zh.issue({ code: 'out-of-range', path: [], params: { min: 0, max: 360 } })).toBe('应不小于 0、不大于 360')
   })
 
+  it('画布上的问题标记：元素框右上角与纸面带最严重的一级，换了一级跟着换，问题消失后去掉', async () => {
+    const settle = async (): Promise<void> => {
+      await Promise.resolve()
+      await designer.updateComplete
+    }
+    const marks = (): string[][] => Array.from(designer.querySelectorAll<HTMLElement>('[data-part="decorations"] > [data-part="issue-mark"]'), mark => [mark.dataset.elementId!, mark.dataset.issue!, mark.style.left, mark.style.top])
+    const paper = (): (string | null)[] => [
+      designer.querySelector('[data-part="paper"]')!.getAttribute('data-issue'),
+      designer.querySelector('[data-part="issue-mark"][data-page-id="p"]')?.getAttribute('data-issue') ?? null,
+    ]
+    await settle()
+    expect(marks().filter(([id]) => id === 'a')).toEqual([])
+    expect(paper()).toEqual([null, null])
+
+    designer.execute([{ type: 'moveElements', ids: ['a'], dx: 200, dy: 0 }])
+    await settle()
+    expect(marks().filter(([id]) => id === 'a')).toEqual([['a', 'warning', '250mm', '30mm']])
+
+    const flagged: PrintDesignerExtension = {
+      id: 'flagged',
+      rules: [() => [
+        { code: 'flagged.element', path: [], target: { kind: 'element', id: 'a' } },
+        { code: 'flagged.page', path: [], target: { kind: 'page', id: 'p' }, severity: 'warning' },
+        { code: 'flagged.page', path: [], target: { kind: 'page', id: 'p' } },
+      ]],
+    }
+    designer.extensions = [flagged]
+    await settle()
+    expect(marks().filter(([id]) => id === 'a')).toEqual([['a', 'error', '250mm', '30mm']])
+    expect(paper()).toEqual(['error', 'error'])
+
+    designer.extensions = []
+    designer.execute([{ type: 'moveElements', ids: ['a'], dx: -200, dy: 0 }])
+    await settle()
+    expect(marks().filter(([id]) => id === 'a')).toEqual([])
+    expect(paper()).toEqual([null, null])
+  })
+
   it('属性面板：没选中时编辑页面设置，选中元素时编辑元素，连续输入并成一步撤销；校验问题落到字段上', async () => {
     const panel = designer.querySelector('xh-designer-properties')!
     const change = (path: (string | number)[], value: unknown, kind: string, id: string): void => {

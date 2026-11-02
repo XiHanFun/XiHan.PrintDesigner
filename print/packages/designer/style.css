@@ -151,6 +151,28 @@ xh-print-designer [data-part='margins'] {
   border: calc(var(--xh-stroke-thin) / var(--xh-print-designer-zoom)) dashed var(--xh-border-default);
 }
 
+/* 问题标记：元素上的问题在元素框右上角内侧、页面模板上的问题在纸面右上角各一颗圆点，按最严重的一级着色，
+   屏幕上大小不随缩放；圆点带 data-xh-ink="dark"，按纸面上的深色墨取令牌 */
+xh-print-designer [data-part='issue-mark'] {
+  position: absolute;
+  inline-size: calc(var(--xh-space-1_5) / var(--xh-print-designer-zoom));
+  block-size: calc(var(--xh-space-1_5) / var(--xh-print-designer-zoom));
+  border-radius: var(--xh-radius-full);
+  background: var(--xh-fg-danger);
+  pointer-events: none;
+  translate: calc(-100% - var(--xh-space-1) / var(--xh-print-designer-zoom)) calc(var(--xh-space-1) / var(--xh-print-designer-zoom));
+}
+
+xh-print-designer [data-part='issue-mark'][data-page-id] {
+  inset-block-start: calc(var(--xh-space-1) / var(--xh-print-designer-zoom));
+  inset-inline-end: calc(var(--xh-space-1) / var(--xh-print-designer-zoom));
+  translate: none;
+}
+
+xh-print-designer [data-part='issue-mark'][data-issue='warning'] {
+  background: var(--xh-fg-warning);
+}
+
 /* 扩展元素没给渲染、或扩展被去掉时的占位：虚线框中间写着元素类型 */
 xh-print-designer [data-part='box'][data-placeholder] {
   display: flex;
