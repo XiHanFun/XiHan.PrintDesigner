@@ -23,9 +23,9 @@ pnpm changeset
 | --- | --- |
 | 写变更集；`VersionUpgrade` 定版本、生成各包 CHANGELOG | 人，在本地 |
 | 文档站「更新日志」页（`docs/changelog.md`） | 人，与升版本同一笔 |
-| 合并 main、打标签 | 人，手工 |
+| 快进到发布分支、打标签 | 人，手工 |
 | 发到 npm、发布后冒烟、部署文档站；出打印客户端的安装包与草稿 Release | `.github/workflows/release.yml`（客户端那条调 `client-release.yml`） |
-| 发布客户端的草稿 Release，把 `update.json` 提交到 main 再合回 dev | 人，手工 |
+| 发布客户端的草稿 Release；正式版把 `update.json` 提交到 main 再合回 dev，预览版不动 | 人，手工 |
 
 changesets 自己打标签的行为已用 `--no-git-tag` 关掉；一次发版对应一个自己打的 `v<版本>` 标签。打印客户端与三个包版本相同、每版同发：`VersionUpgrade` 把 `client/Directory.Build.props` 的 `Version` 写成同一个号，发版时 `check-release-tag.mjs` 核三方一致，兼容照旧靠子协议 `xihan-print.v1`。npm 包不另建 GitHub Release；每个 `v<版本>` 标签的 Release 放这一版客户端的安装包与 `update.json`。
 
@@ -41,13 +41,13 @@ scripts/release/VersionUpgrade.bat          # Windows；其它平台用 pwsh scr
 git commit -m "build: v1.0.0"
 ```
 
-提交合进 `main` 后，在那个提交上打标签并推送：
+提交快进到发布分支（预览版 `preview`，正式版 `main`）后，在那个提交上打标签并推送：
 
 ```bash
 git tag -a v1.0.0 -m "v1.0.0" && git push origin v1.0.0
 ```
 
-标签推上去后 Release 工作流先把关两条：标签指向的提交在 `main` 的历史里；标签号等于三个包与打印客户端的版本，且与预发布模式对得上（`scripts/release/check-release-tag.mjs`）。缺一拒发。过了分两条线：一条构建、核对产物（`pnpm gate:publish`）、把 npm 上还没有的版本发出去，然后在空项目里装刚发的版本做冒烟（`scripts/release/smoke.mjs`），最后部署文档站；另一条编译、签名打印客户端，建这个标签的草稿 Release。哪条失败就用 `gh run rerun <run-id> --failed` 重跑那一条。
+标签推上去后 Release 工作流先把关两条：标签指向的提交在发布分支的历史里（带预发布后缀的看 `preview`，不带的看 `main`）；标签号等于三个包与打印客户端的版本，且与预发布模式对得上（`scripts/release/check-release-tag.mjs`）。缺一拒发。过了分两条线：一条构建、核对产物（`pnpm gate:publish`）、把 npm 上还没有的版本发出去，然后在空项目里装刚发的版本做冒烟（`scripts/release/smoke.mjs`），最后部署文档站；另一条编译、签名打印客户端，建这个标签的草稿 Release。哪条失败就用 `gh run rerun <run-id> --failed` 重跑那一条。
 
 预发布：`VersionUpgrade` 选 rc 等通道时执行 `changeset pre enter <通道>`，版本号带 `-rc.N` 后缀，npm 上打 `rc` 等 dist-tag。正式版发出之前，Release 发完包还会把 `latest` 也指到这一版（`scripts/release/promote-latest.mjs`，可加 `--dry-run` 先看），宿主不写版本号也装到最新的候选版；npm 上有了正式版以后这一步不再动 `latest`。转正式版时选「正式版」，脚本执行 `changeset pre exit`。
 

@@ -38,7 +38,7 @@ const packages = await publishablePackages()
 const mismatched = packages.filter(pkg => pkg.version !== version)
 if (mismatched.length > 0) {
   problems.push(`标签 ${tag} 要发的是 ${version}，这些包的 package.json 不是这个号：${mismatched.map(pkg => `${pkg.name}@${pkg.version}`).join('、')}。`
-    + '先跑 VersionUpgrade 把版本提到位并合进 main，再在那个提交上打标签。')
+    + '先跑 VersionUpgrade 把版本提到位并快进到发布分支，再在那个提交上打标签。')
 }
 let clientProps
 try {
@@ -51,7 +51,7 @@ if (clientProps !== undefined) {
   const clientVersion = /<Version>([^<]*)<\/Version>/.exec(clientProps)?.[1]?.trim()
   if (clientVersion !== version) {
     problems.push(`标签 ${tag} 要发的是 ${version}，打印客户端（${CLIENT_PROPS} 的 Version）是 ${clientVersion ?? '（没写）'}：客户端与公开包同号同发。`
-      + '用 VersionUpgrade 升版会一起写；手改过就改回同一个号再合进 main。')
+      + '用 VersionUpgrade 升版会一起写；手改过就改回同一个号再快进到发布分支。')
   }
 }
 if (prerelease === undefined && pre !== null) {

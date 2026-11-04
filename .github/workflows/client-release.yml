@@ -1,7 +1,7 @@
 name: Client Release
 
 # 由 release.yml 在 v<版本> 标签上调用，与发 npm 并行：编译、签名打印客户端的安装包，建这个标签的草稿 Release。
-# 标签核对在 release.yml 的「核对标签」里做（标签在 main 的历史里，标签号等于三个包与客户端的版本）；发布草稿、把 update.json 提交到 main 由维护者手动完成。
+# 标签核对在 release.yml 的「核对标签」里做（标签在对应发布分支的历史里，标签号等于三个包与客户端的版本）；发布草稿、把 update.json 提交到 main 由维护者手动完成。
 on:
   workflow_call:
 

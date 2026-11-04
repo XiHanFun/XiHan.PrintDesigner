@@ -2,16 +2,16 @@ name: Client
 
 on:
   push:
-    branches: [dev, main]
+    branches: [dev, preview, main]
     paths: ['client/**', '.github/workflows/client.yml']
   pull_request:
-    branches: [dev, main]
+    branches: [dev, preview, main]
     paths: ['client/**', '.github/workflows/client.yml']
 
-# 同一分支连续推送时只保留最新一轮；main 上每个提交都跑完整结论
+# 同一分支连续推送时只保留最新一轮；main 与 preview 上每个提交都跑完整结论
 concurrency:
   group: client-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' && github.ref != 'refs/heads/preview' }}
 
 defaults:
   run:

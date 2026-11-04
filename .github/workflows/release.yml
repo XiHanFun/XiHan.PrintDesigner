@@ -2,7 +2,7 @@ name: Release
 
 # 推 v<版本> 标签时：核对标签，构建并核对产物，把三个公开包发到 npm（带 provenance），在空项目里装刚发的版本冒烟，再部署文档站；
 # 同时调 client-release.yml 出这一版打印客户端的安装包与草稿 Release（只依赖核对标签，两条线失败时各自重跑）。
-# 版本号、各包 CHANGELOG、文档站的更新日志由人用 print/scripts/release/VersionUpgrade 定好并合进 main；这里不提交，npm 包不建 GitHub Release。
+# 版本号、各包 CHANGELOG、文档站的更新日志由人用 print/scripts/release/VersionUpgrade 定好并快进到发布分支（预览版 preview，正式版 main）；这里不提交，npm 包不建 GitHub Release。
 # 手动 Run workflow 时选中一个版本标签；选分支会被 guard 拦下。
 on:
   workflow_dispatch:
@@ -25,19 +25,24 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - name: 只放行 main 上的版本标签
+      - name: 预览版标签只放行 preview，正式版标签只放行 main
         working-directory: .
         run: |
           if [ "$GITHUB_REF_TYPE" != "tag" ]; then
-            echo "::error::Release 只接受版本标签触发，收到 $GITHUB_REF_TYPE $GITHUB_REF_NAME"
+            echo "::error::发布只接受版本标签触发，收到 $GITHUB_REF_TYPE $GITHUB_REF_NAME"
             exit 1
           fi
-          git fetch --no-tags origin main:refs/remotes/origin/main
-          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
-            echo "::error::标签 $GITHUB_REF_NAME 指向的提交 $GITHUB_SHA 不在 main 的历史里，拒绝发布。先把要发布的提交合进 main，再在 main 上打标签。"
+          # 带预发布后缀（v1.0.0-rc.1）的是预览版
+          case "$GITHUB_REF_NAME" in
+            *-*) branch=preview ;;
+            *) branch=main ;;
+          esac
+          git fetch --no-tags origin "$branch:refs/remotes/origin/$branch"
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" "refs/remotes/origin/$branch"; then
+            echo "::error::标签 $GITHUB_REF_NAME 指向的提交 $GITHUB_SHA 不在 $branch 的历史里，拒绝发布。先把要发布的提交快进到 $branch，再在上面打标签。"
             exit 1
           fi
-          echo "标签 $GITHUB_REF_NAME 在 main 上，放行"
+          echo "标签 $GITHUB_REF_NAME 在 $branch 上，放行"
       - uses: actions/setup-node@v7
         with:
           node-version: 24
