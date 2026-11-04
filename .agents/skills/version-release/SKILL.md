@@ -9,7 +9,9 @@ description: 为 XiHan.PrintDesigner 定版本、消费变更集、进出 rc 预
 
 - 三个公开包 `@xihan-print/core`、`runtime`、`designer` 是 changesets 的 `fixed` 组，锁步同版，`print/scripts/release/check-version-lock.mjs` 核对。版本真源是 `print/packages/core/package.json`。
 - 有 `print/.changeset/pre.json` 就是预发布模式（如 `rc`），npm dist-tag 跟着它走，不在里面就是正式模式。
-- 版本提交是 `build: v<版本>`；标签是 `v<版本>`，只认 main 历史里的提交，标签号必须等于三个包与客户端的版本、且与预发布模式一致（`check-release-tag.mjs`，只在发版时核）。
+- 版本提交是 `build: v<版本>`；标签是 `v<版本>`，只认对应发布分支历史里的提交（预览版 `preview`，正式版 `main`），标签号必须等于三个包与客户端的版本、且与预发布模式一致（`check-release-tag.mjs`，只在发版时核）。
+- 发布分支：预览版（带 `-rc.N` 这类预发布后缀）从 `preview` 发，正式版从 `main` 发，都由 `dev` 快进。预览版沿用 `rc` 通道：已经发到 `1.0.0-rc.2`，按 semver `preview` 排在 `rc` 之前，换名字版本号会倒退。
+- 预览版现在还发不出去：`release.yml` 的 guard 只放行 `main` 上的标签，`ci.yml` 也不跑 `preview`（见 `AGENTS.md`「发版」）。
 - 打印客户端（`client/Directory.Build.props` 的 `Version`）与三个包版本相同、每版同发：VersionUpgrade 一起写，不手改；兼容靠子协议 `xihan-print.v1`。
 
 ## 定版本（本地，不提交、不推送）
@@ -24,12 +26,12 @@ description: 为 XiHan.PrintDesigner 定版本、消费变更集、进出 rc 预
 ## 发布（用户明确要求时）
 
 1. 推 dev，等 dev 上 CI 两个 job（Lint、构建、类型与测试；文档站）全绿。
-2. `git fetch . dev:main` 快进 main（不是快进就停下查），推 main，等 main 上 CI 全绿。
+2. 快进发布分支（预览版 `git fetch . dev:preview`，正式版 `git fetch . dev:main`，不是快进就停下查），推发布分支，等上面的 CI 全绿。
 3. 在版本提交上打附注标签 `git tag -a v<版本> -m "v<版本>"`，只推这个标签。Release 先「核对标签」，之后两条线并行：
    - npm：发到 npm（`changeset publish`，凭组织级密钥 `NPM_TOKEN`）→ 预发布版跟上 `latest`（`scripts/release/promote-latest.mjs`：预发布模式、且 npm 上这个包还没有正式版时，等取得到这一版再 `npm dist-tag add <包>@<版本> latest`；有正式版后不动）→ 发布后冒烟（空项目里装刚发的版本）→ 部署文档站（只部署已经发布的版本）；
    - 打印客户端：调 `client-release.yml`，编译、测试、签名（有证书密钥时），建这个标签的草稿 Release（预发布版标成 Pre-release），附件是两个架构的安装包、SHA-256 与 `update.json`。
 4. 发完核对：`npm view @xihan-print/core dist-tags`（runtime、designer 同样），三个包都在；正式版发出前 `rc` 与 `latest` 都指向这一版，之后预发布只动 `rc`；`gh release view v<版本>` 看草稿与附件齐全。
-5. 人工两步：发布这个草稿 Release；把附件里的 `update.json` 提交到 main 的 `client/update.json`（只动这一个文件），推 main，再把 main 合回 dev 并推 dev。已装的客户端靠这份清单看到新版。
+5. 人工步骤：发布这个草稿 Release。正式版再把附件里的 `update.json` 提交到 main 的 `client/update.json`（只动这一个文件），推 main，再把 main 合回 dev 并推 dev，已装的客户端靠这份清单看到新版。预览版不动这份清单，已装的客户端不会自动升到预览版。
 
 ## 出错时
 
