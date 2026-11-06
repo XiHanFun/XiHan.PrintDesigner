@@ -117,7 +117,7 @@ pnpm dev
 - core 只做模型：schema 类型、校验、编辑命令与算法。tsconfig 不含 DOM 类型库，不得触碰 DOM。
 - runtime 是业务页面使用的元素，体积敏感；设计器专用的代码不进 runtime。
 - 所有包源码不得 import 任何前端框架（ESLint 已拦截）。
-- 运行时依赖只允许 `@xihan-print/*` 与 `@xihan-ui/*`；引入任何其他依赖之前先征得维护者同意。`@xihan-ui/*` 写成 peerDependencies `^5.0.0`（由宿主装唯一的一份），开发时另写 devDependencies（`catalog:`），升级 UI 时两处一起改。
+- 运行时依赖只允许 `@xihan-print/*` 与 `@xihan-ui/*`；引入任何其他依赖之前先征得维护者同意。`@xihan-ui/*` 写成 peerDependencies `^5.2.0`（由宿主装唯一的一份），开发时另写 devDependencies（`catalog:`），升级 UI 时两处一起改。
 
 ## 硬性约定
 

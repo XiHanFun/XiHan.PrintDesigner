@@ -28,7 +28,7 @@ description: 实现、重构、修复或测试 XiHan.PrintDesigner 的三个 npm
 
 - UI 已有的组件、外壳零件（`@xihan-ui/designer-shell`）、设计器内核（`@xihan-ui/designer-kit`）、表达式与格式化（`@xihan-ui/expression`）、条码与二维码、文字度量一律直接用，不在这里另写一套。
 - 常用、以后别处也会用的能力，即使眼下只有打印用到，也加进 XiHan.UI 再调用；只有打印专属的语义（分页、页眉页脚变体、打印输出）留在这里。
-- UI 用 npm 正式包（peer `^5.0.0`），同级 UI 源码不会自动生效；缺 UI 能力时先报给维护者排进 UI 的版本，不在设计器里局部修补 UI 的缺陷。
+- UI 用 npm 正式包（peer `^5.2.0`），同级 UI 源码不会自动生效；缺 UI 能力时先报给维护者排进 UI 的版本，不在设计器里局部修补 UI 的缺陷。
 
 ## 元素与界面
 

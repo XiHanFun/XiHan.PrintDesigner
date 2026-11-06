@@ -19,35 +19,35 @@ catalogs:
       specifier: ^24.10.0
       version: 24.19.2
     '@xihan-ui/core':
-      specifier: ^5.1.0
-      version: 5.1.0
+      specifier: ^5.2.0
+      version: 5.2.0
     '@xihan-ui/designer-kit':
-      specifier: ^5.1.0
-      version: 5.1.0
+      specifier: ^5.2.0
+      version: 5.2.0
     '@xihan-ui/designer-shell':
-      specifier: ^5.1.0
-      version: 5.1.0
+      specifier: ^5.2.0
+      version: 5.2.0
     '@xihan-ui/expression':
-      specifier: ^5.1.0
-      version: 5.1.0
+      specifier: ^5.2.0
+      version: 5.2.0
     '@xihan-ui/headless':
-      specifier: ^5.1.0
-      version: 5.1.0
+      specifier: ^5.2.0
+      version: 5.2.0
     '@xihan-ui/icons':
-      specifier: ^5.1.0
-      version: 5.1.0
+      specifier: ^5.2.0
+      version: 5.2.0
     '@xihan-ui/pointer':
-      specifier: ^5.1.0
-      version: 5.1.0
+      specifier: ^5.2.0
+      version: 5.2.0
     '@xihan-ui/styles':
-      specifier: ^5.1.0
-      version: 5.1.0
+      specifier: ^5.2.0
+      version: 5.2.0
     '@xihan-ui/viz':
-      specifier: ^5.1.0
-      version: 5.1.0
+      specifier: ^5.2.0
+      version: 5.2.0
     '@xihan-ui/web-components':
-      specifier: ^5.1.0
-      version: 5.1.0
+      specifier: ^5.2.0
+      version: 5.2.0
     eslint:
       specifier: ^10.12.0
       version: 10.12.0
@@ -112,19 +112,19 @@ importers:
     devDependencies:
       '@xihan-ui/core':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/designer-kit':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/expression':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/headless':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/viz':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
 
   packages/designer:
     dependencies:
@@ -137,31 +137,31 @@ importers:
     devDependencies:
       '@xihan-ui/core':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/designer-kit':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/designer-shell':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/expression':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/headless':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/icons':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/pointer':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/viz':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/web-components':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       jsdom:
         specifier: 'catalog:'
         version: 27.4.0
@@ -174,25 +174,25 @@ importers:
     devDependencies:
       '@xihan-ui/core':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/designer-kit':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/designer-shell':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/expression':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/headless':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/viz':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/web-components':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       jsdom:
         specifier: 'catalog:'
         version: 27.4.0
@@ -210,13 +210,13 @@ importers:
         version: link:../packages/runtime
       '@xihan-ui/designer-shell':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/styles':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
       '@xihan-ui/web-components':
         specifier: 'catalog:'
-        version: 5.1.0
+        version: 5.2.0
     devDependencies:
       vite:
         specifier: 'catalog:'
@@ -1019,61 +1019,61 @@ packages:
   '@vue/shared@3.5.44':
     resolution: {integrity: sha512-H82XLH0DjmSOdbEwO15x3QTo1f5PWEtv237eLpYKc0mqLu+B8hnq16lFWmuBmNurkeiG3wr+oM1FhOll/YVFRg==}
 
-  '@xihan-ui/core@5.1.0':
-    resolution: {integrity: sha512-l9dvp7De6zqFe2fjssMTbMmZvNYJxnQe95+kZK9QcStFk3VjW2DuiUBdppnEslTTFQYBBnrLbvvSrYHohgRA+A==}
+  '@xihan-ui/core@5.2.0':
+    resolution: {integrity: sha512-09WNmjN4WojgBPf7DQtBMv1cLGR7r1aieLiHeJa4JwZOYvXcXcxjfRkv/oFBgK0jsn0+Kc6acaYDFYL28ynpIw==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/designer-kit@5.1.0':
-    resolution: {integrity: sha512-Zj5HUVac9wIukd1KzDJXuHg2cD8t9algm4ypQDJgP3HA9YAJM5CVZYzNwOg4O284X32vS0ueM2IJ2qgfqGvWPg==}
+  '@xihan-ui/designer-kit@5.2.0':
+    resolution: {integrity: sha512-1CNKFncY95AhveU5bJSAqLH7TQUCDVk1AW06NYbb0j6fyZU+gezwET26JTaJ8LIW7E6tEco0qgwbMcCZ7HLNag==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/designer-shell@5.1.0':
-    resolution: {integrity: sha512-1Gd+zJmCx4VxTnuhoJWdvRnEdodWfHNs5QbRcwD0bT3mVsFASn/lV4JnWI8UBqPPtshOk1Y1mnF8OzoFYBEA7A==}
+  '@xihan-ui/designer-shell@5.2.0':
+    resolution: {integrity: sha512-BH9e4Ts98sTctXatN4CV0ZyJQwlqvujX7yZtqKJp+7luQ5wA0ns9bA0k7KxElLJU5+t0WYKSWlM/mOqTwPOIQg==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/expression@5.1.0':
-    resolution: {integrity: sha512-ziGQLFwicD75P+OhRnKyn3LZiYMb7U+1+5TBtUGDRwKYygwIxHF9WOSzB3gDYS3IzXnU/jhLAWCOPb5+1NNmnw==}
+  '@xihan-ui/expression@5.2.0':
+    resolution: {integrity: sha512-LXAu4VPvRlh1bu3jKwuZ2L1S5ku2W5aH9kbv2oalWvPQrd39v+wEArNrqcs168zfkAgbicSwvhundy6sK4Ab+A==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/headless@5.1.0':
-    resolution: {integrity: sha512-P8HrmmH7kF7+xl/b/2opj+2mtTSaDCaoycamgj3lcVzQjK+vtSE/HJ6/g2Y7j5pfo24JMdUZE8X+LqaWiOP2XA==}
+  '@xihan-ui/headless@5.2.0':
+    resolution: {integrity: sha512-K7+LOGkuPXarPbT+OvIJfCXydDT8ISdbydqq6iA8frr/k6f9Dbn3IyOv0NH4jksrIxz31Gy1HuxGo673eYBg/A==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/icons@5.1.0':
-    resolution: {integrity: sha512-05Nr6amkyaJdeVSpZBklWlUb+3VXgcs4qHXVLVCwS5QCARoPzCrQOSiB7te+AEe3ZDbsh3nB6PfxbLeJhOH6zQ==}
+  '@xihan-ui/icons@5.2.0':
+    resolution: {integrity: sha512-xVHv7WThUii0eWHu1xUI0GAPD/BVyhHVPbugsnDponzbFCBkZRraBmxdArPYVFJZ/3yOBLbrg4jokWsKy9c0eQ==}
     engines: {node: '>=18'}
     hasBin: true
 
-  '@xihan-ui/motion@5.1.0':
-    resolution: {integrity: sha512-IW28AgJmdjLDxCpf4vL2vsZmLXeYFwFQjgWpGwhIrWP9eMUlugwETTrVJaV2xG0ouP87p14+cYoIfgzZQ8TaSw==}
+  '@xihan-ui/motion@5.2.0':
+    resolution: {integrity: sha512-BSaagagJ+3+rV1WblymzTqfikpI8eWwMvhD/yjKspfqlsKEvbxxA4enNrDkNnba/GsG6aAUJ/wzBLqST8Ug2Ig==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/pointer@5.1.0':
-    resolution: {integrity: sha512-Z+Gmy9vxC0BdZb1VCNiYb2gjJJJD6/kwt9E+aX/QPMV28l1oIeEhQ0P49MYVUFe1OO9TTGGeNovMc+t5hn6LRw==}
+  '@xihan-ui/pointer@5.2.0':
+    resolution: {integrity: sha512-mqN2lMicXD/3VcKd9ai8PCsn2RzMJFw5er9XLcsFNxCy2I4/lNVcH3CFxPxhhEmarDWoExXFOXyLWP61gnzwfw==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/position@5.1.0':
-    resolution: {integrity: sha512-tuGT+P3GDF86rntBE3c1MFLYYb/bS4Qnc1DId3uNA2U7e8MtI3EswB9Aw/rERIco+z7NpSeJkJJT8dT32seKUA==}
+  '@xihan-ui/position@5.2.0':
+    resolution: {integrity: sha512-C1ONc5mhmXg5Rr0SPpMA/DkjPBCCgj0Gqb6gmb+B5cWs1qailVkWVbF/8/+fjcFpg2TC8K+GOB3qBsGr0ljICQ==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/styles@5.1.0':
-    resolution: {integrity: sha512-xGQ+KYBnM3dYusesvR0kJibi6pCKbRiJD4AeGI3Dsxh78GKoN3I9Afe+Dm1ehIkjHz+PnAKEfxEw8A+c8BPkQQ==}
+  '@xihan-ui/styles@5.2.0':
+    resolution: {integrity: sha512-URcS43O32kcWrAP2iaa1XYWjXMHNCpu5KFW/uVeWN8qzlXLv2ZpSbtqxpTpXHFijAdp37dHmHUXONlbAY0tYAg==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/tokens@5.1.0':
-    resolution: {integrity: sha512-n7O9B7I67QV63J+24nBJXpfkfrdBnLZJfyP+V3taCjtrFrq4E+3wNA1BkWl+2vdmmrqbFYernaNmo2QcoZBs/Q==}
+  '@xihan-ui/tokens@5.2.0':
+    resolution: {integrity: sha512-K/gYqd5AlHLLlXjetftbUjT7MGvBTUdPWEWoMCw+23FBT3BAObLHjvF2RNOnCAiotfQGTjJM0CErvc4H4gpHQQ==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/viz@5.1.0':
-    resolution: {integrity: sha512-cjeoyhU+BCnY8nhAnInYxdzDSe3YZPtyPsLsNBT+QOMntj+ZoqG1mrwaQ0vX/NGpheidFte0U63UtwmBqIp0sw==}
+  '@xihan-ui/viz@5.2.0':
+    resolution: {integrity: sha512-EbcXWa1ye0wIJAwGkxAHWGa3EOSgw8354WgDitUIvg3m1IFFuXBAErcWVkQdyLffluFBDD7no/MakXDYLL4CEw==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/web-components@5.1.0':
-    resolution: {integrity: sha512-6wM/gQEz/QH+k1DatRcXT0wq7B5QDmrsPBiTKRfzkkzhC6mg6kE5CEzFivGNRc/OZ3mGZYRm5pLP5nGnngBKpQ==}
+  '@xihan-ui/web-components@5.2.0':
+    resolution: {integrity: sha512-YE4X94teQoju1GKihyPZPYuDZs39MJFTSqznHgPiVM9CWjJ5s73jVhujm3zZccJplqVtLJQRsDAYlKYllh1c5w==}
     engines: {node: '>=18'}
     peerDependencies:
-      '@xihan-ui/backgrounds': ^5.1.0
-      '@xihan-ui/code-highlight': ^5.1.0
+      '@xihan-ui/backgrounds': ^5.2.0
+      '@xihan-ui/code-highlight': ^5.2.0
     peerDependenciesMeta:
       '@xihan-ui/backgrounds':
         optional: true
@@ -1084,133 +1084,157 @@ packages:
     resolution: {integrity: sha512-C/0zV5IhgVdYhGJTwrY0v8dknxlhiKwtVJkMUaexu9/QvRmzlV4vfU3hZlUSgqc2BxQHntL1mCVbDq8j0FRFDw==}
     cpu: [arm64]
     os: [android]
+    deprecated: yuku-codegen is pure JavaScript since 0.14
 
   '@yuku-codegen/binding-darwin-arm64@0.8.7':
     resolution: {integrity: sha512-/u+REDMI4a0/lsJXTM4c53/w31OGZLOReZIyg62uhgLs0kc8NHsj/nOcxTdlQjq5gi0zhdkccD9LaLTXcdzPvw==}
     cpu: [arm64]
     os: [darwin]
+    deprecated: yuku-codegen is pure JavaScript since 0.14
 
   '@yuku-codegen/binding-darwin-x64@0.8.7':
     resolution: {integrity: sha512-sMMzFOwCo4WXR+/6zIBThOocSC50iIIZZdfiIDbaLvj0Ax/rWt/iavyfEAqajyvzydLyCqR/ZItdLWSRlu1umw==}
     cpu: [x64]
     os: [darwin]
+    deprecated: yuku-codegen is pure JavaScript since 0.14
 
   '@yuku-codegen/binding-freebsd-x64@0.8.7':
     resolution: {integrity: sha512-MpdpKXix9P+Y1rKgjvcNeNtGjXeL1CmttNhYINrWls8kRpm4xM/oBGTmn6w7to8lAlwj5jm8q03dQPl5mRv4Qw==}
     cpu: [x64]
     os: [freebsd]
+    deprecated: yuku-codegen is pure JavaScript since 0.14
 
   '@yuku-codegen/binding-linux-arm-gnu@0.8.7':
     resolution: {integrity: sha512-rr1srFLlPAmC1vtxfc9C1YLDe3iH09YjfSeeIidBqKhzx1MATjOAq4mjlRUOnhr/L27MotWIYOFKwVsd5JZFOg==}
     cpu: [arm]
     os: [linux]
     libc: [glibc]
+    deprecated: yuku-codegen is pure JavaScript since 0.14
 
   '@yuku-codegen/binding-linux-arm-musl@0.8.7':
     resolution: {integrity: sha512-eAufXh8qBRpiSO6ueaMDL+yyoXIGLhpUce72YbcACtZU2qhExwBIJyEtQf5kH2Ki0X2aqkSjSfog4OPtKXan3Q==}
     cpu: [arm]
     os: [linux]
     libc: [musl]
+    deprecated: yuku-codegen is pure JavaScript since 0.14
 
   '@yuku-codegen/binding-linux-arm64-gnu@0.8.7':
     resolution: {integrity: sha512-gw4w6wPoHObBrdIC4duVWLmJOvpdE25j5D7yrM5mACNlK4klRz/lv8hK+ssQk9EJHBgZjSaqZIJVFgqNYbfv7A==}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
+    deprecated: yuku-codegen is pure JavaScript since 0.14
 
   '@yuku-codegen/binding-linux-arm64-musl@0.8.7':
     resolution: {integrity: sha512-L68N6Y4XkqcIaKo3Ra88JEvBEH4AHff44A4INcrxeVWZ8CZtu2tCpfVxe3hR8qQQMcvBSQlDn24KpkCKEhVvfA==}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
+    deprecated: yuku-codegen is pure JavaScript since 0.14
 
   '@yuku-codegen/binding-linux-x64-gnu@0.8.7':
     resolution: {integrity: sha512-dzyAbltJmf3Cqlb8HcFuYIf5Yn0fl1vTr3XJ9HiVNNvOlhqPSArOqtw9vI1p6/VTXTjrMLXlU+s+/kNHiIy/Cw==}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
+    deprecated: yuku-codegen is pure JavaScript since 0.14
 
   '@yuku-codegen/binding-linux-x64-musl@0.8.7':
     resolution: {integrity: sha512-Otw4MH3404q0Bbvl+YTdW9aoUV5vXmUw8260bWvt1XlaoIX/ceSgI4ygheRDMfBPoHt6FDayQaO9OLVUZAgkFA==}
     cpu: [x64]
     os: [linux]
     libc: [musl]
+    deprecated: yuku-codegen is pure JavaScript since 0.14
 
   '@yuku-codegen/binding-win32-arm64@0.8.7':
     resolution: {integrity: sha512-qo/jyrzryiBuKEsFiuWaBCBe3tRMynQ0qFWFgOEjcCMQeZfBm+wKiVEUEFXXLc7bh8YezguAWp0Mtnhq4ARNyA==}
     cpu: [arm64]
     os: [win32]
+    deprecated: yuku-codegen is pure JavaScript since 0.14
 
   '@yuku-codegen/binding-win32-x64@0.8.7':
     resolution: {integrity: sha512-D5lDsVDx6m00E6bWySlWdH72Ca4TPSaphDqB6QjU6MpuNLIJqoGoatYyq2rOmBE8Zv/kunot/o58KGL03P3eiA==}
     cpu: [x64]
     os: [win32]
+    deprecated: yuku-codegen is pure JavaScript since 0.14
 
   '@yuku-parser/binding-android-arm64@0.8.7':
     resolution: {integrity: sha512-eGKYiUDX7Y0V7tDTmg+JTVnXnjMqfXXsorZ+EDf5kxwchQ3Or1HS14MzI2fw+jFhHR85fCWt+mtX33Yao73hIQ==}
     cpu: [arm64]
     os: [android]
+    deprecated: yuku-parser runs on yuku-core since 0.14
 
   '@yuku-parser/binding-darwin-arm64@0.8.7':
     resolution: {integrity: sha512-Re0RHelKLnjEURulY2/KxW+Ngb8zuNA4BRZuMwgGQNzVumT6u4U2N2hc01oeYVNVof0i7GrXE4UCNBgbpRRnjQ==}
     cpu: [arm64]
     os: [darwin]
+    deprecated: yuku-parser runs on yuku-core since 0.14
 
   '@yuku-parser/binding-darwin-x64@0.8.7':
     resolution: {integrity: sha512-Hn8DROtQkjlA1ACbPgj4a7eP9IuVOI504oiTwpkWPbpaDWD9KdmnVYCqW+1LfenNK/g7O9NhWGpXEdaCNX7lIA==}
     cpu: [x64]
     os: [darwin]
+    deprecated: yuku-parser runs on yuku-core since 0.14
 
   '@yuku-parser/binding-freebsd-x64@0.8.7':
     resolution: {integrity: sha512-bAP2OV8wRuzplX/jYxv9+vvqQT8JxyNphI8fLfXGL054Xs+4/J5u33cIm3y4rxY8rdoLmmdiJs2Tq7r7lrDRfA==}
     cpu: [x64]
     os: [freebsd]
+    deprecated: yuku-parser runs on yuku-core since 0.14
 
   '@yuku-parser/binding-linux-arm-gnu@0.8.7':
     resolution: {integrity: sha512-kTYwJQQgmZeAWdDIWabiReIZMpmfLueIj1tCmjStUtFGhR1Z0qwxonKVfUC4N7h/VhGGzLZ//7O1kgt1QKqgCg==}
     cpu: [arm]
     os: [linux]
     libc: [glibc]
+    deprecated: yuku-parser runs on yuku-core since 0.14
 
   '@yuku-parser/binding-linux-arm-musl@0.8.7':
     resolution: {integrity: sha512-uL4jE8HPT2BLlxAXyD10LqgPuXa9eDa0BKpCdSANmzIJghq/2eZo3/gQNtaxPZMupWoxjYzSad9IXrwu7aYPXQ==}
     cpu: [arm]
     os: [linux]
     libc: [musl]
+    deprecated: yuku-parser runs on yuku-core since 0.14
 
   '@yuku-parser/binding-linux-arm64-gnu@0.8.7':
     resolution: {integrity: sha512-3gVN4pWSKZmXiNX7cU164dR9MPvesCHnlH6nPfpK+yQsCuYphjKKplcb4SnZBrhiqmXbgb2HR0c2TS0IZUPhgA==}
     cpu: [arm64]
     os: [linux]
     libc: [glibc]
+    deprecated: yuku-parser runs on yuku-core since 0.14
 
   '@yuku-parser/binding-linux-arm64-musl@0.8.7':
     resolution: {integrity: sha512-S0mwfEjoLpxzXeZw802Wa4RaELsQiPtWqG6INcy8j4GtvNFtl4LCX3eGO1XLn9pyLAISLzTRyU3zUCBUPin8lg==}
     cpu: [arm64]
     os: [linux]
     libc: [musl]
+    deprecated: yuku-parser runs on yuku-core since 0.14
 
   '@yuku-parser/binding-linux-x64-gnu@0.8.7':
     resolution: {integrity: sha512-lnbWdPmerE5D1uH1G4IEZKnPzCrWCStRGrtgpSIe1RibAo5bZIjDbbbPYXmMHCEh4F+x/JaJpElh26a3r+BPbg==}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
+    deprecated: yuku-parser runs on yuku-core since 0.14
 
   '@yuku-parser/binding-linux-x64-musl@0.8.7':
     resolution: {integrity: sha512-769uwndMvMzUvATWbAcEvyLHKA+DzhHSCl/obBUrRdYfRo26yxui6S8y3z7uJ+Naup7UKrDxrpK7OnQkxkl9KQ==}
     cpu: [x64]
     os: [linux]
     libc: [musl]
+    deprecated: yuku-parser runs on yuku-core since 0.14
 
   '@yuku-parser/binding-win32-arm64@0.8.7':
     resolution: {integrity: sha512-mEB/9PlaAkisJ6KWGz0zvywXoU6+80dTlR2LwS7s/jcXXoU6fm2+sitBZXtqu3+Q4DcDgPxM45uWMCzPs0TSRw==}
     cpu: [arm64]
     os: [win32]
+    deprecated: yuku-parser runs on yuku-core since 0.14
 
   '@yuku-parser/binding-win32-x64@0.8.7':
     resolution: {integrity: sha512-8vNB2DP0ou61nGb8tc/qfi41gfyDXz1MHr2zqL3nR+cJ6CEbiuWV/l/a/vv151gCgiZLLAyGkQGENpozdg716w==}
     cpu: [x64]
     os: [win32]
+    deprecated: yuku-parser runs on yuku-core since 0.14
 
   '@yuku-toolchain/types@0.8.7':
     resolution: {integrity: sha512-2Z53dNxAJL6UvFoIrDZvYf3zlO8s4VJK4O2hhaB4mXVwwpX/7ajtss3cmfqKvamlNLWyt9FSWs4eoYdlbxpnHA==}
@@ -3895,68 +3919,68 @@ snapshots:
 
   '@vue/shared@3.5.44': {}
 
-  '@xihan-ui/core@5.1.0':
+  '@xihan-ui/core@5.2.0':
     dependencies:
-      '@xihan-ui/motion': 5.1.0
+      '@xihan-ui/motion': 5.2.0
 
-  '@xihan-ui/designer-kit@5.1.0':
+  '@xihan-ui/designer-kit@5.2.0':
     dependencies:
-      '@xihan-ui/core': 5.1.0
-      '@xihan-ui/expression': 5.1.0
-      '@xihan-ui/pointer': 5.1.0
-      '@xihan-ui/viz': 5.1.0
+      '@xihan-ui/core': 5.2.0
+      '@xihan-ui/expression': 5.2.0
+      '@xihan-ui/pointer': 5.2.0
+      '@xihan-ui/viz': 5.2.0
 
-  '@xihan-ui/designer-shell@5.1.0':
+  '@xihan-ui/designer-shell@5.2.0':
     dependencies:
-      '@xihan-ui/core': 5.1.0
-      '@xihan-ui/designer-kit': 5.1.0
-      '@xihan-ui/pointer': 5.1.0
-      '@xihan-ui/tokens': 5.1.0
-      '@xihan-ui/viz': 5.1.0
-      '@xihan-ui/web-components': 5.1.0
+      '@xihan-ui/core': 5.2.0
+      '@xihan-ui/designer-kit': 5.2.0
+      '@xihan-ui/pointer': 5.2.0
+      '@xihan-ui/tokens': 5.2.0
+      '@xihan-ui/viz': 5.2.0
+      '@xihan-ui/web-components': 5.2.0
     transitivePeerDependencies:
       - '@xihan-ui/backgrounds'
       - '@xihan-ui/code-highlight'
 
-  '@xihan-ui/expression@5.1.0': {}
+  '@xihan-ui/expression@5.2.0': {}
 
-  '@xihan-ui/headless@5.1.0':
+  '@xihan-ui/headless@5.2.0':
     dependencies:
-      '@xihan-ui/core': 5.1.0
-      '@xihan-ui/expression': 5.1.0
-      '@xihan-ui/motion': 5.1.0
-      '@xihan-ui/pointer': 5.1.0
-      '@xihan-ui/viz': 5.1.0
+      '@xihan-ui/core': 5.2.0
+      '@xihan-ui/expression': 5.2.0
+      '@xihan-ui/motion': 5.2.0
+      '@xihan-ui/pointer': 5.2.0
+      '@xihan-ui/viz': 5.2.0
 
-  '@xihan-ui/icons@5.1.0': {}
+  '@xihan-ui/icons@5.2.0': {}
 
-  '@xihan-ui/motion@5.1.0': {}
+  '@xihan-ui/motion@5.2.0': {}
 
-  '@xihan-ui/pointer@5.1.0': {}
+  '@xihan-ui/pointer@5.2.0': {}
 
-  '@xihan-ui/position@5.1.0':
+  '@xihan-ui/position@5.2.0':
     dependencies:
-      '@xihan-ui/core': 5.1.0
+      '@xihan-ui/core': 5.2.0
 
-  '@xihan-ui/styles@5.1.0':
+  '@xihan-ui/styles@5.2.0':
     dependencies:
-      '@xihan-ui/tokens': 5.1.0
+      '@xihan-ui/tokens': 5.2.0
 
-  '@xihan-ui/tokens@5.1.0':
+  '@xihan-ui/tokens@5.2.0':
     dependencies:
-      '@xihan-ui/core': 5.1.0
+      '@xihan-ui/core': 5.2.0
 
-  '@xihan-ui/viz@5.1.0': {}
+  '@xihan-ui/viz@5.2.0': {}
 
-  '@xihan-ui/web-components@5.1.0':
+  '@xihan-ui/web-components@5.2.0':
     dependencies:
-      '@xihan-ui/core': 5.1.0
-      '@xihan-ui/expression': 5.1.0
-      '@xihan-ui/headless': 5.1.0
-      '@xihan-ui/motion': 5.1.0
-      '@xihan-ui/pointer': 5.1.0
-      '@xihan-ui/position': 5.1.0
-      '@xihan-ui/viz': 5.1.0
+      '@xihan-ui/core': 5.2.0
+      '@xihan-ui/expression': 5.2.0
+      '@xihan-ui/headless': 5.2.0
+      '@xihan-ui/motion': 5.2.0
+      '@xihan-ui/pointer': 5.2.0
+      '@xihan-ui/position': 5.2.0
+      '@xihan-ui/viz': 5.2.0
 
   '@yuku-codegen/binding-android-arm64@0.8.7':
     optional: true
