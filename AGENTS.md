@@ -6,19 +6,21 @@
 
 XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components 交付，任何前端项目都能使用。本仓库是开源版（MIT），必须能独立安装、构建和使用，不接收依赖私有包的代码。
 
-本仓库还包含本地打印客户端（Windows 托盘程序，.NET 10 + WebView2，放在 `client/`），约定见「打印客户端」一节。
+本仓库还包含本地打印客户端（Windows 托盘程序，.NET + WebView2，放在 `client/`），约定见「打印客户端」一节。
 
 ### 技术栈
 
-| 技术 | 要求 | 用途 |
-| --- | --- | --- |
-| Node.js | 24+ | 脚本、构建与测试 |
-| pnpm | 11+ | 工作区包管理 |
-| TypeScript | 6.x | 类型与源码 |
-| tsdown | 0.22 | 库打包（ESM only） |
-| Vitest | 4.x | 单元测试 |
-| Web Components | Light DOM | 对外交付形态 |
-| ESLint + oxlint | @antfu/eslint-config | Lint |
+| 技术 | 用途 |
+| --- | --- |
+| Node.js | 脚本、构建与测试 |
+| pnpm | 工作区包管理 |
+| TypeScript | 类型与源码 |
+| tsdown | 库打包（ESM only） |
+| Vitest | 单元测试 |
+| Web Components（Light DOM） | 对外交付形态 |
+| ESLint + oxlint（@antfu/eslint-config） | Lint |
+
+Node.js 与 pnpm 的最低版本见 `print/package.json` 的 `engines`，其余依赖的版本见 `print/pnpm-workspace.yaml` 的 catalog。
 
 ## 开始前必须做
 
@@ -45,8 +47,8 @@ XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components
 ├─ .claude/skills -> ../.agents/skills   # Claude Code 技能入口
 ├─ .github/ .gitee/ .gitcode/     # 三平台 Issue / PR 模板，GitHub 另有 CI 与发版工作流
 ├─ client/                         # 打印客户端（.NET 解决方案 XiHan.PrintClient.slnx）
-│  ├─ src/XiHan.PrintClient.Core/      # net10.0，平台无关：协议、会话、来源授权、任务队列与各平台接口
-│  ├─ src/XiHan.PrintClient.Windows/   # net10.0-windows：WebView2 渲染、winspool、注册表自启、单实例
+│  ├─ src/XiHan.PrintClient.Core/      # 平台无关：协议、会话、来源授权、任务队列与各平台接口
+│  ├─ src/XiHan.PrintClient.Windows/   # Windows 专属：WebView2 渲染、winspool、注册表自启、单实例
 │  ├─ src/XiHan.PrintClient/           # WinForms 托盘程序，产物 XiHanPrint.exe
 │  ├─ tests/                           # xunit.v3，dotnet test 走 Microsoft.Testing.Platform
 │  └─ installer/                       # Inno Setup 安装脚本与打包脚本 build.ps1
@@ -117,7 +119,7 @@ pnpm dev
 - core 只做模型：schema 类型、校验、编辑命令与算法。tsconfig 不含 DOM 类型库，不得触碰 DOM。
 - runtime 是业务页面使用的元素，体积敏感；设计器专用的代码不进 runtime。
 - 所有包源码不得 import 任何前端框架（ESLint 已拦截）。
-- 运行时依赖只允许 `@xihan-print/*` 与 `@xihan-ui/*`；引入任何其他依赖之前先征得维护者同意。`@xihan-ui/*` 写成 peerDependencies `^5.2.0`（由宿主装唯一的一份），开发时另写 devDependencies（`catalog:`），升级 UI 时两处一起改。
+- 运行时依赖只允许 `@xihan-print/*` 与 `@xihan-ui/*`；引入任何其他依赖之前先征得维护者同意。`@xihan-ui/*` 写成 peerDependencies（范围与 `print/pnpm-workspace.yaml` 的 catalog 相同，由宿主装唯一的一份），开发时另写 devDependencies（`catalog:`），升级 UI 时两处一起改。
 
 ## 硬性约定
 
@@ -145,14 +147,14 @@ pnpm dev
 | --- | --- |
 | 构建 | `dotnet build XiHan.PrintClient.slnx -c Release` |
 | 测试 | `dotnet test --solution XiHan.PrintClient.slnx -c Release --no-build` |
-| 安装包 | `pwsh installer/build.ps1`（自包含发布 x64 与 arm64，再用 Inno Setup 6 编译；`-PublishOnly` 只发布，`-SkipWebView2` 不打 WebView2 安装程序、只用于本机试装） |
+| 安装包 | `pwsh installer/build.ps1`（自包含发布 x64 与 arm64，再用 Inno Setup 编译；`-PublishOnly` 只发布，`-SkipWebView2` 不打 WebView2 安装程序、只用于本机试装） |
 
 - SDK 版本以 `client/global.json` 为准，与 XiHan.Framework 一致；包版本集中在 `Directory.Packages.props`。
 - 运行时 NuGet 依赖只有 `Microsoft.Web.WebView2`；新增任何运行时依赖前先征得维护者同意，能用 .NET 自带库或 Windows API 自写的就自写。
 - Core 不引用任何 Windows 专属 API，平台相关的实现放在平台项目里，经 Core 的接口接入。
 - 代码风格照 XiHan.Framework：文件头两行版权注释，文件级命名空间，公开成员写中文 XML 注释，注释只写做什么。
 - 原始通道的集成测试要一台端口指向文件的「Generic / Text Only」打印机，经环境变量 `XIHAN_PRINT_TEST_PRINTER`、`XIHAN_PRINT_TEST_OUTPUT` 告知；没配置时跳过。CI 里由 `client.yml` 自动装，本机要跑时以管理员身份照那一步装。
-- 本机编译安装包用按当前用户装的 Inno Setup 6.7.3（官方安装包，装在 `%LocalAppData%\Programs\Inno Setup 6`），`build.ps1` 会在那里和 PATH 里找 `ISCC.exe`；它只用于编译与试装，不进运行时依赖，也不进仓库。CI 自己装 Inno Setup，不依赖哪台机器。安装包按系统界面语言选简体中文或英文，不弹语言选择框；简体中文是自己写的 `installer/zh-CN.isl`，叠在 `compiler:Default.isl` 之上，只覆写这个安装包在安装、升级、卸载与出错时会出现的消息，其余沿用英文。给安装包加页面或提示时，在 `zh-CN.isl` 与 `[CustomMessages]` 的 `en.`、`zh.` 两份里一起补。
+- 本机编译安装包用按当前用户装的 Inno Setup（官方安装包），`build.ps1` 会在 Inno Setup 的常见安装目录和 PATH 里找 `ISCC.exe`；它只用于编译与试装，不进运行时依赖，也不进仓库。CI 自己装 Inno Setup，不依赖哪台机器。安装包按系统界面语言选简体中文或英文，不弹语言选择框；简体中文是自己写的 `installer/zh-CN.isl`，叠在 `compiler:Default.isl` 之上，只覆写这个安装包在安装、升级、卸载与出错时会出现的消息，其余沿用英文。给安装包加页面或提示时，在 `zh-CN.isl` 与 `[CustomMessages]` 的 `en.`、`zh.` 两份里一起补。
 - 安装包按当前用户装到 `%LocalAppData%\Programs\XiHanFun\PrintClient`，不要管理员权限；打进 WebView2 Evergreen 引导程序（内网可用 `-WebView2Installer` 换成离线安装包）。分支 CI 出未签名的安装包；推 `v<版本>` 标签时 `release.yml` 调 `client-release.yml` 签名（仓库密钥 `CLIENT_SIGNING_CERT`、`CLIENT_SIGNING_PASSWORD`，没有就不签）并建这个标签的草稿 Release，发布草稿后把附件里的 `update.json` 提交到 main 的 `client/update.json`，客户端的自动更新才看得到新版。
 - 自动更新只安装 `Directory.Build.props` 里 `XiHanUpdatePublisher` 这个发布者签名的安装包，为空时只提示新版、不自动安装。
 - 客户端与 `@xihan-print/*` 版本相同、每版同发：`Directory.Build.props` 的 `Version` 由 VersionUpgrade 写成三个包的版本，不手改；日常门禁不核对，发版时 `release.yml` 的「核对标签」核标签号、三个包与客户端三方一致（`check-release-tag.mjs`）。SDK 与客户端的兼容照旧靠子协议 `xihan-print.v1`，客户端不支持时 SDK 报 `PROTOCOL_UNSUPPORTED`。程序集与安装包的文件版本取它去掉预发布后缀的数字部分（如 `1.0.0-rc.1` 得 `1.0.0.0`），安装包文件名与界面上显示完整的版本号。
@@ -162,7 +164,7 @@ pnpm dev
 
 做法照 XiHan.UI：changesets 记变更，发布分支上的 `v<版本>` 标签触发 `.github/workflows/release.yml` 发 npm，同时出这一版打印客户端的安装包。说明见 `print/.changeset/README.md`。
 
-- 发布分支：预览版（带 `-rc.N` 这类预发布后缀的版本）从 `preview` 发，正式版从 `main` 发，都由 `dev` 快进，只接收发版。预览版沿用 `rc` 通道：已经发到 `1.0.0-rc.2`，按 semver `preview` 排在 `rc` 之前，换名字版本号会倒退。
+- 发布分支：预览版（带 `-rc.N` 这类预发布后缀的版本）从 `preview` 发，正式版从 `main` 发，都由 `dev` 快进，只接收发版。预览版沿用已发过的 `rc` 通道：按 semver `preview` 排在 `rc` 之前，换名字版本号会倒退。
 - `deploy-docs.yml` 只认 main 上的版本：预览版发布时跳过部署文档站，不算失败。
 - 三个公开包经 changesets 的 `fixed` 组锁步同版，`scripts/release/check-version-lock.mjs` 核对；打印客户端与它们同号，每版同发。
 - 使用者能感知的改动附一份变更集（`pnpm changeset`），中文、官方口径；CI、测试、文档站、脚本、README 不写。

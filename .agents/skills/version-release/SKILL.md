@@ -10,7 +10,7 @@ description: 为 XiHan.PrintDesigner 定版本、消费变更集、进出 rc 预
 - 三个公开包 `@xihan-print/core`、`runtime`、`designer` 是 changesets 的 `fixed` 组，锁步同版，`print/scripts/release/check-version-lock.mjs` 核对。版本真源是 `print/packages/core/package.json`。
 - 有 `print/.changeset/pre.json` 就是预发布模式（如 `rc`），npm dist-tag 跟着它走，不在里面就是正式模式。
 - 版本提交是 `build: v<版本>`；标签是 `v<版本>`，只认对应发布分支历史里的提交（预览版 `preview`，正式版 `main`），标签号必须等于三个包与客户端的版本、且与预发布模式一致（`check-release-tag.mjs`，只在发版时核）。
-- 发布分支：预览版（带 `-rc.N` 这类预发布后缀）从 `preview` 发，正式版从 `main` 发，都由 `dev` 快进。预览版沿用 `rc` 通道：已经发到 `1.0.0-rc.2`，按 semver `preview` 排在 `rc` 之前，换名字版本号会倒退。
+- 发布分支：预览版（带 `-rc.N` 这类预发布后缀）从 `preview` 发，正式版从 `main` 发，都由 `dev` 快进。预览版沿用已发过的 `rc` 通道：按 semver `preview` 排在 `rc` 之前，换名字版本号会倒退。
 - 打印客户端（`client/Directory.Build.props` 的 `Version`）与三个包版本相同、每版同发：VersionUpgrade 一起写，不手改；兼容靠子协议 `xihan-print.v1`。
 
 ## 定版本（本地，不提交、不推送）
