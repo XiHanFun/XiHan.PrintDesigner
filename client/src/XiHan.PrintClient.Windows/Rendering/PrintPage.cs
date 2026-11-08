@@ -28,15 +28,14 @@ internal sealed class PrintPage : IAsyncDisposable
 
     private const string ResourcePrefix = Origin + "r/";
 
+    /// <summary>
+    /// 等字体就绪后数出输出页与没有载入成功的图片
+    /// </summary>
     private const string ReadyScript = """
-        (() => {
-          for (const image of document.images) image.loading = 'eager';
-          return Promise.all([document.fonts.ready, ...Array.from(document.images, image => image.decode().then(() => 0, () => 1))])
-            .then(results => JSON.stringify({
-              sheets: document.querySelectorAll('[data-part="sheet"]').length,
-              broken: results.slice(1).reduce((sum, item) => sum + item, 0),
-            }));
-        })()
+        (() => document.fonts.ready.then(() => JSON.stringify({
+          sheets: document.querySelectorAll('[data-part="sheet"]').length,
+          broken: Array.from(document.images).filter(image => !image.complete || image.naturalWidth === 0).length,
+        })))()
         """;
 
     private readonly CoreWebView2Environment _environment;

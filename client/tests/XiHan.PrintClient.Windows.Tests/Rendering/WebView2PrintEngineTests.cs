@@ -113,6 +113,23 @@ public sealed partial class WebView2PrintEngineTests(RenderFixture fixture) : IC
     }
 
     [Fact]
+    public async Task LoadsLazyImagesBeforeExporting()
+    {
+        var document = Document([A5, A5], "<img src='r/0' loading='lazy' style='width: 20mm'>", [new DocumentResource("0", "image/png", Png)]);
+
+        Assert.Equal(["148x210", "148x210"], PageSizes(await fixture.Engine.ExportPdfAsync(document, new PrintOptions(), Token)));
+    }
+
+    [Fact]
+    public async Task ReportsImagesThatFailToDecode()
+    {
+        var failure = await FailsAsync(Document([A5], "<img src='r/0'><img src='r/0?v=1'>", [new DocumentResource("0", "image/png", [0, 1, 2, 3])]));
+
+        Assert.Equal(PrintErrorCodes.RenderFailed, failure.Code);
+        Assert.Equal(2, (int?)failure.Details!["images"]);
+    }
+
+    [Fact]
     public async Task RefusesResourcesFromOutsideTheTask()
     {
         var failure = await FailsAsync(Document([A5], "<img src='https://example.com/logo.png?token=secret'>"));
