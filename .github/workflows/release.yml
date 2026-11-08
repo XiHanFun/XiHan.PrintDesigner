@@ -2,7 +2,7 @@ name: Release
 
 # 推 v<版本> 标签时：核对标签，构建并核对产物，把三个公开包发到 npm（带 provenance），在空项目里装刚发的版本冒烟，再部署文档站；
 # 同时调 client-release.yml 出这一版打印客户端的安装包与草稿 Release（只依赖核对标签，两条线失败时各自重跑）。
-# 版本号、各包 CHANGELOG、文档站的更新日志由人用 print/scripts/release/VersionUpgrade 定好并快进到发布分支（预览版 preview，正式版 main）；这里不提交，npm 包不建 GitHub Release。
+# 版本号、各包 CHANGELOG、文档站的更新日志由人用 print/scripts/release/VersionUpgrade 定好并快进到发布分支（预览版 preview，正式版 main）；这里不提交；这个标签的 Release 由 client-release.yml 建成草稿，说明取文档站更新日志的这一版，附件是打印客户端。
 # 手动 Run workflow 时选中一个版本标签；选分支会被 guard 拦下。
 on:
   workflow_dispatch:
@@ -48,6 +48,8 @@ jobs:
           node-version: 24
       - name: 标签号与包版本、客户端版本、预发布模式对账
         run: node scripts/release/check-release-tag.mjs
+      - name: 更新日志里有这一版
+        run: node scripts/release/release-notes.mjs --check
 
   publish:
     name: 发到 npm

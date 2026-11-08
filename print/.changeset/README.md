@@ -24,10 +24,10 @@ pnpm changeset
 | 写变更集；`VersionUpgrade` 定版本、生成各包 CHANGELOG | 人，在本地 |
 | 文档站「更新日志」页（`docs/changelog.md`） | 人，与升版本同一笔 |
 | 快进到发布分支、打标签 | 人，手工 |
-| 发到 npm、发布后冒烟、部署文档站；出打印客户端的安装包与草稿 Release | `.github/workflows/release.yml`（客户端那条调 `client-release.yml`） |
-| 发布客户端的草稿 Release；正式版把 `update.json` 提交到 main 再合回 dev，预览版不动 | 人，手工 |
+| 发到 npm、发布后冒烟、部署文档站；出打印客户端的安装包与草稿 Release（说明取 `docs/changelog.md` 这一版） | `.github/workflows/release.yml`（客户端那条调 `client-release.yml`） |
+| 发布这个标签的草稿 Release；正式版把 `update.json` 提交到 main 再合回 dev，预览版不动 | 人，手工 |
 
-changesets 自己打标签的行为已用 `--no-git-tag` 关掉；一次发版对应一个自己打的 `v<版本>` 标签。打印客户端与三个包版本相同、每版同发：`VersionUpgrade` 把 `client/Directory.Build.props` 的 `Version` 写成同一个号，发版时 `check-release-tag.mjs` 核三方一致，兼容照旧靠子协议 `xihan-print.v1`。npm 包不另建 GitHub Release；每个 `v<版本>` 标签的 Release 放这一版客户端的安装包与 `update.json`。
+changesets 自己打标签的行为已用 `--no-git-tag` 关掉；一次发版对应一个自己打的 `v<版本>` 标签。打印客户端与三个包版本相同、每版同发：`VersionUpgrade` 把 `client/Directory.Build.props` 的 `Version` 写成同一个号，发版时 `check-release-tag.mjs` 核三方一致，兼容照旧靠子协议 `xihan-print.v1`。每个 `v<版本>` 标签的 Release 由客户端那条建成草稿，说明取文档站更新日志 `docs/changelog.md` 的这一版（`scripts/release/release-notes.mjs`），附件是这一版客户端的安装包与 `update.json`。
 
 ## 发一个版本
 

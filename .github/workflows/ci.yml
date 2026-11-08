@@ -38,10 +38,11 @@ jobs:
         run: pnpm build
       - name: 产物契约（publint + attw）
         run: pnpm gate:publish
-      - name: 发版脚本自检（锁步同版、标签对账）
+      - name: 发版脚本自检（锁步同版、标签对账、更新日志）
         run: |
           node scripts/release/check-version-lock.mjs
           node scripts/release/check-release-tag.mjs
+          node scripts/release/release-notes.mjs --check
       - name: Typecheck
         run: pnpm typecheck
       - name: Test
