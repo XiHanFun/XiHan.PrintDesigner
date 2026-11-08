@@ -18,35 +18,35 @@ importers:
         specifier: link:../print/packages/runtime
         version: link:../print/packages/runtime
       '@xihan-ui/core':
-        specifier: ^5.2.0
-        version: 5.2.0
+        specifier: ^5.4.0
+        version: 5.4.0
       '@xihan-ui/designer-kit':
-        specifier: ^5.2.0
-        version: 5.2.0
+        specifier: ^5.4.0
+        version: 5.4.0
       '@xihan-ui/designer-shell':
-        specifier: ^5.2.0
-        version: 5.2.0
+        specifier: ^5.4.0
+        version: 5.4.0
       '@xihan-ui/expression':
-        specifier: ^5.2.0
-        version: 5.2.0
+        specifier: ^5.4.0
+        version: 5.4.0
       '@xihan-ui/headless':
-        specifier: ^5.2.0
-        version: 5.2.0
+        specifier: ^5.4.0
+        version: 5.4.0
       '@xihan-ui/icons':
-        specifier: ^5.2.0
-        version: 5.2.0
+        specifier: ^5.4.0
+        version: 5.4.0
       '@xihan-ui/pointer':
-        specifier: ^5.2.0
-        version: 5.2.0
+        specifier: ^5.4.0
+        version: 5.4.0
       '@xihan-ui/styles':
-        specifier: ^5.2.0
-        version: 5.2.0
+        specifier: ^5.4.0
+        version: 5.4.0
       '@xihan-ui/viz':
-        specifier: ^5.2.0
-        version: 5.2.0
+        specifier: ^5.4.0
+        version: 5.4.0
       '@xihan-ui/web-components':
-        specifier: ^5.2.0
-        version: 5.2.0
+        specifier: ^5.4.0
+        version: 5.4.0
       '@xihanfun/vitepress-theme':
         specifier: ^1.2.1
         version: 1.2.1(vitepress@2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))
@@ -676,61 +676,61 @@ packages:
     peerDependencies:
       vue: ^3.5.0
 
-  '@xihan-ui/core@5.2.0':
-    resolution: {integrity: sha512-09WNmjN4WojgBPf7DQtBMv1cLGR7r1aieLiHeJa4JwZOYvXcXcxjfRkv/oFBgK0jsn0+Kc6acaYDFYL28ynpIw==}
+  '@xihan-ui/core@5.4.0':
+    resolution: {integrity: sha512-F8HT8H0ZciYwyEMbmm/qKNtpvLLWTAHRpbkV0RfuPeNEkoCeOqHHa9e0hYI6Nn2a+8k/P8iKkO/LSvA8AH0abQ==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/designer-kit@5.2.0':
-    resolution: {integrity: sha512-1CNKFncY95AhveU5bJSAqLH7TQUCDVk1AW06NYbb0j6fyZU+gezwET26JTaJ8LIW7E6tEco0qgwbMcCZ7HLNag==}
+  '@xihan-ui/designer-kit@5.4.0':
+    resolution: {integrity: sha512-w+7FwoT4UMizgF2ER/vn+MqB0UT8NMK7xBxrD/KGstelozFa5+EQg17X4tZZK6lWl22x7j2Fi/OYREW5tb9fgg==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/designer-shell@5.2.0':
-    resolution: {integrity: sha512-BH9e4Ts98sTctXatN4CV0ZyJQwlqvujX7yZtqKJp+7luQ5wA0ns9bA0k7KxElLJU5+t0WYKSWlM/mOqTwPOIQg==}
+  '@xihan-ui/designer-shell@5.4.0':
+    resolution: {integrity: sha512-SavfnMfJpSEP6F+jOxYQw8hpTnUYfWCtc8l4y+nL2R1R277NN1mR1r0MO206dZhn5VNRcdo9f3tV4VClN7CysQ==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/expression@5.2.0':
-    resolution: {integrity: sha512-LXAu4VPvRlh1bu3jKwuZ2L1S5ku2W5aH9kbv2oalWvPQrd39v+wEArNrqcs168zfkAgbicSwvhundy6sK4Ab+A==}
+  '@xihan-ui/expression@5.4.0':
+    resolution: {integrity: sha512-ALMWANgCNKCngk2FEuJ8jeON5loTIjf4NWvjiQR5SIcbZcuSrwGItIDoP+AvCg/5VtDrJGrao8kK5fq/Mdu33g==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/headless@5.2.0':
-    resolution: {integrity: sha512-K7+LOGkuPXarPbT+OvIJfCXydDT8ISdbydqq6iA8frr/k6f9Dbn3IyOv0NH4jksrIxz31Gy1HuxGo673eYBg/A==}
+  '@xihan-ui/headless@5.4.0':
+    resolution: {integrity: sha512-ZERgCO/Htf26WTnJxKdZHZjglszL+yL7PS9kCCj+Faf2sfOTPUOvU/ptwxjcCxMVGZ+FHE8rZrKODYvJsFFHKg==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/icons@5.2.0':
-    resolution: {integrity: sha512-xVHv7WThUii0eWHu1xUI0GAPD/BVyhHVPbugsnDponzbFCBkZRraBmxdArPYVFJZ/3yOBLbrg4jokWsKy9c0eQ==}
+  '@xihan-ui/icons@5.4.0':
+    resolution: {integrity: sha512-RBEr99KfIJAc+DjEzJBHwiuqSY68RbkAEGHHcNJF65DMe2SCa/VxQ+8mxBDUDtJyiYDBbtOYqt1F3rg4cLmr0g==}
     engines: {node: '>=18'}
     hasBin: true
 
-  '@xihan-ui/motion@5.2.0':
-    resolution: {integrity: sha512-BSaagagJ+3+rV1WblymzTqfikpI8eWwMvhD/yjKspfqlsKEvbxxA4enNrDkNnba/GsG6aAUJ/wzBLqST8Ug2Ig==}
+  '@xihan-ui/motion@5.4.0':
+    resolution: {integrity: sha512-sq3MbL/CcyyI6qw9ztyLchzMecPTkjw30KdtZWyHejRy83X0X2zf1mQ+09ocVZzR8x1CtVwDVeTVN+RFvVM19Q==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/pointer@5.2.0':
-    resolution: {integrity: sha512-mqN2lMicXD/3VcKd9ai8PCsn2RzMJFw5er9XLcsFNxCy2I4/lNVcH3CFxPxhhEmarDWoExXFOXyLWP61gnzwfw==}
+  '@xihan-ui/pointer@5.4.0':
+    resolution: {integrity: sha512-xN5KU9HgmXvc4GAlCenGosCz3FEliUMmrLZvXNGsA2uI//7LLfRMnJhwV+hPIKfMAveNsIA7xwvfgo2MXyHHrQ==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/position@5.2.0':
-    resolution: {integrity: sha512-C1ONc5mhmXg5Rr0SPpMA/DkjPBCCgj0Gqb6gmb+B5cWs1qailVkWVbF/8/+fjcFpg2TC8K+GOB3qBsGr0ljICQ==}
+  '@xihan-ui/position@5.4.0':
+    resolution: {integrity: sha512-jz5J3vqE7otIxkjzaO5/kMWcQJrZORJJztyCcEPZ2H/HsRQtR8pQxYuvwdYKuC89hBzcykxreglL35FcsaFH0A==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/styles@5.2.0':
-    resolution: {integrity: sha512-URcS43O32kcWrAP2iaa1XYWjXMHNCpu5KFW/uVeWN8qzlXLv2ZpSbtqxpTpXHFijAdp37dHmHUXONlbAY0tYAg==}
+  '@xihan-ui/styles@5.4.0':
+    resolution: {integrity: sha512-xt9EYN9QOsu1FfmBbPPAMgbx7rzTSU7QwbybTOS3VvjDlV0OgrGceRUxsOtZ2l872cg1yzEJjIZI7MM7pnfaKA==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/tokens@5.2.0':
-    resolution: {integrity: sha512-K/gYqd5AlHLLlXjetftbUjT7MGvBTUdPWEWoMCw+23FBT3BAObLHjvF2RNOnCAiotfQGTjJM0CErvc4H4gpHQQ==}
+  '@xihan-ui/tokens@5.4.0':
+    resolution: {integrity: sha512-Bkm9kQ8KL4CHh+BvN6Dqh+wsCbdxZcVS1BYypUFPukFePvwGFFEXqbNR689S5Z/UMocESgxFYLzDeOf6CLjzGQ==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/viz@5.2.0':
-    resolution: {integrity: sha512-EbcXWa1ye0wIJAwGkxAHWGa3EOSgw8354WgDitUIvg3m1IFFuXBAErcWVkQdyLffluFBDD7no/MakXDYLL4CEw==}
+  '@xihan-ui/viz@5.4.0':
+    resolution: {integrity: sha512-jbovkDwHkE05SXlC0KD2k0xdRLhM6n9SDB6H1TJJydRR794e9Tyxa4HGbjN5J1YTT8FtpTTlvrb5NaJ2ARBxJA==}
     engines: {node: '>=18'}
 
-  '@xihan-ui/web-components@5.2.0':
-    resolution: {integrity: sha512-YE4X94teQoju1GKihyPZPYuDZs39MJFTSqznHgPiVM9CWjJ5s73jVhujm3zZccJplqVtLJQRsDAYlKYllh1c5w==}
+  '@xihan-ui/web-components@5.4.0':
+    resolution: {integrity: sha512-hR5WO2tTYS3dakRs48Pt//M/dOsuEq78YjIasqAYH2gqDEDJARhb4xsr/kBT79N2nCkc2kPYbkclwIbtTG24qw==}
     engines: {node: '>=18'}
     peerDependencies:
-      '@xihan-ui/backgrounds': ^5.2.0
-      '@xihan-ui/code-highlight': ^5.2.0
+      '@xihan-ui/backgrounds': ^5.4.0
+      '@xihan-ui/code-highlight': ^5.4.0
     peerDependenciesMeta:
       '@xihan-ui/backgrounds':
         optional: true
@@ -2568,68 +2568,68 @@ snapshots:
     dependencies:
       vue: 3.5.44(typescript@6.0.3)
 
-  '@xihan-ui/core@5.2.0':
+  '@xihan-ui/core@5.4.0':
     dependencies:
-      '@xihan-ui/motion': 5.2.0
+      '@xihan-ui/motion': 5.4.0
 
-  '@xihan-ui/designer-kit@5.2.0':
+  '@xihan-ui/designer-kit@5.4.0':
     dependencies:
-      '@xihan-ui/core': 5.2.0
-      '@xihan-ui/expression': 5.2.0
-      '@xihan-ui/pointer': 5.2.0
-      '@xihan-ui/viz': 5.2.0
+      '@xihan-ui/core': 5.4.0
+      '@xihan-ui/expression': 5.4.0
+      '@xihan-ui/pointer': 5.4.0
+      '@xihan-ui/viz': 5.4.0
 
-  '@xihan-ui/designer-shell@5.2.0':
+  '@xihan-ui/designer-shell@5.4.0':
     dependencies:
-      '@xihan-ui/core': 5.2.0
-      '@xihan-ui/designer-kit': 5.2.0
-      '@xihan-ui/pointer': 5.2.0
-      '@xihan-ui/tokens': 5.2.0
-      '@xihan-ui/viz': 5.2.0
-      '@xihan-ui/web-components': 5.2.0
+      '@xihan-ui/core': 5.4.0
+      '@xihan-ui/designer-kit': 5.4.0
+      '@xihan-ui/pointer': 5.4.0
+      '@xihan-ui/tokens': 5.4.0
+      '@xihan-ui/viz': 5.4.0
+      '@xihan-ui/web-components': 5.4.0
     transitivePeerDependencies:
       - '@xihan-ui/backgrounds'
       - '@xihan-ui/code-highlight'
 
-  '@xihan-ui/expression@5.2.0': {}
+  '@xihan-ui/expression@5.4.0': {}
 
-  '@xihan-ui/headless@5.2.0':
+  '@xihan-ui/headless@5.4.0':
     dependencies:
-      '@xihan-ui/core': 5.2.0
-      '@xihan-ui/expression': 5.2.0
-      '@xihan-ui/motion': 5.2.0
-      '@xihan-ui/pointer': 5.2.0
-      '@xihan-ui/viz': 5.2.0
+      '@xihan-ui/core': 5.4.0
+      '@xihan-ui/expression': 5.4.0
+      '@xihan-ui/motion': 5.4.0
+      '@xihan-ui/pointer': 5.4.0
+      '@xihan-ui/viz': 5.4.0
 
-  '@xihan-ui/icons@5.2.0': {}
+  '@xihan-ui/icons@5.4.0': {}
 
-  '@xihan-ui/motion@5.2.0': {}
+  '@xihan-ui/motion@5.4.0': {}
 
-  '@xihan-ui/pointer@5.2.0': {}
+  '@xihan-ui/pointer@5.4.0': {}
 
-  '@xihan-ui/position@5.2.0':
+  '@xihan-ui/position@5.4.0':
     dependencies:
-      '@xihan-ui/core': 5.2.0
+      '@xihan-ui/core': 5.4.0
 
-  '@xihan-ui/styles@5.2.0':
+  '@xihan-ui/styles@5.4.0':
     dependencies:
-      '@xihan-ui/tokens': 5.2.0
+      '@xihan-ui/tokens': 5.4.0
 
-  '@xihan-ui/tokens@5.2.0':
+  '@xihan-ui/tokens@5.4.0':
     dependencies:
-      '@xihan-ui/core': 5.2.0
+      '@xihan-ui/core': 5.4.0
 
-  '@xihan-ui/viz@5.2.0': {}
+  '@xihan-ui/viz@5.4.0': {}
 
-  '@xihan-ui/web-components@5.2.0':
+  '@xihan-ui/web-components@5.4.0':
     dependencies:
-      '@xihan-ui/core': 5.2.0
-      '@xihan-ui/expression': 5.2.0
-      '@xihan-ui/headless': 5.2.0
-      '@xihan-ui/motion': 5.2.0
-      '@xihan-ui/pointer': 5.2.0
-      '@xihan-ui/position': 5.2.0
-      '@xihan-ui/viz': 5.2.0
+      '@xihan-ui/core': 5.4.0
+      '@xihan-ui/expression': 5.4.0
+      '@xihan-ui/headless': 5.4.0
+      '@xihan-ui/motion': 5.4.0
+      '@xihan-ui/pointer': 5.4.0
+      '@xihan-ui/position': 5.4.0
+      '@xihan-ui/viz': 5.4.0
 
   '@xihanfun/vitepress-theme@1.2.1(vitepress@2.0.0-alpha.20(@types/node@24.19.2)(change-case@5.4.4)(postcss@8.5.30)(typescript@6.0.3)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))':
     dependencies:
