@@ -52,7 +52,7 @@ features:
 
   - title: 本地打印客户端
     icon: 🖨️
-    details: Windows 托盘程序，只监听本机、按网站授权；静默打印到指定打印机，原始指令直送，导出 PDF。
+    details: Windows、macOS 与 Linux 的托盘程序，只监听本机、按网站授权；静默打印到指定打印机，原始指令直送，导出 PDF。
     link: /guide/client
     linkText: 了解打印客户端
 ---
