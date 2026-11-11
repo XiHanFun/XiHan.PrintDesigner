@@ -7,6 +7,7 @@ pub(crate) mod authenticode;
 pub(crate) mod autostart;
 mod dialog;
 mod engine;
+pub(crate) mod fixed_runtime;
 mod render;
 mod winspool;
 

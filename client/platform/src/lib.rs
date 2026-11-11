@@ -160,3 +160,11 @@ pub fn launch_installer(path: &Path) -> std::io::Result<()> {
         Err(std::io::Error::new(std::io::ErrorKind::Unsupported, "这个平台不自动安装新版"))
     }
 }
+
+/// 离线安装包装在程序目录下的 WebView2 固定版运行时目录（里面有 msedgewebview2.exe）；没装或不是 Windows 时为 None
+pub fn fixed_webview2_runtime() -> Option<PathBuf> {
+    #[cfg(windows)]
+    return windows::fixed_runtime::find();
+    #[cfg(unix)]
+    return None;
+}

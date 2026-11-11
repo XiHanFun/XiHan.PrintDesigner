@@ -14,6 +14,9 @@ pub const MAX_MANIFEST_BYTES: usize = 1024 * 1024;
 /// 安装包最大字节数
 pub const MAX_ASSET_BYTES: u64 = 512 * 1024 * 1024;
 
+/// 离线安装包的变体名：自带 WebView2 固定版运行时的 Windows 安装包
+pub const OFFLINE_VARIANT: &str = "offline";
+
 /// 一个平台一个架构的安装包
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UpdateAsset {
@@ -21,6 +24,8 @@ pub struct UpdateAsset {
     pub os: String,
     /// 架构：x64、arm64
     pub arch: String,
+    /// 安装包变体：离线安装包为 [`OFFLINE_VARIANT`]；清单里不写时为 None，即在线安装包
+    pub variant: Option<String>,
     /// 下载地址，只认 https
     pub url: String,
     /// 安装包的 SHA-256，小写十六进制
@@ -41,9 +46,17 @@ pub struct UpdateManifest {
 }
 
 impl UpdateManifest {
-    /// 某个平台某个架构的安装包；没有时为 None
-    pub fn asset_for(&self, os: &str, arch: &str) -> Option<&UpdateAsset> {
-        self.assets.iter().find(|asset| asset.os.eq_ignore_ascii_case(os) && asset.arch.eq_ignore_ascii_case(arch))
+    /// 某个平台某个架构某个变体的安装包：variant 为 None 时只认不带变体的条目，为 Some 时只认同名变体的条目；没有时为 None
+    pub fn asset_for(&self, os: &str, arch: &str, variant: Option<&str>) -> Option<&UpdateAsset> {
+        self.assets.iter().find(|asset| {
+            asset.os.eq_ignore_ascii_case(os)
+                && asset.arch.eq_ignore_ascii_case(arch)
+                && match (asset.variant.as_deref(), variant) {
+                    (None, None) => true,
+                    (Some(have), Some(want)) => have.eq_ignore_ascii_case(want),
+                    _ => false,
+                }
+        })
     }
 
     /// 解析清单；形状不对时给出原因
@@ -69,12 +82,17 @@ impl UpdateManifest {
                     Some(value) => value.as_str().filter(|os| !os.is_empty())?,
                 };
                 let arch = text("arch").filter(|arch| !arch.is_empty())?;
+                let variant = match item.get("variant") {
+                    None | Some(Value::Null) => None,
+                    Some(value) => Some(value.as_str().filter(|variant| !variant.is_empty())?.to_owned()),
+                };
                 let url = text("url").filter(|url| is_https_url(url))?;
                 let sha256 = text("sha256").filter(|hash| hash.len() == 64 && hash.bytes().all(|byte| byte.is_ascii_hexdigit()))?;
                 let size = item.get("size").and_then(Value::as_u64).filter(|size| *size > 0 && *size <= MAX_ASSET_BYTES)?;
                 Some(UpdateAsset {
                     os: os.to_owned(),
                     arch: arch.to_owned(),
+                    variant,
                     url: url.to_owned(),
                     sha256: sha256.to_ascii_lowercase(),
                     size,
@@ -82,7 +100,7 @@ impl UpdateManifest {
             })();
             match asset {
                 Some(asset) => assets.push(asset),
-                None => return Err("assets 里有一项不完整：要有 arch、https 的 url、64 位十六进制的 sha256 与正数 size".into()),
+                None => return Err("assets 里有一项不完整：要有 arch、https 的 url、64 位十六进制的 sha256 与正数 size，写了 os 或 variant 时要是非空字符串".into()),
             }
         }
         Ok(UpdateManifest { version, notes, assets })
@@ -106,9 +124,45 @@ mod tests {
         );
         let manifest = UpdateManifest::parse(json.as_bytes()).unwrap();
         assert_eq!(manifest.version.to_string(), "1.1.0");
-        assert_eq!(manifest.asset_for("windows", "X64").unwrap().size, 10);
-        assert_eq!(manifest.asset_for("macos", "arm64").unwrap().sha256, HASH);
-        assert!(manifest.asset_for("windows", "arm64").is_none());
+        assert_eq!(manifest.asset_for("windows", "X64", None).unwrap().size, 10);
+        assert_eq!(manifest.asset_for("macos", "arm64", None).unwrap().sha256, HASH);
+        assert!(manifest.asset_for("windows", "arm64", None).is_none());
+        assert!(manifest.asset_for("windows", "x64", Some(OFFLINE_VARIANT)).is_none());
+        assert_eq!(manifest.assets[0].variant, None);
+    }
+
+    #[test]
+    fn picks_online_and_offline_installers_by_variant() {
+        let json = format!(
+            r#"{{ "version": "1.1.0", "assets": [
+                {{ "os": "windows", "arch": "x64", "url": "https://example.com/online-x64.exe", "sha256": "{HASH}", "size": 10 }},
+                {{ "os": "windows", "arch": "arm64", "url": "https://example.com/online-arm64.exe", "sha256": "{HASH}", "size": 11 }},
+                {{ "os": "macos", "arch": "arm64", "url": "https://example.com/a.dmg", "sha256": "{HASH}", "size": 12 }},
+                {{ "os": "windows", "arch": "x64", "variant": "offline", "url": "https://example.com/offline-x64.exe", "sha256": "{HASH}", "size": 20 }},
+                {{ "os": "windows", "arch": "arm64", "variant": "OFFLINE", "url": "https://example.com/offline-arm64.exe", "sha256": "{HASH}", "size": 21 }},
+            ] }}"#
+        );
+        let manifest = UpdateManifest::parse(json.as_bytes()).unwrap();
+        assert_eq!(manifest.asset_for("windows", "x64", None).unwrap().url, "https://example.com/online-x64.exe");
+        assert_eq!(manifest.asset_for("windows", "arm64", None).unwrap().url, "https://example.com/online-arm64.exe");
+        let offline = manifest.asset_for("windows", "x64", Some(OFFLINE_VARIANT)).unwrap();
+        assert_eq!(offline.url, "https://example.com/offline-x64.exe");
+        assert_eq!(offline.variant.as_deref(), Some(OFFLINE_VARIANT));
+        assert_eq!(manifest.asset_for("windows", "arm64", Some(OFFLINE_VARIANT)).unwrap().size, 21);
+        assert!(manifest.asset_for("macos", "arm64", Some(OFFLINE_VARIANT)).is_none());
+        assert!(manifest.asset_for("windows", "x64", Some("other")).is_none());
+    }
+
+    #[test]
+    fn offline_only_manifest_offers_nothing_to_online_installs() {
+        let json = format!(
+            r#"{{ "version": "1.1.0", "assets": [
+                {{ "arch": "x64", "variant": "offline", "url": "https://example.com/offline-x64.exe", "sha256": "{HASH}", "size": 20 }},
+            ] }}"#
+        );
+        let manifest = UpdateManifest::parse(json.as_bytes()).unwrap();
+        assert!(manifest.asset_for("windows", "x64", None).is_none());
+        assert_eq!(manifest.asset_for("windows", "x64", Some(OFFLINE_VARIANT)).unwrap().size, 20);
     }
 
     #[test]
@@ -118,6 +172,8 @@ mod tests {
             r#"{ "arch": "x64", "url": "https://example.com/a.exe", "sha256": "abc", "size": 10 }"#.to_owned(),
             format!(r#"{{ "arch": "x64", "url": "https://example.com/a.exe", "sha256": "{HASH}", "size": 0 }}"#),
             format!(r#"{{ "url": "https://example.com/a.exe", "sha256": "{HASH}", "size": 1 }}"#),
+            format!(r#"{{ "arch": "x64", "variant": "", "url": "https://example.com/a.exe", "sha256": "{HASH}", "size": 1 }}"#),
+            format!(r#"{{ "arch": "x64", "variant": 1, "url": "https://example.com/a.exe", "sha256": "{HASH}", "size": 1 }}"#),
         ] {
             let json = format!(r#"{{ "version": "1.0.0", "assets": [{asset}] }}"#);
             assert!(UpdateManifest::parse(json.as_bytes()).is_err(), "{asset}");

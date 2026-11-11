@@ -326,10 +326,17 @@ impl Host {
         self.updates.lock().unwrap().clone()
     }
 
-    /// 渲染引擎的说法：可用时为名称加版本，不可用时为原因
+    /// 渲染引擎的说法：可用时为名称加版本（用着程序目录下的 WebView2 固定版运行时时注明），不可用时为原因
     pub fn renderer(&self) -> Result<String, String> {
+        let fixed = platform::fixed_webview2_runtime()
+            .is_some_and(|folder| std::env::var_os("WEBVIEW2_BROWSER_EXECUTABLE_FOLDER").is_some_and(|value| folder == std::path::Path::new(&value)));
         match &self.engine {
-            Some(engine) => Ok(format!("{} {}", engine.name(), engine.version().unwrap_or_default())),
+            Some(engine) => Ok(format!(
+                "{} {}{}",
+                engine.name(),
+                engine.version().unwrap_or_default(),
+                if fixed { "（固定版）" } else { "" }
+            )),
             None => Err(self.renderer_problem.clone().unwrap_or_else(|| "没有渲染引擎".into())),
         }
     }

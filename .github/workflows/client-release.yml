@@ -1,6 +1,7 @@
 name: Client Release
 
 # 由 release.yml 在 v<版本> 标签上调用，与发 npm 并行：编译 Windows、macOS、Linux 三个平台的打印客户端安装包（Windows 有证书时签名），
+# Windows 每个架构出在线安装包与自带 WebView2 固定版运行时的离线安装包（运行时的版本与下载地址钉在 client/installer/webview2-fixed.json）；
 # 建这个标签的草稿 Release：说明取文档站更新日志的这一版，附件是安装包、SHA-256 与 update.json。
 # 标签核对在 release.yml 的「核对标签」里做；发布草稿、把 update.json 提交到 main 由维护者手动完成。
 on:
@@ -28,7 +29,7 @@ jobs:
     name: Windows 安装包
     needs: version
     runs-on: windows-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       SIGNING_CERT: ${{ secrets.CLIENT_SIGNING_CERT }}
       SIGNING_PASSWORD: ${{ secrets.CLIENT_SIGNING_PASSWORD }}
@@ -53,6 +54,22 @@ jobs:
       - name: Install Inno Setup
         shell: pwsh
         run: if (-not (Get-Command iscc -ErrorAction SilentlyContinue) -and -not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
+      # 离线安装包用的 WebView2 固定版运行时：按 webview2-fixed.json 下载两个架构的 .cab，解开与核对微软签名在 build.ps1 里做
+      - name: Download WebView2 Fixed Version Runtime
+        shell: pwsh
+        run: |
+          $ProgressPreference = 'SilentlyContinue'
+          $fixed = Get-Content installer/webview2-fixed.json -Raw | ConvertFrom-Json
+          $directory = Join-Path $env:RUNNER_TEMP 'webview2-fixed'
+          New-Item -ItemType Directory -Force $directory | Out-Null
+          foreach ($arch in 'x64', 'arm64') {
+            $url = $fixed.$arch
+            if ($url -notmatch "^https://[^/]+\.microsoft\.com/.+/Microsoft\.WebView2\.FixedVersionRuntime\.$([regex]::Escape($fixed.version))\.$arch\.cab$") {
+              throw "webview2-fixed.json 里 $arch 的地址与版本 $($fixed.version) 对不上：$url"
+            }
+            Write-Host "下载 WebView2 固定版运行时 $($fixed.version) $arch"
+            Invoke-WebRequest -Uri $url -OutFile (Join-Path $directory "$arch.cab")
+          }
       # 仓库密钥里有证书时才签名；没有时照常出未签名的安装包，客户端的自动更新不会安装它
       - name: Prepare signing
         if: env.SIGNING_CERT != ''
@@ -64,7 +81,9 @@ jobs:
           "SIGN_COMMAND=`"$($signtool.FullName)`" sign /f `"$pfx`" /p $env:SIGNING_PASSWORD /fd sha256 /tr http://timestamp.digicert.com /td sha256 `$f" >> $env:GITHUB_ENV
       - name: Package
         shell: pwsh
-        run: ./installer/build.ps1 -SignCommand "$env:SIGN_COMMAND"
+        run: |
+          $fixed = Join-Path $env:RUNNER_TEMP 'webview2-fixed'
+          ./installer/build.ps1 -SignCommand "$env:SIGN_COMMAND" -WebView2FixedRuntime @{ x64 = (Join-Path $fixed 'x64.cab'); arm64 = (Join-Path $fixed 'arm64.cab') }
       - uses: actions/upload-artifact@v7
         with:
           name: client-windows

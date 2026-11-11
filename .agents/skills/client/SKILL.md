@@ -13,7 +13,7 @@ description: 开发、修复或测试 XiHan.PrintDesigner 的本地打印客户�
 | 检查 | `cargo fmt --all --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings` |
 | 测试 | `cargo test --workspace --locked`（Linux 上套 `xvfb-run -a dbus-run-session --`） |
 | 开发运行 | `pnpm tauri dev` |
-| Windows 安装包 | `pwsh installer/build.ps1`（缺省 x64 与 arm64；`-Arch x64` 只打一种，`-PublishOnly` 只编译程序，`-SkipWebView2` 不打 WebView2 安装程序、只用于本机试装） |
+| Windows 安装包 | `pwsh installer/build.ps1`（缺省 x64 与 arm64；`-Arch x64` 只打一种，`-PublishOnly` 只编译程序，`-SkipWebView2` 不打 WebView2 安装程序、只用于本机试装；`-WebView2FixedRuntime @{ x64 = '<cab 或目录>'; arm64 = '…' }` 另出打进固定版运行时的离线安装包，只能在 PowerShell 里传） |
 | macOS / Linux 安装包 | `pnpm tauri build --target <三元组> --bundles app,dmg`（Linux 为 `deb,rpm,appimage`），再 `node scripts/collect-bundles.mjs --target <三元组> --out bundles` |
 
 ## 结构
@@ -21,11 +21,11 @@ description: 开发、修复或测试 XiHan.PrintDesigner 的本地打印客户�
 | 位置 | 放什么 |
 | --- | --- |
 | `core/`（xihan-print-client-core） | 平台无关：协议读写（`protocol/`，错误码与提醒码在 `codes.rs`）、回环 WebSocket 服务与会话（`server/`，帧与握手自写）、来源授权（`consent/`）、任务队列与纸张核对（`printing/`）、更新清单与检查（`updates/`）、诊断、日志、设置；不引用任何平台 API |
-| `platform/`（xihan-print-client-platform） | `windows/`：WebView2 渲染线程、winspool、PrintDlgEx、Authenticode、注册表自启；`unix/`：CUPS（dlopen）与「渲染成 PDF 再下发」的流水线；`macos/`：WKWebView 渲染与 PDFKit 合并；`linux/`：WebKitGTK 渲染与 PDF 合并 |
+| `platform/`（xihan-print-client-platform） | `windows/`：WebView2 渲染线程、winspool、PrintDlgEx、固定版运行时的查找、Authenticode、注册表自启；`unix/`：CUPS（dlopen）与「渲染成 PDF 再下发」的流水线；`macos/`：WKWebView 渲染与 PDFKit 合并；`linux/`：WebKitGTK 渲染与 PDF 合并 |
 | `app/`（xihan-print-client） | Tauri 2 托盘程序：组装（`host.rs`）、托盘、主窗口与授权窗口、命令、更新；同时是库，`Extensions` 是收费版的扩展点 |
 | `ui/` | 主窗口、授权窗口、新版提示的界面：Vite + TypeScript + `@xihan-ui` 正式包 |
 | `scripts/` | `collect-bundles.mjs` 改名收集 macOS / Linux 安装包；`update-manifest.mjs` 生成 `update.json` |
-| `installer/` | Windows 的 Inno Setup 脚本 `XiHanPrint.iss`、简体中文消息 `zh-CN.isl`、打包脚本 `build.ps1` |
+| `installer/` | Windows 的 Inno Setup 脚本 `XiHanPrint.iss`（在线与离线两种包）、简体中文消息 `zh-CN.isl`、打包脚本 `build.ps1`、钉住的 WebView2 固定版运行时 `webview2-fixed.json` |
 
 ## 协议与安全边界
 

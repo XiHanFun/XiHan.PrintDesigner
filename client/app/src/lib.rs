@@ -67,6 +67,8 @@ pub struct Extensions {
 
 /// 启动托盘程序；已有实例在运行时，手动启动的把它的主窗口带到前台，开机自启的直接退出
 pub fn run(mut extensions: Extensions) {
+    #[cfg(windows)]
+    use_fixed_webview2_runtime();
     let quiet = std::env::args().any(|argument| argument.eq_ignore_ascii_case(platform::autostart::ARGUMENT));
     let plugins = std::mem::take(&mut extensions.plugins);
     let mut builder = tauri::Builder::default()
@@ -130,4 +132,17 @@ pub fn run(mut extensions: Extensions) {
         }
         _ => {}
     });
+}
+
+/// 程序目录下装着 WebView2 固定版运行时、且没有另设 WEBVIEW2_BROWSER_EXECUTABLE_FOLDER 时，把它设成固定版运行时的目录，主窗口与渲染页都用这份运行时
+#[cfg(windows)]
+fn use_fixed_webview2_runtime() {
+    const VARIABLE: &str = "WEBVIEW2_BROWSER_EXECUTABLE_FOLDER";
+    if std::env::var_os(VARIABLE).is_some_and(|folder| !folder.is_empty()) {
+        return;
+    }
+    if let Some(folder) = platform::fixed_webview2_runtime() {
+        // SAFETY: 标准库保证 Windows 上不论单线程还是多线程程序，调用 set_var 都是安全的
+        unsafe { std::env::set_var(VARIABLE, folder) };
+    }
 }

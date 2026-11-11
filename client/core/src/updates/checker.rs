@@ -74,20 +74,22 @@ pub struct UpdateChecker {
     current: SemanticVersion,
     os: String,
     arch: String,
+    variant: Option<String>,
     log: SharedLog,
     /// 每个清单地址的期限
     pub manifest_timeout: Duration,
 }
 
 impl UpdateChecker {
-    /// 以 HTTP 客户端、清单地址、当前版本与本机平台、架构创建
-    pub fn new(http: Arc<dyn HttpClient>, manifests: Vec<String>, current: SemanticVersion, os: &str, arch: &str, log: SharedLog) -> Self {
+    /// 以 HTTP 客户端、清单地址、当前版本与本机平台、架构、安装包变体创建；变体为 None 时只取在线安装包
+    pub fn new(http: Arc<dyn HttpClient>, manifests: Vec<String>, current: SemanticVersion, os: &str, arch: &str, variant: Option<&str>, log: SharedLog) -> Self {
         UpdateChecker {
             http,
             manifests,
             current,
             os: os.to_owned(),
             arch: arch.to_owned(),
+            variant: variant.map(str::to_owned),
             log,
             manifest_timeout: Duration::from_secs(15),
         }
@@ -116,7 +118,7 @@ impl UpdateChecker {
                 }
             };
             let newer = manifest.version.is_newer_than(&self.current);
-            if let Some(asset) = manifest.asset_for(&self.os, &self.arch).cloned().filter(|_| newer) {
+            if let Some(asset) = manifest.asset_for(&self.os, &self.arch, self.variant.as_deref()).cloned().filter(|_| newer) {
                 self.log.info(&format!("发现新版本 {}（{}，{label}）", manifest.version, host_of(source)));
                 return UpdateCheckResult {
                     offer: Some(UpdateOffer { manifest, asset }),
@@ -124,7 +126,9 @@ impl UpdateChecker {
                 };
             }
             if newer {
-                self.log.info(&format!("新版本 {} 没有 {} {} 的安装包（{label}）", manifest.version, self.os, self.arch));
+                let variant = self.variant.as_deref().map(|variant| format!(" {variant}")).unwrap_or_default();
+                self.log
+                    .info(&format!("新版本 {} 没有 {} {}{variant} 的安装包（{label}）", manifest.version, self.os, self.arch));
             }
             return UpdateCheckResult {
                 offer: None,
@@ -220,6 +224,7 @@ fn host_of(url: &str) -> &str {
 mod tests {
     use super::*;
     use crate::log::null_log;
+    use crate::updates::OFFLINE_VARIANT;
     use std::collections::HashMap;
     use std::sync::Mutex;
 
@@ -269,6 +274,10 @@ mod tests {
     }
 
     fn checker(responses: Vec<(&str, u16, Vec<u8>)>, current: &str) -> UpdateChecker {
+        checker_for(responses, current, None)
+    }
+
+    fn checker_for(responses: Vec<(&str, u16, Vec<u8>)>, current: &str, variant: Option<&str>) -> UpdateChecker {
         let http = FakeHttp {
             responses: Mutex::new(responses.into_iter().map(|(url, status, body)| (url.to_owned(), (status, body))).collect()),
         };
@@ -278,8 +287,45 @@ mod tests {
             SemanticVersion::parse(current).unwrap(),
             "windows",
             "x64",
+            variant,
             null_log(),
         )
+    }
+
+    fn manifest_with_offline(version: &str) -> Vec<u8> {
+        let hash = sha256(b"x");
+        format!(
+            r#"{{ "version": "{version}", "assets": [
+                {{ "os": "windows", "arch": "x64", "url": "https://dl.example/XiHanPrint-{version}-x64-setup.exe", "sha256": "{hash}", "size": 1 }},
+                {{ "os": "windows", "arch": "x64", "variant": "offline", "url": "https://dl.example/XiHanPrint-{version}-x64-offline-setup.exe", "sha256": "{hash}", "size": 2 }}
+            ] }}"#
+        )
+        .into_bytes()
+    }
+
+    #[tokio::test]
+    async fn offers_the_installer_of_the_installed_variant() {
+        let responses = || vec![("https://a.example/u.json", 200, manifest_with_offline("1.2.0"))];
+        let online = checker_for(responses(), "1.1.0", None).check(UpdateTrigger::Manual).await.offer.unwrap();
+        assert_eq!(online.asset.url, "https://dl.example/XiHanPrint-1.2.0-x64-setup.exe");
+        assert_eq!(online.asset.variant, None);
+        let offline = checker_for(responses(), "1.1.0", Some(OFFLINE_VARIANT)).check(UpdateTrigger::Manual).await.offer.unwrap();
+        assert_eq!(offline.asset.url, "https://dl.example/XiHanPrint-1.2.0-x64-offline-setup.exe");
+        assert_eq!(offline.asset.size, 2);
+    }
+
+    #[tokio::test]
+    async fn offline_installs_skip_manifests_without_an_offline_installer() {
+        let result = checker_for(vec![("https://a.example/u.json", 200, manifest("1.2.0", b"x"))], "1.1.0", Some(OFFLINE_VARIANT))
+            .check(UpdateTrigger::Automatic)
+            .await;
+        assert_eq!(
+            result,
+            UpdateCheckResult {
+                offer: None,
+                source: Some("https://a.example/u.json".into())
+            }
+        );
     }
 
     #[tokio::test]

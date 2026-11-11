@@ -2,7 +2,8 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 //! 自动更新：启动 2 分钟后查一次，之后每天一次；发现新版只提示，用户确认后才下载，
-//! Windows 上校验 SHA-256 与签名者后静默运行安装包、客户端随后退出；macOS 与 Linux 上用浏览器打开安装包地址
+//! Windows 上校验 SHA-256 与签名者后静默运行安装包、客户端随后退出；macOS 与 Linux 上用浏览器打开安装包地址。
+//! 程序目录下装着 WebView2 固定版运行时的只取清单里的离线安装包，其余只取在线安装包
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -10,7 +11,7 @@ use std::time::Duration;
 use serde::Serialize;
 use tauri::Emitter;
 use xihan_print_client_core::cancel::Cancel;
-use xihan_print_client_core::updates::{DEFAULT_MANIFESTS, SemanticVersion, UpdateChecker, UpdateFailure, UpdateOffer, UpdateScheduler, UpdateTrigger};
+use xihan_print_client_core::updates::{DEFAULT_MANIFESTS, OFFLINE_VARIANT, SemanticVersion, UpdateChecker, UpdateFailure, UpdateOffer, UpdateScheduler, UpdateTrigger};
 use xihan_print_client_platform::{self as platform, SignatureState};
 
 use crate::host::{Host, VERSION};
@@ -85,7 +86,8 @@ impl UpdateService {
                 Arc::new(Unreachable)
             }
         };
-        let checker = Arc::new(UpdateChecker::new(http, manifests, current, platform::os(), platform::arch(), host.log()));
+        let variant = platform::fixed_webview2_runtime().map(|_| OFFLINE_VARIANT);
+        let checker = Arc::new(UpdateChecker::new(http, manifests, current, platform::os(), platform::arch(), variant, host.log()));
         let service = Arc::new(UpdateService {
             host: Arc::downgrade(&host),
             checker,

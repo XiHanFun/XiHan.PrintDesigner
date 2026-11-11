@@ -9,6 +9,6 @@ mod scheduler;
 mod semver;
 
 pub use checker::{DEFAULT_MANIFESTS, HttpClient, HttpResponse, UpdateCheckResult, UpdateChecker, UpdateFailure, UpdateOffer};
-pub use manifest::{MAX_ASSET_BYTES, MAX_MANIFEST_BYTES, UpdateAsset, UpdateManifest};
+pub use manifest::{MAX_ASSET_BYTES, MAX_MANIFEST_BYTES, OFFLINE_VARIANT, UpdateAsset, UpdateManifest};
 pub use scheduler::{FIRST_DELAY, PERIOD, UpdateScheduler, UpdateTrigger};
 pub use semver::SemanticVersion;
