@@ -1,6 +1,6 @@
 ---
 name: xihan-print-designer-development
-description: 实现、重构、修复或测试 XiHan.PrintDesigner 的三个 npm 包时使用：@xihan-print/core（模板结构、校验、编辑、分页）、@xihan-print/runtime（预览、打印、语言包、客户端 SDK）、@xihan-print/designer（设计器元素）。适用于“加元素种类”“改模板结构”“加属性 / 事件 / 命令”“扩展点”“分页不对”“设计器面板”等；只改文档站用 docs-site，只改 .NET 客户端用 client。
+description: 实现、重构、修复或测试 XiHan.PrintDesigner 的三个 npm 包时使用：@xihan-print/core（模板结构、校验、编辑、分页）、@xihan-print/runtime（预览、打印、语言包、客户端 SDK）、@xihan-print/designer（设计器元素）。适用于“加元素种类”“改模板结构”“加属性 / 事件 / 命令”“扩展点”“分页不对”“设计器面板”等；只改文档站用 docs-site，只改打印客户端（Rust + Tauri）用 client。
 ---
 
 # XiHan.PrintDesigner 包开发

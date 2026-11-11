@@ -6,7 +6,7 @@
 
 XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components 交付，任何前端项目都能使用。本仓库是开源版（MIT），必须能独立安装、构建和使用，不接收依赖私有包的代码。
 
-本仓库还包含本地打印客户端（Windows 托盘程序，.NET + WebView2，放在 `client/`），约定见「打印客户端」一节。
+本仓库还包含本地打印客户端（Windows、macOS、Linux 的托盘程序，Rust + Tauri 2，放在 `client/`），约定见「打印客户端」一节。
 
 ### 技术栈
 
@@ -46,12 +46,13 @@ Node.js 与 pnpm 的最低版本见 `print/package.json` 的 `engines`，其余�
 ├─ .agents/skills/                # 按任务划分的仓库技能
 ├─ .claude/skills -> ../.agents/skills   # Claude Code 技能入口
 ├─ .github/ .gitee/ .gitcode/     # 三平台 Issue / PR 模板，GitHub 另有 CI 与发版工作流
-├─ client/                         # 打印客户端（.NET 解决方案 XiHan.PrintClient.slnx）
-│  ├─ src/XiHan.PrintClient.Core/      # 平台无关：协议、会话、来源授权、任务队列与各平台接口
-│  ├─ src/XiHan.PrintClient.Windows/   # Windows 专属：WebView2 渲染、winspool、注册表自启、单实例
-│  ├─ src/XiHan.PrintClient/           # WinForms 托盘程序，产物 XiHanPrint.exe
-│  ├─ tests/                           # xunit.v3，dotnet test 走 Microsoft.Testing.Platform
-│  └─ installer/                       # Inno Setup 安装脚本与打包脚本 build.ps1
+├─ client/                         # 打印客户端（Rust + Tauri 2 的 Cargo 工作区，另有窗口界面的 pnpm 项目）
+│  ├─ core/                        # xihan-print-client-core：平台无关的协议、服务、来源授权、任务队列、纸张核对、更新与诊断
+│  ├─ platform/                    # xihan-print-client-platform：Windows 是 WebView2 + winspool，macOS 是 WKWebView，Linux 是 WebKitGTK，后两者经 CUPS 下发
+│  ├─ app/                         # xihan-print-client：Tauri 2 托盘程序（库 + 程序 XiHanPrint），tauri.conf.json、权限与图标
+│  ├─ ui/                          # 主窗口、授权窗口、新版提示的界面（Vite + TypeScript + @xihan-ui 正式包）
+│  ├─ scripts/                     # 改名收集 macOS / Linux 安装包、生成 update.json
+│  └─ installer/                   # Windows 的 Inno Setup 安装脚本与打包脚本 build.ps1
 ├─ docs/                            # 产品文档站（VitePress，独立的 pnpm 项目）
 └─ print/                           # pnpm monorepo 根
    ├─ .changeset/                 # changesets 配置与待发布的变更集
@@ -106,7 +107,7 @@ pnpm dev
 | Lint | `pnpm lint` |
 
 - 打印三个包经 `link:` 读 `print/packages/*` 的产物，先在 `print/` 构建。`@xihan-ui/*` 用 npm 上的正式包：打印三个包要的那几个由 `docs/package.json` 一并装上，并在 `.vitepress/config.ts` 里 `resolve.dedupe` 成同一份；不去重时文档站与设计器各用一份 UI，全站设的界面语言到不了设计器。
-- `docs/reference/` 由 `scripts/gen-reference.mjs` 从源码生成（元素原型、`printZhCN`、TypeScript 源码注释、客户端错误码的 C# 注释），不手改。改了元素、属性、问题码、公开 API 或这些注释，在 `docs/` 跑 `pnpm gen` 并随改动一起提交；参考页的说明不对，就改源码注释。
+- `docs/reference/` 由 `scripts/gen-reference.mjs` 从源码生成（元素原型、`printZhCN`、TypeScript 源码注释、客户端错误码在 `client/core/src/protocol/codes.rs` 里的文档注释），不手改。改了元素、属性、问题码、公开 API 或这些注释，在 `docs/` 跑 `pnpm gen` 并随改动一起提交；参考页的说明不对，就改源码注释。
 - 正文里的 TypeScript 与 Vue 示例都放在 `examples/`，用 `<<< @/examples/…#片段` 引入，不在 Markdown 里另写一份：`templates/` 下导出 `schema` 与 `data` 的模板由 `check:examples` 校验并试排，`demos/` 下的 `.ts` 导出 `mount(host)`、`.vue` 是一个组件，页面上写 `<PrintDemo name="…" />` 真实运行，`snippets/` 只做类型检查。
 - 正文里含 `{{` 的行内代码写成 `<code v-pre>…</code>`，否则会被 Vue 当成插值吃掉，构建也不报错。
 - 站点自己的导航、侧栏与示例组件放在 `docs/.vitepress/`，不复制或改写主题已提供的样式。
@@ -141,24 +142,29 @@ pnpm dev
 
 ## 打印客户端（`client/`）
 
-设计依据是总会话共享笔记里的 `print-client-draft.md`（用户已批准）：只监听 127.0.0.1 的 WebSocket，子协议 `xihan-print.v1`，端口 17620–17623；按来源授权；WebView2 只渲染、不跑页面脚本、不联网。
+设计依据是总会话共享笔记里的 `print-client-draft.md`（用户已批准）：只监听 127.0.0.1 的 WebSocket，子协议 `xihan-print.v1`，端口 17620–17623；按来源授权；渲染页只渲染、不跑页面脚本、不联网。客户端用 Rust + Tauri 2 写，Windows、macOS、Linux 三个平台：Windows 用 WebView2 渲染、winspool 下发；macOS 用 WKWebView、Linux 用 WebKitGTK 把输出页渲染成 PDF，再经 CUPS 下发。
 
 | 任务 | 命令（在 `client/`） |
 | --- | --- |
-| 构建 | `dotnet build XiHan.PrintClient.slnx -c Release` |
-| 测试 | `dotnet test --solution XiHan.PrintClient.slnx -c Release --no-build` |
-| 安装包 | `pwsh installer/build.ps1`（自包含发布 x64 与 arm64，再用 Inno Setup 编译；`-PublishOnly` 只发布，`-SkipWebView2` 不打 WebView2 安装程序、只用于本机试装） |
+| 窗口界面 | `pnpm install --frozen-lockfile`、`pnpm typecheck`、`pnpm build`（产物 `ui/dist` 由 Tauri 打进程序） |
+| 构建 | `cargo build --workspace --locked` |
+| 检查 | `cargo fmt --all --check`、`cargo clippy --workspace --all-targets --locked -- -D warnings` |
+| 测试 | `cargo test --workspace --locked`（Linux 上套 `xvfb-run -a dbus-run-session --`） |
+| 开发运行 | `pnpm tauri dev` |
+| Windows 安装包 | `pwsh installer/build.ps1`（构建界面、按 x64 与 arm64 编译 `XiHanPrint.exe`，再用 Inno Setup 编译；`-PublishOnly` 只编译程序，`-SkipWebView2` 不打 WebView2 安装程序、只用于本机试装） |
+| macOS / Linux 安装包 | `pnpm tauri build --target <三元组> --bundles app,dmg`（Linux 为 `deb,rpm,appimage`），再 `node scripts/collect-bundles.mjs --target <三元组> --out bundles` 按发布的写法改名 |
 
-- SDK 版本以 `client/global.json` 为准，与 XiHan.Framework 一致；包版本集中在 `Directory.Packages.props`。
-- 运行时 NuGet 依赖只有 `Microsoft.Web.WebView2`；新增任何运行时依赖前先征得维护者同意，能用 .NET 自带库或 Windows API 自写的就自写。
-- Core 不引用任何 Windows 专属 API，平台相关的实现放在平台项目里，经 Core 的接口接入。
-- 代码风格照 XiHan.Framework：文件头两行版权注释，文件级命名空间，公开成员写中文 XML 注释，注释只写做什么。
-- 原始通道的集成测试要一台端口指向文件的「Generic / Text Only」打印机，经环境变量 `XIHAN_PRINT_TEST_PRINTER`、`XIHAN_PRINT_TEST_OUTPUT` 告知；没配置时跳过。CI 里由 `client.yml` 自动装，本机要跑时以管理员身份照那一步装。
-- 本机编译安装包用按当前用户装的 Inno Setup（官方安装包），`build.ps1` 会在 Inno Setup 的常见安装目录和 PATH 里找 `ISCC.exe`；它只用于编译与试装，不进运行时依赖，也不进仓库。CI 自己装 Inno Setup，不依赖哪台机器。安装包按系统界面语言选简体中文或英文，不弹语言选择框；简体中文是自己写的 `installer/zh-CN.isl`，叠在 `compiler:Default.isl` 之上，只覆写这个安装包在安装、升级、卸载与出错时会出现的消息，其余沿用英文。给安装包加页面或提示时，在 `zh-CN.isl` 与 `[CustomMessages]` 的 `en.`、`zh.` 两份里一起补。
-- 安装包按当前用户装到 `%LocalAppData%\Programs\XiHanFun\PrintClient`，不要管理员权限；打进 WebView2 Evergreen 引导程序（内网可用 `-WebView2Installer` 换成离线安装包）。分支 CI 出未签名的安装包；推 `v<版本>` 标签时 `release.yml` 调 `client-release.yml` 签名（仓库密钥 `CLIENT_SIGNING_CERT`、`CLIENT_SIGNING_PASSWORD`，没有就不签）并建这个标签的草稿 Release，发布草稿后把附件里的 `update.json` 提交到 main 的 `client/update.json`，客户端的自动更新才看得到新版。
-- 自动更新只安装 `Directory.Build.props` 里 `XiHanUpdatePublisher` 这个发布者签名的安装包，为空时只提示新版、不自动安装。
-- 客户端与 `@xihan-print/*` 版本相同、每版同发：`Directory.Build.props` 的 `Version` 由 VersionUpgrade 写成三个包的版本，不手改；日常门禁不核对，发版时 `release.yml` 的「核对标签」核标签号、三个包与客户端三方一致（`check-release-tag.mjs`）。SDK 与客户端的兼容照旧靠子协议 `xihan-print.v1`，客户端不支持时 SDK 报 `PROTOCOL_UNSUPPORTED`。程序集与安装包的文件版本取它去掉预发布后缀的数字部分（如 `1.0.0-rc.1` 得 `1.0.0.0`），安装包文件名与界面上显示完整的版本号。
-- 提交前跑构建、测试与 `git diff --check`。
+- Rust 工具链用 stable，最低版本是 `client/Cargo.toml` 的 `rust-version`；依赖版本集中在工作区的 `[workspace.dependencies]`。Windows 上编译要装 Visual Studio 的「使用 C++ 的桌面开发」（MSVC 与 Windows SDK）；Linux 上要装 WebKitGTK 4.1、GTK 3 与 libcups 的开发包（见 `client.yml`）。
+- 运行时依赖只取 Tauri 2 已带进来的（tokio、serde、windows、webview2-com、objc2、gtk、webkit2gtk 等）与 `[workspace.dependencies]` 里列出的几项；新增任何运行时依赖前先征得维护者同意，能自写的就自写。CUPS 运行时经 dlopen 加载，不在链接期依赖 libcups。
+- 分层：`core` 不引用任何平台 API，各平台的渲染、打印、目录、开机自启与签名校验放在 `platform`，经 `core` 的接口接入；`app` 只做组装、托盘、窗口与命令。`app` 同时是库：开源版程序 `XiHanPrint` 调 `run(Extensions::default())`，收费版在私有仓库依赖这几个库，在 `Extensions` 登记扩展（额外的监听与握手放行、自定义消息类型、任务观察者、打印完成跟踪、主窗口扩展页、Tauri 插件、启动钩子、诊断段）后调同一个 `run`。扩展点本身开源，改它的形状要同步告知收费版。
+- 代码风格：每个 `.rs` 文件头两行 `//` 版权注释；公开与 `pub(crate)` 的项写中文 `///` 文档注释（工作区 lints 里 `missing_docs` 开着）；注释只写代码做什么；`unsafe` 块写 `SAFETY` 注释。`cargo fmt` 用 `client/rustfmt.toml`。
+- 窗口界面只用 `@xihan-ui` 的正式包（元素按需注册、样式只用设计令牌），不另写一套组件；界面文案用中文。
+- 原始通道与打印的集成测试要一台写文件的测试打印机，经环境变量 `XIHAN_PRINT_TEST_PRINTER`、`XIHAN_PRINT_TEST_OUTPUT` 告知；没配置时跳过。Windows 是端口指向文件的「Generic / Text Only」打印机，HTML 通道与原始指令共用；Linux 的 HTML 通道是 CUPS 里 `file:` 设备的通用 PostScript 打印机，原始指令另用一台指向本机端口的原始打印机，经 `XIHAN_PRINT_TEST_RAW_PRINTER`、`XIHAN_PRINT_TEST_RAW_LISTEN` 告知，由测试自己在端口上收。CI 里由 `client.yml` 自动装，本机要跑时照那一步装。
+- 本机编译 Windows 安装包用按当前用户装的 Inno Setup（官方安装包），`build.ps1` 会在 Inno Setup 的常见安装目录和 PATH 里找 `ISCC.exe`；它只用于编译与试装，不进运行时依赖，也不进仓库。CI 自己装 Inno Setup，不依赖哪台机器。安装包按系统界面语言选简体中文或英文，不弹语言选择框；简体中文是自己写的 `installer/zh-CN.isl`，叠在 `compiler:Default.isl` 之上，只覆写这个安装包在安装、升级、卸载与出错时会出现的消息，其余沿用英文。给安装包加页面或提示时，在 `zh-CN.isl` 与 `[CustomMessages]` 的 `en.`、`zh.` 两份里一起补。Windows 安装包的 AppId 与 1.0（.NET 版）相同，装新版即原地升级，并删掉旧版留下的运行库。
+- Windows 安装包按当前用户装到 `%LocalAppData%\Programs\XiHanFun\PrintClient`，不要管理员权限；打进 WebView2 Evergreen 引导程序（内网可用 `-WebView2Installer` 换成离线安装包）。macOS 出 `.dmg`，Linux 出 `.deb`、`.rpm` 与 `.AppImage`，由 Tauri 打包。分支 CI 出未签名的安装包；推 `v<版本>` 标签时 `release.yml` 调 `client-release.yml` 编译三个平台的安装包（Windows 有仓库密钥 `CLIENT_SIGNING_CERT`、`CLIENT_SIGNING_PASSWORD` 时签名）并建这个标签的草稿 Release，`update.json` 由 `scripts/update-manifest.mjs` 生成（Windows 的安装包排在最前，1.0 及以前的客户端只按架构取第一项）。发布草稿后把附件里的 `update.json` 提交到 main 的 `client/update.json`，客户端的自动更新才看得到新版。
+- 自动更新只在 Windows 上自动安装，且只安装 `app/src/updates.rs` 里 `UPDATE_PUBLISHER` 这个发布者签名的安装包，为空时只提示新版、不自动安装；macOS 与 Linux 发现新版只提示，用浏览器打开安装包地址。
+- 客户端与 `@xihan-print/*` 版本相同、每版同发：`client/Cargo.toml` 里 `[workspace.package]` 的 `version`（连同 `Cargo.lock` 里三个 crate 的版本）由 VersionUpgrade 写成三个包的版本，不手改；日常门禁不核对，发版时 `release.yml` 的「核对标签」核标签号、三个包与客户端三方一致（`check-release-tag.mjs`）。SDK 与客户端的兼容照旧靠子协议 `xihan-print.v1`，客户端不支持时 SDK 报 `PROTOCOL_UNSUPPORTED`。程序与安装包的文件版本取它去掉预发布后缀的数字部分（如 `1.0.0-rc.1` 得 `1.0.0.0`），安装包文件名与界面上显示完整的版本号。
+- 改 `client/` 的提交前跑界面的 `pnpm typecheck`、`pnpm build`，Rust 的 fmt、clippy、构建与测试，再在仓库根跑 `git diff --check`。
 
 ## 发版
 
@@ -170,15 +176,15 @@ pnpm dev
 - 使用者能感知的改动附一份变更集（`pnpm changeset`），中文、官方口径；CI、测试、文档站、脚本、README 不写。
 - 定版本用 `print/scripts/release/VersionUpgrade.bat`（或 `pwsh scripts/release/VersionUpgrade.ps1`）：消费变更集、写各包 CHANGELOG，把打印客户端的版本写成同一个号，可进出预发布通道；不提交、不打标签、不推送，`-DryRun` 只打印计划。同一笔在文档站「更新日志」页（`docs/changelog.md`）补这一版的一节（客户端的改动并进同一节），导航上的版本号取 core 的版本，不用改。
 - 发一个版本的步骤：
-  1. 在 `print/` 跑 VersionUpgrade，选发布通道与升级级别；看一遍三个包的 `package.json`、`CHANGELOG.md`、`.changeset/` 与 `client/Directory.Build.props` 的改动。
+  1. 在 `print/` 跑 VersionUpgrade，选发布通道与升级级别；看一遍三个包的 `package.json`、`CHANGELOG.md`、`.changeset/` 与 `client/Cargo.toml`、`client/Cargo.lock` 的改动。
   2. 在 `docs/changelog.md` 补这一版的一节，日期写计划发布的那天；发布推迟了另起一笔改日期。
   3. `print/` 跑 `pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test`、`pnpm gate:publish`、`pnpm smoke --pack`，`docs/` 跑文档站门禁，再跑 `git diff --check`；全过再提交 `build: v<版本>`。
   4. 推 dev，等 dev 上的 CI 全绿。
   5. 发布分支从 dev 快进（预览版 `git fetch . dev:preview`，正式版 `git fetch . dev:main`，不是快进就停下查），推发布分支，等上面的 CI 全绿。
   6. 在版本提交上打 `v<版本>` 标签并推送，Release 发包、冒烟、部署文档站，同时出打印客户端的草稿 Release；发完用 `npm view @xihan-print/designer dist-tags` 核对（正式版发出前 `rc` 与 `latest` 都指这一版）。
   7. 发布这个标签的草稿 Release。正式版再把附件里的 `update.json` 提交到 main 的 `client/update.json`，然后把 main 合回 dev；预览版不动这份清单，已装的客户端不会自动升到预览版。
-- release.yml 先核对标签（带预发布后缀的在 preview 的历史里，不带的在 main 的历史里；标签号等于三个包与客户端的版本、且与 `.changeset/pre.json` 一致，`check-release-tag.mjs`），之后分两条线：一条构建、`gate:publish`、`changeset publish`（带 provenance），接着 `scripts/release/promote-latest.mjs`：预发布模式、且 npm 上这个包还没有任何正式版时，等 npm 取得到这一版再把 `latest` 也指过来（正式版发出前每个候选版都让 `latest` 跟着走，有了正式版后自动不做，本地可 `--dry-run`），然后 `scripts/release/smoke.mjs --version` 冒烟，最后调 `deploy-docs.yml` 部署文档站；另一条调 `client-release.yml` 编译、签名客户端并建草稿 Release，只依赖核对标签。一条失败时用「重跑失败的 job」（`gh run rerun <run-id> --failed`）单独重跑那一条，客户端那条重跑不会重发 npm，草稿已在就只覆盖附件。deploy-docs 只部署已经发布的版本：当前版本有标签、main 上的包与标签一致、这个版本已在 npm 上。
-- 每个 `v<版本>` 标签有一个同名的 GitHub Release：由 client-release.yml 建成草稿，说明取 `docs/changelog.md` 这一版的一节（`scripts/release/release-notes.mjs`），附件是这一版打印客户端的安装包与 `update.json`，预发布版标成 Pre-release。这一节缺了，「核对标签」就拦下，不会发包。
+- release.yml 先核对标签（带预发布后缀的在 preview 的历史里，不带的在 main 的历史里；标签号等于三个包与客户端的版本、且与 `.changeset/pre.json` 一致，`check-release-tag.mjs`），之后分两条线：一条构建、`gate:publish`、`changeset publish`（带 provenance），接着 `scripts/release/promote-latest.mjs`：预发布模式、且 npm 上这个包还没有任何正式版时，等 npm 取得到这一版再把 `latest` 也指过来（正式版发出前每个候选版都让 `latest` 跟着走，有了正式版后自动不做，本地可 `--dry-run`），然后 `scripts/release/smoke.mjs --version` 冒烟，最后调 `deploy-docs.yml` 部署文档站；另一条调 `client-release.yml` 编译三个平台的客户端（Windows 签名）并建草稿 Release，只依赖核对标签。一条失败时用「重跑失败的 job」（`gh run rerun <run-id> --failed`）单独重跑那一条，客户端那条重跑不会重发 npm，草稿已在就只覆盖附件。deploy-docs 只部署已经发布的版本：当前版本有标签、main 上的包与标签一致、这个版本已在 npm 上。
+- 每个 `v<版本>` 标签有一个同名的 GitHub Release：由 client-release.yml 建成草稿，说明取 `docs/changelog.md` 这一版的一节（`scripts/release/release-notes.mjs`），附件是这一版打印客户端三个平台的安装包、SHA-256 与 `update.json`，预发布版标成 Pre-release。这一节缺了，「核对标签」就拦下，不会发包。
 - main 只接收发版；两次发版之间挑进 main 的纯文档修正与客户端的 `client/update.json`，进了 main 以后立刻把 main 合回 dev。
 - 合并 main 或 preview、打标签、发布都只在用户明确要求时执行。
 
