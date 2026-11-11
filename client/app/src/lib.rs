@@ -1,7 +1,7 @@
 // Copyright (c) 2021-Present XiHanFun and contributors.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-//! 曦寒打印客户端的托盘程序：组装 core 与 platform，提供托盘、主窗口、授权窗口与新版提示。
+//! 曦寒打印客户端的桌面程序：组装 core 与 platform，提供主窗口、授权窗口、新版提示与托盘图标。
 //! 开源版程序调用 `run(Extensions::default())`；收费版程序依赖这个库，在 [`Extensions`] 里登记自己的能力后调用同一个 `run`。
 
 mod commands;
@@ -65,7 +65,7 @@ pub struct Extensions {
     pub diagnostics: Vec<DiagnosticsSection>,
 }
 
-/// 启动托盘程序；已有实例在运行时，手动启动的把它的主窗口带到前台，开机自启的直接退出
+/// 启动桌面程序；已有实例在运行时，手动启动的把它的主窗口带到前台，开机自启的直接退出
 pub fn run(mut extensions: Extensions) {
     #[cfg(windows)]
     use_fixed_webview2_runtime();
@@ -127,6 +127,8 @@ pub fn run(mut extensions: Extensions) {
                 api.prevent_exit();
             }
         }
+        #[cfg(target_os = "macos")]
+        RunEvent::Reopen { .. } => windows::show_main(app),
         RunEvent::Exit => {
             if let Some(host) = app.try_state::<Arc<Host>>() {
                 tauri::async_runtime::block_on(host.stop());

@@ -1,4 +1,4 @@
-# 打印客户端的 Cargo 工作区：core 是平台无关的协议、服务与任务，platform 是各平台的渲染与打印，app 是 Tauri 2 托盘程序
+# 打印客户端的 Cargo 工作区：core 是平台无关的协议、服务与任务，platform 是各平台的渲染与打印，app 是 Tauri 2 桌面程序
 [workspace]
 resolver = "3"
 members = ["core", "platform", "app"]

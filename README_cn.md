@@ -68,7 +68,7 @@ document.body.append(preview)
 
 ## 打印客户端
 
-`client/` 为 Windows、macOS 与 Linux 上的托盘程序（Rust + Tauri 2），仅监听 127.0.0.1，各站点首次连接时须经用户授权，打印任务在隔离沙箱中渲染。接入方式见[打印客户端](https://print.docs.xihanfun.com/guide/client)。
+`client/` 为 Windows、macOS 与 Linux 上带主窗口的桌面程序（Rust + Tauri 2），仅监听 127.0.0.1，各站点首次连接时须经用户授权，打印任务在隔离沙箱中渲染。接入方式见[打印客户端](https://print.docs.xihanfun.com/guide/client)。
 
 ## 本地开发
 

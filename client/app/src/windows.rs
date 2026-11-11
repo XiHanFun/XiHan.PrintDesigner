@@ -1,7 +1,7 @@
 // Copyright (c) 2021-Present XiHanFun and contributors.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-//! 主窗口与新版提示窗口：按需建出，关闭主窗口只是藏回托盘
+//! 主窗口与新版提示窗口：按需建出，关闭主窗口只是把它藏起来，客户端在后台继续运行
 
 use std::sync::atomic::{AtomicBool, Ordering};
 

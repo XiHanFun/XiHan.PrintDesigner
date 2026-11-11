@@ -68,7 +68,7 @@ Dependencies run `designer → runtime → core`, and business pages only need `
 
 ## Print Client
 
-`client/` is a tray application for Windows, macOS and Linux (Rust + Tauri 2) that listens only on 127.0.0.1, asks the user to authorize each site on first connection, and renders print jobs in an isolated sandbox. See the [print client](https://print.docs.xihanfun.com/guide/client) guide.
+`client/` is a desktop application with its own main window for Windows, macOS and Linux (Rust + Tauri 2) that listens only on 127.0.0.1, asks the user to authorize each site on first connection, and renders print jobs in an isolated sandbox. See the [print client](https://print.docs.xihanfun.com/guide/client) guide.
 
 ## Local Development
 

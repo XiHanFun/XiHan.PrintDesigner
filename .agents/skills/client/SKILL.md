@@ -1,6 +1,6 @@
 ---
 name: xihan-print-client
-description: 开发、修复或测试 XiHan.PrintDesigner 的本地打印客户端（client/，Rust + Tauri 2 的三平台托盘程序）时使用：协议 xihan-print.v1、来源授权、静默打印与原始指令、WebView2 / WebKit 渲染、winspool / CUPS 下发、更新检查、安装包、收费版扩展点。适用于“打印客户端”“静默打印”“连不上客户端”“安装包”“协议”“Tauri”；浏览器侧的 SDK 改动同时读 designer-development。
+description: 开发、修复或测试 XiHan.PrintDesigner 的本地打印客户端（client/，Rust + Tauri 2 的三平台桌面程序）时使用：协议 xihan-print.v1、来源授权、静默打印与原始指令、WebView2 / WebKit 渲染、winspool / CUPS 下发、更新检查、安装包、收费版扩展点。适用于“打印客户端”“静默打印”“连不上客户端”“安装包”“协议”“Tauri”；浏览器侧的 SDK 改动同时读 designer-development。
 ---
 
 # XiHan.PrintDesigner 打印客户端
@@ -22,7 +22,7 @@ description: 开发、修复或测试 XiHan.PrintDesigner 的本地打印客户�
 | --- | --- |
 | `core/`（xihan-print-client-core） | 平台无关：协议读写（`protocol/`，错误码与提醒码在 `codes.rs`）、回环 WebSocket 服务与会话（`server/`，帧与握手自写）、来源授权（`consent/`）、任务队列与纸张核对（`printing/`）、PDF 页面尺寸的读取（`pdf/`，自写的交叉引用、对象流与 inflate）、更新清单与检查（`updates/`）、诊断、日志、设置；不引用任何平台 API |
 | `platform/`（xihan-print-client-platform） | `windows/`：WebView2 渲染线程、winspool、PrintDlgEx、Direct2D 打 PDF（`pdf_print.rs`：Windows.Data.Pdf + ID2D1PrintControl，作业设置由 DEVMODE 转 PrintTicket）、固定版运行时的查找、Authenticode、注册表自启；`unix/`：CUPS（dlopen）、「渲染成 PDF 再下发」的流水线与 PDF 打印（按组以 page-ranges 下发）；`macos/`：WKWebView 渲染与 PDFKit 合并；`linux/`：WebKitGTK 渲染与 PDF 合并 |
-| `app/`（xihan-print-client） | Tauri 2 托盘程序：组装（`host.rs`）、托盘、主窗口与授权窗口、命令、更新；同时是库，`Extensions` 是收费版的扩展点 |
+| `app/`（xihan-print-client） | Tauri 2 桌面程序：组装（`host.rs`）、主窗口与授权窗口、托盘图标、命令、更新；同时是库，`Extensions` 是收费版的扩展点 |
 | `ui/` | 主窗口、授权窗口、新版提示的界面：Vite + TypeScript + `@xihan-ui` 正式包 |
 | `scripts/` | `collect-bundles.mjs` 改名收集 macOS / Linux 安装包；`update-manifest.mjs` 生成 `update.json` |
 | `installer/` | Windows 的 Inno Setup 脚本 `XiHanPrint.iss`（在线与离线两种包）、简体中文消息 `zh-CN.isl`、打包脚本 `build.ps1`、钉住的 WebView2 固定版运行时 `webview2-fixed.json` |

@@ -6,7 +6,7 @@
 
 XiHan.PrintDesigner 是框架无关的打印设计器，以原生 Web Components 交付，任何前端项目都能使用。本仓库是开源版（MIT），必须能独立安装、构建和使用，不接收依赖私有包的代码。
 
-本仓库还包含本地打印客户端（Windows、macOS、Linux 的托盘程序，Rust + Tauri 2，放在 `client/`），约定见「打印客户端」一节。
+本仓库还包含本地打印客户端（Windows、macOS、Linux 上带主窗口的桌面程序，Rust + Tauri 2，放在 `client/`），约定见「打印客户端」一节。
 
 ### 技术栈
 
@@ -49,7 +49,7 @@ Node.js 与 pnpm 的最低版本见 `print/package.json` 的 `engines`，其余�
 ├─ client/                         # 打印客户端（Rust + Tauri 2 的 Cargo 工作区，另有窗口界面的 pnpm 项目）
 │  ├─ core/                        # xihan-print-client-core：平台无关的协议、服务、来源授权、任务队列、纸张核对、更新与诊断
 │  ├─ platform/                    # xihan-print-client-platform：Windows 是 WebView2 + winspool，macOS 是 WKWebView，Linux 是 WebKitGTK，后两者经 CUPS 下发
-│  ├─ app/                         # xihan-print-client：Tauri 2 托盘程序（库 + 程序 XiHanPrint），tauri.conf.json、权限与图标
+│  ├─ app/                         # xihan-print-client：Tauri 2 桌面程序（库 + 程序 XiHanPrint），tauri.conf.json、权限与图标
 │  ├─ ui/                          # 主窗口、授权窗口、新版提示的界面（Vite + TypeScript + @xihan-ui 正式包）
 │  ├─ scripts/                     # 改名收集 macOS / Linux 安装包、生成 update.json
 │  └─ installer/                   # Windows 的 Inno Setup 安装脚本与打包脚本 build.ps1
@@ -156,7 +156,7 @@ pnpm dev
 
 - Rust 工具链用 stable，最低版本是 `client/Cargo.toml` 的 `rust-version`；依赖版本集中在工作区的 `[workspace.dependencies]`。Windows 上编译要装 Visual Studio 的「使用 C++ 的桌面开发」（MSVC 与 Windows SDK）；Linux 上要装 WebKitGTK 4.1、GTK 3 与 libcups 的开发包（见 `client.yml`）。
 - 运行时依赖只取 Tauri 2 已带进来的（tokio、serde、windows、webview2-com、objc2、gtk、webkit2gtk 等）与 `[workspace.dependencies]` 里列出的几项；新增任何运行时依赖前先征得维护者同意，能自写的就自写。CUPS 运行时经 dlopen 加载，不在链接期依赖 libcups。
-- 分层：`core` 不引用任何平台 API，各平台的渲染、打印、目录、开机自启与签名校验放在 `platform`，经 `core` 的接口接入；`app` 只做组装、托盘、窗口与命令。`app` 同时是库：开源版程序 `XiHanPrint` 调 `run(Extensions::default())`，收费版在私有仓库依赖这几个库，在 `Extensions` 登记扩展（额外的监听与握手放行、自定义消息类型、任务观察者、打印完成跟踪、主窗口扩展页、Tauri 插件、启动钩子、诊断段）后调同一个 `run`。扩展点本身开源，改它的形状要同步告知收费版。
+- 分层：`core` 不引用任何平台 API，各平台的渲染、打印、目录、开机自启与签名校验放在 `platform`，经 `core` 的接口接入；`app` 只做组装、窗口、托盘图标与命令。`app` 同时是库：开源版程序 `XiHanPrint` 调 `run(Extensions::default())`，收费版在私有仓库依赖这几个库，在 `Extensions` 登记扩展（额外的监听与握手放行、自定义消息类型、任务观察者、打印完成跟踪、主窗口扩展页、Tauri 插件、启动钩子、诊断段）后调同一个 `run`。扩展点本身开源，改它的形状要同步告知收费版。
 - 代码风格：每个 `.rs` 文件头两行 `//` 版权注释；公开与 `pub(crate)` 的项写中文 `///` 文档注释（工作区 lints 里 `missing_docs` 开着）；注释只写代码做什么；`unsafe` 块写 `SAFETY` 注释。`cargo fmt` 用 `client/rustfmt.toml`。
 - 窗口界面只用 `@xihan-ui` 的正式包（元素按需注册、样式只用设计令牌），不另写一套组件；界面文案用中文。
 - 原始通道与打印的集成测试要一台写文件的测试打印机，经环境变量 `XIHAN_PRINT_TEST_PRINTER`、`XIHAN_PRINT_TEST_OUTPUT` 告知；没配置时跳过。Windows 是端口指向文件的「Generic / Text Only」打印机，HTML 通道与原始指令共用；Linux 的 HTML 通道是 CUPS 里 `file:` 设备的通用 PostScript 打印机，原始指令另用一台指向本机端口的原始打印机，经 `XIHAN_PRINT_TEST_RAW_PRINTER`、`XIHAN_PRINT_TEST_RAW_LISTEN` 告知，由测试自己在端口上收。CI 里由 `client.yml` 自动装，本机要跑时照那一步装。

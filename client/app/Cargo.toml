@@ -1,6 +1,6 @@
 [package]
 name = "xihan-print-client"
-description = "曦寒打印客户端：本机托盘程序，网页经 WebSocket 连上它静默打印、写原始指令、导出 PDF"
+description = "曦寒打印客户端：本机的桌面程序，网页经 WebSocket 连上它静默打印、写原始指令、导出 PDF"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
