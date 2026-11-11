@@ -10,7 +10,7 @@ import { readFile } from 'node:fs/promises'
 import { publishablePackages } from './packages.mjs'
 
 const PRE_PATH = '.changeset/pre.json'
-const CLIENT_PROPS = '../client/Directory.Build.props'
+const CLIENT_MANIFEST = '../client/Cargo.toml'
 
 const tag = process.env.RELEASE_TAG ?? (process.env.GITHUB_REF_TYPE === 'tag' ? process.env.GITHUB_REF_NAME : undefined)
 
@@ -40,17 +40,17 @@ if (mismatched.length > 0) {
   problems.push(`标签 ${tag} 要发的是 ${version}，这些包的 package.json 不是这个号：${mismatched.map(pkg => `${pkg.name}@${pkg.version}`).join('、')}。`
     + '先跑 VersionUpgrade 把版本提到位并快进到发布分支，再在那个提交上打标签。')
 }
-let clientProps
+let clientManifest
 try {
-  clientProps = await readFile(CLIENT_PROPS, 'utf8')
+  clientManifest = await readFile(CLIENT_MANIFEST, 'utf8')
 }
 catch {
   // 没有打印客户端的仓库只核对公开包
 }
-if (clientProps !== undefined) {
-  const clientVersion = /<Version>([^<]*)<\/Version>/.exec(clientProps)?.[1]?.trim()
+if (clientManifest !== undefined) {
+  const clientVersion = /^\[workspace\.package\][^[]+?^version\s*=\s*"([^"]*)"/m.exec(clientManifest)?.[1]?.trim()
   if (clientVersion !== version) {
-    problems.push(`标签 ${tag} 要发的是 ${version}，打印客户端（${CLIENT_PROPS} 的 Version）是 ${clientVersion ?? '（没写）'}：客户端与公开包同号同发。`
+    problems.push(`标签 ${tag} 要发的是 ${version}，打印客户端（${CLIENT_MANIFEST} 里 [workspace.package] 的 version）是 ${clientVersion ?? '（没写）'}：客户端与公开包同号同发。`
       + '用 VersionUpgrade 升版会一起写；手改过就改回同一个号再快进到发布分支。')
   }
 }
@@ -72,4 +72,4 @@ if (problems.length > 0) {
   process.exit(1)
 }
 
-console.log(`[check-release-tag] 通过：标签 ${tag} 与 ${packages.length} 个公开包${clientProps === undefined ? '' : '、打印客户端'}的版本号、changesets 的${pre ? `预发布模式（tag=${pre.tag}）` : '正式模式'}一致`)
+console.log(`[check-release-tag] 通过：标签 ${tag} 与 ${packages.length} 个公开包${clientManifest === undefined ? '' : '、打印客户端'}的版本号、changesets 的${pre ? `预发布模式（tag=${pre.tag}）` : '正式模式'}一致`)

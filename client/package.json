@@ -1,0 +1,30 @@
+{
+  "name": "xihan-print-client",
+  "type": "module",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.7.0",
+  "description": "曦寒打印客户端的窗口界面（主窗口、授权窗口、新版提示）与 Tauri 命令行工具。",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.0.0",
+    "pnpm": ">=11.0.0"
+  },
+  "scripts": {
+    "dev": "vite --config ui/vite.config.ts",
+    "build": "vite build --config ui/vite.config.ts",
+    "typecheck": "tsc --noEmit -p ui/tsconfig.json",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2.12.0",
+    "@xihan-ui/styles": "^5.5.0",
+    "@xihan-ui/web-components": "^5.5.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.0",
+    "@types/node": "^24.19.2",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.4"
+  }
+}

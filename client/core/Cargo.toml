@@ -1,0 +1,26 @@
+[package]
+name = "xihan-print-client-core"
+description = "曦寒打印客户端的平台无关部分：协议 xihan-print.v1、回环 WebSocket 服务、来源授权、任务队列、纸张核对、更新检查与诊断"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+sha1.workspace = true
+sha2.workspace = true
+getrandom.workspace = true
+zip.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints]
+workspace = true

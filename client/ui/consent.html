@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="system">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>曦寒打印客户端</title>
+</head>
+<body>
+  <main class="dialog" aria-labelledby="origin">
+    <p class="origin" id="origin"></p>
+    <p>这个网站想使用本机的打印机，包括不弹对话框直接打印。只在你信任它时允许。</p>
+    <p class="muted" id="timeout"></p>
+    <xh-checkbox id="remember">
+      <label data-xh-part="label">
+        <button data-xh-part="root">
+          <span data-xh-part="indicator"></span>
+        </button>
+        <span data-xh-part="text">拒绝时不再询问这个网站</span>
+      </label>
+    </xh-checkbox>
+    <div class="row end" id="choices"></div>
+  </main>
+  <script type="module" src="./src/consent.ts"></script>
+</body>
+</html>

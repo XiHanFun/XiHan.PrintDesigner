@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="system">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>曦寒打印客户端</title>
+</head>
+<body>
+  <main class="shell">
+    <xh-tabs id="tabs" default-value="overview" orientation="vertical">
+      <div data-xh-part="root">
+        <div data-xh-part="list" id="tab-list" aria-label="客户端">
+          <button data-xh-part="trigger" value="overview">概览</button>
+          <button data-xh-part="trigger" value="printers">打印机</button>
+          <button data-xh-part="trigger" value="origins">网站</button>
+          <button data-xh-part="trigger" value="settings">设置</button>
+          <button data-xh-part="trigger" value="diagnostics">诊断</button>
+          <button data-xh-part="trigger" value="about">关于</button>
+          <div data-xh-part="indicator"></div>
+        </div>
+
+        <section data-xh-part="content" value="overview" class="page" aria-labelledby="overview-title">
+          <h2 id="overview-title">概览</h2>
+          <div id="problems"></div>
+          <div id="update-banner"></div>
+          <xh-descriptions>
+            <dl data-xh-part="root" id="overview"></dl>
+          </xh-descriptions>
+        </section>
+
+        <section data-xh-part="content" value="printers" class="page" aria-labelledby="printers-title">
+          <div class="row">
+            <h2 id="printers-title">打印机</h2>
+            <span id="printers-refresh"></span>
+          </div>
+          <p class="muted">给打印机打一页自检页：四周距纸边 5 mm 画框，另有一条 50 mm 的校准线。</p>
+          <p class="muted" id="printers-state" aria-live="polite"></p>
+          <ul class="list" id="printers"></ul>
+        </section>
+
+        <section data-xh-part="content" value="origins" class="page" aria-labelledby="origins-title">
+          <h2 id="origins-title">网站</h2>
+          <p class="muted">网站第一次连接时客户端会询问一次。删掉以后，这个网站下次连接时重新询问；管理员策略里的网站不能删。</p>
+          <div class="columns">
+            <div>
+              <h3 id="allowed-title">允许的网站</h3>
+              <ul class="list" id="allowed" aria-labelledby="allowed-title"></ul>
+            </div>
+            <div>
+              <h3 id="denied-title">拒绝的网站</h3>
+              <ul class="list" id="denied" aria-labelledby="denied-title"></ul>
+            </div>
+          </div>
+        </section>
+
+        <section data-xh-part="content" value="settings" class="page" aria-labelledby="settings-title">
+          <h2 id="settings-title">设置</h2>
+          <label class="setting">
+            <xh-switch id="autostart">
+              <button data-xh-part="root" aria-label="开机时自动启动">
+                <span data-xh-part="thumb"></span>
+              </button>
+            </xh-switch>
+            开机时自动启动
+          </label>
+          <label class="setting">
+            <xh-switch id="check-updates">
+              <button data-xh-part="root" aria-label="检查新版本">
+                <span data-xh-part="thumb"></span>
+              </button>
+            </xh-switch>
+            检查新版本（只提示，确认后再安装）
+          </label>
+          <p class="muted" id="updates-policy" hidden>管理员已用策略关闭检查更新。</p>
+          <xh-select id="log-level" placeholder="日志级别">
+            <div data-xh-part="root">
+              <span data-xh-part="label">日志级别</span>
+              <div data-xh-part="control">
+                <button data-xh-part="trigger">
+                  <span data-xh-part="value-text"></span>
+                  <span data-xh-part="indicator"></span>
+                </button>
+              </div>
+              <div data-xh-part="positioner">
+                <div data-xh-part="content">
+                  <div data-xh-part="list">
+                    <div data-xh-part="item" value="debug"><span data-xh-part="item-text">调试</span><span data-xh-part="item-indicator"></span></div>
+                    <div data-xh-part="item" value="information"><span data-xh-part="item-text">一般</span><span data-xh-part="item-indicator"></span></div>
+                    <div data-xh-part="item" value="warning"><span data-xh-part="item-text">警告</span><span data-xh-part="item-indicator"></span></div>
+                    <div data-xh-part="item" value="error"><span data-xh-part="item-text">错误</span><span data-xh-part="item-indicator"></span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </xh-select>
+          <div class="row" id="settings-actions"></div>
+          <p class="muted" id="settings-state" aria-live="polite"></p>
+        </section>
+
+        <section data-xh-part="content" value="diagnostics" class="page" aria-labelledby="diagnostics-title">
+          <div class="row">
+            <h2 id="diagnostics-title">诊断</h2>
+            <span id="diagnostics-actions" class="row"></span>
+          </div>
+          <p class="muted">版本、渲染引擎、端口、策略、来源名单与最近的任务。导出诊断包时，日志、设置与策略文件一并打进 zip，形如令牌的值会打码。</p>
+          <pre class="report" id="report" tabindex="0" aria-label="诊断信息"></pre>
+        </section>
+
+        <section data-xh-part="content" value="about" class="page" aria-labelledby="about-title">
+          <h2 id="about-title">关于</h2>
+          <xh-descriptions>
+            <dl data-xh-part="root" id="about"></dl>
+          </xh-descriptions>
+        </section>
+      </div>
+    </xh-tabs>
+  </main>
+  <script type="module" src="./src/main.ts"></script>
+</body>
+</html>

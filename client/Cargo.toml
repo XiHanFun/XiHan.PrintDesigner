@@ -1,0 +1,65 @@
+# 打印客户端的 Cargo 工作区：core 是平台无关的协议、服务与任务，platform 是各平台的渲染与打印，app 是 Tauri 2 托盘程序
+[workspace]
+resolver = "3"
+members = ["core", "platform", "app"]
+
+[workspace.package]
+# 设计器升版时由 print/scripts/release/VersionUpgrade 一起写成 @xihan-print/* 的版本
+version = "1.0.0"
+edition = "2024"
+rust-version = "1.90"
+license = "MIT"
+authors = ["XiHanFun and contributors"]
+repository = "https://github.com/XiHanFun/XiHan.PrintDesigner"
+homepage = "https://print.docs.xihanfun.com"
+
+# 版本集中在这里；运行时依赖只取 Tauri 已带进来的与下面几项，加任何新的运行时依赖先征得维护者同意
+[workspace.dependencies]
+xihan-print-client-core = { path = "core" }
+xihan-print-client-platform = { path = "platform" }
+
+tokio = { version = "1.54", features = ["rt-multi-thread", "macros", "net", "io-util", "sync", "time", "fs"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+sha1 = "0.10"
+sha2 = "0.10"
+getrandom = "0.3"
+zip = { version = "2.6", default-features = false, features = ["deflate"] }
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "stream", "gzip"] }
+
+tauri = { version = "2.12", features = ["tray-icon", "image-png"] }
+tauri-build = { version = "2", features = [] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+
+windows = "0.62"
+webview2-com = "0.39"
+
+objc2 = "0.6"
+objc2-foundation = "0.3"
+objc2-app-kit = "0.3"
+objc2-web-kit = "0.3"
+objc2-pdf-kit = "0.3"
+block2 = "0.6"
+dispatch2 = "0.3"
+
+gtk = "0.18"
+glib = "0.18"
+webkit2gtk = { version = "2.0", features = ["v2_40"] }
+libc = "0.2"
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unsafe_op_in_unsafe_fn = "deny"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "unwind"
+strip = true

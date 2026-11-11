@@ -1,0 +1,77 @@
+[package]
+name = "xihan-print-client-platform"
+description = "曦寒打印客户端的平台实现：Windows 上是 WebView2 与 winspool，macOS 与 Linux 上是 WebKit 渲染与 CUPS"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+xihan-print-client-core.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+webview2-com.workspace = true
+windows = { workspace = true, features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_Graphics_Printing",
+  "Win32_Networking_WinSock",
+  "Win32_Security",
+  "Win32_Security_Cryptography",
+  "Win32_Security_Cryptography_Catalog",
+  "Win32_Security_Cryptography_Sip",
+  "Win32_Security_WinTrust",
+  "Win32_Storage_FileSystem",
+  "Win32_Storage_Xps",
+  "Win32_System_Com",
+  "Win32_System_Com_StructuredStorage",
+  "Win32_System_LibraryLoader",
+  "Win32_System_Memory",
+  "Win32_System_Registry",
+  "Win32_System_SystemInformation",
+  "Win32_System_Threading",
+  "Win32_System_Time",
+  "Win32_UI_Controls_Dialogs",
+  "Win32_UI_Shell",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2.workspace = true
+block2.workspace = true
+dispatch2.workspace = true
+objc2-foundation = { workspace = true }
+objc2-app-kit = { workspace = true }
+objc2-web-kit = { workspace = true }
+objc2-pdf-kit = { workspace = true }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk.workspace = true
+glib.workspace = true
+webkit2gtk.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints]
+workspace = true
+
+# Linux 上 WebKitGTK 渲染与 CUPS 的集成测试：GTK 要在主线程上初始化，自己写 main
+[[test]]
+name = "linux_webkit"
+harness = false
+
+# macOS 上 WKWebView 渲染与 PDFKit 合并的集成测试：主线程要跑 NSApplication 的主运行循环，自己写 main
+[[test]]
+name = "macos_render"
+harness = false

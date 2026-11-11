@@ -60,7 +60,8 @@ Write-Output "当前版本：$currentVersion"
 Invoke-Checked '锁步核对（公开包版本必须一致）' { node scripts/release/check-version-lock.mjs }
 
 # 仓库里有打印客户端时，升版时把客户端的版本一起写成公开包的号
-$clientPropsPath = Join-Path $workspaceRoot '..\client\Directory.Build.props'
+$clientManifestPath = Join-Path $workspaceRoot '..\client\Cargo.toml'
+$clientLockPath = Join-Path $workspaceRoot '..\client\Cargo.lock'
 
 $prePath = Join-Path $workspaceRoot '.changeset\pre.json'
 $preTag = $null
@@ -179,7 +180,7 @@ Write-Output "计划："
 if ($forcedLevel) { Write-Output "  - 补一份合成变更集：$forcedLevel，理由「$Reason」" }
 foreach ($action in $preActions) { Write-Output "  - pnpm exec changeset pre $($action -join ' ')" }
 Write-Output "  - pnpm run version（消费变更集、改三个包的 version、写各包 CHANGELOG、删掉用掉的变更集）"
-if (Test-Path $clientPropsPath) { Write-Output "  - 打印客户端 client/Directory.Build.props 的 Version 写成同一个号" }
+if (Test-Path $clientManifestPath) { Write-Output "  - 打印客户端 client/Cargo.toml 的 [workspace.package] version（连同 Cargo.lock）写成同一个号" }
 $expected = if ($forcedLevel) { "按 $forcedLevel 提升" } elseif ($derivedVersion) { $derivedVersion } else { "按预发布期间的变更集定正式版号（去掉 -$preTag.N）" }
 Write-Output "  - 版本：$currentVersion -> $expected$(if ($targetChannel) { "，带预发布后缀 -$targetChannel.N，npm dist-tag 为 $targetChannel" } else { '，正式版' })"
 
@@ -210,10 +211,14 @@ foreach ($action in $preActions) {
 Invoke-Checked 'changeset version' { pnpm run version }
 
 $newVersion = (Read-JsonFile $corePackagePath).version
-if (Test-Path $clientPropsPath) {
-    $props = [System.IO.File]::ReadAllText($clientPropsPath, [System.Text.Encoding]::UTF8)
-    $props = [regex]::Replace($props, '<Version>[^<]*</Version>', "<Version>$newVersion</Version>")
-    [System.IO.File]::WriteAllText($clientPropsPath, $props, (New-Object System.Text.UTF8Encoding $false))
+if (Test-Path $clientManifestPath) {
+    $utf8 = New-Object System.Text.UTF8Encoding $false
+    $manifest = [System.IO.File]::ReadAllText($clientManifestPath, [System.Text.Encoding]::UTF8)
+    $manifest = [regex]::Replace($manifest, '(?ms)(^\[workspace\.package\][^\[]*?^version\s*=\s*")[^"]*(")', "`${1}$newVersion`${2}")
+    [System.IO.File]::WriteAllText($clientManifestPath, $manifest, $utf8)
+    $lock = [System.IO.File]::ReadAllText($clientLockPath, [System.Text.Encoding]::UTF8)
+    $lock = [regex]::Replace($lock, '(?m)(^name = "xihan-print-client(?:-core|-platform)?"\r?\nversion = ")[^"]*(")', "`${1}$newVersion`${2}")
+    [System.IO.File]::WriteAllText($clientLockPath, $lock, $utf8)
     Write-Output "打印客户端的版本已写成：$newVersion"
 }
 Invoke-Checked '升级之后的锁步核对' { node scripts/release/check-version-lock.mjs }
@@ -224,7 +229,7 @@ Write-Output ""
 Write-Output "========================================"
 Write-Output " 接下来（脚本不做，请手工确认后执行）"
 Write-Output "========================================"
-Write-Output "1. 检查改动：git status / git diff（三个包的 package.json 与 CHANGELOG.md、.changeset/$(if (Test-Path $clientPropsPath) { '、client/Directory.Build.props' })）"
+Write-Output "1. 检查改动：git status / git diff（三个包的 package.json 与 CHANGELOG.md、.changeset/$(if (Test-Path $clientManifestPath) { '、client/Cargo.toml 与 Cargo.lock' })）"
 # 文档站的更新日志页在首发那一笔新建
 $changelogPath = Join-Path $workspaceRoot '..\docs\changelog.md'
 if (Test-Path $changelogPath) {

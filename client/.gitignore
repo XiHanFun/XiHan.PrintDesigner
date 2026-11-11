@@ -1,16 +1,18 @@
-# 构建与测试产物
-bin/
-obj/
+# Rust 构建产物
+target/
+
+# 前端依赖与构建产物
+node_modules/
+ui/dist/
+
+# Tauri 生成的权限清单
+app/gen/
+
+# 安装包的发布目录、WebView2 引导程序与输出
 artifacts/
-TestResults/
-*.trx
+installer/output/
 
 # IDE
 .vs/
 .vscode/
 .idea/
-*.user
-*.suo
-
-# 安装包输出
-installer/output/

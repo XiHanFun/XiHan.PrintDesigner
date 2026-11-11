@@ -1,0 +1,41 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "曦寒打印客户端",
+  "mainBinaryName": "XiHanPrint",
+  "identifier": "com.xihanfun.printclient",
+  "build": {
+    "frontendDist": "../ui/dist",
+    "devUrl": "http://localhost:5193",
+    "beforeDevCommand": "pnpm dev",
+    "beforeBuildCommand": "pnpm build"
+  },
+  "app": {
+    "windows": [],
+    "withGlobalTauri": false,
+    "security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; frame-src 'self' xihan-ext: http://xihan-ext.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "deb", "rpm", "appimage"],
+    "publisher": "XiHanFun",
+    "homepage": "https://print.docs.xihanfun.com",
+    "copyright": "Copyright (c) 2021-Present XiHanFun and contributors.",
+    "category": "Utility",
+    "shortDescription": "曦寒打印客户端",
+    "longDescription": "本机打印客户端：网页经 WebSocket 连上它，静默打印到指定的打印机、写原始指令、导出 PDF。",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"],
+    "macOS": {
+      "minimumSystemVersion": "11.0"
+    },
+    "linux": {
+      "deb": {
+        "depends": ["libcups2"]
+      },
+      "rpm": {
+        "depends": ["cups-libs"]
+      }
+    }
+  }
+}

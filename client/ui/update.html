@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="system">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>曦寒打印客户端 新版本</title>
+</head>
+<body>
+  <main class="dialog" aria-labelledby="title">
+    <h2 class="origin" id="title"></h2>
+    <pre class="notes" id="notes" tabindex="0" aria-label="发布说明"></pre>
+    <xh-progress id="progress" value="0" max="100" hidden>
+      <div data-xh-part="root" aria-label="下载进度">
+        <div data-xh-part="track">
+          <div data-xh-part="range"></div>
+        </div>
+      </div>
+    </xh-progress>
+    <p class="muted" id="state" aria-live="polite"></p>
+    <div class="row end" id="actions"></div>
+  </main>
+  <script type="module" src="./src/update.ts"></script>
+</body>
+</html>

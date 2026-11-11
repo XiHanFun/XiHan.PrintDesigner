@@ -1,0 +1,40 @@
+[package]
+name = "xihan-print-client"
+description = "曦寒打印客户端：本机托盘程序，网页经 WebSocket 连上它静默打印、写原始指令、导出 PDF"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+publish = false
+
+[lib]
+name = "xihan_print_client"
+path = "src/lib.rs"
+
+[[bin]]
+name = "XiHanPrint"
+path = "src/main.rs"
+
+[features]
+# 正式构建打开：窗口页面取打包进程序的前端产物，不连开发服务器
+custom-protocol = ["tauri/custom-protocol"]
+
+[dependencies]
+xihan-print-client-core.workspace = true
+xihan-print-client-platform.workspace = true
+tauri.workspace = true
+tauri-plugin-single-instance.workspace = true
+tauri-plugin-dialog.workspace = true
+tauri-plugin-opener.workspace = true
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[lints]
+workspace = true

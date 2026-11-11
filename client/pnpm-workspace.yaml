@@ -1,0 +1,5 @@
+trustPolicy: no-downgrade
+shellEmulator: true
+
+allowBuilds:
+  esbuild: true

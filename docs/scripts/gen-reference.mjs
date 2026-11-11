@@ -4,7 +4,7 @@
  */
 
 // 从源码生成 reference/ 下的参考页：元素与属性取自 @xihan-print/core 的元素原型，中文名与问题说明取自 printZhCN，
-// 类型、元素的属性、方法与事件取自 print/packages 的 TypeScript 源码与注释，客户端错误码的说明取自 client 的 C# 注释。
+// 类型、元素的属性、方法与事件取自 print/packages 的 TypeScript 源码与注释，客户端错误码的说明取自 client 的 Rust 文档注释。
 // 带 --check 时只比对，与已提交的页面不一致就列出并以非零退出。
 
 import { existsSync, readFileSync } from 'node:fs'
@@ -834,15 +834,19 @@ function designerPage() {
 
 // —— 打印客户端 SDK ——
 
-/** C# 常量的 XML 注释：错误码到说明。 */
-function csharpCodes(file) {
-  const lines = readFileSync(file, 'utf8').split(/\r?\n/).map(line => line.trim())
+/** 客户端 Rust 源码里某个 mod 的错误码常量：每个常量上面一行的文档注释即说明。 */
+function rustCodes(file, module) {
+  const lines = readFileSync(file, 'utf8').split(/\r?\n/)
+  const start = lines.findIndex(line => line.trim() === `pub mod ${module} {`)
+  if (start < 0)
+    throw new Error(`[gen-reference] ${file} 里没有 mod ${module}`)
   const codes = new Map()
-  lines.forEach((line, index) => {
-    const constant = /^public const string \w+ = "([A-Z_]+)";$/.exec(line)
-    if (constant !== null && lines[index - 1] === '/// </summary>' && lines[index - 3] === '/// <summary>')
-      codes.set(constant[1], lines[index - 2].replace(/^\/\/\/ /, ''))
-  })
+  for (let index = start + 1; index < lines.length && lines[index] !== '}'; index++) {
+    const constant = /^pub const \w+: &str = "([A-Z_]+)";$/.exec(lines[index].trim())
+    const doc = /^\/\/\/ (.+)$/.exec(lines[index - 1].trim())
+    if (constant !== null && doc !== null)
+      codes.set(constant[1], doc[1])
+  }
   return codes
 }
 
@@ -853,8 +857,8 @@ function clientPage() {
   const fallback = packageSource('runtime', 'src', 'client', 'fallback.ts')
   const documentFile = packageSource('runtime', 'src', 'client', 'document.ts')
   const root = packageSource('runtime', 'src')
-  const clientCodes = csharpCodes(join(repoDir, 'client', 'src', 'XiHan.PrintClient.Core', 'Protocol', 'PrintErrorCodes.cs'))
-  const warningCodes = csharpCodes(join(repoDir, 'client', 'src', 'XiHan.PrintClient.Core', 'Protocol', 'PrintWarningCodes.cs'))
+  const clientCodes = rustCodes(join(repoDir, 'client', 'core', 'src', 'protocol', 'codes.rs'), 'errors')
+  const warningCodes = rustCodes(join(repoDir, 'client', 'core', 'src', 'protocol', 'codes.rs'), 'warnings')
   const warningRows = literalUnion(protocol, 'ClientWarningCode').map(item => [item, warningCodes.get(item)])
   const fallbackCodes = stringArray(errors, 'FALLBACK_CODES')
   const sdkDoc = jsdoc(declaration(protocol, 'SdkErrorCode').node)
