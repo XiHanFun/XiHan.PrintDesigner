@@ -95,6 +95,20 @@
           </xh-select>
           <div class="row" id="settings-actions"></div>
           <p class="muted" id="settings-state" aria-live="polite"></p>
+
+          <h3 id="connection-title">网页连接</h3>
+          <p class="muted">网页经本机端口连上客户端。改了端口，网页要在 createPrintClient 的 ports 里写上同一个端口；设了访问密钥，网页要在 accessKey 里带上同样的密钥，否则连接被拒绝。</p>
+          <div class="field">
+            <xh-text-field id="port" label="本机端口" placeholder="不填时依次试 17620–17623" max-length="5"></xh-text-field>
+            <span class="row" id="port-actions"></span>
+          </div>
+          <p class="muted" id="port-policy" hidden>端口由管理员策略设定，不能在这里改。</p>
+          <div class="field">
+            <xh-password-input id="access-key" label="访问密钥" placeholder="不设时不核对" auto-complete="off"></xh-password-input>
+            <span class="row" id="key-actions"></span>
+          </div>
+          <p class="muted" id="key-policy" hidden>访问密钥由管理员策略设定，不能在这里改。</p>
+          <p class="muted" id="connection-state" aria-live="polite"></p>
         </section>
 
         <section data-xh-part="content" value="diagnostics" class="page" aria-labelledby="diagnostics-title">

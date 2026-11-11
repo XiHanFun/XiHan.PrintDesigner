@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 「本地客户端」页的连接状态：状态标签（已连接、未连接、未安装）、「测试连接」钮，没连上时再给「下载客户端」链接。
+// 「本地客户端」页的连接状态：状态标签（已连接、未连接、未安装、访问密钥不对）、「测试连接」钮，没连上、也不是访问密钥不对时再给「下载客户端」链接。
 // 读宿主给的 printClient，订阅它的 state 当场刷新；测试连接调它的 connect，设计器自己不建连接。
 
 import type { PrintDesignerTranslations } from '@xihan-print/runtime'
@@ -14,8 +14,11 @@ import type { PrintClientStatusControl } from './settings'
 import { createAuthoredElement, setAttributes, setText } from '@xihan-ui/web-components/authoring'
 import { PRINT_CLIENT_DOWNLOAD_URL } from './settings'
 
-/** 连接状态的三种说法：连着；没连着；最近一次测试连接没找到客户端。 */
-type PrintClientStatus = 'connected' | 'disconnected' | 'missing'
+/** 连接状态的四种说法：连着；没连着；最近一次测试连接没找到客户端；最近一次测试连接访问密钥缺少或不对。 */
+type PrintClientStatus = 'connected' | 'disconnected' | 'missing' | 'denied'
+
+/** 最近一次测试连接失败留下的说法，连上或换了客户端时清掉。 */
+type PrintClientFailure = Extract<PrintClientStatus, 'missing' | 'denied'>
 
 /** createPrintClientStatus 的选项：都按调用现取。下载地址取这一条的编辑方式。 */
 interface PrintClientStatusOptions {
@@ -40,7 +43,7 @@ interface Instance {
   readonly detach: () => void
 }
 
-const TONES: Readonly<Record<PrintClientStatus, Tone>> = { connected: 'success', disconnected: 'neutral', missing: 'warning' }
+const TONES: Readonly<Record<PrintClientStatus, Tone>> = { connected: 'success', disconnected: 'neutral', missing: 'warning', denied: 'danger' }
 
 export function createPrintClientStatus(options: PrintClientStatusOptions): PrintClientStatusHost {
   const live = new Set<Instance>()
@@ -56,25 +59,27 @@ export function createPrintClientStatus(options: PrintClientStatusOptions): Prin
     const download = createAuthoredElement(doc, 'xh-button', { 'as': 'a', 'variant': 'ghost', 'size': 'sm', 'data-part': 'client-download' }, [link])
     const element = createAuthoredElement(doc, 'div', { 'data-scope': 'print-designer', 'data-part': 'client-status' }, [state, test, download])
     let watched: { readonly client: PrintClient, readonly off: () => void } | undefined
-    let missing = false
+    let failure: PrintClientFailure | undefined
     let testing = false
 
     const paint = (): void => {
       const client = options.client()
       if (watched?.client !== client) {
         watched?.off()
-        missing = false
+        failure = undefined
         watched = client === undefined ? undefined : { client, off: client.on('state', paint) }
       }
+      if (client?.state === 'open')
+        failure = undefined
       const t = options.translations()
-      const now: PrintClientStatus = client?.state === 'open' ? 'connected' : missing ? 'missing' : 'disconnected'
+      const now: PrintClientStatus = client?.state === 'open' ? 'connected' : failure ?? 'disconnected'
       setText(label, t.settingsClientStates[now])
       setAttributes(tag, { tone: TONES[now] })
       setText(testFace, t.settingsClientTest)
       setAttributes(test, { loading: testing, disabled: client === undefined })
       setText(link, t.settingsClientDownload)
       setAttributes(link, { href: (context.descriptor.control as Partial<PrintClientStatusControl>).downloadUrl ?? PRINT_CLIENT_DOWNLOAD_URL })
-      download.hidden = now === 'connected'
+      download.hidden = now === 'connected' || now === 'denied'
     }
     const instance: Instance = {
       paint,
@@ -91,8 +96,11 @@ export function createPrintClientStatus(options: PrintClientStatusOptions): Prin
       testing = true
       paint()
       client.connect().then(
-        () => void (missing = false),
-        (error: unknown) => void (missing = (error as { readonly code?: unknown } | null)?.code === 'CLIENT_UNAVAILABLE'),
+        () => void (failure = undefined),
+        (error: unknown) => {
+          const code = (error as { readonly code?: unknown } | null)?.code
+          failure = code === 'CLIENT_UNAVAILABLE' ? 'missing' : code === 'ACCESS_DENIED' ? 'denied' : undefined
+        },
       ).finally(() => {
         testing = false
         if (live.has(instance))

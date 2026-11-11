@@ -12,10 +12,12 @@ import {
   XhButtonElement,
   XhCheckboxElement,
   XhDescriptionsElement,
+  XhPasswordInputElement,
   XhProgressElement,
   XhSelectElement,
   XhSwitchElement,
   XhTabsElement,
+  XhTextFieldElement,
 } from '@xihan-ui/web-components/define'
 import { zhCN } from '@xihan-ui/web-components/locale'
 import '@xihan-ui/styles/index.css'
@@ -33,10 +35,12 @@ export function setup(): void {
   defineXhElement('xh-button', XhButtonElement)
   defineXhElement('xh-checkbox', XhCheckboxElement)
   defineXhElement('xh-descriptions', XhDescriptionsElement)
+  defineXhElement('xh-password-input', XhPasswordInputElement)
   defineXhElement('xh-progress', XhProgressElement)
   defineXhElement('xh-select', XhSelectElement)
   defineXhElement('xh-switch', XhSwitchElement)
   defineXhElement('xh-tabs', XhTabsElement)
+  defineXhElement('xh-text-field', XhTextFieldElement)
   setXhConfig(zhCN)
 }
 

@@ -29,7 +29,8 @@ description: 开发、修复或测试 XiHan.PrintDesigner 的本地打印客户�
 
 ## 协议与安全边界
 
-- 只监听 127.0.0.1 的 WebSocket，端口按 17620–17623 依次试（Windows 上独占绑定）；子协议 `xihan-print.v1`（`core/src/defaults.rs`）。主版本对不上时以 4426 关闭，浏览器侧 SDK 报 `PROTOCOL_UNSUPPORTED`。
+- 只监听 127.0.0.1 的 WebSocket，端口按 17620–17623 依次试（Windows 上独占绑定），策略的 `ports` 或用户设置的 `port` 固定端口；改端口时 `PrintServer::rebind_loopback` 先绑新端口再停旧的。子协议 `xihan-print.v1`（`core/src/defaults.rs`）。主版本对不上时以 4426 关闭，浏览器侧 SDK 报 `PROTOCOL_UNSUPPORTED`。
+- 设了访问密钥（策略的 `accessKey` 优先于设置的）时，握手核对 hello 的 `key`（`server/access.rs`，排在收费版登记的放行之前），缺少或不对时回 `ACCESS_DENIED` 并以 4403 关闭。
 - 每个网站（来源）第一次连接时问用户一次，记进允许与拒绝名单。
 - 渲染页只渲染打印文档：不跑页面脚本、不联网，图片与字体由 SDK 随任务带来。WebView2 直接拦截 `https://print.local/`；WebKit 不能拦 https，渲染前把文档里的 `https://print.local/` 换成自定义协议 `xihan-print://print.local/`。
 - 浏览器侧的 SDK 在 `print/packages/runtime/src/client/`。协议、消息或错误码一改，两边同一笔改，并在 `docs/` 跑 `pnpm gen`（客户端错误码的说明取自 `core/src/protocol/codes.rs` 的文档注释，生成进 `docs/reference/client.md`）。SDK 与客户端靠子协议保持兼容；协议升主版本时两边的更新日志都写清楚。

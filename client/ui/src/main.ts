@@ -36,7 +36,15 @@ interface Overview {
   readonly logLevel: string
   readonly pages: readonly ExtensionPage[]
   readonly update: string | null
+  readonly ports: readonly number[]
+  readonly userPort: number | null
+  readonly portsLocked: boolean
+  readonly accessKey: string | null
+  readonly accessKeyLocked: boolean
 }
+
+/** 输入框：受控的 value，变化经 value-change 报告。 */
+type FieldElement = HTMLElement & { value?: string, readOnly?: boolean }
 
 interface Printer {
   readonly name: string
@@ -119,6 +127,7 @@ async function renderOverview(): Promise<Overview> {
   describeRow(list, '渲染', overview.renderer ?? `${overview.rendererProblem ?? '不可用'}，HTML 打印与导出 PDF 不可用`)
   describeRow(list, '监听', overview.listening.length > 0 ? overview.listening.join('、') : '没有可用端口，未在监听')
   describeRow(list, '协议', overview.protocol)
+  describeRow(list, '访问密钥', overview.accessKey === null ? '未设，网页连接时不核对' : `已设${overview.accessKeyLocked ? '（管理员策略）' : ''}，网页要带上同样的密钥`)
 
   const about = byId('about')
   about.replaceChildren()
@@ -135,7 +144,90 @@ async function renderOverview(): Promise<Overview> {
   updates.disabled = !overview.updatesAllowed
   byId('updates-policy').hidden = overview.updatesAllowed
   byId<ValueElement<string[]>>('log-level').value = [overview.logLevel]
+  renderConnection(overview)
   return overview
+}
+
+/** 端口与密钥两个输入框的内容：用户改过、还没保存时不随概览刷新。 */
+const connection = { port: '', key: '', portEdited: false, keyEdited: false }
+
+function renderConnection(overview: Overview): void {
+  const port = byId<FieldElement>('port')
+  const key = byId<FieldElement>('access-key')
+  if (!connection.portEdited) {
+    connection.port = overview.portsLocked ? overview.ports.join(', ') : overview.userPort?.toString() ?? ''
+    port.value = connection.port
+  }
+  if (!connection.keyEdited) {
+    connection.key = overview.accessKey ?? ''
+    key.value = connection.key
+  }
+  port.readOnly = overview.portsLocked
+  key.readOnly = overview.accessKeyLocked
+  byId('port-policy').hidden = !overview.portsLocked
+  byId('key-policy').hidden = !overview.accessKeyLocked
+  byId('port-actions').hidden = overview.portsLocked
+  byId('key-actions').hidden = overview.accessKeyLocked
+}
+
+/** 32 位十六进制的随机密钥。 */
+function randomKey(): string {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function wireConnection(): void {
+  const state = byId('connection-state')
+  const port = byId<FieldElement>('port')
+  const key = byId<FieldElement>('access-key')
+  port.addEventListener('value-change', (event) => {
+    connection.port = (event as CustomEvent<{ value: string }>).detail.value
+    connection.portEdited = true
+    port.value = connection.port
+  })
+  key.addEventListener('value-change', (event) => {
+    connection.key = (event as CustomEvent<{ value: string }>).detail.value
+    connection.keyEdited = true
+    key.value = connection.key
+  })
+  const applyPort = button('应用', () => {
+    const text = connection.port.trim()
+    if (text !== '' && !/^\d{1,5}$/.test(text)) {
+      state.textContent = '端口要写成 1024–65535 之间的整数。'
+      return
+    }
+    nativeButton(applyPort).disabled = true
+    invoke<number | null>('set_port', { port: text === '' ? null : Number(text) })
+      .then((listening) => {
+        connection.portEdited = false
+        state.textContent = text === '' ? `已恢复缺省端口，现在监听 ${listening ?? '—'}。` : `已改为监听端口 ${listening ?? text}。`
+        void renderOverview()
+      })
+      .catch((error: unknown) => { state.textContent = describe(error) })
+      .finally(() => { nativeButton(applyPort).disabled = false })
+  }, 'solid')
+  byId('port-actions').append(applyPort)
+
+  const saveKey = (value: string): void => {
+    invoke('set_access_key', { key: value === '' ? null : value })
+      .then(() => {
+        connection.keyEdited = false
+        state.textContent = value === '' ? '已清除访问密钥，网页连接时不再核对。' : '访问密钥已保存，之后的连接按它核对；已连上的网页不受影响。'
+        void renderOverview()
+      })
+      .catch((error: unknown) => { state.textContent = describe(error) })
+  }
+  byId('key-actions').append(
+    button('生成', () => {
+      connection.key = randomKey()
+      connection.keyEdited = true
+      key.value = connection.key
+    }),
+    button('复制', () => {
+      void navigator.clipboard.writeText(connection.key).then(() => { state.textContent = '访问密钥已复制。' })
+    }),
+    button('清除', () => saveKey('')),
+    button('保存', () => saveKey(connection.key.trim()), 'solid'),
+  )
 }
 
 async function renderPrinters(): Promise<void> {
@@ -273,6 +365,7 @@ function wireDiagnostics(): void {
 async function start(): Promise<void> {
   byId('printers-refresh').append(button('刷新', () => void renderPrinters(), 'ghost'))
   wireSettings()
+  wireConnection()
   wireDiagnostics()
   const overview = await renderOverview()
   addExtensionPages(overview.pages)

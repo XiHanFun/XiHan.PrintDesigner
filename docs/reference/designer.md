@@ -213,7 +213,7 @@ schema-change 的种类：执行操作、撤销、重做，或宿主装载了新
 | `settingsClient` | `string` | 设置对话框里「本地客户端」那一页的名称。 |
 | `settingsClientStatus` | `string` | 「本地客户端」页里连接状态一项。 |
 | `settingsClientStatusHint` | `string` |  |
-| `settingsClientStates` | `Readonly<Record<'connected' \| 'disconnected' \| 'missing', string>>` | 连接状态的三种说法：已连接；未连接；最近一次测试连接没找到客户端时是未安装。 |
+| `settingsClientStates` | `Readonly<Record<'connected' \| 'disconnected' \| 'missing' \| 'denied', string>>` | 连接状态的四种说法：已连接；未连接；最近一次测试连接没找到客户端时是未安装；最近一次测试连接访问密钥缺少或不对时是访问密钥不对。 |
 | `settingsClientTest` | `string` |  |
 | `settingsClientDownload` | `string` |  |
 | `statusZoom` | `string` | 状态栏右段缩放一项的标签。 |

@@ -14,8 +14,8 @@ use xihan_print_client_core::log::{ClientLog, FileLog, LogLevel, SharedLog};
 use xihan_print_client_core::paths::AppPaths;
 use xihan_print_client_core::printing::{HtmlPrintEngine, JobQueue, JobQueueOptions, PrintRequestHandler, PrinterCatalog, selftest};
 use xihan_print_client_core::protocol::{ClientCapabilities, ClientInfo, PrintOptions, PrinterInfo};
-use xihan_print_client_core::server::{ClientEnvironment, OpenGate, PrintServer, ServerOptions, ServerParts};
-use xihan_print_client_core::settings::ClientSettings;
+use xihan_print_client_core::server::{AccessKeyGate, ClientEnvironment, GateChain, HandshakeGate, PrintServer, ServerOptions, ServerParts, is_access_key};
+use xihan_print_client_core::settings::{ClientSettings, MIN_USER_PORT};
 use xihan_print_client_core::time::{Clock, SystemClock};
 use xihan_print_client_platform as platform;
 
@@ -38,6 +38,7 @@ pub struct Host {
     engine: Option<Arc<dyn HtmlPrintEngine>>,
     renderer_problem: Option<String>,
     queue: JobQueue,
+    access: Arc<AccessKeyGate>,
     server: Mutex<Option<PrintServer>>,
     problems: Mutex<Vec<String>>,
     info: ClientInfo,
@@ -77,6 +78,17 @@ impl ClientEnvironment for Environment {
 
     fn capabilities(&self) -> ClientCapabilities {
         self.capabilities.clone()
+    }
+}
+
+/// 本机回环监听依次试的端口：策略固定了端口时用策略的，否则用户设了端口时只用它，都没有时用缺省的端口
+fn effective_ports(policy: &ClientPolicy, settings: &ClientSettings) -> Vec<u16> {
+    if !policy.ports.is_empty() {
+        policy.ports.clone()
+    } else if let Some(port) = settings.port {
+        vec![port]
+    } else {
+        ServerOptions::default().ports
     }
 }
 
@@ -156,20 +168,19 @@ impl Host {
         let prompt = Arc::new(crate::consent::WindowConsent::new(app.clone()));
         let authorizer = Arc::new(Authorizer::new(lists.clone(), policy.clone(), prompt, Duration::from_secs(60), shared.clone()));
         let options = ServerOptions {
-            ports: if policy.ports.is_empty() {
-                ServerOptions::default().ports
-            } else {
-                policy.ports.clone()
-            },
+            ports: effective_ports(&policy, &settings),
             ..ServerOptions::default()
         };
         let ports = options.ports.clone();
+        let access = Arc::new(AccessKeyGate::new(policy.access_key.clone().or_else(|| settings.access_key.clone())));
+        let mut gates: Vec<Arc<dyn HandshakeGate>> = vec![access.clone()];
+        gates.extend(extensions.gate.clone());
         let server = PrintServer::new(ServerParts {
             options,
             authorizer,
             environment,
             handler,
-            gate: extensions.gate.clone().unwrap_or_else(|| Arc::new(OpenGate)),
+            gate: Arc::new(GateChain(gates)),
             clock: clock.clone(),
             log: shared.clone(),
         });
@@ -195,6 +206,7 @@ impl Host {
             engine,
             renderer_problem,
             queue,
+            access,
             server: Mutex::new(Some(server)),
             problems: Mutex::new(problems),
             info,
@@ -311,6 +323,79 @@ impl Host {
         settings.save(&self.paths.settings_file())
     }
 
+    /// 本机回环监听依次试的端口：策略固定了端口时用策略的，否则用户设了端口时只用它，都没有时用缺省的端口
+    pub fn ports(&self) -> Vec<u16> {
+        effective_ports(&self.policy, &self.settings.lock().unwrap())
+    }
+
+    /// 端口是否由策略固定
+    pub fn ports_locked(&self) -> bool {
+        !self.policy.ports.is_empty()
+    }
+
+    /// 改用户设的端口（None 恢复缺省）：先换监听，换成了再存设置；换不成时监听与设置都不动，给出写给用户看的原因
+    pub(crate) fn set_port(&self, port: Option<u16>) -> Result<Option<u16>, String> {
+        if self.ports_locked() {
+            return Err("端口由管理员策略设定，不能在这里改。".into());
+        }
+        if port.is_some_and(|port| port < MIN_USER_PORT) {
+            return Err(format!("端口要在 {MIN_USER_PORT}–65535 之间。"));
+        }
+        let ports = match port {
+            Some(port) => vec![port],
+            None => ServerOptions::default().ports,
+        };
+        let listening = self
+            .with_server(|server| server.rebind_loopback(&ports, platform::bind_listener))
+            .ok_or_else(|| "客户端正在退出。".to_owned())?
+            .map_err(|error| {
+                let list = ports.iter().map(u16::to_string).collect::<Vec<_>>().join("、");
+                self.log.warn(&format!("换不了端口 {list}：{error}"));
+                format!("端口 {list} 不可用：{error}")
+            })?;
+        self.update_settings(|settings| settings.port = port)
+            .map_err(|error| format!("端口已换成 {listening}，但设置没存下来：{error}"))?;
+        self.problems.lock().unwrap().retain(|problem| !problem.contains("网页暂时连不上客户端"));
+        self.log.info(&format!("监听端口改为 {listening}"));
+        Ok(Some(listening))
+    }
+
+    /// 生效的访问密钥：策略设了时用策略的，否则用用户设的
+    pub fn access_key(&self) -> Option<String> {
+        self.policy.access_key.clone().or_else(|| self.settings.lock().unwrap().access_key.clone())
+    }
+
+    /// 访问密钥从哪来：策略或设置；没设时为 None
+    pub fn access_key_source(&self) -> Option<&'static str> {
+        if self.policy.access_key.is_some() {
+            Some("策略")
+        } else if self.settings.lock().unwrap().access_key.is_some() {
+            Some("设置")
+        } else {
+            None
+        }
+    }
+
+    /// 访问密钥是否由策略设定
+    pub fn access_key_locked(&self) -> bool {
+        self.policy.access_key.is_some()
+    }
+
+    /// 改用户设的访问密钥（None 为不要密钥）：存设置后立即生效，已建立的连接不断开；给出写给用户看的原因
+    pub(crate) fn set_access_key(&self, key: Option<String>) -> Result<(), String> {
+        if self.access_key_locked() {
+            return Err("访问密钥由管理员策略设定，不能在这里改。".into());
+        }
+        if key.as_deref().is_some_and(|key| !is_access_key(key)) {
+            return Err("访问密钥要 8–128 个字母、数字或符号，不含空格与中文。".into());
+        }
+        self.update_settings(|settings| settings.access_key = key.clone())
+            .map_err(|error| format!("设置没存下来：{error}"))?;
+        self.access.set(key.clone());
+        self.log.info(if key.is_some() { "访问密钥已更新" } else { "访问密钥已清除" });
+        Ok(())
+    }
+
     /// 改日志级别并存设置
     pub(crate) fn set_log_level(&self, level: LogLevel) -> std::io::Result<()> {
         self.update_settings(|settings| settings.log_level = level)
@@ -350,6 +435,8 @@ impl Host {
             listening: listening.into_iter().map(|(name, address)| (name, address.to_string())).collect(),
             policy: (*self.policy).clone(),
             policy_file_exists: self.paths.policy_file.exists(),
+            user_port: self.settings.lock().unwrap().port,
+            access_key_source: self.access_key_source().map(str::to_owned),
             allowed: self.lists.allowed(),
             denied: self.lists.denied(),
             recent_jobs: self.queue.recent(RECENT_JOB_COUNT),

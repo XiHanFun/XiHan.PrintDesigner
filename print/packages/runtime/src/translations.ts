@@ -183,8 +183,8 @@ export interface PrintDesignerTranslations {
   /** 「本地客户端」页里连接状态一项。 */
   readonly settingsClientStatus: string
   readonly settingsClientStatusHint: string
-  /** 连接状态的三种说法：已连接；未连接；最近一次测试连接没找到客户端时是未安装。 */
-  readonly settingsClientStates: Readonly<Record<'connected' | 'disconnected' | 'missing', string>>
+  /** 连接状态的四种说法：已连接；未连接；最近一次测试连接没找到客户端时是未安装；最近一次测试连接访问密钥缺少或不对时是访问密钥不对。 */
+  readonly settingsClientStates: Readonly<Record<'connected' | 'disconnected' | 'missing' | 'denied', string>>
   readonly settingsClientTest: string
   readonly settingsClientDownload: string
   /** 状态栏左段没有选中时的值：当前页面模板上可见的元素个数。 */

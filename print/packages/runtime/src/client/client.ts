@@ -45,6 +45,11 @@ export interface PrintClientOptions {
   readonly connectTimeoutMs?: number
   /** 客户端弹出授权窗口后等用户决定的期限，缺省 75 秒。 */
   readonly consentTimeoutMs?: number
+  /**
+   * 访问密钥：客户端设了访问密钥时，握手要带上同一个密钥，缺少或不对时 connect 以 ACCESS_DENIED 拒绝、不自动重连。
+   * 没设访问密钥的客户端不核对，带了也照常连上。
+   */
+  readonly accessKey?: string
   /** 断线后是否自动重连，缺省 true。 */
   readonly reconnect?: boolean
   /** WebSocket 构造函数，缺省为全局 WebSocket。 */
@@ -96,7 +101,7 @@ export interface PrintClient {
   readonly state: PrintClientState
   /** 最近一次握手的结果；还没连上过时为 undefined。 */
   readonly welcome: ClientWelcome | undefined
-  /** 连接并握手；已连着时直接返回握手结果。连不上抛 PrintClientError，码为 CLIENT_UNAVAILABLE、LOCAL_NETWORK_DENIED、PROTOCOL_UNSUPPORTED、CONSENT_DENIED、CONSENT_TIMEOUT 等。 */
+  /** 连接并握手；已连着时直接返回握手结果。连不上抛 PrintClientError，码为 CLIENT_UNAVAILABLE、LOCAL_NETWORK_DENIED、PROTOCOL_UNSUPPORTED、CONSENT_DENIED、CONSENT_TIMEOUT、ACCESS_DENIED 等。 */
   connect: () => Promise<ClientWelcome>
   /** 断开连接，不再重连；未结束的任务以 CONNECTION_LOST 拒绝，客户端里的任务照常执行完。 */
   close: () => void
@@ -228,6 +233,7 @@ class Client implements PrintClient {
   readonly #timeout: number
   readonly #connectTimeout: number
   readonly #consentTimeout: number
+  readonly #accessKey: string | undefined
   readonly #reconnect: boolean
   readonly #WebSocket: WebSocketConstructor | undefined
   readonly #permissions: PermissionsLike | null | undefined
@@ -254,6 +260,7 @@ class Client implements PrintClient {
     this.#timeout = options.timeoutMs ?? 10_000
     this.#connectTimeout = options.connectTimeoutMs ?? 3_000
     this.#consentTimeout = options.consentTimeoutMs ?? 75_000
+    this.#accessKey = options.accessKey
     this.#reconnect = options.reconnect ?? true
     this.#WebSocket = options.WebSocket ?? (globalThis.WebSocket as WebSocketConstructor | undefined)
     this.#permissions = options.permissions === undefined ? (globalThis.navigator?.permissions as PermissionsLike | undefined) : options.permissions
@@ -538,6 +545,8 @@ class Client implements PrintClient {
           fail(connectionError ?? new PrintClientError('PROTOCOL_UNSUPPORTED', '协议主版本不匹配'))
         else if (event.code === 4401)
           fail(new PrintClientError('CONSENT_DENIED', '来源未获授权'))
+        else if (event.code === 4403)
+          fail(connectionError?.code === 'ACCESS_DENIED' ? connectionError : new PrintClientError('ACCESS_DENIED', '访问密钥缺少或不对'))
         else if (event.code === 4409)
           fail(new PrintClientError('TOO_MANY_CONNECTIONS', '同一来源的连接数超过客户端上限'))
         else
@@ -552,6 +561,7 @@ class Client implements PrintClient {
         minor: PROTOCOL_MINOR,
         sdk: { name: SDK_NAME },
         ...(this.#token === undefined ? {} : { resume: this.#token }),
+        ...(this.#accessKey === undefined ? {} : { key: this.#accessKey }),
       }))
     })
   }

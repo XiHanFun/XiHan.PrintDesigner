@@ -3,6 +3,7 @@
 
 //! 打印服务：经监听接受 WebSocket 连接，检查升级请求，握手与来源授权，之后把业务请求交给 [`RequestHandler`]
 
+mod access;
 mod listener;
 pub mod origin;
 mod session;
@@ -16,6 +17,7 @@ use std::time::Duration;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::task::JoinHandle;
 
+pub use access::{AccessKeyGate, GateChain, MAX_ACCESS_KEY_LENGTH, MIN_ACCESS_KEY_LENGTH, is_access_key};
 pub use listener::{BindFn, ByteStream, Listener, LoopbackListener, Peer, bind_default};
 pub use session::{Session, SessionRegistry, random_hex};
 
@@ -170,7 +172,7 @@ struct Inner {
     sessions: Arc<SessionRegistry>,
     log: SharedLog,
     stopping: Cancel,
-    listeners: Mutex<Vec<Arc<dyn Listener>>>,
+    listeners: Mutex<Vec<(Arc<dyn Listener>, Cancel)>>,
     tasks: Mutex<Vec<JoinHandle<()>>>,
 }
 
@@ -232,9 +234,43 @@ impl PrintServer {
     /// 加一个监听并开始接受连接
     pub fn add_listener(&self, listener: Arc<dyn Listener>) {
         self.inner.log.info(&format!("开始监听 {}（{}）", listener.local_address(), listener.name()));
-        self.inner.listeners.lock().unwrap().push(listener.clone());
-        let task = tokio::spawn(accept_loop(self.inner.clone(), listener));
+        let stop = self.inner.stopping.child();
+        self.inner.listeners.lock().unwrap().push((listener.clone(), stop.clone()));
+        let task = tokio::spawn(accept_loop(self.inner.clone(), listener, stop));
         self.inner.track(task);
+    }
+
+    /// 把本机回环监听换到 ports 里第一个能用的端口：先绑新端口，绑上了再停掉旧端口，已建立的连接不断开；
+    /// 依次试到当前的端口时保留当前监听。都不可用时返回最后一个错误，原来的监听不动
+    pub fn rebind_loopback(&self, ports: &[u16], bind: BindFn) -> std::io::Result<u16> {
+        let current = self.loopback_port();
+        let mut last = None;
+        for &port in ports {
+            if Some(port) == current {
+                return Ok(port);
+            }
+            match LoopbackListener::bind(&[port], bind, |_, _| {}) {
+                Ok(listener) => {
+                    let old: Vec<(Arc<dyn Listener>, Cancel)> = {
+                        let mut listeners = self.inner.listeners.lock().unwrap();
+                        let (old, keep) = listeners.drain(..).partition(|(listener, _)| listener.name() == "loopback");
+                        *listeners = keep;
+                        old
+                    };
+                    for (listener, stop) in old {
+                        stop.cancel();
+                        self.inner.log.info(&format!("停止监听 {}（{}）", listener.local_address(), listener.name()));
+                    }
+                    self.add_listener(Arc::new(listener));
+                    return Ok(port);
+                }
+                Err(error) => {
+                    self.inner.log.info(&format!("端口 {port} 不可用：{error}"));
+                    last = Some(error);
+                }
+            }
+        }
+        Err(last.unwrap_or_else(|| std::io::Error::new(std::io::ErrorKind::InvalidInput, "没有要监听的端口")))
     }
 
     /// 在监听的地址与监听名
@@ -244,7 +280,7 @@ impl PrintServer {
             .lock()
             .unwrap()
             .iter()
-            .map(|listener| (listener.name().to_owned(), listener.local_address()))
+            .map(|(listener, _)| (listener.name().to_owned(), listener.local_address()))
             .collect()
     }
 
@@ -255,8 +291,8 @@ impl PrintServer {
             .lock()
             .unwrap()
             .iter()
-            .find(|listener| listener.name() == "loopback")
-            .map(|listener| listener.local_address().port())
+            .find(|(listener, _)| listener.name() == "loopback")
+            .map(|(listener, _)| listener.local_address().port())
     }
 
     /// 停止：不再接受连接，现有连接以 1001 关闭，等它们结束
@@ -278,9 +314,9 @@ impl Inner {
     }
 }
 
-async fn accept_loop(inner: Arc<Inner>, listener: Arc<dyn Listener>) {
+async fn accept_loop(inner: Arc<Inner>, listener: Arc<dyn Listener>, stop: Cancel) {
     loop {
-        let accepted = match inner.stopping.run(listener.accept()).await {
+        let accepted = match stop.run(listener.accept()).await {
             Err(_) => return,
             Ok(accepted) => accepted,
         };
@@ -291,7 +327,7 @@ async fn accept_loop(inner: Arc<Inner>, listener: Arc<dyn Listener>) {
             }
             Err(error) => {
                 inner.log.warn(&format!("接受连接出错（{}）：{error}", listener.name()));
-                if inner.stopping.run(tokio::time::sleep(Duration::from_millis(200))).await.is_err() {
+                if stop.run(tokio::time::sleep(Duration::from_millis(200))).await.is_err() {
                     return;
                 }
             }
@@ -318,6 +354,7 @@ async fn serve(inner: Arc<Inner>, listener: Arc<dyn Listener>, stream: Box<dyn B
             reason: "升级请求格式不对".to_owned(),
         }),
     };
+    drop(listener);
     let accepted = match decision {
         Ok(accepted) => accepted,
         Err(rejected) => {

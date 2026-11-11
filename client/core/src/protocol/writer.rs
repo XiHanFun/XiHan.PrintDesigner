@@ -255,7 +255,7 @@ mod tests {
         );
         assert_eq!(
             text(welcome("h", &welcome_data)),
-            r#"{"type":"result","id":"h","ok":true,"data":{"protocol":1,"minor":0,"client":{"version":"1.0.0","os":"windows","arch":"x64"},"sessionToken":"tok","capabilities":{"html":true,"raw":true,"pdf":true,"duplex":true,"printerStatus":true},"resumed":[]}}"#
+            r#"{"type":"result","id":"h","ok":true,"data":{"protocol":1,"minor":1,"client":{"version":"1.0.0","os":"windows","arch":"x64"},"sessionToken":"tok","capabilities":{"html":true,"raw":true,"pdf":true,"duplex":true,"printerStatus":true},"resumed":[]}}"#
         );
     }
 }

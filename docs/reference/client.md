@@ -24,6 +24,7 @@ createPrintClient 的选项。
 | `timeoutMs?` | `number` | 请求等响应的期限，缺省 10 秒。 |
 | `connectTimeoutMs?` | `number` | 每个端口建连的期限，缺省 3 秒。 |
 | `consentTimeoutMs?` | `number` | 客户端弹出授权窗口后等用户决定的期限，缺省 75 秒。 |
+| `accessKey?` | `string` | 访问密钥：客户端设了访问密钥时，握手要带上同一个密钥，缺少或不对时 connect 以 ACCESS_DENIED 拒绝、不自动重连。没设访问密钥的客户端不核对，带了也照常连上。 |
 | `reconnect?` | `boolean` | 断线后是否自动重连，缺省 true。 |
 | `WebSocket?` | `WebSocketConstructor` | WebSocket 构造函数，缺省为全局 WebSocket。 |
 | `permissions?` | `PermissionsLike \| null` | 查本机网络权限的入口，缺省为 navigator.permissions；为 null 时不查。 |
@@ -42,7 +43,7 @@ createPrintClient 的选项。
 
 | 方法 | 说明 |
 | --- | --- |
-| `connect(): Promise<ClientWelcome>` | 连接并握手；已连着时直接返回握手结果。连不上抛 PrintClientError，码为 CLIENT_UNAVAILABLE、LOCAL_NETWORK_DENIED、PROTOCOL_UNSUPPORTED、CONSENT_DENIED、CONSENT_TIMEOUT 等。 |
+| `connect(): Promise<ClientWelcome>` | 连接并握手；已连着时直接返回握手结果。连不上抛 PrintClientError，码为 CLIENT_UNAVAILABLE、LOCAL_NETWORK_DENIED、PROTOCOL_UNSUPPORTED、CONSENT_DENIED、CONSENT_TIMEOUT、ACCESS_DENIED 等。 |
 | `close(): void` | 断开连接，不再重连；未结束的任务以 CONNECTION_LOST 拒绝，客户端里的任务照常执行完。 |
 | `printers(): Promise<PrinterInfo[]>` | 列出打印机，不含能力明细。 |
 | `printer(name: string): Promise<PrinterInfo>` | 查一台打印机，含能力明细。 |
@@ -129,6 +130,7 @@ declare function shouldFallBack(error: unknown): boolean
 | `CONSENT_PENDING` | 客户端 | 授权窗口还开着时又发了业务请求 | 否 |
 | `CONSENT_DENIED` | 客户端 | 用户拒绝，或来源在拒绝名单 | 否 |
 | `CONSENT_TIMEOUT` | 客户端 | 授权窗口在期限内没人处理 | 否 |
+| `ACCESS_DENIED` | 客户端 | 客户端设了访问密钥，握手没带或带得不对；details.reason 为 missing 或 mismatch | 否 |
 | `SESSION_EXPIRED` | 客户端 | 重连令牌过期或不属于这个来源，已当作新会话 | 否 |
 | `PROTOCOL_UNSUPPORTED` | 客户端 | 协议主版本不匹配 | 是 |
 | `NO_PRINTERS` | 客户端 | 本机没有任何打印机 | 否 |
@@ -340,7 +342,7 @@ declare function buildClientDocument(result: PaginationResult, options?: ClientD
 | `DEFAULT_PORTS` | `[17620, 17621, 17622, 17623]` | 客户端监听的端口，按顺序探测。 |
 | `SUB_PROTOCOL` | `'xihan-print.v1'` | 带主版本的子协议。 |
 | `PROTOCOL_VERSION` | `1` | 协议主版本。 |
-| `PROTOCOL_MINOR` | `0` | 协议次版本：只加不减。 |
+| `PROTOCOL_MINOR` | `1` | 协议次版本：只加不减。次版本 1 加了访问密钥的核对。 |
 
 ## 全部导出
 

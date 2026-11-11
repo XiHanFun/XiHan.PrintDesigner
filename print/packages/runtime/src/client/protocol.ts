@@ -11,8 +11,8 @@ export const SUB_PROTOCOL = 'xihan-print.v1'
 export const UNVERSIONED_SUB_PROTOCOL = 'xihan-print'
 /** 协议主版本。 */
 export const PROTOCOL_VERSION = 1
-/** 协议次版本：只加不减。 */
-export const PROTOCOL_MINOR = 0
+/** 协议次版本：只加不减。次版本 1 加了访问密钥的核对。 */
+export const PROTOCOL_MINOR = 1
 /** 客户端监听的端口，按顺序探测。 */
 export const DEFAULT_PORTS: readonly number[] = [17620, 17621, 17622, 17623]
 /** 任务文档在客户端里的地址，资源经 r/{id} 引用。 */
@@ -22,12 +22,16 @@ export const MAX_MESSAGE_BYTES = 96 * 1024 * 1024
 /** 单个任务的资源总量上限。 */
 export const MAX_RESOURCE_BYTES = 64 * 1024 * 1024
 
-/** 客户端给出的错误码。 */
+/**
+ * 客户端给出的错误码。协议次版本 1 新加的：
+ * - ACCESS_DENIED：握手时访问密钥缺少或不对，details.reason 为 missing 或 mismatch，客户端随后以关闭码 4403 断开。
+ */
 export type ClientErrorCode
   = | 'BAD_REQUEST'
     | 'CONSENT_PENDING'
     | 'CONSENT_DENIED'
     | 'CONSENT_TIMEOUT'
+    | 'ACCESS_DENIED'
     | 'SESSION_EXPIRED'
     | 'PROTOCOL_UNSUPPORTED'
     | 'NO_PRINTERS'

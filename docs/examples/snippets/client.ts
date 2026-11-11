@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 打印客户端：连接、退回浏览器打印与错误处理、任务状态、原始指令、导出 PDF、接到预览元素上。
+// 打印客户端：连接、访问密钥与端口、退回浏览器打印与错误处理、任务状态、原始指令、导出 PDF、接到预览元素上。
 
 // #region connect
 import type { XhPrintPreview } from '@xihan-print/runtime'
@@ -19,6 +19,11 @@ export function watchConsent(notify: (message: string) => void): () => void {
   return client.on('consentpending', ({ origin }) => notify(`请在打印客户端弹出的窗口里允许 ${origin}`))
 }
 // #endregion connect
+
+// #region access
+// 客户端改了端口、设了访问密钥时，连接写上同一个端口、带上同样的密钥；密钥不对时连接以 ACCESS_DENIED 失败
+export const lockedClient = createPrintClient({ ports: [18000], accessKey: 'k3y-for-erp-2026' })
+// #endregion access
 
 // #region fallback
 export async function printDelivery(notify: (message: string) => void): Promise<void> {

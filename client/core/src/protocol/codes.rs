@@ -24,6 +24,9 @@ pub mod errors {
     /// 协议主版本不匹配
     pub const PROTOCOL_UNSUPPORTED: &str = "PROTOCOL_UNSUPPORTED";
 
+    /// 客户端设了访问密钥，握手没带或带得不对；details.reason 为 missing 或 mismatch
+    pub const ACCESS_DENIED: &str = "ACCESS_DENIED";
+
     /// 本机没有任何打印机
     pub const NO_PRINTERS: &str = "NO_PRINTERS";
 

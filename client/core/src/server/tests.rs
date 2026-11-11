@@ -309,6 +309,60 @@ async fn refuses_the_handshake_when_the_gate_says_no() {
 }
 
 #[tokio::test]
+async fn refuses_a_missing_or_wrong_access_key_with_access_denied() {
+    let gate = Arc::new(AccessKeyGate::new(Some("k3y-for-erp".into())));
+    let harness = start(allowing(), gate.clone(), |_| {});
+    for (extra, reason) in [(json!({}), "missing"), (json!({ "key": "k3y-for-erP" }), "mismatch")] {
+        let mut client = Client::connect(harness.port, "xihan-print.v1").await;
+        let error = client.hello(extra).await["error"].clone();
+        assert_eq!((error["code"].clone(), error["details"]["reason"].clone()), (json!("ACCESS_DENIED"), json!(reason)));
+        assert_eq!(client.close_code().await, close_codes::ACCESS_DENIED);
+    }
+    let mut client = Client::connect(harness.port, "xihan-print.v1").await;
+    assert_eq!(client.hello(json!({ "key": "k3y-for-erp" })).await["ok"], json!(true));
+    gate.set(None);
+    let mut client = Client::connect(harness.port, "xihan-print.v1").await;
+    assert_eq!(client.hello(json!({})).await["ok"], json!(true));
+}
+
+fn free_port() -> u16 {
+    std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
+}
+
+#[tokio::test]
+async fn moves_the_loopback_listener_and_keeps_existing_connections() {
+    let harness = start(allowing(), Arc::new(OpenGate), |_| {});
+    let old = harness.port;
+    let mut kept = Client::connect(old, "xihan-print.v1").await;
+    assert_eq!(kept.hello(json!({})).await["ok"], json!(true));
+    assert_eq!(harness.server.rebind_loopback(&[old], bind_default).unwrap(), old);
+
+    let occupied = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let busy = occupied.local_addr().unwrap().port();
+    assert!(harness.server.rebind_loopback(&[busy], bind_default).is_err());
+    assert_eq!(harness.server.loopback_port(), Some(old));
+
+    let new = free_port();
+    assert_eq!(harness.server.rebind_loopback(&[busy, new], bind_default).unwrap(), new);
+    assert_eq!(harness.server.loopback_port(), Some(new));
+    assert_eq!(harness.server.listening().len(), 1);
+    let mut fresh = Client::connect(new, "xihan-print.v1").await;
+    assert_eq!(fresh.hello(json!({})).await["ok"], json!(true));
+    kept.json(json!({ "type": "ping", "id": "p" })).await;
+    assert_eq!(kept.message().await, json!({ "type": "pong", "id": "p" }));
+    let mut closed = false;
+    for _ in 0..50 {
+        if TcpStream::connect(("127.0.0.1", old)).await.is_err() {
+            closed = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(20)).await;
+    }
+    assert!(closed, "旧端口应当不再接受连接");
+    harness.server.stop().await;
+}
+
+#[tokio::test]
 async fn answers_pings_and_refuses_business_while_waiting_for_consent() {
     let (decide, receiver) = oneshot::channel();
     let harness = start(

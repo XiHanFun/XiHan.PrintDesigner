@@ -15,7 +15,7 @@ pub const UNVERSIONED_SUB_PROTOCOL: &str = "xihan-print";
 pub const PROTOCOL_VERSION: i64 = 1;
 
 /// 协议次版本，只加字段不删字段
-pub const PROTOCOL_MINOR_VERSION: i64 = 0;
+pub const PROTOCOL_MINOR_VERSION: i64 = 1;
 
 /// 依次尝试的监听端口：第一个被占用时试下一个
 pub const PORTS: [u16; 4] = [17620, 17621, 17622, 17623];

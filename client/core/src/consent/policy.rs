@@ -9,7 +9,7 @@ use serde_json::{Map, Value};
 
 use super::jsonc;
 use crate::log::ClientLog;
-use crate::server::origin;
+use crate::server::{is_access_key, origin};
 
 /// 管理员下发的策略
 #[derive(Clone, Debug, PartialEq)]
@@ -18,8 +18,10 @@ pub struct ClientPolicy {
     pub allowed_origins: Vec<String>,
     /// 是否为不认识的来源弹授权窗口；关掉后只认预先放行的来源与用户名单里已允许的来源
     pub prompt_for_unknown_origins: bool,
-    /// 固定的监听端口；为空时用缺省的端口
+    /// 固定的监听端口；为空时用缺省的端口或用户设的端口
     pub ports: Vec<u16>,
+    /// 访问密钥：设了以后握手必须带同样的密钥，用户设置里的密钥不再生效
+    pub access_key: Option<String>,
     /// 是否检查更新
     pub check_for_updates: bool,
     /// 更新清单地址，依次尝试；为空时用缺省的地址
@@ -34,6 +36,7 @@ impl Default for ClientPolicy {
             allowed_origins: Vec::new(),
             prompt_for_unknown_origins: true,
             ports: Vec::new(),
+            access_key: None,
             check_for_updates: true,
             update_manifest_urls: Vec::new(),
             raw: Map::new(),
@@ -84,6 +87,11 @@ impl ClientPolicy {
                 None => log.warn(&format!("策略里的端口不合法，已跳过：{item}")),
             }
         }
+        match raw.get("accessKey") {
+            None | Some(Value::Null) => {}
+            Some(Value::String(key)) if is_access_key(key) => policy.access_key = Some(key.clone()),
+            Some(_) => log.warn("策略里的访问密钥不合法，已跳过：要 8–128 个可打印 ASCII 字符，不含空格"),
+        }
         if let Some(Value::Object(updates)) = raw.get("updates") {
             if let Some(check) = updates.get("check").and_then(Value::as_bool) {
                 policy.check_for_updates = check;
@@ -126,6 +134,7 @@ mod tests {
             "allowedOrigins": ["https://ERP.example.com", "ftp://x", 3],
             "promptForUnknownOrigins": false,
             "ports": [17620, 0, 70000],
+            "accessKey": "policy-key-01",
             "updates": { "check": false, "manifestUrls": ["https://intranet.example/u.json", "http://x/u.json"] },
             "history": { "keepContent": false },
         }) else {
@@ -135,10 +144,21 @@ mod tests {
         assert_eq!(policy.allowed_origins, vec!["https://erp.example.com"]);
         assert!(!policy.prompt_for_unknown_origins);
         assert_eq!(policy.ports, vec![17620]);
+        assert_eq!(policy.access_key.as_deref(), Some("policy-key-01"));
         assert!(!policy.check_for_updates);
         assert_eq!(policy.update_manifest_urls, vec!["https://intranet.example/u.json"]);
         assert_eq!(policy.raw.get("history"), Some(&json!({ "keepContent": false })));
         assert_eq!(log.lines().len(), 5);
+    }
+
+    #[test]
+    fn skips_an_invalid_access_key() {
+        let log = MemoryLog::default();
+        for key in [json!("short"), json!("has space key"), json!(12345678)] {
+            let Value::Object(raw) = json!({ "accessKey": key }) else { panic!() };
+            assert_eq!(ClientPolicy::from_json(raw, &log).access_key, None);
+        }
+        assert_eq!(log.lines().len(), 3);
     }
 
     #[test]

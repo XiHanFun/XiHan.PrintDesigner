@@ -265,12 +265,20 @@ describe('设置', () => {
   })
 })
 
-/** 一个假的打印客户端：connect 按给的结果连上或抛错，连上时派发 state；printSheets 只记次数。 */
-function fakeClient(connect: () => Promise<void> = async () => {}): { readonly client: NonNullable<XhPrintDesigner['printClient']>, readonly printed: () => number } {
+/** 一个假的打印客户端：connect 按给的结果连上或抛错，连上时派发 state；setState 换连接状态并派发；printSheets 只记次数。 */
+function fakeClient(connect: () => Promise<void> = async () => {}): { readonly client: NonNullable<XhPrintDesigner['printClient']>, readonly printed: () => number, readonly setState: (state: string) => void } {
   const listeners = new Set<(state: string) => void>()
   let printed = 0
+  let state = 'idle'
+  const setState = (next: string): void => {
+    state = next
+    for (const listener of listeners)
+      listener(next)
+  }
   const fake = {
-    state: 'idle' as string,
+    get state(): string {
+      return state
+    },
     on: (type: string, listener: (state: string) => void) => {
       if (type === 'state')
         listeners.add(listener)
@@ -278,9 +286,7 @@ function fakeClient(connect: () => Promise<void> = async () => {}): { readonly c
     },
     connect: async () => {
       await connect()
-      fake.state = 'open'
-      for (const listener of listeners)
-        listener('open')
+      setState('open')
       return {}
     },
     printSheets: (result: { readonly sheets: readonly unknown[] }) => {
@@ -288,14 +294,15 @@ function fakeClient(connect: () => Promise<void> = async () => {}): { readonly c
       return { id: 'j', status: undefined, done: Promise.resolve({ jobId: 'j', state: 'completed' as const, sheets: result.sheets.length }), onStatus: () => () => undefined, cancel: async () => false }
     },
   }
-  return { client: fake as unknown as NonNullable<XhPrintDesigner['printClient']>, printed: () => printed }
+  return { client: fake as unknown as NonNullable<XhPrintDesigner['printClient']>, printed: () => printed, setState }
 }
 
 describe('本地客户端', () => {
-  function status(): { state: string, download: boolean, href: string | null } {
+  function status(): { state: string, tone: string | null, download: boolean, href: string | null } {
     const item = row('printClient.status')!
     const download = item.querySelector<HTMLElement>('[data-part="client-download"]')!
-    return { state: item.querySelector('[data-part="client-state"]')!.textContent!.trim(), download: !download.hidden, href: download.querySelector('a')!.getAttribute('href') }
+    const state = item.querySelector('[data-part="client-state"]')!
+    return { state: state.textContent!.trim(), tone: state.querySelector('xh-tag')!.getAttribute('tone'), download: !download.hidden, href: download.querySelector('a')!.getAttribute('href') }
   }
 
   function test(): void {
@@ -310,7 +317,7 @@ describe('本地客户端', () => {
     expect(pages()).toEqual(['general', 'language', 'layout', 'toolbar', 'print', 'printClient', 'help', 'shortcuts', 'about'])
     const via = row(PRINT_SETTING_KEYS.via)!
     expect([via.parentElement!.firstElementChild === via, via.querySelector('[aria-pressed="true"], [aria-checked="true"], [data-state="on"]')?.textContent?.trim()]).toEqual([true, 'Local client'])
-    expect(status()).toEqual({ state: 'Not connected', download: true, href: PRINT_CLIENT_DOWNLOAD_URL })
+    expect(status()).toEqual({ state: 'Not connected', tone: 'neutral', download: true, href: PRINT_CLIENT_DOWNLOAD_URL })
     designer.clientDownloadUrl = 'https://intranet.example/print-client'
     await settle(designer)
     designer.openSettings(PRINT_CLIENT_SETTINGS_SECTION)
@@ -337,6 +344,36 @@ describe('本地客户端', () => {
     test()
     await vi.waitFor(() => expect(status().state).toBe('Connected'))
     expect(status().download).toBe(false)
+  })
+
+  it('测试连接以 ACCESS_DENIED 失败：写访问密钥不对、带 danger 语气、不给下载链接；连上过或换了 printClient 后复位', async () => {
+    let failure: { code: string } | undefined = { code: 'ACCESS_DENIED' }
+    const first = fakeClient(async () => {
+      if (failure !== undefined)
+        throw Object.assign(new Error(failure.code), failure)
+    })
+    const designer = await mount(element => (element.printClient = first.client))
+    designer.openSettings(PRINT_CLIENT_SETTINGS_SECTION)
+    await settle(designer)
+    test()
+    await vi.waitFor(() => expect(status().state).toBe('Wrong access key'))
+    expect(status()).toMatchObject({ tone: 'danger', download: false })
+
+    first.setState('open')
+    first.setState('idle')
+    expect(status()).toMatchObject({ state: 'Not connected', tone: 'neutral', download: true })
+
+    test()
+    await vi.waitFor(() => expect(status().state).toBe('Wrong access key'))
+    designer.printClient = fakeClient().client
+    await settle(designer)
+    expect(status()).toMatchObject({ state: 'Not connected', download: true })
+
+    designer.printClient = first.client
+    await settle(designer)
+    failure = undefined
+    test()
+    await vi.waitFor(() => expect(status()).toMatchObject({ state: 'Connected', tone: 'success', download: false }))
   })
 
   it('换掉 printClient：连接状态改订新的，旧的退订；设计器断开时也退订', async () => {

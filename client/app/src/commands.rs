@@ -43,6 +43,11 @@ pub(crate) struct Overview {
     log_level: String,
     pages: Vec<ExtensionPage>,
     update: Option<String>,
+    ports: Vec<u16>,
+    user_port: Option<u16>,
+    ports_locked: bool,
+    access_key: Option<String>,
+    access_key_locked: bool,
 }
 
 /// 主窗口概览
@@ -75,7 +80,26 @@ pub(crate) fn overview(host: HostState<'_>) -> Overview {
         log_level: settings.log_level.name().to_owned(),
         pages: host.pages().to_vec(),
         update: host.updates().and_then(|updates| updates.offer()).map(|offer| offer.version),
+        ports: host.ports(),
+        user_port: settings.port,
+        ports_locked: host.ports_locked(),
+        access_key: host.access_key(),
+        access_key_locked: host.access_key_locked(),
     }
+}
+
+/// 改本机端口：None 恢复缺省的端口；返回换成的端口
+#[tauri::command]
+pub(crate) fn set_port(app: AppHandle, host: HostState<'_>, port: Option<u16>) -> Result<Option<u16>, String> {
+    let listening = host.set_port(port)?;
+    crate::tray::refresh(&app);
+    Ok(listening)
+}
+
+/// 改访问密钥：None 为不要密钥
+#[tauri::command]
+pub(crate) fn set_access_key(host: HostState<'_>, key: Option<String>) -> Result<(), String> {
+    host.set_access_key(key.filter(|key| !key.is_empty()))
 }
 
 /// 本机打印机

@@ -32,6 +32,10 @@ pub struct DiagnosticsInput {
     pub policy: ClientPolicy,
     /// 策略文件是否存在
     pub policy_file_exists: bool,
+    /// 用户设的端口；没设时为 None
+    pub user_port: Option<u16>,
+    /// 访问密钥从哪来：策略或设置；没设时为 None
+    pub access_key_source: Option<String>,
     /// 用户的允许名单
     pub allowed: Vec<String>,
     /// 用户的拒绝名单
@@ -68,12 +72,22 @@ pub fn format(input: &DiagnosticsInput, offset: i32) -> String {
         "策略：没有 policy.json，用缺省值\n"
     });
     let _ = writeln!(text, "  未授权来源弹窗询问：{}", if policy.prompt_for_unknown_origins { "是" } else { "否" });
-    let ports = if policy.ports.is_empty() {
-        format!("{}（缺省）", PORTS.map(|port| port.to_string()).join(", "))
-    } else {
+    let ports = if !policy.ports.is_empty() {
         policy.ports.iter().map(u16::to_string).collect::<Vec<_>>().join(", ")
+    } else if let Some(port) = input.user_port {
+        format!("{port}（设置）")
+    } else {
+        format!("{}（缺省）", PORTS.map(|port| port.to_string()).join(", "))
     };
     let _ = writeln!(text, "  端口：{ports}");
+    let _ = writeln!(
+        text,
+        "  访问密钥：{}",
+        match &input.access_key_source {
+            Some(source) => format!("已设（{source}）"),
+            None => "未设".into(),
+        }
+    );
     let _ = writeln!(text, "  检查更新：{}", if policy.check_for_updates { "允许" } else { "已关闭" });
 
     text.push_str("\n允许的来源：\n");
@@ -273,6 +287,8 @@ mod tests {
                 ..ClientPolicy::default()
             },
             policy_file_exists: true,
+            user_port: None,
+            access_key_source: Some("设置".into()),
             allowed: vec!["https://a.example".into()],
             denied: vec![],
             recent_jobs: vec![JobRecord {
@@ -292,7 +308,16 @@ mod tests {
         let text = format(&input, 8 * 3600);
         assert!(text.contains("渲染：没有 WebView2 运行时，HTML 打印与导出 PDF 不可用\n"));
         assert!(text.contains("监听：127.0.0.1:17620\n"));
-        assert!(text.contains("  端口：17620, 17621, 17622, 17623（缺省）\n"));
+        assert!(text.contains("  端口：17620, 17621, 17622, 17623（缺省）\n  访问密钥：已设（设置）\n"));
+        let custom = format(
+            &DiagnosticsInput {
+                user_port: Some(18000),
+                access_key_source: None,
+                ..input.clone()
+            },
+            0,
+        );
+        assert!(custom.contains("  端口：18000（设置）\n  访问密钥：未设\n"));
         assert!(text.contains("  https://p.example（策略）\n  https://a.example\n拒绝的来源：\n  （无）\n"));
         assert!(text.contains("\n打印记录：\n  保存内容：是\n"));
         assert!(text.contains("  2026-11-11 08:00:00  html  Office  failed SPOOL_FAILED  2 页  1.5 秒  https://a.example  j1\n"));

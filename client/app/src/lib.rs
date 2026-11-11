@@ -92,6 +92,8 @@ pub fn run(mut extensions: Extensions) {
             commands::set_autostart,
             commands::set_check_for_updates,
             commands::set_log_level,
+            commands::set_port,
+            commands::set_access_key,
             commands::diagnostics_text,
             commands::export_diagnostics,
             commands::open_logs,

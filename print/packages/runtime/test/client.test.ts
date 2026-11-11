@@ -76,8 +76,9 @@ describe('连接', () => {
     expect(welcome).not.toHaveProperty('sessionToken')
     expect(FakeSocket.created.map(socket => socket.url)).toEqual(['ws://127.0.0.1:17620/', 'ws://127.0.0.1:17621/'])
     expect(FakeSocket.created[1]!.protocols).toEqual(['xihan-print.v1', 'xihan-print'])
-    expect(FakeSocket.created[1]!.sent[0]).toMatchObject({ type: 'hello', protocol: 1, minor: 0, sdk: { name: '@xihan-print/runtime' } })
+    expect(FakeSocket.created[1]!.sent[0]).toMatchObject({ type: 'hello', protocol: 1, minor: 1, sdk: { name: '@xihan-print/runtime' } })
     expect(FakeSocket.created[1]!.sent[0]).not.toHaveProperty('resume')
+    expect(FakeSocket.created[1]!.sent[0]).not.toHaveProperty('key')
     expect(states).toEqual(['connecting', 'open'])
     expect(await target.connect()).toBe(welcome)
     expect(FakeSocket.created).toHaveLength(2)
@@ -167,6 +168,43 @@ describe('连接', () => {
     listen().hello = socket => socket.drop(4409)
 
     expect((await rejection(client({ ports: [17620] }).connect())).code).toBe('TOO_MANY_CONNECTIONS')
+  })
+
+  it('给了 accessKey 时写进 hello 的 key，没设访问密钥的客户端照常连上', async () => {
+    const app = listen()
+
+    const welcome = await client({ accessKey: 'k-0001' }).connect()
+
+    expect(welcome.minor).toBe(0)
+    expect(app.request('hello')).toMatchObject({ type: 'hello', key: 'k-0001' })
+  })
+
+  it('访问密钥缺少或不对时报 ACCESS_DENIED，带上客户端给的 details，不再探测后面的端口，不退回浏览器打印', async () => {
+    const app = listen(17620)
+    listen(17621)
+    app.hello = (socket, hello) => {
+      socket.fail(hello, 'ACCESS_DENIED', { reason: hello.key === undefined ? 'missing' : 'mismatch' })
+      socket.drop(4403)
+    }
+    const target = client({ accessKey: 'wrong' })
+
+    const error = await rejection(target.connect())
+
+    expect([error.code, error.details]).toEqual(['ACCESS_DENIED', { reason: 'mismatch' }])
+    expect(shouldFallBack(error)).toBe(false)
+    expect(FakeSocket.created).toHaveLength(1)
+    expect(target.state).toBe('idle')
+    const missing = await rejection(client().connect())
+    expect([missing.code, missing.details]).toEqual(['ACCESS_DENIED', { reason: 'missing' }])
+  })
+
+  it('只收到关闭码 4403、没收到错误时也报 ACCESS_DENIED', async () => {
+    listen().hello = socket => socket.drop(4403)
+
+    const error = await rejection(client({ ports: [17620] }).connect())
+
+    expect(error.code).toBe('ACCESS_DENIED')
+    expect(shouldFallBack(error)).toBe(false)
   })
 })
 
@@ -361,6 +399,27 @@ describe('心跳与重连', () => {
 
     expect(target.state).toBe('idle')
     expect(FakeSocket.created).toHaveLength(1 + 5 * 2)
+  })
+
+  it('重连时访问密钥不对（ACCESS_DENIED）就停，不再重连，未结束的任务以 CONNECTION_LOST 结束', async () => {
+    vi.useFakeTimers()
+    const app = listen()
+    app.handlers['print.raw'] = (socket, request) => accept(socket, request, [{ state: 'started' }])
+    const target = client({ accessKey: 'k-0001' })
+    const job = target.printRaw('Label', 'A')
+    await vi.advanceTimersByTimeAsync(50)
+    expect(job.status?.state).toBe('started')
+
+    app.hello = (socket, hello) => {
+      socket.fail(hello, 'ACCESS_DENIED', { reason: 'mismatch' })
+      socket.drop(4403)
+    }
+    app.last.drop(1006)
+    await vi.advanceTimersByTimeAsync(60_000)
+
+    expect(target.state).toBe('idle')
+    expect(FakeSocket.created).toHaveLength(2)
+    expect((await rejection(job.done)).code).toBe('CONNECTION_LOST')
   })
 
   it('close() 后不再重连，未结束的任务以 CONNECTION_LOST 结束', async () => {
