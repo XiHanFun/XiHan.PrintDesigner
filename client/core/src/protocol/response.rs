@@ -92,6 +92,8 @@ pub struct ClientCapabilities {
     pub raw: bool,
     /// 导出 PDF
     pub pdf: bool,
+    /// 把 PDF 直接打到打印机
+    pub print_pdf: bool,
     /// 双面
     pub duplex: bool,
     /// 打印机状态
@@ -187,6 +189,16 @@ pub struct PaperInfo {
     pub height_mm: f64,
 }
 
+/// 一个纸盒
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TrayInfo {
+    /// 驱动给的编号：Windows 是纸盒号，CUPS 是纸盒在打印机能力里的序号
+    pub id: i32,
+    /// 名称
+    pub name: String,
+}
+
 /// 打印机能力
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -199,6 +211,8 @@ pub struct PrinterCapabilities {
     pub max_copies: u32,
     /// 驱动提供的纸张
     pub papers: Vec<PaperInfo>,
+    /// 驱动提供的纸盒；驱动不报时为空
+    pub trays: Vec<TrayInfo>,
 }
 
 /// 一台打印机

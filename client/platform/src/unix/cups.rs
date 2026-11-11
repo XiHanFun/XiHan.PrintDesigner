@@ -1,7 +1,7 @@
 // Copyright (c) 2021-Present XiHanFun and contributors.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-//! 运行时加载的 libcups：查打印机与纸张、写原始指令、把 PDF 作业交给打印池。不在链接期依赖 libcups
+//! 运行时加载的 libcups：查打印机、纸张与纸盒、写原始指令、把 PDF 作业交给打印池。不在链接期依赖 libcups
 
 use std::ffi::{CStr, CString, c_char, c_int, c_uint, c_void};
 use std::ptr;
@@ -11,7 +11,7 @@ use xihan_print_client_core::BoxFuture;
 use xihan_print_client_core::cancel::Cancel;
 use xihan_print_client_core::printing::{JobError, PaperCatalog, PaperFeed, PrinterCatalog, PrinterPapers, RawPrintResult, RawPrinter, SpoolTicket};
 use xihan_print_client_core::protocol::codes::errors;
-use xihan_print_client_core::protocol::{ColorMode, Details, DuplexMode, PaperInfo, PrintOptions, PrinterCapabilities, PrinterInfo, PrinterState};
+use xihan_print_client_core::protocol::{ColorMode, Details, DuplexMode, PaperInfo, PrintOptions, PrinterCapabilities, PrinterInfo, PrinterState, TrayInfo};
 
 #[cfg(target_os = "macos")]
 const LIBRARY: &str = "/usr/lib/libcups.2.dylib";
@@ -140,6 +140,9 @@ cups_api! {
     ipp_get_value_tag = "ippGetValueTag": fn(*mut IppAttribute) -> c_int;
     ipp_get_integer = "ippGetInteger": fn(*mut IppAttribute, c_int) -> c_int;
     ipp_get_range = "ippGetRange": fn(*mut IppAttribute, c_int, *mut c_int) -> c_int;
+    ipp_get_count = "ippGetCount": fn(*mut IppAttribute) -> c_int;
+    ipp_get_string = "ippGetString": fn(*mut IppAttribute, c_int, *mut *const c_char) -> *const c_char;
+    localize_value = "cupsLocalizeDestValue": fn(*mut Http, *mut CupsDest, *mut CupsDinfo, *const c_char, *const c_char) -> *const c_char;
     media_count = "cupsGetDestMediaCount": fn(*mut Http, *mut CupsDest, *mut CupsDinfo, c_uint) -> c_int;
     media_by_index = "cupsGetDestMediaByIndex": fn(*mut Http, *mut CupsDest, *mut CupsDinfo, c_int, c_uint, *mut CupsSize) -> c_int;
     media_by_size = "cupsGetDestMediaBySize": fn(*mut Http, *mut CupsDest, *mut CupsDinfo, c_int, c_int, c_uint, *mut CupsSize) -> c_int;
@@ -322,6 +325,7 @@ impl Dests {
                 duplex: kind & PRINTER_DUPLEX != 0,
                 max_copies: 1,
                 papers: Vec::new(),
+                trays: Vec::new(),
             };
         };
         let api = &self.library.api;
@@ -359,6 +363,7 @@ impl Dests {
             duplex,
             max_copies: max_copies.max(1) as u32,
             papers: info.papers(dest),
+            trays: info.trays(dest).into_iter().map(|(tray, _)| tray).collect(),
         }
     }
 }
@@ -418,6 +423,37 @@ impl DestInfo {
             seen.push(media);
         }
         papers
+    }
+
+    /// 打印机报的纸盒（media-source-supported）：编号是序号，名称取本地化的名称，第二项是 IPP 关键字
+    fn trays(&self, dest: *mut CupsDest) -> Vec<(TrayInfo, String)> {
+        let api = &self.library.api;
+        let name = c_string("media-source");
+        // SAFETY: dest 与 info 有效，选项名以 0 结尾；返回的属性属于 info
+        let attribute = unsafe { (api.find_dest_supported)(self.http, dest, self.pointer, name.as_ptr()) };
+        if attribute.is_null() {
+            return Vec::new();
+        }
+        // SAFETY: attribute 属于 info，在 info 释放前有效
+        let count = unsafe { (api.ipp_get_count)(attribute) };
+        let mut trays = Vec::new();
+        for index in 0..count.max(0) {
+            // SAFETY: 同上，index 在值的个数内；不要语言标记
+            let Some(keyword) = text(unsafe { (api.ipp_get_string)(attribute, index, ptr::null_mut()) }) else {
+                continue;
+            };
+            let value = c_string(&keyword);
+            // SAFETY: dest 与 info 有效，选项名与值以 0 结尾；返回的字符串属于 info
+            let localized = text(unsafe { (api.localize_value)(self.http, dest, self.pointer, name.as_ptr(), value.as_ptr()) });
+            trays.push((
+                TrayInfo {
+                    id: index,
+                    name: localized.unwrap_or_else(|| keyword.clone()),
+                },
+                keyword,
+            ));
+        }
+        trays
     }
 
     /// 按尺寸请求时打印机实际会用的纸张；没有这个尺寸、也不接受自定义尺寸时为 None
@@ -598,9 +634,10 @@ impl Cups {
         ready_dest(&dests, printer).map(|_| ())
     }
 
-    /// 把一份 PDF 作为一个作业交给打印机：份数、逐份、双面、灰度、纸张、横放与缩放都写成作业选项；
-    /// 页码已在渲染时筛过，不再传。打印机不存在时 PRINTER_NOT_FOUND，停用时 PRINTER_OFFLINE，提交失败时 SPOOL_FAILED
-    pub(crate) fn submit_pdf(&self, printer: &str, pdf: &[u8], options: &PrintOptions, feed: &PaperFeed, scale: f64, title: &str) -> Result<SpoolTicket, JobError> {
+    /// 把一份 PDF 作为一个作业交给打印机：份数、逐份、双面、灰度、纸张、横放、缩放、纸盒与页码范围都写成作业选项；
+    /// page_ranges 为 None 时打全部页。打印机不存在时 PRINTER_NOT_FOUND，停用时 PRINTER_OFFLINE，纸盒没有了时 TRAY_NOT_FOUND，提交失败时 SPOOL_FAILED
+    pub(crate) fn submit_pdf(&self, printer: &str, pdf: &[u8], options: &PrintOptions, sheet: &SheetFeed, title: &str) -> Result<SpoolTicket, JobError> {
+        let SheetFeed { feed, scale, tray, page_ranges } = sheet;
         let library = &self.library;
         let dests = library
             .dests()
@@ -639,7 +676,21 @@ impl Cups {
         };
         job_options.add("media", &media);
         job_options.add("orientation-requested", if feed.landscape { "4" } else { "3" });
-        job_options.add("print-scaling", if scale < 1.0 { "fit" } else { "none" });
+        job_options.add("print-scaling", scaling(*scale));
+        if let Some(tray) = tray {
+            let trays = info.trays(dest);
+            let (_, keyword) = trays.iter().find(|(known, _)| known.id == tray.id && known.name == tray.name).ok_or_else(|| {
+                JobError::failure(
+                    errors::TRAY_NOT_FOUND,
+                    format!("打印机「{name}」没有纸盒「{}」了", tray.name),
+                    Some(printer_details(&name).with("tray", tray.name.as_str())),
+                )
+            })?;
+            job_options.add("media-source", keyword);
+        }
+        if let Some(ranges) = page_ranges {
+            job_options.add("page-ranges", ranges);
+        }
 
         let title = c_string(title);
         let mut job_id: c_int = 0;
@@ -655,6 +706,24 @@ impl Cups {
             system_job_id: Some(job_id as u32),
         })
     }
+}
+
+/// 一个 PDF 作业怎么下发：核对出的纸张与缩放倍数、选项指定的纸盒，以及要打的页（按 PDF 的页码，None 为全部）
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct SheetFeed {
+    /// 纸张与方向
+    pub feed: PaperFeed,
+    /// 内容的缩放倍数，1 为原大
+    pub scale: f64,
+    /// 纸盒
+    pub tray: Option<TrayInfo>,
+    /// 页码范围，如 1-3,5
+    pub page_ranges: Option<String>,
+}
+
+/// 缩放倍数写成 print-scaling：不是原大时按可打印区域等比放进纸张，原大时不缩放
+fn scaling(scale: f64) -> &'static str {
+    if (scale - 1.0).abs() > 1e-9 { "fit" } else { "none" }
 }
 
 /// 找到可以接收作业的打印目标
@@ -780,6 +849,7 @@ struct CupsPapers {
     dest: *mut CupsDest,
     info: DestInfo,
     papers: Vec<PaperInfo>,
+    trays: Vec<TrayInfo>,
 }
 
 // SAFETY: 打印目标与能力归这个对象独占，只经 CUPS 函数访问，CUPS 不要求在创建它们的线程上使用
@@ -797,6 +867,10 @@ impl PrinterPapers for CupsPapers {
             .or_else(|| self.info.default_media(self.dest))?;
         Some(PaperFeed::new(size.width_mm(), size.height_mm(), request.landscape))
     }
+
+    fn trays(&self) -> &[TrayInfo] {
+        &self.trays
+    }
 }
 
 impl PaperCatalog for Cups {
@@ -805,11 +879,13 @@ impl PaperCatalog for Cups {
         let dest = dests.find(printer)?;
         let info = DestInfo::copy(&self.library, ptr::null_mut(), dest)?;
         let papers = info.papers(dest);
+        let trays = info.trays(dest).into_iter().map(|(tray, _)| tray).collect();
         Some(Box::new(CupsPapers {
             _dests: dests,
             dest,
             info,
             papers,
+            trays,
         }))
     }
 }
@@ -872,6 +948,13 @@ mod tests {
         assert_eq!(map_state(3, "toner-empty-error"), PrinterState::Error);
         assert_eq!(map_state(3, "toner-low-warning"), PrinterState::Ready);
         assert_eq!(map_state(0, ""), PrinterState::Unknown);
+    }
+
+    #[test]
+    fn scales_only_when_the_content_is_not_at_its_own_size() {
+        assert_eq!(scaling(1.0), "none");
+        assert_eq!(scaling(0.5), "fit");
+        assert_eq!(scaling(2.1), "fit");
     }
 
     #[test]

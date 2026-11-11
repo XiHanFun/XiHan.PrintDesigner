@@ -12,7 +12,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
-use super::backends::{HtmlPrintEngine, JobError, RawPrinter, SpoolTicket};
+use super::backends::{HtmlPrintEngine, JobError, PdfPrinter, RawPrinter, SpoolTicket};
 use super::job::{Job, JobOwner, JobPayload, JobRecord};
 use crate::BoxFuture;
 use crate::cancel::Cancel;
@@ -77,6 +77,7 @@ struct State {
 struct Inner {
     html: Option<Arc<dyn HtmlPrintEngine>>,
     raw: Option<Arc<dyn RawPrinter>>,
+    pdf: Option<Arc<dyn PdfPrinter>>,
     options: JobQueueOptions,
     clock: Arc<dyn Clock>,
     log: SharedLog,
@@ -100,11 +101,19 @@ enum Outcome {
 
 impl JobQueue {
     /// 创建队列；平台不提供的通道传 None
-    pub fn new(html: Option<Arc<dyn HtmlPrintEngine>>, raw: Option<Arc<dyn RawPrinter>>, options: JobQueueOptions, clock: Arc<dyn Clock>, log: SharedLog) -> Self {
+    pub fn new(
+        html: Option<Arc<dyn HtmlPrintEngine>>,
+        raw: Option<Arc<dyn RawPrinter>>,
+        pdf: Option<Arc<dyn PdfPrinter>>,
+        options: JobQueueOptions,
+        clock: Arc<dyn Clock>,
+        log: SharedLog,
+    ) -> Self {
         JobQueue {
             inner: Arc::new(Inner {
                 html,
                 raw,
+                pdf,
                 options,
                 clock,
                 log,
@@ -364,7 +373,9 @@ async fn run(inner: &Arc<Inner>, job: Arc<Job>) {
 
     let cancel = job.cancel.lock().unwrap().clone().unwrap_or_default();
     let timeout = match job.payload() {
-        JobPayload::Html { options, .. } | JobPayload::Pdf { options, .. } => options.timeout_ms.map(|ms| Duration::from_millis(u64::from(ms))),
+        JobPayload::Html { options, .. } | JobPayload::Pdf { options, .. } | JobPayload::PrintPdf { options, .. } => {
+            options.timeout_ms.map(|ms| Duration::from_millis(u64::from(ms)))
+        }
         JobPayload::Raw { .. } => None,
     }
     .unwrap_or(inner.options.job_timeout);
@@ -435,6 +446,28 @@ async fn execute(inner: Arc<Inner>, job: Arc<Job>, cancel: Cancel) -> Result<Vec
             let printed = inner
                 .engine()?
                 .print(document.clone(), job.printer().unwrap_or_default().to_owned(), options.clone(), cancel)
+                .await?;
+            let mut progress = job.progress.lock().unwrap();
+            progress.sheets = Some(printed.sheets);
+            progress.warnings = (!printed.warnings.is_empty()).then_some(printed.warnings);
+            Ok(printed.spooled)
+        }
+        JobPayload::PrintPdf {
+            data,
+            sheets,
+            options,
+            document_name,
+        } => {
+            let pdf = inner.pdf.clone().ok_or_else(unsupported)?;
+            let printed = pdf
+                .print(
+                    data.clone(),
+                    sheets.clone(),
+                    job.printer().unwrap_or_default().to_owned(),
+                    options.clone(),
+                    document_name.clone(),
+                    cancel,
+                )
                 .await?;
             let mut progress = job.progress.lock().unwrap();
             progress.sheets = Some(printed.sheets);

@@ -119,6 +119,13 @@ fn body(kind: &str, root: Map<String, Value>, max_resource_bytes: usize) -> Read
             data: Arc::new(raw_data(&root)?),
             doc_name: optional_text(&root, "docName", 256)?,
         }),
+        "print.pdf" => RequestBody::PrintPdf(PrintPdfRequest {
+            job_id: job_id(&root)?,
+            printer: optional_text(&root, "printer", MAX_PRINTER_NAME_LENGTH)?,
+            data: Arc::new(pdf_data(&root, max_resource_bytes)?),
+            doc_name: optional_text(&root, "docName", 256)?,
+            options: options(&root)?,
+        }),
         "export.pdf" => RequestBody::ExportPdf(ExportPdfRequest {
             job_id: job_id(&root)?,
             document: Arc::new(document(&root, max_resource_bytes)?),
@@ -256,6 +263,26 @@ fn options(root: &Map<String, Value>) -> Read<PrintOptions> {
             Some(other) => return Err(bad("options.color", format!("不认识的颜色方式：{other}"))),
         },
         page_ranges,
+        page_set: match optional_text(options, "pageSet", 32)?.as_deref() {
+            None | Some("all") => PageSet::All,
+            Some("odd") => PageSet::Odd,
+            Some("even") => PageSet::Even,
+            Some(other) => return Err(bad("options.pageSet", format!("不认识的奇偶页：{other}"))),
+        },
+        orientation: match optional_text(options, "orientation", 32)?.as_deref() {
+            None | Some("auto") => Orientation::Auto,
+            Some("portrait") => Orientation::Portrait,
+            Some("landscape") => Orientation::Landscape,
+            Some(other) => return Err(bad("options.orientation", format!("不认识的版面方向：{other}"))),
+        },
+        scale: match optional_text(options, "scale", 32)?.as_deref() {
+            None | Some("shrink") => ScaleMode::Shrink,
+            Some("none") => ScaleMode::None,
+            Some("fit") => ScaleMode::Fit,
+            Some(other) => return Err(bad("options.scale", format!("不认识的缩放方式：{other}"))),
+        },
+        paper: optional_text(options, "paper", 128)?,
+        tray: optional_text(options, "tray", 128)?,
         dialog: optional_boolean(options, "dialog")?.unwrap_or(false),
         timeout_ms: optional_integer(options, "timeoutMs", 1_000, 600_000)?.map(|ms| ms as u32),
         fit_to_nearest_paper: optional_boolean(options, "fitToNearestPaper")?.unwrap_or(false),
@@ -265,6 +292,18 @@ fn options(root: &Map<String, Value>) -> Read<PrintOptions> {
 fn raw_data(root: &Map<String, Value>) -> Read<Vec<u8>> {
     let data = base64(root, "data", "data")?;
     if data.is_empty() { Err(bad("data", "data 不能为空")) } else { Ok(data) }
+}
+
+fn pdf_data(root: &Map<String, Value>, max_resource_bytes: usize) -> Read<Vec<u8>> {
+    let data = raw_data(root)?;
+    if data.len() > max_resource_bytes {
+        return Err(Problem {
+            code: errors::DOCUMENT_TOO_LARGE,
+            field: "data".to_owned(),
+            message: format!("PDF 超过 {max_resource_bytes} 字节"),
+        });
+    }
+    Ok(data)
 }
 
 fn base64(owner: &Map<String, Value>, name: &str, field: &str) -> Read<Vec<u8>> {
@@ -375,7 +414,9 @@ mod tests {
     #[test]
     fn reads_a_print_html_request_with_resources_and_options() {
         let request = read_json(json!({ "type": "print.html", "id": "r1", "jobId": "j-1", "printer": "Office", "document": document_json(),
-            "options": { "copies": 3, "collate": false, "duplex": "long-edge", "color": "grayscale", "pageRanges": "1-2,5", "dialog": true, "timeoutMs": 5000, "fitToNearestPaper": true } })).unwrap();
+            "options": { "copies": 3, "collate": false, "duplex": "long-edge", "color": "grayscale", "pageRanges": "1-2,5", "pageSet": "odd", "orientation": "landscape",
+                "scale": "fit", "paper": "A4", "tray": "Tray 2", "dialog": true, "timeoutMs": 5000, "fitToNearestPaper": true } }))
+        .unwrap();
         let RequestBody::PrintHtml(print) = request.body else { panic!() };
         assert_eq!(print.printer.as_deref(), Some("Office"));
         assert_eq!(print.document.resources[0].data.as_slice(), &[0, 1, 2]);
@@ -395,11 +436,56 @@ mod tests {
                 duplex: DuplexMode::LongEdge,
                 color: ColorMode::Grayscale,
                 page_ranges: Some("1-2,5".into()),
+                page_set: PageSet::Odd,
+                orientation: Orientation::Landscape,
+                scale: ScaleMode::Fit,
+                paper: Some("A4".into()),
+                tray: Some("Tray 2".into()),
                 dialog: true,
                 timeout_ms: Some(5000),
                 fit_to_nearest_paper: true,
             }
         );
+    }
+
+    #[test]
+    fn defaults_the_new_options_and_rejects_unknown_values() {
+        let request = read_json(json!({ "type": "print.html", "id": "r1", "jobId": "j", "document": document_json() })).unwrap();
+        let RequestBody::PrintHtml(print) = request.body else { panic!() };
+        assert_eq!(print.options, PrintOptions::default());
+        assert_eq!(
+            (print.options.page_set, print.options.orientation, print.options.scale),
+            (PageSet::All, Orientation::Auto, ScaleMode::Shrink)
+        );
+        for (name, value) in [("pageSet", "first"), ("orientation", "upside"), ("scale", "big")] {
+            let error = read_json(json!({ "type": "print.html", "id": "r", "jobId": "j", "document": document_json(), "options": { name: value } })).unwrap_err();
+            assert_eq!(error.error.details.unwrap().get("field"), Some(&json!(format!("options.{name}"))), "{name}");
+        }
+        let error = read_json(json!({ "type": "print.html", "id": "r", "jobId": "j", "document": document_json(), "options": { "tray": "" } })).unwrap_err();
+        assert_eq!(error.error.details.unwrap().get("field"), Some(&json!("tray")));
+    }
+
+    #[test]
+    fn reads_a_print_pdf_request() {
+        let request = read_json(
+            json!({ "type": "print.pdf", "id": "p1", "jobId": "j-2", "printer": "Office", "data": "JVBERi0=", "docName": "发票",
+            "options": { "copies": 2, "pageSet": "even" } }),
+        )
+        .unwrap();
+        assert_eq!(request.body.kind(), "print.pdf");
+        let RequestBody::PrintPdf(pdf) = request.body else { panic!() };
+        assert_eq!(pdf.data.as_slice(), b"%PDF-");
+        assert_eq!((pdf.printer.as_deref(), pdf.doc_name.as_deref()), (Some("Office"), Some("发票")));
+        assert_eq!((pdf.options.copies, pdf.options.page_set), (2, PageSet::Even));
+
+        let request = read_json(json!({ "type": "print.pdf", "id": "p2", "jobId": "j-3", "data": "JVBERi0=" })).unwrap();
+        let RequestBody::PrintPdf(pdf) = request.body else { panic!() };
+        assert_eq!((pdf.printer, pdf.options), (None, PrintOptions::default()));
+
+        let error = read_json(json!({ "type": "print.pdf", "id": "p3", "jobId": "j", "data": "" })).unwrap_err();
+        assert_eq!(error.error.details.unwrap().get("field"), Some(&json!("data")));
+        let error = read(json!({ "type": "print.pdf", "id": "p4", "jobId": "j", "data": "JVBERi0=" }).to_string().as_bytes(), 4).unwrap_err();
+        assert_eq!(error.error.code, errors::DOCUMENT_TOO_LARGE);
     }
 
     #[test]

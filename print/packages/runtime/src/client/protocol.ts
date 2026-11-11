@@ -11,7 +11,7 @@ export const SUB_PROTOCOL = 'xihan-print.v1'
 export const UNVERSIONED_SUB_PROTOCOL = 'xihan-print'
 /** 协议主版本。 */
 export const PROTOCOL_VERSION = 1
-/** 协议次版本：只加不减。次版本 1 加了访问密钥的核对。 */
+/** 协议次版本：只加不减。次版本 1 加了访问密钥的核对，打印选项 pageSet、orientation、scale、paper、tray，打印机的纸盒与 PDF 打印。 */
 export const PROTOCOL_MINOR = 1
 /** 客户端监听的端口，按顺序探测。 */
 export const DEFAULT_PORTS: readonly number[] = [17620, 17621, 17622, 17623]
@@ -23,8 +23,10 @@ export const MAX_MESSAGE_BYTES = 96 * 1024 * 1024
 export const MAX_RESOURCE_BYTES = 64 * 1024 * 1024
 
 /**
- * 客户端给出的错误码。协议次版本 1 新加的：
- * - ACCESS_DENIED：握手时访问密钥缺少或不对，details.reason 为 missing 或 mismatch，客户端随后以关闭码 4403 断开。
+ * 客户端给出的错误码。协议次版本 1 新加的三个：
+ * - ACCESS_DENIED：握手时访问密钥缺少或不对，details.reason 为 missing 或 mismatch，客户端随后以关闭码 4403 断开；
+ * - TRAY_NOT_FOUND：打印机没有打印选项 tray 指定的纸盒，details 带 tray 与打印机的纸盒 trays；
+ * - PDF_INVALID：printPdf 交去的 PDF 读不出来，details.reason 为 not-pdf、damaged、encrypted 或 unsupported。
  */
 export type ClientErrorCode
   = | 'BAD_REQUEST'
@@ -38,12 +40,14 @@ export type ClientErrorCode
     | 'PRINTER_NOT_FOUND'
     | 'PRINTER_OFFLINE'
     | 'PAPER_UNSUPPORTED'
+    | 'TRAY_NOT_FOUND'
     | 'DOCUMENT_TOO_LARGE'
     | 'RESOURCE_BLOCKED'
     | 'RENDER_FAILED'
     | 'RENDER_TIMEOUT'
     | 'SPOOL_FAILED'
     | 'PDF_FAILED'
+    | 'PDF_INVALID'
     | 'JOB_DUPLICATE'
     | 'JOB_NOT_FOUND'
     | 'QUEUE_FULL'
@@ -97,6 +101,8 @@ export interface ClientCapabilities {
   readonly pdf: boolean
   readonly duplex: boolean
   readonly printerStatus: boolean
+  /** 能否打印 PDF（printPdf）；协议次版本 0 的客户端不给这一项，按不能处理。 */
+  readonly printPdf?: boolean
 }
 
 /** 握手成功后客户端的回复。 */
@@ -120,12 +126,23 @@ export interface PaperInfo {
   readonly heightMm: number
 }
 
+/** 打印机的一个纸盒。 */
+export interface TrayInfo {
+  /** 驱动给的编号：Windows 是 DMBIN 号，CUPS 是序号。 */
+  readonly id: number
+  /** 纸盒名，打印选项 tray 取这个名字。 */
+  readonly name: string
+}
+
 /** 打印机能力，只在查单台打印机时给出。 */
 export interface PrinterCapabilities {
   readonly color: boolean
   readonly duplex: boolean
   readonly maxCopies: number
+  /** 支持的纸张，打印选项 paper 取其中的 name。 */
   readonly papers: readonly PaperInfo[]
+  /** 纸盒，打印选项 tray 取其中的 name；协议次版本 0 的客户端不给这一项。 */
+  readonly trays?: readonly TrayInfo[]
 }
 
 /** 一台打印机。 */
@@ -161,7 +178,12 @@ export interface JobStatus {
   readonly warnings?: readonly ClientWarningPayload[]
 }
 
-/** 交给客户端的打印选项。纸张不在选项里：每组输出页按模板里的纸张尺寸下发；原始指令的纸张由指令自己决定。 */
+/**
+ * 交给客户端的打印选项。纸张缺省按每组输出页在模板里的尺寸（打印 PDF 时按 PDF 每页的尺寸）匹配，给了 paper 时都打到这种纸上；原始指令的纸张由指令自己决定。
+ * 导出 PDF 只用 pageRanges、pageSet 与 color，其余选项不起作用。
+ * pageSet、orientation、scale、paper、tray 从协议次版本 1 起支持：连着的客户端更旧时，取了非缺省值的任务以 CAPABILITY_UNSUPPORTED 失败，
+ * details 为 `{ capability: 选项名, minor: 客户端的协议次版本 }`，请求不发给客户端。
+ */
 export interface ClientPrintOptions {
   /** 打印机名称，缺省为默认打印机。 */
   readonly printer?: string
@@ -173,11 +195,30 @@ export interface ClientPrintOptions {
   readonly color?: 'color' | 'grayscale'
   /** 页码范围，如 1-3,5。 */
   readonly pageRanges?: string
+  /** 在 pageRanges 选中的页里只留奇数页（odd）或偶数页（even），按全文页码算；缺省 all。 */
+  readonly pageSet?: 'all' | 'odd' | 'even'
+  /** 版面方向：auto 按每组内容的宽高定（缺省）；portrait、landscape 强制纵向或横向，内容不旋转，按 scale 放进版面。 */
+  readonly orientation?: 'auto' | 'portrait' | 'landscape'
+  /**
+   * 内容怎么放进版面：shrink 比版面大时等比缩小，否则原大居中（缺省）；none 原大居中，放不下的部分裁掉；
+   * fit 等比放大或缩小到正好放进版面并居中。内容与纸张一样大时三者相同。
+   */
+  readonly scale?: 'shrink' | 'none' | 'fit'
+  /**
+   * 纸张名，取 printer(name) 给的 capabilities.papers 里的 name，不分大小写；给了时每组都打到这种纸上，fitToNearestPaper 不起作用。
+   * 打印机没有这种纸时任务以 PAPER_UNSUPPORTED 失败。
+   */
+  readonly paper?: string
+  /** 纸盒名，取 printer(name) 给的 capabilities.trays 里的 name，不分大小写；缺省为驱动的缺省纸盒。打印机没有这个纸盒时任务以 TRAY_NOT_FOUND 失败。 */
+  readonly tray?: string
   /** 弹系统打印对话框，缺省静默打印。 */
   readonly dialog?: boolean
   /** 交给打印池的期限，毫秒。 */
   readonly timeoutMs?: number
-  /** 打印机没有某组的纸张、驱动也不接受这个尺寸时，改用最接近的纸张，比纸大的内容等比缩小到放得下，比纸小的原大居中；缺省 false，这时整个任务以 PAPER_UNSUPPORTED 失败。 */
+  /**
+   * 打印机没有某组的纸张、驱动也不接受这个尺寸时，改用最接近的纸张，比纸大的内容等比缩小到放得下，比纸小的原大居中；
+   * 缺省 false，这时整个任务以 PAPER_UNSUPPORTED 失败。给了 paper 时不起作用。
+   */
   readonly fitToNearestPaper?: boolean
 }
 

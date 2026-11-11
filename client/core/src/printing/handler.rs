@@ -1,7 +1,7 @@
 // Copyright (c) 2021-Present XiHanFun and contributors.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-//! 业务请求的处理：查打印机、核对能力与目标打印机后把任务交给队列、查与取消任务，扩展登记的请求交给扩展
+//! 业务请求的处理：查打印机、核对能力与目标打印机后把任务交给队列（PDF 先读出页面尺寸）、查与取消任务，扩展登记的请求交给扩展
 
 use std::sync::Arc;
 
@@ -11,7 +11,7 @@ use super::pages::PageSelection;
 use super::queue::JobQueue;
 use crate::BoxFuture;
 use crate::protocol::codes::errors;
-use crate::protocol::{ClientRequest, CustomRequest, Details, DuplexMode, PrintDocument, PrintOptions, PrinterState, ProtocolError, RequestBody, writer};
+use crate::protocol::{ClientRequest, CustomRequest, Details, DuplexMode, PrintOptions, PrinterState, ProtocolError, RequestBody, writer};
 use crate::server::{ClientEnvironment, HandlerError, RequestHandler, Session};
 
 /// 扩展处理的请求类型
@@ -106,10 +106,8 @@ impl PrintRequestHandler {
     }
 }
 
-fn unselectable(document: &PrintDocument, options: &PrintOptions) -> Option<ProtocolError> {
-    PageSelection::parse(options.page_ranges.as_deref(), document.sheet_count()).is_none().then(|| {
-        ProtocolError::new(errors::BAD_REQUEST, format!("页码范围在 {} 页里一页都没选中", document.sheet_count())).with_details(Details::new().with("field", "options.pageRanges"))
-    })
+fn unselectable(total: u32, options: &PrintOptions) -> Option<ProtocolError> {
+    PageSelection::from_options(options, total).err()
 }
 
 fn printer_not_found(name: &str) -> ProtocolError {
@@ -142,7 +140,7 @@ impl RequestHandler for PrintRequestHandler {
                     let prepared = match self
                         .unsupported(capabilities.html, "html")
                         .or_else(|| self.unsupported_options(&print.options))
-                        .or_else(|| unselectable(&print.document, &print.options))
+                        .or_else(|| unselectable(print.document.sheet_count(), &print.options))
                     {
                         Some(error) => Err(error),
                         None => self
@@ -164,8 +162,32 @@ impl RequestHandler for PrintRequestHandler {
                     };
                     self.submit(session, &id, prepared).await;
                 }
+                RequestBody::PrintPdf(print) => {
+                    let prepared = match self.unsupported(capabilities.print_pdf, "printPdf").or_else(|| self.unsupported_options(&print.options)) {
+                        Some(error) => Err(error),
+                        None => {
+                            let data = print.data.clone();
+                            match tokio::task::spawn_blocking(move || crate::pdf::page_sizes(&data)).await? {
+                                Err(error) => Err(error.to_protocol()),
+                                Ok(pages) => {
+                                    let sheets = crate::pdf::sheet_groups(&pages);
+                                    match unselectable(pages.len() as u32, &print.options) {
+                                        Some(error) => Err(error),
+                                        None => {
+                                            let name = print.doc_name.unwrap_or_else(|| print.job_id.clone());
+                                            self.resolve(print.printer)
+                                                .await?
+                                                .map(|printer| Job::print_pdf(print.job_id, JobOwner::Session(session.clone()), printer, print.data, sheets, print.options, name))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    };
+                    self.submit(session, &id, prepared).await;
+                }
                 RequestBody::ExportPdf(pdf) => {
-                    let prepared = match self.unsupported(capabilities.pdf, "pdf").or_else(|| unselectable(&pdf.document, &pdf.options)) {
+                    let prepared = match self.unsupported(capabilities.pdf, "pdf").or_else(|| unselectable(pdf.document.sheet_count(), &pdf.options)) {
                         Some(error) => Err(error),
                         None => Ok(Job::pdf(pdf.job_id, JobOwner::Session(session.clone()), pdf.document, pdf.options)),
                     };

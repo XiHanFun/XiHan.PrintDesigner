@@ -2,7 +2,7 @@
 
 <!-- 本页由 docs/scripts/gen-reference.mjs 从源码生成，不要手改；源码变了之后在 docs/ 运行 pnpm gen。 -->
 
-`@xihan-print/runtime/client` 连接本地打印客户端：静默打印、写原始指令、导出 PDF、查打印机。这个子入口单独打包，不用客户端的页面不会加载它。
+`@xihan-print/runtime/client` 连接本地打印客户端：静默打印、把 PDF 打到打印机、写原始指令、导出 PDF、查打印机。这个子入口单独打包，不用客户端的页面不会加载它。
 
 ## 创建连接
 
@@ -50,8 +50,9 @@ createPrintClient 的选项。
 | `printDocument(schema: PrintDocument, data: unknown, options?: PrintClientDocumentOptions): PrintClientJob` | 按数据排出模板并交给客户端打印。 |
 | `printSheets(result: PaginationResult, options?: PrintClientDocumentOptions): PrintClientJob` | 把排好的输出页交给客户端打印。 |
 | `printRaw(printer: string, data: Uint8Array \| ArrayBuffer \| string, options?: PrintRawOptions): PrintClientJob` | 把原始指令原样写给打印机；字符串按 UTF-8 编码，要别的编码时先转成字节。 |
-| `exportPdf(schema: PrintDocument, data: unknown, options?: PrintClientDocumentOptions): Promise<Blob>` | 按数据排出模板并导出为 PDF。 |
-| `exportSheetsPdf(result: PaginationResult, options?: PrintClientDocumentOptions): Promise<Blob>` | 把排好的输出页导出为 PDF。 |
+| `printPdf(pdf: Blob \| ArrayBuffer \| Uint8Array, options?: PrintPdfOptions): PrintClientJob` | 把一份 PDF 交给客户端打印，客户端按 PDF 每页的尺寸分组匹配纸张，打印选项与 printSheets 相同。PDF 超过 64 MiB 时以 DOCUMENT_TOO_LARGE 失败；连着的客户端不支持打印 PDF（能力 printPdf 不为 true）时以 CAPABILITY_UNSUPPORTED 失败，details 为 `{ capability: 'printPdf', minor: 客户端的协议次版本 }`；这两种都不发给客户端。客户端读不出这份 PDF 时以 PDF_INVALID 失败。 |
+| `exportPdf(schema: PrintDocument, data: unknown, options?: PrintClientDocumentOptions): Promise<Blob>` | 按数据排出模板并导出为 PDF；打印选项只用 pageRanges、pageSet 与 color。 |
+| `exportSheetsPdf(result: PaginationResult, options?: PrintClientDocumentOptions): Promise<Blob>` | 把排好的输出页导出为 PDF；打印选项只用 pageRanges、pageSet 与 color。 |
 | `job(jobId: string): Promise<JobStatus>` | 查任务状态。 |
 | `on<K extends keyof PrintClientEventMap>(type: K, listener: (detail: PrintClientEventMap[K]) => void): () => void` | 订阅事件，返回退订函数。 |
 
@@ -136,13 +137,15 @@ declare function shouldFallBack(error: unknown): boolean
 | `NO_PRINTERS` | 客户端 | 本机没有任何打印机 | 否 |
 | `PRINTER_NOT_FOUND` | 客户端 | 指定的打印机不存在 | 否 |
 | `PRINTER_OFFLINE` | 客户端 | 打印机脱机、暂停或出错 | 否 |
-| `PAPER_UNSUPPORTED` | 客户端 | 打印机没有任务需要的纸张，且驱动不接受自定义尺寸 | 否 |
+| `PAPER_UNSUPPORTED` | 客户端 | 打印机没有任务需要的纸张，且驱动不接受自定义尺寸；或者打印机没有 paper 指定的纸张 | 否 |
+| `TRAY_NOT_FOUND` | 客户端 | 打印机没有 tray 指定的纸盒；details 带打印机报的全部纸盒 trays | 否 |
 | `DOCUMENT_TOO_LARGE` | 客户端 | 超过消息上限或资源总量上限 | 否 |
 | `RESOURCE_BLOCKED` | 客户端 | 文档里引用了随任务带来的资源之外的地址 | 否 |
 | `RENDER_FAILED` | 客户端 | 渲染引擎载入或等待就绪失败 | 否 |
 | `RENDER_TIMEOUT` | 客户端 | 渲染超时 | 否 |
 | `SPOOL_FAILED` | 客户端 | 交给打印池失败 | 否 |
 | `PDF_FAILED` | 客户端 | 导出 PDF 失败 | 否 |
+| `PDF_INVALID` | 客户端 | PDF 读不出来；details.reason 为 not-pdf（不是 PDF）、damaged（结构损坏）、encrypted（页面在加密的对象流里）或 unsupported（用了读不了的结构） | 否 |
 | `JOB_DUPLICATE` | 客户端 | 任务标识重复 | 否 |
 | `JOB_NOT_FOUND` | 客户端 | 查无此任务 | 否 |
 | `QUEUE_FULL` | 客户端 | 同一会话排队的任务超过上限 | 否 |
@@ -151,18 +154,18 @@ declare function shouldFallBack(error: unknown): boolean
 
 ## 提醒码
 
-HTML 通道的任务照常完成、但有宿主应当知道的情况时，`JobStatus` 的 `warnings` 里带若干条提醒（`ClientWarningPayload`），`code` 为下表之一，`details` 带补充信息。
+HTML 通道与 PDF 打印的任务照常完成、但有宿主应当知道的情况时，`JobStatus` 的 `warnings` 里带若干条提醒（`ClientWarningPayload`），`code` 为下表之一，`details` 带补充信息。
 
 | 提醒码 | 说明 |
 | --- | --- |
 | `PAPER_UNCHECKED` | 驱动没有报纸张能力，或读不出驱动会留下哪种纸，没有核对纸张就照常下发了 |
-| `PAPER_FITTED` | 按 fitToNearestPaper 把某组改用了最接近的纸张：比纸大的内容按 scale 等比缩小，比纸小的原大居中 |
+| `PAPER_FITTED` | 某组没有按原尺寸的纸张下发：按 fitToNearestPaper 改用了最接近的纸张、按 paper 打到指定的纸上，或按 orientation 换了版面方向；内容按 details.scale 的倍数居中 |
 
 ## 打印选项与结果
 
 ### ClientPrintOptions {#clientprintoptions}
 
-交给客户端的打印选项。纸张不在选项里：每组输出页按模板里的纸张尺寸下发；原始指令的纸张由指令自己决定。
+交给客户端的打印选项。纸张缺省按每组输出页在模板里的尺寸（打印 PDF 时按 PDF 每页的尺寸）匹配，给了 paper 时都打到这种纸上；原始指令的纸张由指令自己决定。导出 PDF 只用 pageRanges、pageSet 与 color，其余选项不起作用。pageSet、orientation、scale、paper、tray 从协议次版本 1 起支持：连着的客户端更旧时，取了非缺省值的任务以 CAPABILITY_UNSUPPORTED 失败，details 为 `{ capability: 选项名, minor: 客户端的协议次版本 }`，请求不发给客户端。
 
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
@@ -172,9 +175,14 @@ HTML 通道的任务照常完成、但有宿主应当知道的情况时，`JobSt
 | `duplex?` | `'simplex' \| 'long-edge' \| 'short-edge'` |  |
 | `color?` | `'color' \| 'grayscale'` |  |
 | `pageRanges?` | `string` | 页码范围，如 1-3,5。 |
+| `pageSet?` | `'all' \| 'odd' \| 'even'` | 在 pageRanges 选中的页里只留奇数页（odd）或偶数页（even），按全文页码算；缺省 all。 |
+| `orientation?` | `'auto' \| 'portrait' \| 'landscape'` | 版面方向：auto 按每组内容的宽高定（缺省）；portrait、landscape 强制纵向或横向，内容不旋转，按 scale 放进版面。 |
+| `scale?` | `'shrink' \| 'none' \| 'fit'` | 内容怎么放进版面：shrink 比版面大时等比缩小，否则原大居中（缺省）；none 原大居中，放不下的部分裁掉；fit 等比放大或缩小到正好放进版面并居中。内容与纸张一样大时三者相同。 |
+| `paper?` | `string` | 纸张名，取 printer(name) 给的 capabilities.papers 里的 name，不分大小写；给了时每组都打到这种纸上，fitToNearestPaper 不起作用。打印机没有这种纸时任务以 PAPER_UNSUPPORTED 失败。 |
+| `tray?` | `string` | 纸盒名，取 printer(name) 给的 capabilities.trays 里的 name，不分大小写；缺省为驱动的缺省纸盒。打印机没有这个纸盒时任务以 TRAY_NOT_FOUND 失败。 |
 | `dialog?` | `boolean` | 弹系统打印对话框，缺省静默打印。 |
 | `timeoutMs?` | `number` | 交给打印池的期限，毫秒。 |
-| `fitToNearestPaper?` | `boolean` | 打印机没有某组的纸张、驱动也不接受这个尺寸时，改用最接近的纸张，比纸大的内容等比缩小到放得下，比纸小的原大居中；缺省 false，这时整个任务以 PAPER_UNSUPPORTED 失败。 |
+| `fitToNearestPaper?` | `boolean` | 打印机没有某组的纸张、驱动也不接受这个尺寸时，改用最接近的纸张，比纸大的内容等比缩小到放得下，比纸小的原大居中；缺省 false，这时整个任务以 PAPER_UNSUPPORTED 失败。给了 paper 时不起作用。 |
 
 ### PrintClientDocumentOptions {#printclientdocumentoptions}
 
@@ -189,6 +197,16 @@ HTML 通道的任务照常完成、但有宿主应当知道的情况时，`JobSt
 | 属性 | 类型 | 说明 |
 | --- | --- | --- |
 | `docName?` | `string` | 打印池里显示的文档名，缺省为任务标识。 |
+
+### PrintPdfOptions {#printpdfoptions}
+
+打印 PDF 的选项：客户端打印选项，另加打印池里显示的文档名。
+
+继承 `ClientPrintOptions`。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `docName?` | `string` | 打印池里显示的文档名。 |
 
 ### JobStatus {#jobstatus}
 
@@ -236,7 +254,8 @@ HTML 通道的任务照常完成、但有宿主应当知道的情况时，`JobSt
 | `color` | `boolean` |  |
 | `duplex` | `boolean` |  |
 | `maxCopies` | `number` |  |
-| `papers` | `readonly PaperInfo[]` |  |
+| `papers` | `readonly PaperInfo[]` | 支持的纸张，打印选项 paper 取其中的 name。 |
+| `trays?` | `readonly TrayInfo[]` | 纸盒，打印选项 tray 取其中的 name；协议次版本 0 的客户端不给这一项。 |
 
 ### PaperInfo {#paperinfo}
 
@@ -248,6 +267,15 @@ HTML 通道的任务照常完成、但有宿主应当知道的情况时，`JobSt
 | `name` | `string` |  |
 | `widthMm` | `number` |  |
 | `heightMm` | `number` |  |
+
+### TrayInfo {#trayinfo}
+
+打印机的一个纸盒。
+
+| 属性 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | `number` | 驱动给的编号：Windows 是 DMBIN 号，CUPS 是序号。 |
+| `name` | `string` | 纸盒名，打印选项 tray 取这个名字。 |
 
 ### ClientWelcome {#clientwelcome}
 
@@ -283,6 +311,7 @@ HTML 通道的任务照常完成、但有宿主应当知道的情况时，`JobSt
 | `pdf` | `boolean` |  |
 | `duplex` | `boolean` |  |
 | `printerStatus` | `boolean` |  |
+| `printPdf?` | `boolean` | 能否打印 PDF（printPdf）；协议次版本 0 的客户端不给这一项，按不能处理。 |
 
 ## 交给客户端的文档
 
@@ -342,7 +371,7 @@ declare function buildClientDocument(result: PaginationResult, options?: ClientD
 | `DEFAULT_PORTS` | `[17620, 17621, 17622, 17623]` | 客户端监听的端口，按顺序探测。 |
 | `SUB_PROTOCOL` | `'xihan-print.v1'` | 带主版本的子协议。 |
 | `PROTOCOL_VERSION` | `1` | 协议主版本。 |
-| `PROTOCOL_MINOR` | `1` | 协议次版本：只加不减。次版本 1 加了访问密钥的核对。 |
+| `PROTOCOL_MINOR` | `1` | 协议次版本：只加不减。次版本 1 加了访问密钥的核对，打印选项 pageSet、orientation、scale、paper、tray，打印机的纸盒与 PDF 打印。 |
 
 ## 全部导出
 
@@ -358,6 +387,7 @@ declare function buildClientDocument(result: PaginationResult, options?: ClientD
 | `PrintClientJob` | 接口 | 一个交给客户端的任务。 |
 | `PrintClientOptions` | 接口 | createPrintClient 的选项。 |
 | `PrintClientState` | 类型 | 连接状态。 |
+| `PrintPdfOptions` | 接口 | 打印 PDF 的选项：客户端打印选项，另加打印池里显示的文档名。 |
 | `PrintRawOptions` | 接口 | 写原始指令的选项。 |
 | `WebSocketConstructor` | 类型 | 能当 WebSocket 用的构造函数，单测可注入假实现。 |
 
@@ -411,3 +441,4 @@ declare function buildClientDocument(result: PaginationResult, options?: ClientD
 | `PROTOCOL_VERSION` | 常量 | 协议主版本。 |
 | `SdkErrorCode` | 类型 | SDK 自己给出的错误码： |
 | `SUB_PROTOCOL` | 常量 | 带主版本的子协议。 |
+| `TrayInfo` | 接口 | 打印机的一个纸盒。 |

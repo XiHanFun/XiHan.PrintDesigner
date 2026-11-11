@@ -31,7 +31,7 @@ mod linux {
     use xihan_print_client_core::log::{MemoryLog, SharedLog};
     use xihan_print_client_core::printing::{HtmlPrintEngine, JobError, PaperCatalog, PaperFeed, PrintDialog, PrintDialogChoice, PrinterPapers, selftest};
     use xihan_print_client_core::protocol::codes::errors;
-    use xihan_print_client_core::protocol::{ClientInfo, ColorMode, DocumentResource, PrintDocument, PrintOptions, ProtocolError, SheetGroup};
+    use xihan_print_client_core::protocol::{ClientInfo, ColorMode, DocumentResource, PageSet, PrintDocument, PrintOptions, ProtocolError, SheetGroup};
     use xihan_print_client_core::time::Timestamp;
     use xihan_print_client_platform::{EngineOptions, Printing, create_engine, printing};
 
@@ -97,13 +97,13 @@ mod linux {
     impl Fixture {
         async fn create() -> Result<Fixture, String> {
             let directory = std::env::temp_dir().join(format!("xihan-print-webkit-{}", std::process::id()));
-            let printing = printing();
+            let log: SharedLog = Arc::new(MemoryLog::default());
+            let printing = printing(log.clone());
             let papers: Arc<dyn PaperCatalog> = match &printing {
                 Ok(printing) => printing.papers.clone(),
                 Err(_) => Arc::new(NoPapers),
             };
             let dialog = Arc::new(FakeDialog::default());
-            let log: SharedLog = Arc::new(MemoryLog::default());
             let engine = create_engine(EngineOptions {
                 data_directory: directory.join("main"),
                 papers: papers.clone(),
@@ -619,6 +619,63 @@ mod linux {
         })())
     }
 
+    async fn prints_a_pdf_to_the_test_printer_one_job_per_page_size(fixture: &Fixture) -> CaseResult {
+        let printing = match fixture.cups() {
+            Ok(printing) => printing,
+            Err(reason) => skip!("{reason}"),
+        };
+        let (Ok(printer), Ok(output)) = (std::env::var("XIHAN_PRINT_TEST_PRINTER"), std::env::var("XIHAN_PRINT_TEST_OUTPUT")) else {
+            skip!("没有配置测试打印机（XIHAN_PRINT_TEST_PRINTER / XIHAN_PRINT_TEST_OUTPUT）");
+        };
+        let pdf = fixture
+            .export(document(&[A4, A4, A5, A4], "曦寒打印 PDF 测试", vec![], ""), PrintOptions::default())
+            .await
+            .map_err(|error| error.to_string())?;
+        let pages = xihan_print_client_core::pdf::page_sizes(&pdf).map_err(|error| error.to_string())?;
+        let sheets = xihan_print_client_core::pdf::sheet_groups(&pages);
+        let printer_pdf = printing.pdf.clone().ok_or("没有 PDF 打印")?;
+        let _ = std::fs::remove_file(&output);
+        let options = PrintOptions {
+            page_set: PageSet::Odd,
+            ..PrintOptions::default()
+        };
+        let printed = printer_pdf
+            .print(
+                Arc::new(pdf.clone()),
+                Arc::new(sheets.clone()),
+                printer.clone(),
+                options,
+                "曦寒打印 PDF 测试".into(),
+                Cancel::new(),
+            )
+            .await
+            .map_err(|error| error.to_string())?;
+        let data = wait_for_output(&output).await;
+        let missing_tray = PrintOptions {
+            tray: Some("没有这个纸盒".into()),
+            ..PrintOptions::default()
+        };
+        let error = match printer_pdf
+            .print(Arc::new(pdf), Arc::new(sheets.clone()), printer.clone(), missing_tray, "纸盒".into(), Cancel::new())
+            .await
+        {
+            Err(JobError::Failure(error)) => error,
+            other => return Err(format!("没有纸盒时应当失败：{other:?}")),
+        };
+        passed((|| {
+            ensure!(sheets.len() == 3 && sheets.iter().map(|group| group.count).sum::<u32>() == 4, "PDF 的分组不对：{sheets:?}");
+            ensure!(printed.sheets == 2, "页数不对：{}", printed.sheets);
+            ensure!(
+                printed.spooled.len() == 2 && printed.spooled.iter().all(|ticket| ticket.printer == printer && ticket.system_job_id.is_some()),
+                "作业不对：{:?}",
+                printed.spooled
+            );
+            ensure!(data.is_some(), "测试打印机没有写出内容：{output}");
+            ensure!(error.code == errors::TRAY_NOT_FOUND, "错误码不对：{error}");
+            Ok(())
+        })())
+    }
+
     async fn writes_raw_commands_to_the_test_printer(fixture: &Fixture) -> CaseResult {
         let printing = match fixture.cups() {
             Ok(printing) => printing,
@@ -708,6 +765,9 @@ mod linux {
             }),
             ("prints_each_paper_group_to_the_test_printer", |fixture| {
                 Box::pin(prints_each_paper_group_to_the_test_printer(fixture))
+            }),
+            ("prints_a_pdf_to_the_test_printer_one_job_per_page_size", |fixture| {
+                Box::pin(prints_a_pdf_to_the_test_printer_one_job_per_page_size(fixture))
             }),
             ("writes_raw_commands_to_the_test_printer", |fixture| {
                 Box::pin(writes_raw_commands_to_the_test_printer(fixture))

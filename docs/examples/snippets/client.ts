@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-// 打印客户端：连接、访问密钥与端口、退回浏览器打印与错误处理、任务状态、原始指令、导出 PDF、接到预览元素上。
+// 打印客户端：连接、访问密钥与端口、退回浏览器打印与错误处理、任务状态、原始指令、PDF 打印、导出 PDF、接到预览元素上。
 
 // #region connect
 import type { XhPrintPreview } from '@xihan-print/runtime'
@@ -79,6 +79,21 @@ export function printReceipt(): PrintClientJob {
   return client.printRaw('小票打印机', bytes, { docName: '小票' })
 }
 // #endregion raw
+
+// #region print-pdf
+export async function printInvoice(file: Blob): Promise<void> {
+  // 浏览器拿到的 PDF 直接交给客户端，每页按自己的尺寸匹配打印机的纸张；从 2 号纸盒进纸，内容放大或缩小到正好放满纸张
+  const job = client.printPdf(file, { printer: '财务打印机', docName: '电子发票', tray: '纸盒 2', scale: 'fit' })
+  await job.done
+}
+// #endregion print-pdf
+
+// #region options
+export function printOddPagesOntoA4(): PrintClientJob {
+  // 只打奇数页，每组都打到 A4 上并横放，比 A4 大的内容等比缩小
+  return client.printDocument(schema, data, { pageSet: 'odd', paper: 'A4', orientation: 'landscape' })
+}
+// #endregion options
 
 // #region pdf
 export async function downloadPdf(): Promise<void> {

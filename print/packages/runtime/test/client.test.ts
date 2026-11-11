@@ -6,12 +6,13 @@
 // @vitest-environment jsdom
 
 import type { PaginationResult, PrintElement } from '@xihan-print/core'
-import type { JobState, PrintClientOptions } from '../src/client'
+import type { ClientPrintOptions, JobState, PrintClientOptions } from '../src/client'
 import type { Message } from './client-fakes'
 import { paginate } from '@xihan-print/core'
 import { createExpressionEngine, formatValue } from '@xihan-ui/expression'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildClientDocument, createPrintClient, PrintClientError, shouldFallBack } from '../src/client'
+import { MAX_RESOURCE_BYTES } from '../src/client/protocol'
 import { FakeApp, FakeSocket, FakeWebSocket, settle } from './client-fakes'
 import { createFakeMeasurer, documentOf, pageOf, registry, textElement } from './fixtures'
 
@@ -322,6 +323,132 @@ describe('任务', () => {
     const request = app.request('export.pdf')!
     expect(request).not.toHaveProperty('printer')
     expect(request.options).toEqual({ color: 'grayscale' })
+  })
+})
+
+describe('协议次版本 1 的打印选项与 PDF 打印', () => {
+  const PDF = new TextEncoder().encode('%PDF-1.7')
+  const PDF_BASE64 = 'JVBERi0xLjc='
+
+  /** 协议次版本 1、能打印 PDF 的客户端。 */
+  function upgrade(app: FakeApp): FakeApp {
+    app.minor = 1
+    app.capabilities = { ...app.capabilities, printPdf: true }
+    return app
+  }
+
+  /** jsdom 的 Blob 没有 arrayBuffer()，给这一份补上，经 FileReader 读。 */
+  function blobOf(bytes: Uint8Array<ArrayBuffer>): Blob {
+    const blob = new Blob([bytes], { type: 'application/pdf' })
+    const arrayBuffer = (): Promise<ArrayBuffer> => new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result as ArrayBuffer)
+      reader.onerror = () => reject(reader.error)
+      reader.readAsArrayBuffer(blob)
+    })
+    return Object.assign(blob, { arrayBuffer })
+  }
+
+  function sheets(): PaginationResult {
+    return layout(['a', [textElement('t', '一')]])
+  }
+
+  it('客户端协议次版本为 0 时，新选项取了非缺省值的任务以 CAPABILITY_UNSUPPORTED 失败，不发请求', async () => {
+    const app = listen()
+    app.handlers['print.html'] = (socket, request) => accept(socket, request, [{ state: 'completed', sheets: 1 }])
+    const target = client()
+    const cases: Array<readonly [ClientPrintOptions, string]> = [
+      [{ pageSet: 'odd' }, 'pageSet'],
+      [{ orientation: 'landscape' }, 'orientation'],
+      [{ scale: 'fit' }, 'scale'],
+      [{ paper: 'A4' }, 'paper'],
+      [{ tray: 'Tray 2' }, 'tray'],
+      [{ pageSet: 'all', orientation: 'portrait', tray: 'Tray 2' }, 'orientation'],
+    ]
+
+    for (const [options, capability] of cases) {
+      const job = target.printSheets(sheets(), options)
+      const error = await rejection(job.done)
+      expect([capability, error.code, error.details, shouldFallBack(error)]).toEqual([capability, 'CAPABILITY_UNSUPPORTED', { capability, minor: 0 }, false])
+      expect(job.status).toBeUndefined()
+    }
+    expect(app.request('print.html')).toBeUndefined()
+  })
+
+  it('客户端协议次版本为 0 时，新选项取缺省值照常发', async () => {
+    const app = listen()
+    app.handlers['print.html'] = (socket, request) => accept(socket, request, [{ state: 'completed', sheets: 1 }])
+
+    await client().printSheets(sheets(), { pageSet: 'all', orientation: 'auto', scale: 'shrink', copies: 2 }).done
+
+    expect(app.request('print.html')!.options).toEqual({ copies: 2, pageSet: 'all', orientation: 'auto', scale: 'shrink' })
+  })
+
+  it('导出 PDF 只核对它用到的 pageSet：客户端协议次版本为 0 时 pageSet 取非缺省值报 CAPABILITY_UNSUPPORTED，版面选项照常发', async () => {
+    const app = listen()
+    app.handlers['export.pdf'] = (socket, request) => {
+      socket.reply(request, { jobId: request.jobId, position: 0 })
+      socket.push({ type: 'job.output', jobId: request.jobId, mime: 'application/pdf', bytes: 8 })
+      socket.pushBinary(new Blob(['%PDF-1.7']))
+      socket.push({ type: 'job.completed', jobId: request.jobId, bytes: 8 })
+    }
+    const target = client()
+
+    const error = await rejection(target.exportSheetsPdf(sheets(), { pageSet: 'even' }))
+    expect([error.code, error.details]).toEqual(['CAPABILITY_UNSUPPORTED', { capability: 'pageSet', minor: 0 }])
+    expect(app.request('export.pdf')).toBeUndefined()
+    await target.exportSheetsPdf(sheets(), { orientation: 'landscape' })
+    expect(app.request('export.pdf')!.options).toEqual({ orientation: 'landscape' })
+  })
+
+  it('客户端协议次版本为 1 时新选项照常交给客户端', async () => {
+    const app = upgrade(listen())
+    app.handlers['print.html'] = (socket, request) => accept(socket, request, [{ state: 'completed', sheets: 1 }])
+    const options: ClientPrintOptions = { pageRanges: '1-3', pageSet: 'odd', orientation: 'landscape', scale: 'fit', paper: 'A4', tray: 'Tray 2' }
+
+    await client().printSheets(sheets(), { printer: 'Office', ...options }).done
+
+    expect(app.request('print.html')).toMatchObject({ printer: 'Office', options })
+  })
+
+  it('printPdf：Blob、ArrayBuffer 与 Uint8Array 都按 base64 发 print.pdf，带上打印机、文档名与打印选项', async () => {
+    const app = upgrade(listen())
+    app.handlers['print.pdf'] = (socket, request) => accept(socket, request, [{ state: 'started' }, { state: 'completed', sheets: 1 }])
+    const target = client()
+    const framed = new Uint8Array([0, ...PDF, 0]).subarray(1, PDF.length + 1)
+
+    for (const pdf of [blobOf(PDF), PDF.slice().buffer, framed]) {
+      const job = target.printPdf(pdf, { printer: 'Office', docName: '发票', copies: 2, pageSet: 'even', paper: 'A4' })
+      expect((await job.done).sheets).toBe(1)
+      expect(app.request('print.pdf')).toEqual({ type: 'print.pdf', id: expect.any(String), jobId: job.id, printer: 'Office', data: PDF_BASE64, docName: '发票', options: { copies: 2, pageSet: 'even', paper: 'A4' } })
+    }
+    await target.printPdf(PDF).done
+    expect(app.request('print.pdf')).toEqual({ type: 'print.pdf', id: expect.any(String), jobId: expect.any(String), data: PDF_BASE64, options: {} })
+  })
+
+  it('printPdf：客户端没有 printPdf 能力时以 CAPABILITY_UNSUPPORTED 失败，不发请求', async () => {
+    const app = listen()
+    app.handlers['print.pdf'] = (socket, request) => accept(socket, request, [{ state: 'completed', sheets: 1 }])
+
+    const old = await rejection(client().printPdf(PDF).done)
+    expect([old.code, old.details]).toEqual(['CAPABILITY_UNSUPPORTED', { capability: 'printPdf', minor: 0 }])
+    app.minor = 1
+    app.capabilities = { ...app.capabilities, printPdf: false }
+    const lacking = await rejection(client().printPdf(PDF).done)
+    expect([lacking.code, lacking.details]).toEqual(['CAPABILITY_UNSUPPORTED', { capability: 'printPdf', minor: 1 }])
+    expect(app.request('print.pdf')).toBeUndefined()
+  })
+
+  it('printPdf：PDF 超过 64 MiB 时以 DOCUMENT_TOO_LARGE 失败，不连客户端也不读 Blob', async () => {
+    upgrade(listen())
+    const target = client()
+    const big = new Uint8Array(MAX_RESOURCE_BYTES + 1)
+
+    for (const pdf of [big, new Blob([big])]) {
+      const error = await rejection(target.printPdf(pdf).done)
+      expect([error.code, error.details]).toEqual(['DOCUMENT_TOO_LARGE', { bytes: MAX_RESOURCE_BYTES + 1, limit: MAX_RESOURCE_BYTES }])
+    }
+    expect(FakeSocket.created).toHaveLength(0)
   })
 })
 

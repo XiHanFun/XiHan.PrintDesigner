@@ -109,7 +109,7 @@ impl Host {
         let lists = Arc::new(OriginLists::load(paths.origins_file(), log.as_ref()));
         let mut problems = Vec::new();
 
-        let printing = match platform::printing() {
+        let printing = match platform::printing(shared.clone()) {
             Ok(printing) => Some(printing),
             Err(problem) => {
                 log.warn(&format!("查不了打印机：{problem}"));
@@ -144,15 +144,17 @@ impl Host {
             renderer: engine.as_ref().and_then(|engine| engine.version()),
         };
         let raw = printing.as_ref().and_then(|printing| printing.raw.clone());
+        let pdf = printing.as_ref().and_then(|printing| printing.pdf.clone());
         let capabilities = ClientCapabilities {
             html: engine.is_some(),
             raw: raw.is_some(),
             pdf: engine.is_some(),
+            print_pdf: pdf.is_some(),
             duplex: true,
             printer_status: true,
             extensions: extensions.capabilities.clone(),
         };
-        let queue = JobQueue::new(engine.clone(), raw, JobQueueOptions::default(), clock.clone(), shared.clone());
+        let queue = JobQueue::new(engine.clone(), raw, pdf, JobQueueOptions::default(), clock.clone(), shared.clone());
         for observer in &extensions.observers {
             queue.add_observer(observer.clone());
         }

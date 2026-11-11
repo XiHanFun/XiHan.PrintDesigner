@@ -101,6 +101,7 @@ mod tests {
                     height_mm: 297.0,
                 },
             ],
+            trays: vec![],
         });
         assert_eq!(paper_for(&printer), (210.0, 297.0));
     }

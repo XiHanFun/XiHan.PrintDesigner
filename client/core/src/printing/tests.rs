@@ -117,6 +117,35 @@ impl RawPrinter for Backend {
     }
 }
 
+impl PdfPrinter for Backend {
+    fn print(
+        &self,
+        _pdf: Arc<Vec<u8>>,
+        sheets: Arc<Vec<SheetGroup>>,
+        printer: String,
+        options: PrintOptions,
+        document_name: String,
+        cancel: Cancel,
+    ) -> BoxFuture<'static, Result<HtmlPrintResult, JobError>> {
+        let groups = sheets.iter().map(|group| group.count.to_string()).collect::<Vec<_>>().join("+");
+        let wait = self
+            .0
+            .wait(&printer, format!("print-pdf:{printer}:{document_name}:{groups}:{}", options.page_set.name()), cancel);
+        Box::pin(async move {
+            wait.await?;
+            Ok(HtmlPrintResult {
+                sheets: sheets.iter().map(|group| group.count).sum(),
+                warnings: vec![],
+                spooled: vec![SpoolTicket {
+                    printer,
+                    document_name,
+                    system_job_id: None,
+                }],
+            })
+        })
+    }
+}
+
 #[derive(Default)]
 struct FakeCatalog {
     printers: Mutex<Vec<PrinterInfo>>,
@@ -142,6 +171,7 @@ impl PrinterCatalog for FakeCatalog {
                     duplex: true,
                     max_copies: 99,
                     papers: vec![],
+                    trays: vec![],
                 });
                 printer
             }))
@@ -174,6 +204,7 @@ fn all_capabilities() -> ClientCapabilities {
         html: true,
         raw: true,
         pdf: true,
+        print_pdf: true,
         duplex: true,
         printer_status: true,
         extensions: vec![],
@@ -276,9 +307,11 @@ impl Harness {
         }
         *catalog.default.lock().unwrap() = Some("Office".into());
         let engine = Backend(backend.clone());
+        let pdf: Arc<dyn PdfPrinter> = Arc::new(engine.clone());
         let queue = JobQueue::new(
             Some(Arc::new(engine.clone())),
             raw.then(|| Arc::new(engine) as Arc<dyn RawPrinter>),
+            Some(pdf),
             options,
             Arc::new(SystemClock::utc()),
             null_log(),
@@ -564,6 +597,71 @@ async fn rejects_page_ranges_that_select_nothing() {
         )
         .await;
     peer.error("r-g2", errors::BAD_REQUEST).await;
+    peer.quiet().await;
+    assert!(harness.backend.calls().is_empty());
+}
+
+/// 两页 A4 加一页 100×60 mm 的 PDF，没有交叉引用表
+const PDF: &[u8] = b"%PDF-1.4
+1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj
+2 0 obj << /Type /Pages /Kids [3 0 R 4 0 R 5 0 R] /Count 3 /MediaBox [0 0 595.28 841.89] >> endobj
+3 0 obj << /Type /Page /Parent 2 0 R >> endobj
+4 0 obj << /Type /Page /Parent 2 0 R >> endobj
+5 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 283.46 170.08] >> endobj
+trailer << /Root 1 0 R >>
+%%EOF
+";
+
+fn print_pdf(job: &str, data: &[u8], options: PrintOptions) -> RequestBody {
+    RequestBody::PrintPdf(PrintPdfRequest {
+        job_id: job.into(),
+        printer: Some("Label".into()),
+        data: Arc::new(data.to_vec()),
+        doc_name: None,
+        options,
+    })
+}
+
+#[tokio::test]
+async fn prints_a_pdf_grouped_by_page_size() {
+    let harness = Harness::standard();
+    let mut peer = harness.peer("https://erp.example.com");
+    let options = PrintOptions {
+        page_set: PageSet::Odd,
+        ..PrintOptions::default()
+    };
+    harness.send(&peer, "r-f1", print_pdf("f1", PDF, options)).await;
+    accepted(&mut peer, "f1").await;
+    event(&mut peer, "job.started", "f1").await;
+    assert_eq!(event(&mut peer, "job.completed", "f1").await["sheets"], json!(3));
+    assert_eq!(harness.backend.calls(), vec!["print-pdf:Label:f1:2+1:odd"]);
+    assert_eq!(harness.queue.job("f1").unwrap().kind(), JobKind::PrintPdf);
+}
+
+#[tokio::test]
+async fn rejects_unreadable_pdfs_and_empty_selections_before_queueing() {
+    let harness = Harness::standard();
+    let mut peer = harness.peer("https://erp.example.com");
+    harness.send(&peer, "r-f2", print_pdf("f2", b"<html></html>", PrintOptions::default())).await;
+    assert_eq!(peer.error("r-f2", errors::PDF_INVALID).await["details"]["reason"], json!("not-pdf"));
+    let options = PrintOptions {
+        page_ranges: Some("2".into()),
+        page_set: PageSet::Odd,
+        ..PrintOptions::default()
+    };
+    harness.send(&peer, "r-f3", print_pdf("f3", PDF, options)).await;
+    assert_eq!(peer.error("r-f3", errors::BAD_REQUEST).await["details"]["field"], json!("options.pageSet"));
+    let unsupported = Harness::new(
+        JobQueueOptions::default(),
+        ClientCapabilities {
+            html: true,
+            ..ClientCapabilities::default()
+        },
+        false,
+    );
+    let mut other = unsupported.peer("https://erp.example.com");
+    unsupported.send(&other, "r-f4", print_pdf("f4", PDF, PrintOptions::default())).await;
+    assert_eq!(other.error("r-f4", errors::CAPABILITY_UNSUPPORTED).await["details"]["capability"], json!("printPdf"));
     peer.quiet().await;
     assert!(harness.backend.calls().is_empty());
 }

@@ -10,6 +10,7 @@ pub mod defaults;
 pub mod diagnostics;
 pub mod log;
 pub mod paths;
+pub mod pdf;
 pub mod printing;
 pub mod protocol;
 pub mod server;

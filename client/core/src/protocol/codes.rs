@@ -36,8 +36,14 @@ pub mod errors {
     /// 打印机脱机、暂停或出错
     pub const PRINTER_OFFLINE: &str = "PRINTER_OFFLINE";
 
-    /// 打印机没有任务需要的纸张，且驱动不接受自定义尺寸
+    /// 打印机没有任务需要的纸张，且驱动不接受自定义尺寸；或者打印机没有 paper 指定的纸张
     pub const PAPER_UNSUPPORTED: &str = "PAPER_UNSUPPORTED";
+
+    /// 打印机没有 tray 指定的纸盒；details 带打印机报的全部纸盒 trays
+    pub const TRAY_NOT_FOUND: &str = "TRAY_NOT_FOUND";
+
+    /// PDF 读不出来；details.reason 为 not-pdf（不是 PDF）、damaged（结构损坏）、encrypted（页面在加密的对象流里）或 unsupported（用了读不了的结构）
+    pub const PDF_INVALID: &str = "PDF_INVALID";
 
     /// 超过消息上限或资源总量上限
     pub const DOCUMENT_TOO_LARGE: &str = "DOCUMENT_TOO_LARGE";
@@ -78,6 +84,6 @@ pub mod warnings {
     /// 驱动没有报纸张能力，或读不出驱动会留下哪种纸，没有核对纸张就照常下发了
     pub const PAPER_UNCHECKED: &str = "PAPER_UNCHECKED";
 
-    /// 按 fitToNearestPaper 把某组改用了最接近的纸张：比纸大的内容按 scale 等比缩小，比纸小的原大居中
+    /// 某组没有按原尺寸的纸张下发：按 fitToNearestPaper 改用了最接近的纸张、按 paper 打到指定的纸上，或按 orientation 换了版面方向；内容按 details.scale 的倍数居中
     pub const PAPER_FITTED: &str = "PAPER_FITTED";
 }

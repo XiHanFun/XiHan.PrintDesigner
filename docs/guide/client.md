@@ -4,10 +4,11 @@
 
 | 能力 | 说明 |
 | --- | --- |
-| 静默打印 | 打到指定的打印机，可设份数、逐份、单双面、彩色或灰度、页码范围；Windows 上也可以弹出系统的打印对话框 |
+| 静默打印 | 打到指定的打印机，可设份数、逐份、单双面、彩色或灰度、页码范围与奇偶页，可指定纸张、纸盒、版面方向与缩放方式；Windows 上也可以弹出系统的打印对话框 |
+| PDF 打印 | 把浏览器拿到的 PDF 直接打到指定的打印机，每页按自己的尺寸匹配打印机的纸张 |
 | 原始指令 | 把 ESC/POS、ZPL、TSPL 等指令原样写给打印机 |
 | 导出 PDF | 纸张尺寸不同的输出页导出成一份 PDF，每页保持自己的尺寸 |
-| 打印机列表 | 名称、是否默认、状态（就绪、暂停、脱机、缺纸、卡纸等），单台打印机可查纸张、双面、彩色与最大份数 |
+| 打印机列表 | 名称、是否默认、状态（就绪、暂停、脱机、缺纸、卡纸等），单台打印机可查纸张、纸盒、双面、彩色与最大份数 |
 
 ## 安全模型
 
@@ -97,22 +98,33 @@ macOS 把 `.dmg` 里的应用拖进「应用程序」；Linux 用系统的包管
 | `duplex` | `simplex` 单面、`long-edge` 长边翻页、`short-edge` 短边翻页 |
 | `color` | `color` 彩色、`grayscale` 灰度 |
 | `pageRanges` | 页码范围，如 `1-3,5` |
+| `pageSet` | `all` 全部（缺省）、`odd` 只打奇数页、`even` 只打偶数页；在 `pageRanges` 选中的页里按全文页码挑，如 `pageRanges: '2-5'` 加 `odd` 打第 3、5 页 |
+| `paper` | 纸张名，取 `client.printer(name)` 给出的 `capabilities.papers` 里的 `name`，不分大小写；给了以后每组都打到这种纸上，见下文 |
+| `orientation` | 版面方向：`auto` 按每组内容的宽高定（缺省），`portrait` 竖放，`landscape` 横放；内容本身不旋转 |
+| `scale` | 内容怎么放进版面：`shrink` 比版面大时等比缩小、否则原大居中（缺省），`none` 原大居中、放不下的部分裁掉，`fit` 等比放大或缩小到正好放进版面 |
+| `tray` | 纸盒名，取 `capabilities.trays` 里的 `name`，不分大小写；缺省用驱动的缺省纸盒，打印机没有这个纸盒时以 `TRAY_NOT_FOUND` 失败 |
 | `dialog` | 为 `true` 时弹出系统的打印对话框，用户选定后再打；只在 Windows 上可用，macOS 与 Linux 上以 `CAPABILITY_UNSUPPORTED` 失败 |
 | `timeoutMs` | 交给打印队列的期限 |
-| `fitToNearestPaper` | 为 `true` 时，打印机没有某组纸张就改用最接近的纸张，见下文；缺省 `false` |
+| `fitToNearestPaper` | 为 `true` 时，打印机没有某组纸张就改用最接近的纸张，见下文；缺省 `false`；给了 `paper` 时不起作用 |
+
+<<< @/examples/snippets/client.ts#options
+
+协议次版本为 0 的客户端不认识 `pageSet`、`orientation`、`scale`、`paper`、`tray`，会照缺省打印，所以 SDK 在发出任务之前先看连上的客户端支不支持：不支持时任务以 `CAPABILITY_UNSUPPORTED` 失败，`details` 写着是哪一项（`capability`）与客户端的协议次版本（`minor`），不会悄悄按缺省打出来。这几项取缺省值时照常发出。导出 PDF 只用 `pageRanges`、`pageSet` 与 `color`。
 
 ### 纸张怎么定
 
-打印选项里没有纸张，纸张取自模板：
+不给 `paper` 时，纸张取自模板：
 
 - 每张页面模板的纸张就是它排出的输出页的尺寸。客户端把输出页按纸张尺寸分组，每组一个打印作业，按输出页的顺序依次送出。模板里换了纸张，打印跟着换；一份模板里混用几种纸张，也是一次交给客户端。
-- 输出页的内容是按模板纸张排好的，所以不另设纸张选项去换成别的纸。
-- 弹出系统打印对话框（`dialog: true`）时，采用对话框里选的打印机、份数、逐份、单双面、彩色与页码范围；纸张仍按模板，在打印机首选项里改纸张不起作用。
+- 弹出系统打印对话框（`dialog: true`）时，采用对话框里选的打印机、份数、逐份、单双面、彩色与页码范围；纸张、纸盒、方向与缩放仍按打印选项，在打印机首选项里改它们不起作用。
 - 送出之前，客户端按打印机的纸张能力逐组核对：驱动报的纸张里有这组的尺寸（宽高各差 1 mm 以内，横放竖放都算），或者驱动接受这个尺寸，才照这组的纸张送出；横向的输出页可以用竖放的同尺寸纸张横过来打。核对时照送出时的设置问驱动会留下哪种纸，驱动会悄悄换成别的纸的，按对不上处理。
 - 有一组对不上，整个任务以 `PAPER_UNSUPPORTED` 失败，一张都不打。`details` 带打印机名（`printer`）、第一个对不上的分组序号（`group`，从 0 起）与它的宽高（`widthMm`、`heightMm`），以及打印机报的全部纸张（`papers`，形状同 `PaperInfo`）。
 - 宿主愿意放宽时，打印选项给 `fitToNearestPaper: true`：对不上的组改用最接近的纸张。横竖两种放法都算，放得下原大内容的纸取面积最小的一种，都放不下时取缩得最少的一种；内容比纸大的等比缩小到放得下，比纸小的原大居中。任务照常完成，`status.warnings` 里每个换了纸的组带一条 `PAPER_FITTED`，`details` 写着换成的纸张（`paper`）、是否横放（`landscape`）与缩放倍数（`scale`）。
 - 驱动不报纸张能力，或者读不出驱动会留下哪种纸时，不拦，照模板的尺寸送出，`status.warnings` 里带 `PAPER_UNCHECKED`。
-- 需要提前提示时，用 `client.printer(name)` 查这台打印机的纸张列表（`capabilities.papers`）。
+- 给了 `paper` 时，每组都打到这种纸上，不再按各组的尺寸核对：版面按 `orientation` 放（`auto` 时与内容同向），内容按 `scale` 放进版面并居中。打印机没有这种纸，或者驱动会把它换成别的纸时，以 `PAPER_UNSUPPORTED` 失败，`details` 带要的纸张（`paper`）与打印机报的全部纸张（`papers`）。
+- 给了 `orientation` 的 `portrait` 或 `landscape`、而这组内容是另一个方向时，用同一种纸换个方向放，内容按 `scale` 放进版面。
+- 版面与内容一样大时（宽高各差 1 mm 以内）三种 `scale` 都按原大打。版面与内容不一样大时，任务照常完成，`status.warnings` 里每个这样的组带一条 `PAPER_FITTED`，`details` 写着纸张（`paper`，驱动报过时）、版面宽高（`pageWidthMm`、`pageHeightMm`）、是否横放（`landscape`）与缩放倍数（`scale`）。macOS 与 Linux 上缩放由 CUPS 按打印机的可打印区域做，四周可能比 Windows 多出页边距。
+- 需要提前提示时，用 `client.printer(name)` 查这台打印机的纸张列表（`capabilities.papers`）与纸盒列表（`capabilities.trays`）。
 - 原始指令的纸张由指令自己决定（如 ZPL 的 `^PW`、`^LL`，TSPL 的 `SIZE`），客户端原样下发，不涉及纸张。
 
 要看任务进度或取消任务时，直接用 `printDocument`，它立即返回一个任务：
@@ -136,6 +148,19 @@ macOS 把 `.dmg` 里的应用拖进「应用程序」；Linux 用系统的包管
 - 打印机要装在系统里：Windows 上用「Generic / Text Only」或厂商驱动都可以，端口可以是 USB、并口或网络端口；macOS 与 Linux 上是 CUPS 打印机，指令以原始数据（`application/vnd.cups-raw`）下发，队列要接受原始数据。
 - 传字符串时按 UTF-8 编码；打印机要 GBK 等编码时，先自己转成字节。
 
+## PDF 打印
+
+`printPdf` 把浏览器拿到的 PDF（`Blob`、`ArrayBuffer` 或 `Uint8Array`）直接打到打印机，适合电子发票、对账单这类已经是 PDF 的文件。它立即返回一个任务，状态与 `printDocument` 的一样：
+
+<<< @/examples/snippets/client.ts#print-pdf
+
+- 客户端读出每页的尺寸（取 CropBox 与 MediaBox 的交集，按 Rotate 转向、乘 UserUnit），相邻同尺寸的页并成一组，之后照[纸张怎么定](#纸张怎么定)逐组核对纸张：每页按自己的尺寸匹配打印机的纸张，`fitToNearestPaper`、`paper`、`orientation`、`scale`、`tray` 都照样起作用。页码范围与奇偶页按 PDF 的页码。
+- 份数、逐份、单双面、彩色与 `dialog` 照打印选项；`docName` 是打印队列里显示的文档名，缺省为任务标识，分了几组时后面带「（1/2）」这样的序号。
+- PDF 不超过 64 MiB，超了 SDK 在发出之前就以 `DOCUMENT_TOO_LARGE` 失败。
+- 读不出 PDF 时以 `PDF_INVALID` 失败，`details.reason` 写着原因：`not-pdf`（不是 PDF）、`damaged`（结构损坏）、`encrypted`（加了密，页面又在加密的对象流里）、`unsupported`（用了读不了的压缩方式）。加了密、但页面没在对象流里的 PDF 照常能打。
+- 协议次版本为 0 的客户端没有这项能力，这时任务以 `CAPABILITY_UNSUPPORTED` 失败（`details.capability` 为 `printPdf`）。
+- macOS 与 Linux 上，PDF 原样交给 CUPS，每组一个作业，用页码范围指定这组的页。Windows 上用系统的 Windows.Data.Pdf 载入，经 Direct2D 写成 XPS 打印作业交给打印队列，打印队列里是矢量内容；每组一个作业。
+
 ## 导出 PDF
 
 `exportPdf` 在客户端里把模板排成一份 PDF，纸张尺寸不同的输出页各自保持尺寸，结果是一个 Blob：
@@ -147,7 +172,7 @@ macOS 把 `.dmg` 里的应用拖进「应用程序」；Linux 用系统的包管
 1. 浏览器里照常分页，把输出页渲染成一份独立的 HTML。
 2. 取来输出页用到的图片、背景图与模板字体族的 `@font-face`，地址改写成任务里的资源，随任务一起交给客户端。跨源的图片与字体文件要服务器允许 CORS，取不到时任务以 `RESOURCE_BLOCKED` 失败，不会悄悄少画。资源合计不超过 64 MiB。
 3. 客户端在不跑页面脚本、不联网的渲染页里载入这份文档，等字体与图片就绪。
-4. 按纸张尺寸分组，先逐组核对打印机的纸张，再每组一个打印作业，依次交给系统的打印队列；页码范围按全文页码换算到各组，没有选中页的组不核对。Windows 上由 WebView2 直接交给打印队列；macOS 与 Linux 上先把这组的选中页渲染成 PDF，再经 CUPS 下发。
+4. 按纸张尺寸分组，先逐组核对打印机的纸张，再每组一个打印作业，依次交给系统的打印队列；页码范围与奇偶页按全文页码换算到各组，没有选中页的组不核对。Windows 上由 WebView2 直接交给打印队列，指定了纸盒、或 `scale` 为 `none`、`fit` 时先把这组的选中页导出成 PDF，再照 [PDF 打印](#pdf-打印)的做法下发；macOS 与 Linux 上先把这组的选中页渲染成 PDF，再经 CUPS 下发。
 
 几点限制：
 

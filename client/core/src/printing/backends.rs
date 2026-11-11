@@ -1,14 +1,14 @@
 // Copyright (c) 2021-Present XiHanFun and contributors.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-//! 各平台要实现的接口：查打印机、渲染与打印 HTML 文档、写原始指令、打印对话框
+//! 各平台要实现的接口：查打印机、渲染与打印 HTML 文档、把 PDF 打到打印机、写原始指令、打印对话框
 
 use std::sync::Arc;
 
 use super::paper::PaperFeed;
 use crate::BoxFuture;
 use crate::cancel::{Cancel, Cancelled};
-use crate::protocol::{Details, PaperInfo, PrintDocument, PrintOptions, PrinterInfo, ProtocolError, ProtocolWarning};
+use crate::protocol::{Details, PaperInfo, PrintDocument, PrintOptions, PrinterInfo, ProtocolError, ProtocolWarning, SheetGroup, TrayInfo};
 
 /// 任务执行没有完成的原因
 #[derive(Clone, Debug, PartialEq)]
@@ -67,7 +67,7 @@ pub struct SpoolTicket {
     pub system_job_id: Option<u32>,
 }
 
-/// HTML 通道打印的结果
+/// HTML 通道与 PDF 打印的结果
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct HtmlPrintResult {
     /// 交给打印池的输出页数
@@ -112,6 +112,11 @@ pub trait PrinterPapers: Send {
 
     /// 照渲染引擎下发的写法请求这样放的纸张，驱动实际留下的纸张；读不出驱动的结果时为 None
     fn resolve(&self, request: &PaperFeed) -> Option<PaperFeed>;
+
+    /// 驱动报的纸盒；驱动不报时为空
+    fn trays(&self) -> &[TrayInfo] {
+        &[]
+    }
 }
 
 /// HTML 通道：渲染输出页，交给打印池或导出 PDF
@@ -127,6 +132,20 @@ pub trait HtmlPrintEngine: Send + Sync {
 
     /// 导出为 PDF
     fn export_pdf(&self, document: Arc<PrintDocument>, options: PrintOptions, cancel: Cancel) -> BoxFuture<'static, Result<Vec<u8>, JobError>>;
+}
+
+/// PDF 打印：把浏览器给的 PDF 按页面尺寸分组，逐组核对纸张后交给打印池
+pub trait PdfPrinter: Send + Sync {
+    /// 打印到指定打印机；sheets 是按页面尺寸分好的组，与 PDF 的页依次对应，document_name 是打印池里显示的文档名
+    fn print(
+        &self,
+        pdf: Arc<Vec<u8>>,
+        sheets: Arc<Vec<SheetGroup>>,
+        printer: String,
+        options: PrintOptions,
+        document_name: String,
+        cancel: Cancel,
+    ) -> BoxFuture<'static, Result<HtmlPrintResult, JobError>>;
 }
 
 /// 原始指令通道：把字节原样写给打印机

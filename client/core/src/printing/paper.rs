@@ -2,14 +2,15 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 //! 下发前按打印机的纸张能力核对每组纸张：驱动报的纸张在容差内、横竖都算，或驱动接受这个尺寸，才照这组的尺寸下发；
-//! 有一组不行就整个任务以 PAPER_UNSUPPORTED 失败，除非选项允许改用最接近的纸张
+//! 有一组不行就整个任务以 PAPER_UNSUPPORTED 失败，除非选项允许改用最接近的纸张。选项指定了纸张时每组都打到那种纸上，
+//! 指定了版面方向时版面按那个方向放，内容按缩放方式放进版面；指定了纸盒时一并核对打印机有没有这个纸盒
 
 use serde_json::Value;
 
 use super::backends::{JobError, PaperCatalog, PrinterPapers};
 use super::pages::PageSelection;
 use crate::protocol::codes::{errors, warnings};
-use crate::protocol::{Details, PaperInfo, PrintDocument, ProtocolWarning, SheetGroup, number};
+use crate::protocol::{Details, Orientation, PaperInfo, PrintOptions, ProtocolWarning, ScaleMode, SheetGroup, TrayInfo, number};
 
 /// 纸张宽高的容差，mm
 pub const TOLERANCE_MM: f64 = 1.0;
@@ -40,25 +41,66 @@ impl PaperFeed {
     pub fn page_height_mm(&self) -> f64 {
         if self.landscape { self.width_mm } else { self.height_mm }
     }
+
+    /// 方向换过来的放法：纸张不变，版面宽高对调
+    pub fn turned(self) -> PaperFeed {
+        PaperFeed {
+            landscape: !self.landscape,
+            ..self
+        }
+    }
 }
 
 /// 下发前核对纸张的结果
 #[derive(Clone, Debug, PartialEq)]
 pub struct PaperPlan {
-    /// 各组怎么放纸，与文档的纸张分组一一对应；没有选中页的组为 None
+    /// 各组怎么放纸，与纸张分组一一对应；没有选中页的组为 None
     pub groups: Vec<Option<PaperFeed>>,
-    /// 各组内容的缩放倍数，与 groups 一一对应；按原大下发时为 1
+    /// 各组内容的缩放倍数，与 groups 一一对应；按原大下发时为 1，内容在版面上居中
     pub scales: Vec<f64>,
+    /// 选项指定的纸盒；没指定时为 None
+    pub tray: Option<TrayInfo>,
     /// 提醒
     pub warnings: Vec<ProtocolWarning>,
 }
 
-/// 核对文档里有选中页的各组纸张；不行时返回 PAPER_UNSUPPORTED
-pub fn plan(catalog: &dyn PaperCatalog, printer: &str, document: &PrintDocument, selection: &PageSelection, fit_to_nearest_paper: bool) -> Result<PaperPlan, JobError> {
+/// 核对有选中页的各组纸张与选项指定的纸盒；纸张不行时返回 PAPER_UNSUPPORTED，纸盒没有时返回 TRAY_NOT_FOUND
+pub fn plan(catalog: &dyn PaperCatalog, printer: &str, sheets: &[SheetGroup], selection: &PageSelection, options: &PrintOptions) -> Result<PaperPlan, JobError> {
     let printer_papers = catalog.open(printer);
     let papers: &[PaperInfo] = printer_papers.as_deref().map(|papers| papers.papers()).unwrap_or(&[]);
-    let mut groups = vec![None; document.sheets.len()];
-    let mut scales = vec![1.0; document.sheets.len()];
+    let trays: &[TrayInfo] = printer_papers.as_deref().map(|papers| papers.trays()).unwrap_or(&[]);
+    let tray = match options.tray.as_deref() {
+        None => None,
+        Some(name) => Some(trays.iter().find(|tray| tray.name.to_lowercase() == name.to_lowercase()).cloned().ok_or_else(|| {
+            JobError::failure(
+                errors::TRAY_NOT_FOUND,
+                format!("打印机「{printer}」没有纸盒「{name}」"),
+                Some(
+                    Details::new()
+                        .with("printer", printer)
+                        .with("tray", name)
+                        .with("trays", Value::Array(trays.iter().map(tray_details).collect())),
+                ),
+            )
+        })?),
+    };
+    let forced = match options.paper.as_deref() {
+        None => None,
+        Some(name) => Some(papers.iter().find(|paper| paper.name.to_lowercase() == name.to_lowercase()).cloned().ok_or_else(|| {
+            JobError::failure(
+                errors::PAPER_UNSUPPORTED,
+                format!("打印机「{printer}」没有纸张「{name}」"),
+                Some(
+                    Details::new()
+                        .with("printer", printer)
+                        .with("paper", name)
+                        .with("papers", Value::Array(papers.iter().map(paper_details).collect())),
+                ),
+            )
+        })?),
+    };
+    let mut groups = vec![None; sheets.len()];
+    let mut scales = vec![1.0; sheets.len()];
     let mut notes = Vec::new();
     if papers.is_empty() {
         notes.push(ProtocolWarning::new(
@@ -68,43 +110,169 @@ pub fn plan(catalog: &dyn PaperCatalog, printer: &str, document: &PrintDocument,
         ));
     }
     let mut start = 0usize;
-    for (index, group) in document.sheets.iter().enumerate() {
+    for (index, group) in sheets.iter().enumerate() {
         if selection.ranges_in(start, group.count as usize).is_some() {
-            groups[index] = Some(match printer_papers.as_deref() {
-                Some(printer_papers) if !papers.is_empty() => {
-                    let (feed, scale) = check(printer_papers, printer, index, group, fit_to_nearest_paper, &mut notes)?;
-                    scales[index] = scale;
-                    feed
+            let (feed, scale) = match (printer_papers.as_deref(), &forced) {
+                (Some(printer_papers), Some(paper)) => onto(printer_papers, printer, index, group, paper, options, &mut notes)?,
+                (Some(printer_papers), None) if !papers.is_empty() => check(printer_papers, printer, index, group, options, &mut notes)?,
+                _ => {
+                    let feed = orient(PaperFeed::new(group.width_mm, group.height_mm, false), wanted(options.orientation, group));
+                    (feed, scale_for(options.scale, group, &feed))
                 }
-                _ => PaperFeed::new(group.width_mm, group.height_mm, false),
-            });
+            };
+            groups[index] = Some(feed);
+            scales[index] = scale;
         }
         start += group.count as usize;
     }
-    Ok(PaperPlan { groups, scales, warnings: notes })
+    Ok(PaperPlan {
+        groups,
+        scales,
+        tray,
+        warnings: notes,
+    })
 }
 
-fn check(printer_papers: &dyn PrinterPapers, printer: &str, index: usize, group: &SheetGroup, fit: bool, notes: &mut Vec<ProtocolWarning>) -> Result<(PaperFeed, f64), JobError> {
+/// 选项要的版面方向：横放为 Some(true)，竖放为 Some(false)；按内容定且内容是正方形时为 None
+fn wanted(orientation: Orientation, group: &SheetGroup) -> Option<bool> {
+    match orientation {
+        Orientation::Portrait => Some(false),
+        Orientation::Landscape => Some(true),
+        Orientation::Auto if (group.width_mm - group.height_mm).abs() <= 1e-9 => None,
+        Orientation::Auto => Some(group.width_mm > group.height_mm),
+    }
+}
+
+/// 让版面朝要的方向：版面形状不对时把方向换过来；正方形的版面不动
+fn orient(feed: PaperFeed, wide: Option<bool>) -> PaperFeed {
+    match wide {
+        Some(true) if feed.page_width_mm() < feed.page_height_mm() => feed.turned(),
+        Some(false) if feed.page_width_mm() > feed.page_height_mm() => feed.turned(),
+        _ => feed,
+    }
+}
+
+/// 内容在版面上的缩放倍数：版面与内容一样大（容差内）时为 1，否则按缩放方式
+fn scale_for(mode: ScaleMode, group: &SheetGroup, feed: &PaperFeed) -> f64 {
+    if near(feed.page_width_mm(), group.width_mm) && near(feed.page_height_mm(), group.height_mm) {
+        return 1.0;
+    }
+    let ratio = (feed.page_width_mm() / group.width_mm).min(feed.page_height_mm() / group.height_mm);
+    match mode {
+        ScaleMode::Shrink => ratio.min(1.0),
+        ScaleMode::None => 1.0,
+        ScaleMode::Fit => ratio,
+    }
+}
+
+/// 打到选项指定的纸上：版面朝内容或选项要的方向；驱动换成别的纸时 PAPER_UNSUPPORTED，读不出驱动的结果时提醒后照常下发
+fn onto(
+    printer_papers: &dyn PrinterPapers,
+    printer: &str,
+    index: usize,
+    group: &SheetGroup,
+    paper: &PaperInfo,
+    options: &PrintOptions,
+    notes: &mut Vec<ProtocolWarning>,
+) -> Result<(PaperFeed, f64), JobError> {
+    let feed = orient(PaperFeed::new(paper.width_mm, paper.height_mm, false), wanted(options.orientation, group));
+    let scale = scale_for(options.scale, group, &feed);
+    match printer_papers.resolve(&feed) {
+        None => notes.push(ProtocolWarning::new(
+            warnings::PAPER_UNCHECKED,
+            format!("读不出打印机「{printer}」的驱动给第 {} 组留下的纸张，没有核对就照常下发", index + 1),
+            group_details(printer, index, group),
+        )),
+        Some(resolved) if !fits(&resolved, feed.page_width_mm(), feed.page_height_mm()) => {
+            let mut details = group_details(printer, index, group);
+            details.insert("paper", paper_details(paper));
+            return Err(JobError::failure(
+                errors::PAPER_UNSUPPORTED,
+                format!(
+                    "打印机「{printer}」的驱动不接受指定的纸张「{}」（会换成 {}×{} mm）",
+                    paper.name,
+                    mm(resolved.page_width_mm()),
+                    mm(resolved.page_height_mm())
+                ),
+                Some(details),
+            ));
+        }
+        Some(_) => {}
+    }
+    if !same_size(&feed, group) || scale != 1.0 {
+        notes.push(fitted(
+            format!(
+                "打印机「{printer}」第 {} 组 {}×{} mm 按指定的纸张打到「{}」{}×{} mm 上，内容按 {} 倍居中",
+                index + 1,
+                mm(group.width_mm),
+                mm(group.height_mm),
+                paper.name,
+                mm(feed.page_width_mm()),
+                mm(feed.page_height_mm()),
+                trim_decimals(scale, 3)
+            ),
+            printer,
+            index,
+            group,
+            Some(paper),
+            &feed,
+            scale,
+        ));
+    }
+    Ok((feed, scale))
+}
+
+fn check(
+    printer_papers: &dyn PrinterPapers,
+    printer: &str,
+    index: usize,
+    group: &SheetGroup,
+    options: &PrintOptions,
+    notes: &mut Vec<ProtocolWarning>,
+) -> Result<(PaperFeed, f64), JobError> {
     let papers = printer_papers.papers();
-    let request = request_for(papers, group);
+    let wide = match options.orientation {
+        Orientation::Auto => None,
+        orientation => wanted(orientation, group),
+    };
+    let request = orient(request_for(papers, group), wide);
+    let scale = scale_for(options.scale, group, &request);
     let Some(resolved) = printer_papers.resolve(&request) else {
         notes.push(ProtocolWarning::new(
             warnings::PAPER_UNCHECKED,
             format!("读不出打印机「{printer}」的驱动给第 {} 组留下的纸张，没有核对就照常下发", index + 1),
             group_details(printer, index, group),
         ));
-        return Ok((request, 1.0));
+        return Ok((request, scale));
     };
-    if fits(&resolved, group.width_mm, group.height_mm) {
-        return Ok((request, 1.0));
+    if fits(&resolved, request.page_width_mm(), request.page_height_mm()) {
+        if !same_size(&request, group) {
+            let paper = listed(papers, &request);
+            notes.push(fitted(
+                format!(
+                    "打印机「{printer}」第 {} 组 {}×{} mm 按指定的版面方向改为 {}×{} mm，内容按 {} 倍居中",
+                    index + 1,
+                    mm(group.width_mm),
+                    mm(group.height_mm),
+                    mm(request.page_width_mm()),
+                    mm(request.page_height_mm()),
+                    trim_decimals(scale, 3)
+                ),
+                printer,
+                index,
+                group,
+                paper,
+                &request,
+                scale,
+            ));
+        }
+        return Ok((request, scale));
     }
-    if fit && let Some((paper, feed, scale)) = nearest(printer_papers, group) {
-        let mut details = group_details(printer, index, group);
-        details.insert("paper", paper_details(&paper));
-        details.insert("landscape", feed.landscape);
-        details.insert("scale", number(scale));
-        notes.push(ProtocolWarning::new(
-            warnings::PAPER_FITTED,
+    if options.fit_to_nearest_paper
+        && let Some((paper, feed)) = nearest(printer_papers, group, wide)
+    {
+        let scale = scale_for(options.scale, group, &feed);
+        notes.push(fitted(
             format!(
                 "打印机「{printer}」没有第 {} 组要的 {}×{} mm 纸张，改用「{}」{}×{} mm，内容按 {} 倍居中",
                 index + 1,
@@ -115,7 +283,12 @@ fn check(printer_papers: &dyn PrinterPapers, printer: &str, index: usize, group:
                 mm(feed.page_height_mm()),
                 trim_decimals(scale, 3)
             ),
-            details,
+            printer,
+            index,
+            group,
+            Some(&paper),
+            &feed,
+            scale,
         ));
         return Ok((feed, scale));
     }
@@ -126,13 +299,36 @@ fn check(printer_papers: &dyn PrinterPapers, printer: &str, index: usize, group:
         format!(
             "打印机「{printer}」没有第 {} 组要的 {}×{} mm 纸张，驱动也不接受这个尺寸（会换成 {}×{} mm）",
             index + 1,
-            mm(group.width_mm),
-            mm(group.height_mm),
+            mm(request.page_width_mm()),
+            mm(request.page_height_mm()),
             mm(resolved.page_width_mm()),
             mm(resolved.page_height_mm())
         ),
         Some(details),
     ))
+}
+
+/// PAPER_FITTED 提醒：details 带分组、换成的纸张（驱动报过时）、版面宽高、是否横放与缩放倍数
+fn fitted(message: String, printer: &str, index: usize, group: &SheetGroup, paper: Option<&PaperInfo>, feed: &PaperFeed, scale: f64) -> ProtocolWarning {
+    let mut details = group_details(printer, index, group);
+    if let Some(paper) = paper {
+        details.insert("paper", paper_details(paper));
+    }
+    details.insert("pageWidthMm", number(feed.page_width_mm()));
+    details.insert("pageHeightMm", number(feed.page_height_mm()));
+    details.insert("landscape", feed.landscape);
+    details.insert("scale", number(scale));
+    ProtocolWarning::new(warnings::PAPER_FITTED, message, details)
+}
+
+/// 版面与这组内容是否一样大（容差内）
+fn same_size(feed: &PaperFeed, group: &SheetGroup) -> bool {
+    near(feed.page_width_mm(), group.width_mm) && near(feed.page_height_mm(), group.height_mm)
+}
+
+/// 驱动报的纸张里与这种放法同尺寸的一种
+fn listed<'a>(papers: &'a [PaperInfo], feed: &PaperFeed) -> Option<&'a PaperInfo> {
+    papers.iter().find(|paper| near(paper.width_mm, feed.width_mm) && near(paper.height_mm, feed.height_mm))
 }
 
 /// 这组要请求的纸张：驱动报的纸张里同向的优先、其次横放的，取尺寸最近的一种，按那种纸张自己的宽高请求；都不在容差内时按这组的尺寸请求
@@ -152,33 +348,42 @@ fn request_for(papers: &[PaperInfo], group: &SheetGroup) -> PaperFeed {
     PaperFeed::new(group.width_mm, group.height_mm, false)
 }
 
-/// 最接近的纸张：横竖两种放法里，放得下原大内容的取面积最小的，都放不下时取缩得最少的；按这个次序找第一种驱动照样留下的。
-/// 比纸大的内容等比缩小到放得下，比纸小的原大居中，倍数即返回的第三项
-fn nearest(printer_papers: &dyn PrinterPapers, group: &SheetGroup) -> Option<(PaperInfo, PaperFeed, f64)> {
+/// 最接近的纸张：横竖两种放法里（选项要了方向时只看那个方向），放得下原大内容的取面积最小的，都放不下时取缩得最少的；
+/// 按这个次序找第一种驱动照样留下的
+fn nearest(printer_papers: &dyn PrinterPapers, group: &SheetGroup, wide: Option<bool>) -> Option<(PaperInfo, PaperFeed)> {
     let mut candidates: Vec<(PaperInfo, PaperFeed, f64)> = Vec::new();
     for paper in printer_papers.papers().iter().filter(|paper| paper.width_mm > 0.0 && paper.height_mm > 0.0) {
         for landscape in [false, true] {
             let feed = PaperFeed::new(paper.width_mm, paper.height_mm, landscape);
-            if candidates.iter().any(|(_, existing, _)| *existing == feed) {
+            let shaped = match wide {
+                Some(true) => feed.page_width_mm() >= feed.page_height_mm(),
+                Some(false) => feed.page_height_mm() >= feed.page_width_mm(),
+                None => true,
+            };
+            if !shaped || candidates.iter().any(|(_, existing, _)| *existing == feed) {
                 continue;
             }
-            let scale = (feed.page_width_mm() / group.width_mm).min(feed.page_height_mm() / group.height_mm);
-            candidates.push((paper.clone(), feed, scale));
+            let ratio = (feed.page_width_mm() / group.width_mm).min(feed.page_height_mm() / group.height_mm);
+            candidates.push((paper.clone(), feed, ratio));
         }
     }
     let area = |feed: &PaperFeed| feed.width_mm * feed.height_mm;
-    candidates.sort_by(|(_, a, a_scale), (_, b, b_scale)| {
-        let rank = |scale: f64| if scale >= 1.0 { 0 } else { 1 };
-        let key = |feed: &PaperFeed, scale: f64| if scale >= 1.0 { area(feed) } else { -scale };
-        rank(*a_scale)
-            .cmp(&rank(*b_scale))
-            .then(key(a, *a_scale).total_cmp(&key(b, *b_scale)))
+    candidates.sort_by(|(_, a, a_ratio), (_, b, b_ratio)| {
+        let rank = |ratio: f64| if ratio >= 1.0 { 0 } else { 1 };
+        let key = |feed: &PaperFeed, ratio: f64| if ratio >= 1.0 { area(feed) } else { -ratio };
+        rank(*a_ratio)
+            .cmp(&rank(*b_ratio))
+            .then(key(a, *a_ratio).total_cmp(&key(b, *b_ratio)))
             .then(area(a).total_cmp(&area(b)))
     });
-    candidates.into_iter().find_map(|(paper, feed, scale)| {
+    candidates.into_iter().find_map(|(paper, feed, _)| {
         let resolved = printer_papers.resolve(&feed)?;
-        fits(&resolved, feed.page_width_mm(), feed.page_height_mm()).then_some((paper, feed, scale.min(1.0)))
+        fits(&resolved, feed.page_width_mm(), feed.page_height_mm()).then_some((paper, feed))
     })
+}
+
+fn tray_details(tray: &TrayInfo) -> Value {
+    serde_json::to_value(tray).expect("纸盒总能写成 JSON")
 }
 
 fn fits(resolved: &PaperFeed, width_mm: f64, height_mm: f64) -> bool {
@@ -222,6 +427,7 @@ fn trim_decimals(value: f64, digits: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::protocol::PrintDocument;
     use serde_json::json;
     use std::sync::Arc;
 
@@ -230,6 +436,7 @@ mod tests {
     #[derive(Clone)]
     struct FakePapers {
         papers: Vec<PaperInfo>,
+        trays: Vec<TrayInfo>,
         resolve: Resolver,
     }
 
@@ -246,6 +453,10 @@ mod tests {
 
         fn resolve(&self, request: &PaperFeed) -> Option<PaperFeed> {
             (self.resolve)(request)
+        }
+
+        fn trays(&self) -> &[TrayInfo] {
+            &self.trays
         }
     }
 
@@ -272,6 +483,7 @@ mod tests {
         let papers = standard();
         let known = papers.clone();
         FakePapers {
+            trays: vec![],
             papers,
             resolve: Arc::new(move |request| {
                 Some(
@@ -289,6 +501,7 @@ mod tests {
 
     fn keeps(papers: Vec<PaperInfo>) -> FakePapers {
         FakePapers {
+            trays: vec![],
             papers,
             resolve: Arc::new(|request| Some(*request)),
         }
@@ -303,7 +516,15 @@ mod tests {
     }
 
     fn run(papers: &FakePapers, document: &PrintDocument, ranges: Option<&str>, fit: bool, printer: &str) -> Result<PaperPlan, JobError> {
-        plan(papers, printer, document, &PageSelection::parse(ranges, document.sheet_count()).unwrap(), fit)
+        let options = PrintOptions {
+            fit_to_nearest_paper: fit,
+            ..PrintOptions::default()
+        };
+        run_with(papers, document, ranges, &options, printer)
+    }
+
+    fn run_with(papers: &FakePapers, document: &PrintDocument, ranges: Option<&str>, options: &PrintOptions, printer: &str) -> Result<PaperPlan, JobError> {
+        plan(papers, printer, &document.sheets, &PageSelection::parse(ranges, document.sheet_count()).unwrap(), options)
     }
 
     fn failure(result: Result<PaperPlan, JobError>) -> crate::protocol::ProtocolError {
@@ -373,6 +594,7 @@ mod tests {
     #[test]
     fn rejects_listed_papers_the_driver_swaps_for_another() {
         let stuck = FakePapers {
+            trays: vec![],
             papers: vec![paper(9, "A4", 210.0, 297.0), paper(11, "A5", 148.0, 210.0)],
             resolve: Arc::new(|request| Some(PaperFeed::new(210.0, 297.0, request.landscape))),
         };
@@ -391,6 +613,7 @@ mod tests {
     fn warns_and_sends_as_is_when_the_driver_reports_no_papers() {
         for printer in ["PDF", "missing"] {
             let none = FakePapers {
+                trays: vec![],
                 papers: vec![],
                 resolve: Arc::new(|_| panic!("不该问驱动")),
             };
@@ -405,6 +628,7 @@ mod tests {
     #[test]
     fn warns_when_the_driver_answer_cannot_be_read() {
         let unreadable = FakePapers {
+            trays: vec![],
             papers: vec![paper(9, "A4", 210.0, 297.0)],
             resolve: Arc::new(|_| None),
         };
@@ -440,10 +664,153 @@ mod tests {
     #[test]
     fn skips_nearest_papers_the_driver_will_not_keep() {
         let only_a4 = FakePapers {
+            trays: vec![],
             papers: vec![paper(9, "A4", 210.0, 297.0), paper(70, "A6", 105.0, 148.0)],
             resolve: Arc::new(|request| Some(PaperFeed::new(210.0, 297.0, request.landscape))),
         };
         let plan = run(&only_a4, &document(&[(100.0, 70.0, 1)]), None, true, "P").unwrap();
         assert_eq!(plan.groups[0], Some(PaperFeed::new(210.0, 297.0, false)));
+    }
+
+    fn with(change: impl FnOnce(&mut PrintOptions)) -> PrintOptions {
+        let mut options = PrintOptions::default();
+        change(&mut options);
+        options
+    }
+
+    #[test]
+    fn prints_every_group_onto_the_named_paper() {
+        let options = with(|options| options.paper = Some("a5".into()));
+        let plan = run_with(&pdf_like(), &document(&[(210.0, 297.0, 1), (100.0, 70.0, 1), (148.0, 210.0, 1)]), None, &options, "PDF").unwrap();
+        assert_eq!(
+            plan.groups,
+            vec![
+                Some(PaperFeed::new(148.0, 210.0, false)),
+                Some(PaperFeed::new(148.0, 210.0, true)),
+                Some(PaperFeed::new(148.0, 210.0, false))
+            ]
+        );
+        assert_eq!(plan.scales[0], 148.0 / 210.0);
+        assert_eq!(plan.scales[1], 1.0);
+        assert_eq!(plan.scales[2], 1.0);
+        let fitted: Vec<_> = plan
+            .warnings
+            .iter()
+            .map(|warning| warning.details.as_ref().unwrap().get("group").cloned().unwrap())
+            .collect();
+        assert_eq!(fitted, vec![json!(0), json!(1)]);
+        assert_eq!(plan.warnings[0].code, warnings::PAPER_FITTED);
+        assert_eq!(plan.warnings[1].details.as_ref().unwrap().get("pageWidthMm"), Some(&json!(210)));
+    }
+
+    #[test]
+    fn rejects_a_paper_or_tray_the_printer_does_not_have() {
+        let error = failure(run_with(
+            &pdf_like(),
+            &document(&[(210.0, 297.0, 1)]),
+            None,
+            &with(|options| options.paper = Some("B5".into())),
+            "PDF",
+        ));
+        assert_eq!(error.code, errors::PAPER_UNSUPPORTED);
+        assert_eq!(error.details.as_ref().unwrap().get("paper"), Some(&json!("B5")));
+        assert_eq!(error.details.unwrap().get("papers").unwrap().as_array().unwrap().len(), 4);
+
+        let error = failure(run_with(
+            &pdf_like(),
+            &document(&[(210.0, 297.0, 1)]),
+            None,
+            &with(|options| options.tray = Some("Manual".into())),
+            "PDF",
+        ));
+        assert_eq!(error.code, errors::TRAY_NOT_FOUND);
+        assert_eq!(error.details.unwrap().get("trays"), Some(&json!([])));
+    }
+
+    #[test]
+    fn finds_the_named_tray_ignoring_case() {
+        let mut papers = pdf_like();
+        papers.trays = vec![TrayInfo { id: 15, name: "Auto".into() }, TrayInfo { id: 260, name: "Tray 2".into() }];
+        let plan = run_with(&papers, &document(&[(210.0, 297.0, 1)]), None, &with(|options| options.tray = Some("tray 2".into())), "PDF").unwrap();
+        assert_eq!(plan.tray, Some(TrayInfo { id: 260, name: "Tray 2".into() }));
+        assert_eq!(run(&papers, &document(&[(210.0, 297.0, 1)]), None, false, "PDF").unwrap().tray, None);
+    }
+
+    #[test]
+    fn turns_the_page_to_the_requested_orientation_and_scales_the_content() {
+        let options = with(|options| options.orientation = Orientation::Landscape);
+        let plan = run_with(&pdf_like(), &document(&[(210.0, 297.0, 1), (297.0, 210.0, 1)]), None, &options, "PDF").unwrap();
+        assert_eq!(plan.groups, vec![Some(PaperFeed::new(210.0, 297.0, true)), Some(PaperFeed::new(210.0, 297.0, true))]);
+        assert_eq!(plan.scales, vec![210.0 / 297.0, 1.0]);
+        assert_eq!(plan.warnings.len(), 1);
+        assert_eq!(plan.warnings[0].details.as_ref().unwrap().get("paper").unwrap()["name"], json!("A4"));
+    }
+
+    #[test]
+    fn scales_by_the_requested_mode() {
+        let group = SheetGroup {
+            width_mm: 100.0,
+            height_mm: 100.0,
+            count: 1,
+        };
+        let a4 = PaperFeed::new(210.0, 297.0, false);
+        assert_eq!(scale_for(ScaleMode::Shrink, &group, &a4), 1.0);
+        assert_eq!(scale_for(ScaleMode::None, &group, &a4), 1.0);
+        assert_eq!(scale_for(ScaleMode::Fit, &group, &a4), 2.1);
+        let big = SheetGroup {
+            width_mm: 420.0,
+            height_mm: 594.0,
+            count: 1,
+        };
+        assert_eq!(scale_for(ScaleMode::Shrink, &big, &a4), 0.5);
+        assert_eq!(scale_for(ScaleMode::None, &big, &a4), 1.0);
+        assert_eq!(scale_for(ScaleMode::Fit, &big, &a4), 0.5);
+        let close = SheetGroup {
+            width_mm: 211.0,
+            height_mm: 296.0,
+            count: 1,
+        };
+        assert_eq!(scale_for(ScaleMode::Fit, &close, &a4), 1.0);
+    }
+
+    #[test]
+    fn enlarges_onto_the_nearest_paper_when_asked_to_fit() {
+        let options = with(|options| {
+            options.fit_to_nearest_paper = true;
+            options.scale = ScaleMode::Fit;
+        });
+        let plan = run_with(&pdf_like(), &document(&[(100.0, 70.0, 1)]), None, &options, "PDF").unwrap();
+        assert_eq!(plan.groups[0], Some(PaperFeed::new(101.6, 101.6, false)));
+        assert!((plan.scales[0] - 1.016).abs() < 1e-9);
+        let scale = plan.warnings[0].details.as_ref().unwrap().get("scale").and_then(Value::as_f64).unwrap();
+        assert!((scale - 1.016).abs() < 1e-9);
+    }
+
+    #[test]
+    fn looks_for_the_nearest_paper_only_in_the_requested_orientation() {
+        let options = with(|options| {
+            options.fit_to_nearest_paper = true;
+            options.orientation = Orientation::Portrait;
+        });
+        let plan = run_with(&pdf_like(), &document(&[(100.0, 70.0, 1)]), None, &options, "PDF").unwrap();
+        let feed = plan.groups[0].unwrap();
+        assert!(feed.page_height_mm() >= feed.page_width_mm());
+        assert_eq!(feed, PaperFeed::new(101.6, 101.6, false));
+    }
+
+    #[test]
+    fn orients_unchecked_groups_too() {
+        let none = FakePapers {
+            trays: vec![],
+            papers: vec![],
+            resolve: Arc::new(|_| panic!("不该问驱动")),
+        };
+        let options = with(|options| {
+            options.orientation = Orientation::Portrait;
+            options.scale = ScaleMode::Fit;
+        });
+        let plan = run_with(&none, &document(&[(100.0, 50.0, 1)]), None, &options, "P").unwrap();
+        assert_eq!(plan.groups[0], Some(PaperFeed::new(100.0, 50.0, true)));
+        assert_eq!(plan.scales[0], 0.5);
     }
 }

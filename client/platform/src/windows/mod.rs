@@ -1,13 +1,14 @@
 // Copyright (c) 2021-Present XiHanFun and contributors.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-//! Windows：WebView2 渲染、winspool 打印、系统打印对话框、注册表开机自启、Authenticode 校验
+//! Windows：WebView2 渲染、winspool 打印、经 Direct2D 打 PDF、系统打印对话框、注册表开机自启、Authenticode 校验
 
 pub(crate) mod authenticode;
 pub(crate) mod autostart;
 mod dialog;
 mod engine;
 pub(crate) mod fixed_runtime;
+mod pdf_print;
 mod render;
 mod winspool;
 
@@ -28,6 +29,7 @@ use windows::Win32::System::Time::SystemTimeToTzSpecificLocalTimeEx;
 use windows::Win32::UI::Shell::ShellExecuteW;
 use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 use windows::core::{HSTRING, PCWSTR};
+use xihan_print_client_core::log::SharedLog;
 use xihan_print_client_core::paths::AppPaths;
 use xihan_print_client_core::printing::{HtmlPrintEngine, PrintDialog};
 use xihan_print_client_core::time::Timestamp;
@@ -142,13 +144,14 @@ pub(crate) fn bind_exclusive(address: SocketAddr) -> std::io::Result<std::net::T
     Ok(listener)
 }
 
-/// winspool 的打印机查询、纸张核对与原始指令
-pub(crate) fn printing() -> Printing {
+/// winspool 的打印机查询、纸张核对与原始指令，以及经 Direct2D 打 PDF
+pub(crate) fn printing(log: SharedLog) -> Printing {
     let printers = Arc::new(winspool::WindowsPrinters);
     Printing {
         catalog: printers.clone(),
         papers: printers.clone(),
-        raw: Some(printers),
+        raw: Some(printers.clone()),
+        pdf: Some(Arc::new(pdf_print::WindowsPdfPrinter::new(printers, Some(print_dialog()), log))),
     }
 }
 

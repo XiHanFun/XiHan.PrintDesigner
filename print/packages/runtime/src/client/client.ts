@@ -11,7 +11,7 @@ import { paginateDocument } from '../print'
 import { toBase64 } from './base64'
 import { buildClientDocument } from './document'
 import { PrintClientError } from './errors'
-import { DEFAULT_PORTS, PROTOCOL_MINOR, PROTOCOL_VERSION, SUB_PROTOCOL, UNVERSIONED_SUB_PROTOCOL } from './protocol'
+import { DEFAULT_PORTS, MAX_RESOURCE_BYTES, PROTOCOL_MINOR, PROTOCOL_VERSION, SUB_PROTOCOL, UNVERSIONED_SUB_PROTOCOL } from './protocol'
 
 /** SDK 的名称，写进握手。 */
 const SDK_NAME = '@xihan-print/runtime'
@@ -73,6 +73,12 @@ export interface PrintRawOptions {
   readonly docName?: string
 }
 
+/** 打印 PDF 的选项：客户端打印选项，另加打印池里显示的文档名。 */
+export interface PrintPdfOptions extends ClientPrintOptions {
+  /** 打印池里显示的文档名。 */
+  readonly docName?: string
+}
+
 /** 一个交给客户端的任务。 */
 export interface PrintClientJob {
   /** 任务标识，由 SDK 生成。 */
@@ -115,9 +121,15 @@ export interface PrintClient {
   printSheets: (result: PaginationResult, options?: PrintClientDocumentOptions) => PrintClientJob
   /** 把原始指令原样写给打印机；字符串按 UTF-8 编码，要别的编码时先转成字节。 */
   printRaw: (printer: string, data: Uint8Array | ArrayBuffer | string, options?: PrintRawOptions) => PrintClientJob
-  /** 按数据排出模板并导出为 PDF。 */
+  /**
+   * 把一份 PDF 交给客户端打印，客户端按 PDF 每页的尺寸分组匹配纸张，打印选项与 printSheets 相同。
+   * PDF 超过 64 MiB 时以 DOCUMENT_TOO_LARGE 失败；连着的客户端不支持打印 PDF（能力 printPdf 不为 true）时以 CAPABILITY_UNSUPPORTED 失败，
+   * details 为 `{ capability: 'printPdf', minor: 客户端的协议次版本 }`；这两种都不发给客户端。客户端读不出这份 PDF 时以 PDF_INVALID 失败。
+   */
+  printPdf: (pdf: Blob | ArrayBuffer | Uint8Array, options?: PrintPdfOptions) => PrintClientJob
+  /** 按数据排出模板并导出为 PDF；打印选项只用 pageRanges、pageSet 与 color。 */
   exportPdf: (schema: PrintDocument, data: unknown, options?: PrintClientDocumentOptions) => Promise<Blob>
-  /** 把排好的输出页导出为 PDF。 */
+  /** 把排好的输出页导出为 PDF；打印选项只用 pageRanges、pageSet 与 color。 */
   exportSheetsPdf: (result: PaginationResult, options?: PrintClientDocumentOptions) => Promise<Blob>
   /** 查任务状态。 */
   job: (jobId: string) => Promise<JobStatus>
@@ -145,8 +157,44 @@ interface Envelope {
 
 const FINAL: ReadonlySet<JobState> = new Set(['completed', 'failed', 'cancelled'])
 
+/** 交给客户端的打印选项的键。 */
+const PRINT_OPTION_KEYS = ['copies', 'collate', 'duplex', 'color', 'pageRanges', 'pageSet', 'orientation', 'scale', 'paper', 'tray', 'dialog', 'timeoutMs', 'fitToNearestPaper'] as const satisfies readonly (keyof ClientPrintOptions)[]
+
+/** 协议次版本 1 加的打印选项与它们的缺省值；值为 undefined 的没有缺省值，给了就算取了非缺省值。 */
+const MINOR_1_DEFAULTS = { pageSet: 'all', orientation: 'auto', scale: 'shrink', paper: undefined, tray: undefined } as const
+
+type Minor1Option = keyof typeof MINOR_1_DEFAULTS
+
+/** 打印用到的协议次版本 1 的选项。 */
+const PRINT_MINOR_1_OPTIONS: readonly Minor1Option[] = ['pageSet', 'orientation', 'scale', 'paper', 'tray']
+/** 导出 PDF 用到的协议次版本 1 的选项。 */
+const EXPORT_MINOR_1_OPTIONS: readonly Minor1Option[] = ['pageSet']
+
 function errorFrom(payload: ClientErrorPayload | undefined): PrintClientError {
   return new PrintClientError((payload?.code ?? 'INTERNAL') as PrintClientError['code'], payload?.message ?? '客户端没有说明原因', payload?.details ?? {})
+}
+
+/** 打印选项里交给客户端的那几项，没给的不写。 */
+function printOptionsOf(options: ClientPrintOptions): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const key of PRINT_OPTION_KEYS) {
+    if (options[key] !== undefined)
+      result[key] = options[key]
+  }
+  return result
+}
+
+/**
+ * 连着的客户端做不了这个请求时的 CAPABILITY_UNSUPPORTED：pdf 为 true 而能力 printPdf 不为 true，details.capability 为 printPdf；
+ * 协议次版本低于 1 而 keys 里有选项取了非缺省值，details.capability 为按 keys 顺序的第一个这样的选项。都没有时为 undefined。
+ */
+function unsupported(welcome: ClientWelcome, options: ClientPrintOptions, keys: readonly Minor1Option[], pdf = false): PrintClientError | undefined {
+  if (pdf && welcome.capabilities.printPdf !== true)
+    return new PrintClientError('CAPABILITY_UNSUPPORTED', '客户端不支持打印 PDF', { capability: 'printPdf', minor: welcome.minor })
+  if (welcome.minor >= 1)
+    return undefined
+  const used = keys.find(key => options[key] !== undefined && options[key] !== MINOR_1_DEFAULTS[key])
+  return used === undefined ? undefined : new PrintClientError('CAPABILITY_UNSUPPORTED', `客户端不支持打印选项 ${used}`, { capability: used, minor: welcome.minor })
 }
 
 /** 32 位十六进制的随机标识，不依赖安全上下文。 */
@@ -312,11 +360,17 @@ class Client implements PrintClient {
   }
 
   printDocument(schema: PrintDocument, data: unknown, options: PrintClientDocumentOptions = {}): PrintClientJob {
-    return this.#submit(async () => ({ type: 'print.html', ...await this.#document(this.#paginate(schema, data, options), options) }))
+    return this.#submit(
+      async () => ({ type: 'print.html', ...await this.#document(this.#paginate(schema, data, options), options) }),
+      welcome => unsupported(welcome, options, PRINT_MINOR_1_OPTIONS),
+    )
   }
 
   printSheets(result: PaginationResult, options: PrintClientDocumentOptions = {}): PrintClientJob {
-    return this.#submit(async () => ({ type: 'print.html', ...await this.#document(result, options) }))
+    return this.#submit(
+      async () => ({ type: 'print.html', ...await this.#document(result, options) }),
+      welcome => unsupported(welcome, options, PRINT_MINOR_1_OPTIONS),
+    )
   }
 
   printRaw(printer: string, data: Uint8Array | ArrayBuffer | string, options: PrintRawOptions = {}): PrintClientJob {
@@ -326,18 +380,34 @@ class Client implements PrintClient {
     })
   }
 
+  printPdf(pdf: Blob | ArrayBuffer | Uint8Array, options: PrintPdfOptions = {}): PrintClientJob {
+    return this.#submit(async () => {
+      const size = 'byteLength' in pdf ? pdf.byteLength : pdf.size
+      if (size > MAX_RESOURCE_BYTES)
+        throw new PrintClientError('DOCUMENT_TOO_LARGE', 'PDF 超过 64 MiB', { bytes: size, limit: MAX_RESOURCE_BYTES })
+      const bytes = !('byteLength' in pdf) ? new Uint8Array(await pdf.arrayBuffer()) : pdf instanceof Uint8Array ? pdf : new Uint8Array(pdf)
+      return {
+        type: 'print.pdf',
+        ...(options.printer === undefined ? {} : { printer: options.printer }),
+        data: toBase64(bytes),
+        ...(options.docName === undefined ? {} : { docName: options.docName }),
+        options: printOptionsOf(options),
+      }
+    }, welcome => unsupported(welcome, options, PRINT_MINOR_1_OPTIONS, true))
+  }
+
   exportPdf(schema: PrintDocument, data: unknown, options: PrintClientDocumentOptions = {}): Promise<Blob> {
     return this.#pdf(this.#submit(async () => {
       const { document, options: printOptions } = await this.#document(this.#paginate(schema, data, options), options)
       return { type: 'export.pdf', document, options: printOptions }
-    }))
+    }, welcome => unsupported(welcome, options, EXPORT_MINOR_1_OPTIONS)))
   }
 
   exportSheetsPdf(result: PaginationResult, options: PrintClientDocumentOptions = {}): Promise<Blob> {
     return this.#pdf(this.#submit(async () => {
       const { document, options: printOptions } = await this.#document(result, options)
       return { type: 'export.pdf', document, options: printOptions }
-    }))
+    }, welcome => unsupported(welcome, options, EXPORT_MINOR_1_OPTIONS)))
   }
 
   async job(jobId: string): Promise<JobStatus> {
@@ -369,21 +439,20 @@ class Client implements PrintClient {
       ...(options.trace === undefined ? {} : { trace: options.trace }),
     }
     const document = await buildClientDocument(result, documentOptions)
-    const printOptions: Record<string, unknown> = {}
-    for (const key of ['copies', 'collate', 'duplex', 'color', 'pageRanges', 'dialog', 'timeoutMs', 'fitToNearestPaper'] as const) {
-      if (options[key] !== undefined)
-        printOptions[key] = options[key]
-    }
-    return { document, options: printOptions, ...(options.printer === undefined ? {} : { printer: options.printer }) }
+    return { document, options: printOptionsOf(options), ...(options.printer === undefined ? {} : { printer: options.printer }) }
   }
 
-  #submit(build: () => Promise<Record<string, unknown>>): ClientJob {
+  /** 生成请求、连上客户端，check 按握手结果给出错误时不发请求、任务以这个错误失败。 */
+  #submit(build: () => Promise<Record<string, unknown>>, check?: (welcome: ClientWelcome) => PrintClientError | undefined): ClientJob {
     const job = new ClientJob(randomId(), target => this.#cancelJob(target))
     this.#jobs.set(job.id, job)
     void (async () => {
       try {
         const payload = await build()
-        await this.connect()
+        const welcome = await this.connect()
+        const refused = check?.(welcome)
+        if (refused !== undefined)
+          throw refused
         const accepted = await this.#request({ ...payload, jobId: job.id }) as { readonly position?: number }
         if (job.status === undefined)
           job.update({ jobId: job.id, state: 'queued', ...(accepted.position === undefined ? {} : { position: accepted.position }) })

@@ -2,7 +2,7 @@
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 //! 经 WebView2 渲染 HTML 文档：打印时先按打印机的纸张能力核对各组纸张，再按纸张分组，每组设成核对出的纸张单独交给打印池；
-//! 导出 PDF 时按文档里各页的 @page 尺寸一次导出
+//! 指定了纸盒、或缩放方式不是 shrink 时，每组先导出成 PDF，再按 PDF 打印的方式下发。导出 PDF 时按文档里各页的 @page 尺寸一次导出
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -14,8 +14,9 @@ use xihan_print_client_core::cancel::Cancel;
 use xihan_print_client_core::log::SharedLog;
 use xihan_print_client_core::printing::{HtmlPrintEngine, HtmlPrintResult, JobError, PageSelection, PaperCatalog, PrintDialog, SpoolTicket, plan_papers};
 use xihan_print_client_core::protocol::codes::errors;
-use xihan_print_client_core::protocol::{ColorMode, Details, PrintDocument, PrintOptions};
+use xihan_print_client_core::protocol::{ColorMode, Details, PrintDocument, PrintOptions, ScaleMode};
 
+use super::pdf_print::{PageGroup, print_on_thread};
 use super::render::{Page, PrintSettings, PrintStatus, RenderThread};
 use crate::EngineOptions;
 
@@ -58,13 +59,12 @@ impl WebView2Engine {
 }
 
 fn select(document: &PrintDocument, options: &PrintOptions) -> Result<PageSelection, JobError> {
-    PageSelection::parse(options.page_ranges.as_deref(), document.sheet_count()).ok_or_else(|| {
-        JobError::failure(
-            errors::BAD_REQUEST,
-            format!("页码范围在 {} 页里一页都没选中", document.sheet_count()),
-            Some(Details::new().with("field", "options.pageRanges")),
-        )
-    })
+    PageSelection::from_options(options, document.sheet_count()).map_err(JobError::Failure)
+}
+
+/// WebView2 的打印设置表达不了的选项：纸盒，以及 shrink 以外的缩放方式
+fn needs_pdf(options: &PrintOptions) -> bool {
+    options.tray.is_some() || options.scale != ScaleMode::Shrink
 }
 
 impl Inner {
@@ -94,8 +94,8 @@ impl Inner {
             let printer = printer.clone();
             let document = document.clone();
             let selection = selection.clone();
-            let fit = options.fit_to_nearest_paper;
-            tokio::task::spawn_blocking(move || plan_papers(papers.as_ref(), &printer, &document, &selection, fit))
+            let options = options.clone();
+            tokio::task::spawn_blocking(move || plan_papers(papers.as_ref(), &printer, &document.sheets, &selection, &options))
                 .await
                 .map_err(|_| JobError::failure(errors::INTERNAL, "客户端内部错误，详情见日志", None))??
         };
@@ -104,6 +104,9 @@ impl Inner {
         }
 
         let page = self.open(document.clone(), &cancel).await?;
+        if needs_pdf(&options) {
+            return self.print_through_pdf(&page, &document, printer, options, &selection, plan, cancel).await;
+        }
         let mut start = 0usize;
         let mut printed = 0u32;
         let mut spooled = Vec::new();
@@ -172,6 +175,61 @@ impl Inner {
         })
     }
 
+    /// 每组选中的页按这组的尺寸导出成 PDF，再按核对出的纸张、缩放与纸盒逐组打出去
+    #[allow(clippy::too_many_arguments)]
+    async fn print_through_pdf(
+        &self,
+        page: &Page,
+        document: &PrintDocument,
+        printer: String,
+        options: PrintOptions,
+        selection: &PageSelection,
+        plan: xihan_print_client_core::printing::PaperPlan,
+        cancel: Cancel,
+    ) -> Result<HtmlPrintResult, JobError> {
+        let title = if page.title.is_empty() { "doc.html".to_owned() } else { page.title.clone() };
+        let mut start = 0usize;
+        let mut spooled = Vec::new();
+        let selected = document.sheets.iter().enumerate().filter(|(index, _)| plan.groups[*index].is_some()).count();
+        for (index, group) in document.sheets.iter().enumerate() {
+            let count = group.count as usize;
+            if let (Some(ranges), Some(feed)) = (selection.ranges_in(start, count), plan.groups[index]) {
+                cancel.run(page.evaluate(&show_script(start, count))).await??;
+                let parameters = json!({
+                    "printBackground": true,
+                    "preferCSSPageSize": true,
+                    "paperWidth": group.width_mm / MILLIMETRES_PER_INCH,
+                    "paperHeight": group.height_mm / MILLIMETRES_PER_INCH,
+                    "marginTop": 0,
+                    "marginBottom": 0,
+                    "marginLeft": 0,
+                    "marginRight": 0,
+                    "pageRanges": ranges,
+                });
+                let pdf = pdf_data(cancel.run(page.devtools("Page.printToPDF", parameters)).await?)?;
+                let name = if selected > 1 {
+                    format!("{title}（{}/{selected}）", spooled.len() + 1)
+                } else {
+                    title.clone()
+                };
+                let group = PageGroup {
+                    pages: Vec::new(),
+                    feed,
+                    scale: plan.scales[index],
+                };
+                let tickets = print_on_thread(Arc::new(pdf), vec![group], printer.clone(), plan.tray.clone(), options.clone(), name, cancel.clone()).await?;
+                spooled.extend(tickets);
+            }
+            start += count;
+        }
+        self.log.debug(&format!("已经 PDF 交给 {printer} 共 {} 页，分 {} 组", selection.count(), spooled.len()));
+        Ok(HtmlPrintResult {
+            sheets: selection.count(),
+            warnings: plan.warnings,
+            spooled,
+        })
+    }
+
     async fn export(&self, document: Arc<PrintDocument>, options: PrintOptions, cancel: Cancel) -> Result<Vec<u8>, JobError> {
         let selection = select(&document, &options)?;
         let page = self.open(document.clone(), &cancel).await?;
@@ -190,17 +248,22 @@ impl Inner {
             "marginRight": 0,
             "pageRanges": selection.ranges_in(0, document.sheet_count() as usize).unwrap_or_default(),
         });
-        let result = cancel.run(page.devtools("Page.printToPDF", parameters)).await?.map_err(|error| match error {
-            JobError::Failure(failure) => JobError::failure(errors::PDF_FAILED, "导出 PDF 失败", Some(Details::new().with("reason", failure.message))),
-            other => other,
-        })?;
-        let data = result["data"]
-            .as_str()
-            .ok_or_else(|| JobError::failure(errors::PDF_FAILED, "导出 PDF 失败：没有数据", None))?;
-        base64::engine::general_purpose::STANDARD
-            .decode(data)
-            .map_err(|_| JobError::failure(errors::PDF_FAILED, "导出 PDF 失败：数据不是 base64", None))
+        pdf_data(cancel.run(page.devtools("Page.printToPDF", parameters)).await?)
     }
+}
+
+/// Page.printToPDF 的结果里取出 PDF 的字节；失败时报 PDF_FAILED
+fn pdf_data(result: Result<serde_json::Value, JobError>) -> Result<Vec<u8>, JobError> {
+    let result = result.map_err(|error| match error {
+        JobError::Failure(failure) => JobError::failure(errors::PDF_FAILED, "导出 PDF 失败", Some(Details::new().with("reason", failure.message))),
+        other => other,
+    })?;
+    let data = result["data"]
+        .as_str()
+        .ok_or_else(|| JobError::failure(errors::PDF_FAILED, "导出 PDF 失败：没有数据", None))?;
+    base64::engine::general_purpose::STANDARD
+        .decode(data)
+        .map_err(|_| JobError::failure(errors::PDF_FAILED, "导出 PDF 失败：数据不是 base64", None))
 }
 
 /// 只显示 [start, start + count) 这一段输出页，最后一页之后不再分页

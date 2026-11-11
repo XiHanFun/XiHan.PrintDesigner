@@ -11,10 +11,12 @@ use std::time::Duration;
 
 use xihan_print_client_core::BoxFuture;
 use xihan_print_client_core::cancel::Cancel;
+use xihan_print_client_core::log::SharedLog;
 use xihan_print_client_core::printing::JobError;
 use xihan_print_client_core::protocol::PrintDocument;
 use xihan_print_client_core::time::Timestamp;
 
+use engine::CupsPdfPrinter;
 pub(crate) use engine::PdfPipelineEngine;
 
 use crate::Printing;
@@ -28,13 +30,14 @@ pub(crate) fn local_offset(at: Timestamp) -> i32 {
     if converted.is_null() { 0 } else { local.tm_gmtoff as i32 }
 }
 
-/// 经 CUPS 查打印机、核对纸张、写原始指令；本机没有 CUPS 时给出原因
-pub(crate) fn printing() -> Result<Printing, String> {
+/// 经 CUPS 查打印机、核对纸张、写原始指令、打 PDF；本机没有 CUPS 时给出原因
+pub(crate) fn printing(log: SharedLog) -> Result<Printing, String> {
     let cups = Arc::new(cups::Cups::open()?);
     Ok(Printing {
         catalog: cups.clone(),
         papers: cups.clone(),
-        raw: Some(cups),
+        raw: Some(cups.clone()),
+        pdf: Some(Arc::new(CupsPdfPrinter::new(cups.clone(), cups, log))),
     })
 }
 

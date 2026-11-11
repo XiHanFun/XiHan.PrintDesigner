@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use crate::cancel::Cancel;
-use crate::protocol::{JobState, JobStatus, PrintDocument, PrintOptions, ProtocolError, ProtocolWarning};
+use crate::protocol::{JobState, JobStatus, PrintDocument, PrintOptions, ProtocolError, ProtocolWarning, SheetGroup};
 use crate::server::Session;
 use crate::time::Timestamp;
 
@@ -18,6 +18,8 @@ pub enum JobKind {
     Html,
     /// 写原始指令
     Raw,
+    /// 把 PDF 打到打印机
+    PrintPdf,
     /// 导出 PDF
     Pdf,
 }
@@ -28,6 +30,7 @@ impl JobKind {
         match self {
             JobKind::Html => "html",
             JobKind::Raw => "raw",
+            JobKind::PrintPdf => "print-pdf",
             JobKind::Pdf => "pdf",
         }
     }
@@ -82,6 +85,17 @@ pub enum JobPayload {
     Raw {
         /// 指令字节
         data: Arc<Vec<u8>>,
+        /// 打印池里显示的文档名
+        document_name: String,
+    },
+    /// 要打的 PDF
+    PrintPdf {
+        /// PDF 的字节
+        data: Arc<Vec<u8>>,
+        /// 按页面尺寸分好的组，与 PDF 的页依次对应
+        sheets: Arc<Vec<SheetGroup>>,
+        /// 选项
+        options: PrintOptions,
         /// 打印池里显示的文档名
         document_name: String,
     },
@@ -140,6 +154,30 @@ impl Job {
         )
     }
 
+    /// 把 PDF 打到打印机的任务
+    pub fn print_pdf(
+        id: impl Into<String>,
+        owner: JobOwner,
+        printer: impl Into<String>,
+        data: Arc<Vec<u8>>,
+        sheets: Vec<SheetGroup>,
+        options: PrintOptions,
+        document_name: impl Into<String>,
+    ) -> Arc<Job> {
+        let printer = printer.into();
+        Job::new(
+            id.into(),
+            owner,
+            Some(printer),
+            JobPayload::PrintPdf {
+                data,
+                sheets: Arc::new(sheets),
+                options,
+                document_name: document_name.into(),
+            },
+        )
+    }
+
     /// 导出 PDF 的任务
     pub fn pdf(id: impl Into<String>, owner: JobOwner, document: Arc<PrintDocument>, options: PrintOptions) -> Arc<Job> {
         Job::new(id.into(), owner, None, JobPayload::Pdf { document, options })
@@ -187,6 +225,7 @@ impl Job {
         match self.payload {
             JobPayload::Html { .. } => JobKind::Html,
             JobPayload::Raw { .. } => JobKind::Raw,
+            JobPayload::PrintPdf { .. } => JobKind::PrintPdf,
             JobPayload::Pdf { .. } => JobKind::Pdf,
         }
     }

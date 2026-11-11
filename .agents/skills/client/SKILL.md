@@ -20,8 +20,8 @@ description: 开发、修复或测试 XiHan.PrintDesigner 的本地打印客户�
 
 | 位置 | 放什么 |
 | --- | --- |
-| `core/`（xihan-print-client-core） | 平台无关：协议读写（`protocol/`，错误码与提醒码在 `codes.rs`）、回环 WebSocket 服务与会话（`server/`，帧与握手自写）、来源授权（`consent/`）、任务队列与纸张核对（`printing/`）、更新清单与检查（`updates/`）、诊断、日志、设置；不引用任何平台 API |
-| `platform/`（xihan-print-client-platform） | `windows/`：WebView2 渲染线程、winspool、PrintDlgEx、固定版运行时的查找、Authenticode、注册表自启；`unix/`：CUPS（dlopen）与「渲染成 PDF 再下发」的流水线；`macos/`：WKWebView 渲染与 PDFKit 合并；`linux/`：WebKitGTK 渲染与 PDF 合并 |
+| `core/`（xihan-print-client-core） | 平台无关：协议读写（`protocol/`，错误码与提醒码在 `codes.rs`）、回环 WebSocket 服务与会话（`server/`，帧与握手自写）、来源授权（`consent/`）、任务队列与纸张核对（`printing/`）、PDF 页面尺寸的读取（`pdf/`，自写的交叉引用、对象流与 inflate）、更新清单与检查（`updates/`）、诊断、日志、设置；不引用任何平台 API |
+| `platform/`（xihan-print-client-platform） | `windows/`：WebView2 渲染线程、winspool、PrintDlgEx、Direct2D 打 PDF（`pdf_print.rs`：Windows.Data.Pdf + ID2D1PrintControl，作业设置由 DEVMODE 转 PrintTicket）、固定版运行时的查找、Authenticode、注册表自启；`unix/`：CUPS（dlopen）、「渲染成 PDF 再下发」的流水线与 PDF 打印（按组以 page-ranges 下发）；`macos/`：WKWebView 渲染与 PDFKit 合并；`linux/`：WebKitGTK 渲染与 PDF 合并 |
 | `app/`（xihan-print-client） | Tauri 2 托盘程序：组装（`host.rs`）、托盘、主窗口与授权窗口、命令、更新；同时是库，`Extensions` 是收费版的扩展点 |
 | `ui/` | 主窗口、授权窗口、新版提示的界面：Vite + TypeScript + `@xihan-ui` 正式包 |
 | `scripts/` | `collect-bundles.mjs` 改名收集 macOS / Linux 安装包；`update-manifest.mjs` 生成 `update.json` |
@@ -30,6 +30,7 @@ description: 开发、修复或测试 XiHan.PrintDesigner 的本地打印客户�
 ## 协议与安全边界
 
 - 只监听 127.0.0.1 的 WebSocket，端口按 17620–17623 依次试（Windows 上独占绑定），策略的 `ports` 或用户设置的 `port` 固定端口；改端口时 `PrintServer::rebind_loopback` 先绑新端口再停旧的。子协议 `xihan-print.v1`（`core/src/defaults.rs`）。主版本对不上时以 4426 关闭，浏览器侧 SDK 报 `PROTOCOL_UNSUPPORTED`。
+- 次版本只加不减：新加的打印选项、请求类型与能力在 SDK 里按 welcome 的 `minor` 与 `capabilities` 把关，旧客户端遇到时 SDK 报 `CAPABILITY_UNSUPPORTED`，不发请求、不静默按缺省打印。
 - 设了访问密钥（策略的 `accessKey` 优先于设置的）时，握手核对 hello 的 `key`（`server/access.rs`，排在收费版登记的放行之前），缺少或不对时回 `ACCESS_DENIED` 并以 4403 关闭。
 - 每个网站（来源）第一次连接时问用户一次，记进允许与拒绝名单。
 - 渲染页只渲染打印文档：不跑页面脚本、不联网，图片与字体由 SDK 随任务带来。WebView2 直接拦截 `https://print.local/`；WebKit 不能拦 https，渲染前把文档里的 `https://print.local/` 换成自定义协议 `xihan-print://print.local/`。

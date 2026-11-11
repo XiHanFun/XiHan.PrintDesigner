@@ -879,7 +879,7 @@ function clientPage() {
     const { statement } = declaration(protocol, name)
     return [code(name, true), code(constantValue(protocol, name), true), cellDoc(jsdoc(statement))]
   })
-  return page('打印客户端 SDK', `${code('@xihan-print/runtime/client')} 连接本地打印客户端：静默打印、写原始指令、导出 PDF、查打印机。这个子入口单独打包，不用客户端的页面不会加载它。`, [
+  return page('打印客户端 SDK', `${code('@xihan-print/runtime/client')} 连接本地打印客户端：静默打印、把 PDF 打到打印机、写原始指令、导出 PDF、查打印机。这个子入口单独打包，不用客户端的页面不会加载它。`, [
     '## 创建连接',
     functionSection(client, 'createPrintClient'),
     interfaceSection(client, 'PrintClientOptions'),
@@ -895,17 +895,19 @@ function clientPage() {
     `出错时抛出或以 ${code('PrintClientError')} 拒绝，${code('code')} 为下表之一，${code('details')} 带补充信息。「SDK」一栏的码在浏览器里产生，其余由客户端给出。`,
     table(['错误码', '出自', '说明', '退回浏览器打印'], codeRows.map(([item, origin, doc]) => [code(item, true), origin, prose(doc, true), fallbackCodes.includes(item) ? '是' : '否'])),
     '## 提醒码',
-    `HTML 通道的任务照常完成、但有宿主应当知道的情况时，${code('JobStatus')} 的 ${code('warnings')} 里带若干条提醒（${code('ClientWarningPayload')}），${code('code')} 为下表之一，${code('details')} 带补充信息。`,
+    `HTML 通道与 PDF 打印的任务照常完成、但有宿主应当知道的情况时，${code('JobStatus')} 的 ${code('warnings')} 里带若干条提醒（${code('ClientWarningPayload')}），${code('code')} 为下表之一，${code('details')} 带补充信息。`,
     table(['提醒码', '说明'], warningRows.map(([item, doc]) => [code(item, true), prose(doc, true)])),
     '## 打印选项与结果',
     interfaceSection(protocol, 'ClientPrintOptions'),
     interfaceSection(client, 'PrintClientDocumentOptions'),
     interfaceSection(client, 'PrintRawOptions'),
+    interfaceSection(client, 'PrintPdfOptions'),
     interfaceSection(protocol, 'JobStatus', '###', `任务状态 ${code('JobState')} 取 ${literalUnion(protocol, 'JobState').map(item => code(item)).join('、')}。`),
     '## 打印机与客户端信息',
     interfaceSection(protocol, 'PrinterInfo', '###', `打印机状态 ${code('PrinterState')} 取 ${literalUnion(protocol, 'PrinterState').map(item => code(item)).join('、')}。`),
     interfaceSection(protocol, 'PrinterCapabilities'),
     interfaceSection(protocol, 'PaperInfo'),
+    interfaceSection(protocol, 'TrayInfo'),
     interfaceSection(protocol, 'ClientWelcome'),
     interfaceSection(protocol, 'ClientInfo'),
     interfaceSection(protocol, 'ClientCapabilities'),

@@ -23,7 +23,7 @@ use std::time::Duration;
 
 use xihan_print_client_core::log::SharedLog;
 use xihan_print_client_core::paths::AppPaths;
-use xihan_print_client_core::printing::{HtmlPrintEngine, PaperCatalog, PrintDialog, PrinterCatalog, RawPrinter};
+use xihan_print_client_core::printing::{HtmlPrintEngine, PaperCatalog, PdfPrinter, PrintDialog, PrinterCatalog, RawPrinter};
 use xihan_print_client_core::time::Timestamp;
 
 /// 操作系统：windows、macos、linux
@@ -72,7 +72,7 @@ pub fn bind_listener(address: SocketAddr) -> std::io::Result<std::net::TcpListen
     return xihan_print_client_core::server::bind_default(address);
 }
 
-/// 本机打印：查打印机、下发前核对纸张、写原始指令
+/// 本机打印：查打印机、下发前核对纸张、写原始指令、把 PDF 打到打印机
 #[derive(Clone)]
 pub struct Printing {
     /// 查打印机
@@ -81,14 +81,16 @@ pub struct Printing {
     pub papers: Arc<dyn PaperCatalog>,
     /// 写原始指令；平台不支持时为 None
     pub raw: Option<Arc<dyn RawPrinter>>,
+    /// 把 PDF 打到打印机；平台不支持时为 None
+    pub pdf: Option<Arc<dyn PdfPrinter>>,
 }
 
 /// 取本机打印的实现；查不了打印机时给出原因
-pub fn printing() -> Result<Printing, String> {
+pub fn printing(log: SharedLog) -> Result<Printing, String> {
     #[cfg(windows)]
-    return Ok(windows::printing());
+    return Ok(windows::printing(log));
     #[cfg(unix)]
-    return unix::printing();
+    return unix::printing(log);
 }
 
 /// 渲染引擎的创建参数

@@ -1,26 +1,27 @@
 // Copyright (c) 2021-Present XiHanFun and contributors.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-//! 经 winspool 查本机打印机：列表与状态来自 EnumPrinters / GetPrinter，能力来自 DeviceCapabilities，下发前试探纸张用 DocumentProperties；
-//! 原始指令以 RAW 数据类型原样写给打印机
+//! 经 winspool 查本机打印机：列表与状态来自 EnumPrinters / GetPrinter，能力（纸张、纸盒）来自 DeviceCapabilities，下发前试探纸张用 DocumentProperties；
+//! 原始指令以 RAW 数据类型原样写给打印机；PDF 打印的作业设置在驱动的缺省 DEVMODE 上改好再交给 DocumentProperties 合并
 
 use std::sync::Arc;
 
 use windows::Win32::Foundation::{ERROR_FILE_NOT_FOUND, ERROR_INSUFFICIENT_BUFFER, GetLastError};
 use windows::Win32::Graphics::Gdi::{
-    DEVMODEW, DM_IN_BUFFER, DM_ORIENTATION, DM_OUT_BUFFER, DM_PAPERLENGTH, DM_PAPERSIZE, DM_PAPERWIDTH, DMORIENT_LANDSCAPE, DMORIENT_PORTRAIT, DMPAPER_USER,
+    DEVMODE_COLLATE, DEVMODEW, DM_COLLATE, DM_COLOR, DM_COPIES, DM_DEFAULTSOURCE, DM_DUPLEX, DM_IN_BUFFER, DM_ORIENTATION, DM_OUT_BUFFER, DM_PAPERLENGTH, DM_PAPERSIZE,
+    DM_PAPERWIDTH, DMCOLLATE_TRUE, DMCOLOR_COLOR, DMCOLOR_MONOCHROME, DMDUP_HORIZONTAL, DMDUP_SIMPLEX, DMDUP_VERTICAL, DMORIENT_LANDSCAPE, DMORIENT_PORTRAIT, DMPAPER_USER,
 };
 use windows::Win32::Graphics::Printing::{
     AbortPrinter, ClosePrinter, DOC_INFO_1W, DocumentPropertiesW, EndDocPrinter, EndPagePrinter, EnumPrintersW, GetDefaultPrinterW, GetPrinterW, OpenPrinterW,
     PRINTER_ENUM_CONNECTIONS, PRINTER_ENUM_LOCAL, PRINTER_HANDLE, PRINTER_INFO_2W, StartDocPrinterW, StartPagePrinter, WritePrinter,
 };
-use windows::Win32::Storage::Xps::{DC_COLORDEVICE, DC_COPIES, DC_DUPLEX, DC_PAPERNAMES, DC_PAPERS, DC_PAPERSIZE, DeviceCapabilitiesW};
+use windows::Win32::Storage::Xps::{DC_BINNAMES, DC_BINS, DC_COLORDEVICE, DC_COPIES, DC_DUPLEX, DC_PAPERNAMES, DC_PAPERS, DC_PAPERSIZE, DeviceCapabilitiesW};
 use windows::core::{HSTRING, PCWSTR, PWSTR};
 use xihan_print_client_core::BoxFuture;
 use xihan_print_client_core::cancel::Cancel;
-use xihan_print_client_core::printing::{JobError, PaperCatalog, PaperFeed, PrinterCatalog, PrinterPapers, RawPrintResult, RawPrinter, SpoolTicket};
+use xihan_print_client_core::printing::{JobError, PaperCatalog, PaperFeed, PrinterCatalog, PrinterPapers, RawPrintResult, RawPrinter, SpoolTicket, TOLERANCE_MM};
 use xihan_print_client_core::protocol::codes::errors;
-use xihan_print_client_core::protocol::{Details, PaperInfo, PrinterCapabilities, PrinterInfo, PrinterState};
+use xihan_print_client_core::protocol::{ColorMode, Details, DuplexMode, PaperInfo, PrintOptions, PrinterCapabilities, PrinterInfo, PrinterState, TrayInfo};
 
 const STATUS_PAUSED: u32 = 0x1;
 const STATUS_ERROR: u32 = 0x2;
@@ -53,6 +54,7 @@ const BUSY_BITS: u32 = STATUS_IO_ACTIVE | STATUS_BUSY | STATUS_PRINTING | STATUS
 const ATTRIBUTE_NETWORK: u32 = 0x10;
 const ATTRIBUTE_WORK_OFFLINE: u32 = 0x400;
 const PAPER_NAME_LENGTH: usize = 64;
+const BIN_NAME_LENGTH: usize = 24;
 const ERROR_INVALID_PRINTER_NAME: u32 = 1801;
 const ERROR_INVALID_DATATYPE: u32 = 1804;
 const CHUNK_BYTES: usize = 64 * 1024;
@@ -188,6 +190,37 @@ pub(crate) fn papers_of(ids: &[u16], sizes: &[i32], names: &[u16]) -> Vec<PaperI
         .collect()
 }
 
+/// 由驱动报的纸盒号与名称组出纸盒列表；两者条数取最小
+pub(crate) fn trays_of(ids: &[u16], names: &[u16]) -> Vec<TrayInfo> {
+    let count = ids.len().min(names.len() / BIN_NAME_LENGTH);
+    (0..count)
+        .map(|index| {
+            let field = &names[index * BIN_NAME_LENGTH..(index + 1) * BIN_NAME_LENGTH];
+            let end = field.iter().position(|unit| *unit == 0).unwrap_or(field.len());
+            TrayInfo {
+                id: i32::from(ids[index]),
+                name: String::from_utf16_lossy(&field[..end]),
+            }
+        })
+        .collect()
+}
+
+fn trays(name: &HSTRING, port: &HSTRING) -> Vec<TrayInfo> {
+    let count = capability(name, port, DC_BINS, None);
+    if count <= 0 {
+        return Vec::new();
+    }
+    let count = count as usize;
+    let mut ids = vec![0u16; count];
+    let mut names = vec![0u16; count * BIN_NAME_LENGTH];
+    let id_count = capability(name, port, DC_BINS, Some(PWSTR(ids.as_mut_ptr())));
+    let name_count = capability(name, port, DC_BINNAMES, Some(PWSTR(names.as_mut_ptr())));
+    if id_count <= 0 || name_count <= 0 {
+        return Vec::new();
+    }
+    trays_of(&ids[..count.min(id_count as usize)], &names[..count.min(name_count as usize) * BIN_NAME_LENGTH])
+}
+
 fn capabilities(name: &str, port: Option<&str>) -> PrinterCapabilities {
     let name = HSTRING::from(name);
     let port = HSTRING::from(port.unwrap_or(""));
@@ -217,6 +250,7 @@ fn capabilities(name: &str, port: Option<&str>) -> PrinterCapabilities {
         duplex: capability(&name, &port, DC_DUPLEX, None) == 1,
         max_copies: capability(&name, &port, DC_COPIES, None).max(1) as u32,
         papers,
+        trays: trays(&name, &port),
     }
 }
 
@@ -279,23 +313,52 @@ struct WindowsPrinterPapers {
     handle: Handle,
     name: HSTRING,
     papers: Vec<PaperInfo>,
+    trays: Vec<TrayInfo>,
     defaults: Option<Vec<u64>>,
 }
 
+/// 驱动的缺省 DEVMODE，按驱动要的两倍分配；读不出时为 None
+fn default_devmode(handle: &Handle, name: &HSTRING) -> Option<Vec<u64>> {
+    // SAFETY: 先只问 DEVMODE 的大小
+    let size = unsafe { DocumentPropertiesW(None, handle.0, name, None, None, 0) };
+    (size as usize >= std::mem::size_of::<DEVMODEW>())
+        .then(|| aligned(size as usize * 2))
+        .and_then(|mut buffer| {
+            // SAFETY: 缓冲按驱动要的两倍分配
+            let result = unsafe { DocumentPropertiesW(None, handle.0, name, Some(buffer.as_mut_ptr().cast()), None, DM_OUT_BUFFER.0) };
+            (result >= 0).then_some(buffer)
+        })
+}
+
+/// 把改过的 DEVMODE 交给驱动合并，返回驱动写出的完整 DEVMODE
+fn merge_devmode(handle: &Handle, name: &HSTRING, input: &[u64]) -> Option<Vec<u64>> {
+    let mut output = vec![0u64; input.len()];
+    // SAFETY: 两个缓冲大小相同，都按驱动要的两倍分配
+    let merged = unsafe {
+        DocumentPropertiesW(
+            None,
+            handle.0,
+            name,
+            Some(output.as_mut_ptr().cast()),
+            Some(input.as_ptr().cast()),
+            DM_IN_BUFFER.0 | DM_OUT_BUFFER.0,
+        )
+    };
+    (merged >= 0).then_some(output)
+}
+
 impl WindowsPrinterPapers {
-    fn open(name: &str, papers: Vec<PaperInfo>) -> Option<WindowsPrinterPapers> {
+    fn open(name: &str, papers: Vec<PaperInfo>, trays: Vec<TrayInfo>) -> Option<WindowsPrinterPapers> {
         let handle = open(name).ok()?;
         let name = HSTRING::from(name);
-        // SAFETY: 先只问 DEVMODE 的大小
-        let size = unsafe { DocumentPropertiesW(None, handle.0, &name, None, None, 0) };
-        let defaults = (size as usize >= std::mem::size_of::<DEVMODEW>())
-            .then(|| aligned(size as usize * 2))
-            .and_then(|mut buffer| {
-                // SAFETY: 缓冲按驱动要的两倍分配
-                let result = unsafe { DocumentPropertiesW(None, handle.0, &name, Some(buffer.as_mut_ptr().cast()), None, DM_OUT_BUFFER.0) };
-                (result >= 0).then_some(buffer)
-            });
-        Some(WindowsPrinterPapers { handle, name, papers, defaults })
+        let defaults = default_devmode(&handle, &name);
+        Some(WindowsPrinterPapers {
+            handle,
+            name,
+            papers,
+            trays,
+            defaults,
+        })
     }
 }
 
@@ -322,10 +385,13 @@ impl PrinterPapers for WindowsPrinterPapers {
         &self.papers
     }
 
+    fn trays(&self) -> &[TrayInfo] {
+        &self.trays
+    }
+
     fn resolve(&self, request: &PaperFeed) -> Option<PaperFeed> {
         let defaults = self.defaults.as_ref()?;
         let mut input = defaults.clone();
-        let mut output = vec![0u64; defaults.len()];
         // SAFETY: input 是驱动给的完整 DEVMODE 的副本，开头按 DEVMODEW 的布局
         unsafe {
             let mode = &mut *input.as_mut_ptr().cast::<DEVMODEW>();
@@ -334,20 +400,7 @@ impl PrinterPapers for WindowsPrinterPapers {
             mode.Anonymous1.Anonymous1.dmPaperWidth = (request.width_mm * 10.0).round() as i16;
             mode.Anonymous1.Anonymous1.dmPaperLength = (request.height_mm * 10.0).round() as i16;
         }
-        // SAFETY: 两个缓冲大小相同，都按驱动要的两倍分配
-        let merged = unsafe {
-            DocumentPropertiesW(
-                None,
-                self.handle.0,
-                &self.name,
-                Some(output.as_mut_ptr().cast()),
-                Some(input.as_ptr().cast()),
-                DM_IN_BUFFER.0 | DM_OUT_BUFFER.0,
-            )
-        };
-        if merged < 0 {
-            return None;
-        }
+        let output = merge_devmode(&self.handle, &self.name, &input)?;
         // SAFETY: output 由驱动写成完整的 DEVMODE
         let mode = unsafe { &*output.as_ptr().cast::<DEVMODEW>() };
         // SAFETY: 打印机的 DEVMODE 用的是联合体里的打印字段
@@ -366,9 +419,69 @@ impl PrinterPapers for WindowsPrinterPapers {
 impl PaperCatalog for WindowsPrinters {
     fn open(&self, printer: &str) -> Option<Box<dyn PrinterPapers>> {
         let info = self.get(printer).ok()??;
-        let papers = info.capabilities.map(|capabilities| capabilities.papers).unwrap_or_default();
-        WindowsPrinterPapers::open(&info.name, papers).map(|papers| Box::new(papers) as Box<dyn PrinterPapers>)
+        let (papers, trays) = info.capabilities.map(|capabilities| (capabilities.papers, capabilities.trays)).unwrap_or_default();
+        WindowsPrinterPapers::open(&info.name, papers, trays).map(|papers| Box::new(papers) as Box<dyn PrinterPapers>)
     }
+}
+
+/// 打印机报的纸张；查不到时为空
+pub(crate) fn printer_papers(printer: &str) -> Vec<PaperInfo> {
+    WindowsPrinters
+        .get(printer)
+        .ok()
+        .flatten()
+        .and_then(|info| info.capabilities)
+        .map(|capabilities| capabilities.papers)
+        .unwrap_or_default()
+}
+
+/// 驱动报的纸张里与这种放法同尺寸的一种的纸张号；没有时为 None
+pub(crate) fn paper_id_for(papers: &[PaperInfo], feed: &PaperFeed) -> Option<i16> {
+    papers
+        .iter()
+        .find(|paper| (paper.width_mm - feed.width_mm).abs() <= TOLERANCE_MM && (paper.height_mm - feed.height_mm).abs() <= TOLERANCE_MM)
+        .and_then(|paper| i16::try_from(paper.id).ok())
+        .filter(|id| *id > 0)
+}
+
+/// PDF 打印一个作业的 DEVMODE：在驱动的缺省设置上设纸张（驱动报过的用纸张号，否则按自定义宽高）、方向、纸盒、份数、逐份、双面与颜色，再交给驱动合并
+pub(crate) fn job_devmode(printer: &str, feed: &PaperFeed, tray: Option<&TrayInfo>, options: &PrintOptions, papers: &[PaperInfo]) -> Result<Vec<u64>, JobError> {
+    let handle = match open(printer) {
+        Ok(handle) => handle,
+        Err(ERROR_INVALID_PRINTER_NAME) => {
+            return Err(JobError::failure(
+                errors::PRINTER_NOT_FOUND,
+                format!("没有这台打印机：{printer}"),
+                Some(Details::new().with("printer", printer)),
+            ));
+        }
+        Err(code) => return Err(failure("OpenPrinter", code)),
+    };
+    let name = HSTRING::from(printer);
+    let mut input = default_devmode(&handle, &name).ok_or_else(|| failure("DocumentProperties", last_error()))?;
+    // SAFETY: input 是驱动给的完整 DEVMODE，开头按 DEVMODEW 的布局；打印机的 DEVMODE 用的是联合体里的打印字段
+    unsafe {
+        let mode = &mut *input.as_mut_ptr().cast::<DEVMODEW>();
+        mode.dmFields |= DM_ORIENTATION | DM_PAPERSIZE | DM_PAPERWIDTH | DM_PAPERLENGTH | DM_COPIES | DM_COLLATE | DM_DUPLEX | DM_COLOR;
+        let print = &mut mode.Anonymous1.Anonymous1;
+        print.dmOrientation = if feed.landscape { DMORIENT_LANDSCAPE } else { DMORIENT_PORTRAIT } as i16;
+        print.dmPaperSize = paper_id_for(papers, feed).unwrap_or(DMPAPER_USER as i16);
+        print.dmPaperWidth = (feed.width_mm * 10.0).round() as i16;
+        print.dmPaperLength = (feed.height_mm * 10.0).round() as i16;
+        print.dmCopies = options.copies.clamp(1, 999) as i16;
+        if let Some(tray) = tray {
+            mode.dmFields |= DM_DEFAULTSOURCE;
+            mode.Anonymous1.Anonymous1.dmDefaultSource = tray.id as i16;
+        }
+        mode.dmCollate = if options.collate { DMCOLLATE_TRUE } else { DEVMODE_COLLATE(0) };
+        mode.dmDuplex = match options.duplex {
+            DuplexMode::LongEdge => DMDUP_VERTICAL,
+            DuplexMode::ShortEdge => DMDUP_HORIZONTAL,
+            DuplexMode::Simplex => DMDUP_SIMPLEX,
+        };
+        mode.dmColor = if options.color == ColorMode::Grayscale { DMCOLOR_MONOCHROME } else { DMCOLOR_COLOR };
+    }
+    merge_devmode(&handle, &name, &input).ok_or_else(|| failure("DocumentProperties", last_error()))
 }
 
 /// winspool 调用失败：SPOOL_FAILED，details 带调用名与系统错误码
@@ -481,6 +594,47 @@ mod tests {
         assert_eq!(state_of(STATUS_DOOR_OPEN, 0), PrinterState::Error);
         assert_eq!(state_of(STATUS_PRINTING, 0), PrinterState::Busy);
         assert_eq!(state_of(STATUS_SERVER_UNKNOWN, 0), PrinterState::Unknown);
+    }
+
+    #[test]
+    fn builds_trays_from_driver_tables() {
+        let mut names = vec![0u16; BIN_NAME_LENGTH * 3];
+        for (index, name) in ["自动选择", "Tray 2"].iter().enumerate() {
+            let units: Vec<u16> = name.encode_utf16().collect();
+            names[index * BIN_NAME_LENGTH..index * BIN_NAME_LENGTH + units.len()].copy_from_slice(&units);
+        }
+        let trays = trays_of(&[7, 260], &names);
+        assert_eq!(
+            trays,
+            vec![
+                TrayInfo {
+                    id: 7, name: "自动选择".into()
+                },
+                TrayInfo { id: 260, name: "Tray 2".into() }
+            ]
+        );
+        assert!(trays_of(&[7], &names[..BIN_NAME_LENGTH - 1]).is_empty());
+    }
+
+    #[test]
+    fn finds_the_paper_number_of_a_listed_size() {
+        let papers = vec![
+            PaperInfo {
+                id: 9,
+                name: "A4".into(),
+                width_mm: 210.0,
+                height_mm: 297.0,
+            },
+            PaperInfo {
+                id: 0,
+                name: "零号".into(),
+                width_mm: 100.0,
+                height_mm: 60.0,
+            },
+        ];
+        assert_eq!(paper_id_for(&papers, &PaperFeed::new(210.4, 296.8, true)), Some(9));
+        assert_eq!(paper_id_for(&papers, &PaperFeed::new(100.0, 60.0, false)), None);
+        assert_eq!(paper_id_for(&papers, &PaperFeed::new(148.0, 210.0, false)), None);
     }
 
     #[test]

@@ -191,10 +191,11 @@ mod tests {
                 width_mm: 210.0,
                 height_mm: 297.5,
             }],
+            trays: vec![TrayInfo { id: 7, name: "Tray 2".into() }],
         });
         assert_eq!(
             text(printer("g", &info)),
-            r#"{"type":"result","id":"g","ok":true,"data":{"name":"Office","isDefault":true,"status":"paperOut","statusFlags":0,"isNetwork":false,"capabilities":{"color":true,"duplex":false,"maxCopies":9,"papers":[{"id":9,"name":"A4","widthMm":210,"heightMm":297.5}]}}}"#
+            r#"{"type":"result","id":"g","ok":true,"data":{"name":"Office","isDefault":true,"status":"paperOut","statusFlags":0,"isNetwork":false,"capabilities":{"color":true,"duplex":false,"maxCopies":9,"papers":[{"id":9,"name":"A4","widthMm":210,"heightMm":297.5}],"trays":[{"id":7,"name":"Tray 2"}]}}}"#
         );
     }
 
@@ -247,6 +248,7 @@ mod tests {
                 html: true,
                 raw: true,
                 pdf: true,
+                print_pdf: true,
                 duplex: true,
                 printer_status: true,
                 extensions: vec![],
@@ -255,7 +257,7 @@ mod tests {
         );
         assert_eq!(
             text(welcome("h", &welcome_data)),
-            r#"{"type":"result","id":"h","ok":true,"data":{"protocol":1,"minor":1,"client":{"version":"1.0.0","os":"windows","arch":"x64"},"sessionToken":"tok","capabilities":{"html":true,"raw":true,"pdf":true,"duplex":true,"printerStatus":true},"resumed":[]}}"#
+            r#"{"type":"result","id":"h","ok":true,"data":{"protocol":1,"minor":1,"client":{"version":"1.0.0","os":"windows","arch":"x64"},"sessionToken":"tok","capabilities":{"html":true,"raw":true,"pdf":true,"printPdf":true,"duplex":true,"printerStatus":true},"resumed":[]}}"#
         );
     }
 }

@@ -13,6 +13,10 @@ export class FakeApp {
   /** 与浏览器谈定的子协议。 */
   protocol = 'xihan-print.v1'
   token = 'token-1'
+  /** welcome 里的协议次版本，缺省 0。 */
+  minor = 0
+  /** welcome 里的能力，缺省是协议次版本 0 的那几项。 */
+  capabilities: Message = { html: true, raw: true, pdf: true, duplex: true, printerStatus: true }
   readonly sockets: FakeSocket[] = []
   /** 收到的请求，按到达顺序。 */
   readonly received: Message[] = []
@@ -28,10 +32,10 @@ export class FakeApp {
   welcome(resumed: string[] = []): Message {
     return {
       protocol: 1,
-      minor: 0,
+      minor: this.minor,
       client: { version: '0.1.0', os: 'windows', arch: 'x64', renderer: '155.0.4283.45' },
       sessionToken: this.token,
-      capabilities: { html: true, raw: true, pdf: true, duplex: true, printerStatus: true },
+      capabilities: this.capabilities,
       resumed,
     }
   }

@@ -34,6 +34,8 @@ pub enum RequestBody {
     PrintHtml(PrintHtmlRequest),
     /// 把原始指令原样写给打印机
     PrintRaw(PrintRawRequest),
+    /// 把 PDF 直接打到打印机
+    PrintPdf(PrintPdfRequest),
     /// 把 HTML 文档导出为 PDF
     ExportPdf(ExportPdfRequest),
     /// 查任务状态
@@ -60,6 +62,7 @@ impl RequestBody {
             RequestBody::GetPrinter { .. } => "printers.get",
             RequestBody::PrintHtml(_) => "print.html",
             RequestBody::PrintRaw(_) => "print.raw",
+            RequestBody::PrintPdf(_) => "print.pdf",
             RequestBody::ExportPdf(_) => "export.pdf",
             RequestBody::GetJob { .. } => "job.get",
             RequestBody::CancelJob { .. } => "job.cancel",
@@ -179,6 +182,75 @@ pub enum ColorMode {
     Grayscale,
 }
 
+/// 奇偶页
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PageSet {
+    /// 全部
+    #[default]
+    All,
+    /// 只打奇数页
+    Odd,
+    /// 只打偶数页
+    Even,
+}
+
+impl PageSet {
+    /// 协议里的写法
+    pub fn name(self) -> &'static str {
+        match self {
+            PageSet::All => "all",
+            PageSet::Odd => "odd",
+            PageSet::Even => "even",
+        }
+    }
+}
+
+/// 版面方向
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Orientation {
+    /// 按每组内容的宽高定
+    #[default]
+    Auto,
+    /// 版面竖放
+    Portrait,
+    /// 版面横放
+    Landscape,
+}
+
+impl Orientation {
+    /// 协议里的写法
+    pub fn name(self) -> &'static str {
+        match self {
+            Orientation::Auto => "auto",
+            Orientation::Portrait => "portrait",
+            Orientation::Landscape => "landscape",
+        }
+    }
+}
+
+/// 内容怎么放进版面
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ScaleMode {
+    /// 比版面大时等比缩小，否则原大居中
+    #[default]
+    Shrink,
+    /// 原大居中，放不下的部分裁掉
+    None,
+    /// 等比放大或缩小到正好放进版面，居中
+    Fit,
+}
+
+impl ScaleMode {
+    /// 协议里的写法
+    pub fn name(self) -> &'static str {
+        match self {
+            ScaleMode::Shrink => "shrink",
+            ScaleMode::None => "none",
+            ScaleMode::Fit => "fit",
+        }
+    }
+}
+
 /// 打印选项
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrintOptions {
@@ -192,6 +264,16 @@ pub struct PrintOptions {
     pub color: ColorMode,
     /// 页码范围，如 1-3,5；缺省全部
     pub page_ranges: Option<String>,
+    /// 在页码范围选中的页里只留奇数页或偶数页，按全文页码算
+    pub page_set: PageSet,
+    /// 版面方向；强制方向时内容不旋转，按 scale 放进版面
+    pub orientation: Orientation,
+    /// 内容怎么放进版面
+    pub scale: ScaleMode,
+    /// 纸张名，取打印机能力里纸张的名称，不分大小写；设了以后每组都打到这种纸上，fit_to_nearest_paper 不起作用
+    pub paper: Option<String>,
+    /// 纸盒名，取打印机能力里纸盒的名称，不分大小写；缺省为驱动的缺省纸盒
+    pub tray: Option<String>,
     /// 弹系统打印对话框，缺省静默
     pub dialog: bool,
     /// 交给打印池的期限，毫秒；缺省用客户端的期限
@@ -208,6 +290,11 @@ impl Default for PrintOptions {
             duplex: DuplexMode::Simplex,
             color: ColorMode::Color,
             page_ranges: None,
+            page_set: PageSet::All,
+            orientation: Orientation::Auto,
+            scale: ScaleMode::Shrink,
+            paper: None,
+            tray: None,
             dialog: false,
             timeout_ms: None,
             fit_to_nearest_paper: false,
@@ -239,6 +326,21 @@ pub struct PrintRawRequest {
     pub data: Arc<Vec<u8>>,
     /// 打印池里显示的文档名
     pub doc_name: Option<String>,
+}
+
+/// 把 PDF 直接打到打印机，按每页的尺寸匹配纸张
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrintPdfRequest {
+    /// 任务标识
+    pub job_id: String,
+    /// 打印机；缺省为默认打印机
+    pub printer: Option<String>,
+    /// PDF 的字节
+    pub data: Arc<Vec<u8>>,
+    /// 打印池里显示的文档名
+    pub doc_name: Option<String>,
+    /// 选项
+    pub options: PrintOptions,
 }
 
 /// 把 HTML 文档导出为 PDF
