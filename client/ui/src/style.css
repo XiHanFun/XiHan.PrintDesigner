@@ -17,6 +17,17 @@ body {
   font-size: var(--xh-font-size-sm);
 }
 
+/* 带 hidden 的版式节点收起，不被下面各类声明的 display 盖过 */
+.page[hidden],
+.row[hidden],
+.field[hidden],
+.setting[hidden],
+.list[hidden],
+.columns[hidden],
+.dialog[hidden] {
+  display: none;
+}
+
 .shell {
   display: grid;
   block-size: 100%;
