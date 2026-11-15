@@ -87,7 +87,7 @@ pub(crate) fn ranges_of(text: Option<&str>, sheet_count: u32) -> Vec<(u32, u32)>
             let mut bounds = part.split('-');
             let first: u32 = bounds.next()?.parse().ok()?;
             let last: u32 = bounds.next().map_or(Some(first), |last| last.parse().ok())?;
-            (first >= 1 && first <= sheet_count).then_some((first, last.clamp(first, sheet_count)))
+            (first >= 1 && first <= sheet_count).then(|| (first, last.clamp(first, sheet_count)))
         })
         .take(MAX_RANGES)
         .collect()
