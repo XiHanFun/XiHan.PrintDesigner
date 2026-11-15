@@ -431,13 +431,14 @@ impl Host {
     /// 当前的诊断信息
     pub fn diagnostics_text(&self) -> String {
         let listening = self.with_server(|server| server.listening()).unwrap_or_default();
+        let user_port = self.settings().port;
         let input = DiagnosticsInput {
             client: self.info.clone(),
             renderer: self.renderer(),
             listening: listening.into_iter().map(|(name, address)| (name, address.to_string())).collect(),
             policy: (*self.policy).clone(),
             policy_file_exists: self.paths.policy_file.exists(),
-            user_port: self.settings.lock().unwrap().port,
+            user_port,
             access_key_source: self.access_key_source().map(str::to_owned),
             allowed: self.lists.allowed(),
             denied: self.lists.denied(),
