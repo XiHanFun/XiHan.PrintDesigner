@@ -130,7 +130,7 @@ pnpm dev
 - **对外契约**：复杂数据走 property 不走 attribute；事件用 `CustomEvent`；公开方法、事件和属性都要有类型声明。布尔 attribute 一律用 `@xihan-ui/web-components/authoring` 的 `BOOLEAN_CONVERTER`（不写为 undefined、`"false"` 为假、其余为真），不用 `type: Boolean`；元素内部按 `=== true` 读。
 - **语言包**：内建文案按语言出包，语言与 UI 的内建语言包一一对应，导出名是 `print` 加 UI 语言包的名字（`printZhCN`、`printJaJP`……），每份并入 designer-shell 同一语言的那份；宿主用 `mergeXhConfig` 与 UI 同一语言的语言包合并。语言包在 `runtime/src/locale/`，一种语言一个文件，按 `PrintLocale` 声明；`runtime/src/designer-locale.ts` 的英文表是属性名与选项名的键的唯一来源，问题说明按内建问题码各写一条，少键、多键都是类型错误。新增文案键、属性名、选项名或问题码时十种语言一起补。
 - **样式**：Light DOM，样式只消费 `@xihan-ui` 设计令牌，不写颜色、间距、圆角等散值。
-- **注释**：只写代码做什么，不写为什么这样设计、也不写任何参考项目名称；设计理由写进提交说明。
+- **注释**：只写代码做什么，不写为什么这样设计、也不写任何参考项目名称；设计理由需要留档时写进 PR 描述或文档，不写进提交信息。
 - **源码文件头**：
 
 ```ts
@@ -198,6 +198,7 @@ pnpm dev
 
 - 保留用户已有和无关改动；不要 reset、checkout 或清理它们。
 - 使用 Conventional Commits：`<type>(<scope>): <中文说明>`，scope 取 `core`、`runtime`、`designer`、`client`、`docs`、`repo`。
+- 提交信息只写一行标题，不写正文。说明一句话讲这次改动的结果，不超过 40 个字（汉字、字母、数字、标点各算一个，末尾的 `（ADR-NNNN）` 不计）；不再用「：」「；」往下展开，不罗列文件、成员、取值与改前改后，不写测试数量与门禁结果，这些细节写进 变更集、更新日志或 PR 描述。细则见 `commit-msg` 技能。
 - 一项完整功能一个提交；改 `print/` 的提交前跑 `pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test`，改 `client/` 的跑构建与测试，改 `docs/` 的在 `docs/` 跑 `pnpm gate:gen`、`pnpm check:examples`、`pnpm lint`、`pnpm typecheck`、`pnpm build`，都要过 `git diff --check`。
 - 不推送、不发布、不创建远程 PR，除非用户明确要求。
 

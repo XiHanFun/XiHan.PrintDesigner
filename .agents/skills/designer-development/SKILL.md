@@ -43,4 +43,4 @@ description: 实现、重构、修复或测试 XiHan.PrintDesigner 的三个 npm
 2. 在 `print/` 跑 `pnpm lint`、`pnpm build`、`pnpm typecheck`、`pnpm test`；改了公开面或源码注释，在 `docs/` 跑 `pnpm gen`，参考页随改动一起提交，再跑 docs-site 的门禁；最后 `git diff --check`。各步退出码先存下来，全 0 再提交。
 3. 使用者能感知的改动在 `print/` 跑 `pnpm changeset` 附一份变更集；破坏性改动写清旧写法与新写法。
 4. 界面上看得见的改动，在文档站或开发预览页（`print/` 的 `pnpm dev`）里真实浏览器核一遍；jsdom 证明不了布局、光标与动画。
-5. 一项完整功能一笔提交，注释只写代码做什么，设计理由写进提交说明。
+5. 一项完整功能一笔提交，注释只写代码做什么，设计理由需要留档时写进 PR 描述或文档，不写进提交信息。
